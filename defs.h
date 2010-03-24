@@ -21,7 +21,7 @@ void linkInit(const void* cond);
 void linkInitToCondition(const void* rhs, const void* lhs);
 
 void logRegionEntry(unsigned int region_id, unsigned int region_type);
-void logRegionExit();
+void logRegionExit(unsigned int region_id, unsigned int region_type);
 
 unsigned int logBinaryOp(unsigned int id, unsigned int bb_id, int opcode, const void* arg1, const void* arg2, const void* address); 
 unsigned int logBinaryOpConst(unsigned int id, unsigned int bb_id, int opcode, const void* arg, const void* address);
@@ -48,7 +48,7 @@ void stackVariableDealloc(unsigned int bb_id, const void* address);
 void linkAddrToArgName(unsigned int bb_id, const void* address, char* argname); 
 void createArgLink(const void* address); 
 void linkArgToAddr(unsigned int bb_id, const void* address); 
-void linkArgToConst(unsigned int bb_id);
+void linkArgToConst();
 void transferAndUnlinkArg(unsigned int bb_id, unsigned int id, const void* a); 
 void transferAndUnlinkArgName(unsigned int bb_id, const void* a, char* argname); 
 
@@ -56,7 +56,7 @@ void addReturnValueLink(void* address);
 
 void onReturn(unsigned int op_id, unsigned int bb_id, const void* ret_val_addr); 
 
-void setReturnTimestampConst(unsigned int bb_id);
+void setReturnTimestampConst();
 void setReturnTimestamp(unsigned int bb_id, const void* retval);
 void getReturnTimestamp(unsigned int id, unsigned int bb_id, const void* address);
 
