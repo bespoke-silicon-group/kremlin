@@ -13,8 +13,8 @@
 void* logBinaryOp(int op_cost, unsigned int src0, unsigned int src1, unsigned int dest); 
 void* logBinaryOpConst(int op_cost, unsigned int src, unsigned int dest); 
 
-void* logAssignment(unsigned int id, unsigned int bb_id, const void* rhs, const void* lhs);
-void* logAssignmentConst(unsigned int id, unsigned int bb_id, const void* lhs); 
+void* logAssignment(unsigned int src, unsigned int dest);
+void* logAssignmentConst(unsigned int dest); 
 
 void* logInsertValue(unsigned int src_addr, unsigned int dst_addr); 
 void* logInsertValueConst(unsigned int dst_addr); 
