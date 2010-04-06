@@ -6,8 +6,72 @@
 #include <string.h>
 #include <sys/time.h>
 
+
+#ifndef _PYRPROF_DEF
+#define _PYRPROF_DEF
+
 #define TRUE 1
 #define FALSE 0
+
+typedef unsigned int        UInt;
+typedef signed int          Int;
+typedef unsigned long long  UInt64;
+typedef signed long long    Int64;
+typedef void*               Addr;
+
+enum RegionType {RegionLoop, RegionFunc};
+
+typedef struct _DataEntry {
+    UInt32* version;
+    UInt64* time;
+
+} DataEntry;
+
+
+/*
+    LocalTable:
+        local table uses virtual register number as its key
+*/
+typedef struct _LocalTable {
+    int             size;
+    DataEntry*      array;
+
+} LTable;
+
+
+typedef struct _GTableEntry {
+    DataEntry array[0x4000];
+} GEntry;
+
+/*
+    GlobalTable:
+        global table is a hashtable with lower address as its primary key.
+*/
+typedef struct _GloablTable {
+    GEntry array[0x10000];
+} GTable;
+
+
+typedef UInt    WorkTable;
+typedef struct _RegionInfo {
+    int         type;
+    UInt        did;
+    LTable      lTable;
+    GTable      gTable;
+    WorkTable   work;
+
+} RegionInfo;
+
+LTable* allocLocalTable(int size, int depth);
+void    freeLocalTable(LTable* table);
+void    updateLocalTime(LTable* table, int key, UInt64 timestamp);
+UInt64  getLocalTime(LTable* table, int key);
+
+GTable* allocGlobalTable(void);
+void    freeGlobalTable(GTable* table);
+GTEntry* getGTEntry(GTable* table, Addr addr);
+UInt64  getGlobalTime(GTable* table, Addr addr);
+void    updateGlobalTime(GTable* table, Addr addr, UInt64 timestamp);
 
 /* The following funcs are inserted by the critical path instrumentation pass */
 void* logBinaryOp(int op_cost, unsigned int src0, unsigned int src1, unsigned int dest); 
@@ -77,3 +141,4 @@ void removeInit();
 
 void printProfileData(void);
 
+#endif
