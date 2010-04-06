@@ -5,11 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include "defs.h"
 
-#define TRUE 1
-#define FALSE 0
-
-typedef unsigned long long int uint64_t;
 
 unsigned long long int counter = 0;
 
@@ -58,6 +55,7 @@ void logRegionEntry(unsigned int region_id, unsigned int region_type) {counter++
 void logRegionExit(unsigned int region_id, unsigned int region_type) {counter++;}
 
 
+#if 1
 unsigned int logBinaryOp(unsigned int id, unsigned int bb_id, int opcode, const void* arg1, const void* arg2, const void* address) {
 	unsigned long long int arg1_t, arg2_t, dest_t;
 	arg1_t = table[(unsigned long long int)arg1 % 1024];
@@ -74,6 +72,21 @@ unsigned int logBinaryOp(unsigned int id, unsigned int bb_id, int opcode, const 
 
 	return dest_t;
 }
+#endif
+#if 0
+UInt logBinaryOp(UInt opCost, UInt dest, UInt src0, UInt src1, UInt64 cdt) {
+	int level = 0;
+	int regionLevel = 0;
+	LTable* table = NULL;
+
+	for (level = 0; level < regionLevel; level++) {
+		UInt64 time0 = getLocalTime(table, src0);
+		UInt64 time1 = getLocalTime(table, src1);
+		UInt64 resTime = max(time0, time1, cdt) + opCost;
+		updateLocalTime(table, dest, resTime);	
+	}	
+}
+#endif
 
 unsigned int logBinaryOpConst(unsigned int id, unsigned int bb_id, int opcode, const void* arg, const void* address) {
 	unsigned long long int arg_t, dest_t;
@@ -132,9 +145,9 @@ void logPhiNode(unsigned int op_id, unsigned int bb_id, const void* dst_addr, un
 	unsigned int incoming_bb_id;
 	const void* incoming_addr;
 
-	uint64_t curr_t;
+	UInt64 curr_t;
 
-	uint64_t max = 0;
+	UInt64 max = 0;
 
 	va_list ap;
 	va_start(ap, num_t_inits);
@@ -145,7 +158,7 @@ void logPhiNode(unsigned int op_id, unsigned int bb_id, const void* dst_addr, un
 		incoming_addr = va_arg(ap, const void*);
 
 		if(incoming_bb_id == last_bb_id) {
-			curr_t = table[(uint64_t)incoming_addr % 1024];
+			curr_t = table[(UInt64)incoming_addr % 1024];
 
 			if(curr_t > max) max = curr_t;
 		}
@@ -153,7 +166,7 @@ void logPhiNode(unsigned int op_id, unsigned int bb_id, const void* dst_addr, un
 
 	for(i = 0; i < num_t_inits; i++) {
 		incoming_addr = va_arg(ap, const void*);
-		curr_t = table[(uint64_t)incoming_addr % 1024];
+		curr_t = table[(UInt64)incoming_addr % 1024];
 
 		if(curr_t > max) max = curr_t;
 	}

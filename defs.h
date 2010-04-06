@@ -6,8 +6,77 @@
 #include <string.h>
 #include <sys/time.h>
 
+#ifndef _PYRPROF_DEF
+#define _PYRPROF_DEF
+
 #define TRUE 1
 #define FALSE 0
+
+typedef unsigned int		UInt;
+typedef signed int			Int;
+typedef unsigned long long	UInt64;
+typedef signed long long	Int64;
+typedef	void*				Addr;
+
+enum RegionType {RegionLoop, RegionFunc};
+
+typedef struct _DataEntry {
+	UInt64*	time;	
+
+} DataEntry;
+
+
+typedef struct _GTableEntry {
+	Addr		addr;
+	//DataEntry*	data;
+	UInt64	time;
+	struct _GTableEntry*	next;
+} GTEntry;
+
+/*
+	LocalTable: 
+		local table uses virtual register number as its key
+*/
+typedef struct _LocalTable {
+	int				size;
+	UInt64*			array;
+
+} LTable;
+
+
+/*
+	GlobalTable:
+		global table is a hashtable with lower address as its primary key. 
+*/
+#define	GTABLE_SIZE			0x10000
+typedef struct _GloablTable {
+	UInt		entrySize;	
+	GTEntry* array[GTABLE_SIZE];	
+} GTable;
+
+
+typedef UInt	WorkTable;		
+typedef struct _RegionInfo {
+	int			type;
+	UInt		did;
+	LTable 		lTable;
+	GTable		gTable;
+	WorkTable	work;	
+		
+} RegionInfo;
+
+LTable* allocLocalTable(int size);
+void 	freeLocalTable(LTable* table);
+void 	updateLocalTime(LTable* table, int key, UInt64 timestamp);
+UInt64 	getLocalTime(LTable* table, int key);
+
+GTable* allocGlobalTable(void);
+void 	freeGlobalTable(GTable* table);
+GTEntry* getGTEntry(GTable* table, Addr addr);
+UInt64 	getGlobalTime(GTable* table, Addr addr);
+void 	updateGlobalTime(GTable* table, Addr addr, UInt64 timestamp);
+
+
 
 // basic stuff needed
 void addInit(unsigned int new_init);
@@ -65,3 +134,5 @@ void logBBVisit(unsigned int bb_id);
 void printProfileData(void);
 
 void updateCriticalPathLength(int prospective_new_max_time, int node_id);
+
+#endif
