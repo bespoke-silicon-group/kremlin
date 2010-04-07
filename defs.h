@@ -83,8 +83,8 @@ void* logAssignmentConst(UInt dest);
 void* logInsertValue(UInt src, UInt dest); 
 void* logInsertValueConst(UInt dest); 
 
-void* logLoadInst(const void* src_addr, UInt dest); 
-void* logStoreInst(UInt src, const void* dest_addr); 
+void* logLoadInst(Addr src_addr, UInt dest); 
+void* logStoreInst(UInt src, Addr dest_addr); 
 
 void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...); 
 

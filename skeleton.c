@@ -75,21 +75,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 }
 
 void* logAssignment(UInt src, UInt dest) {
-	int level = getRegionLevel();
-	int i = 0;
-	TEntry* entry0 = getLTEntry(src);
-	TEntry* entryDest = getLTEntry(dest);
-	
-	for (i = 0; i < level; i++) {
-		UInt version = getVersion(i);
-		UInt64 cdt = getCdt(i);
-		UInt64 ts0 = getTimestamp(entry0, i, version);
-		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-		updateTimestamp(entryDest, i, version, greater1);
-	}
-
-	return entryDest;
-
+	return logBinaryOpConst(0, src, dest);
 }
 
 void* logAssignmentConst(UInt dest) {
@@ -107,7 +93,7 @@ void* logAssignmentConst(UInt dest) {
 
 }
 
-void* logLoadInst(const void* src_addr, UInt dest) {
+void* logLoadInst(Addr src_addr, UInt dest) {
 	int level = getRegionLevel();
 	int i = 0;
 	TEntry* entry0 = getGTEntry(src_addr);
@@ -124,7 +110,7 @@ void* logLoadInst(const void* src_addr, UInt dest) {
 	return entryDest;
 }
 
-void* logStoreInst(UInt src, const void* dest_addr) {
+void* logStoreInst(UInt src, Addr dest_addr) {
 	int level = getRegionLevel();
 	int i = 0;
 	TEntry* entry0 = getLTEntry(src);
@@ -142,9 +128,12 @@ void* logStoreInst(UInt src, const void* dest_addr) {
 }
 
 
-void* logInsertValue(UInt src, UInt dst) {
+void* logInsertValue(UInt src, UInt dest) {
+	return logAssignment(src, dest);
 }
-void* logInsertValueConst(UInt dst) {
+
+void* logInsertValueConst(UInt dest) {
+	return logAssignmentConst(dest);
 }
 
 
@@ -152,25 +141,38 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 	
 }
 
-void addControlDep(UInt cond);
-void removeControlDep();
+void addControlDep(UInt cond) {
 
-void addReturnValueLink(UInt dest);
-void logFuncReturn(UInt src);
+}
 
-void linkArgToLocal(UInt src);
-void linkArgToConst();
-void transferAndUnlinkArg(UInt dest);
+void removeControlDep() {
+}
 
-UInt logLibraryCall(UInt cost, UInt dest, UInt num_in, ...);
+void addReturnValueLink(UInt dest) {
+}
 
-void logBBVisit(UInt bb_id);
-
-
-void initProfiler();
-void deinitProfiler();
+void logFuncReturn(UInt src) {
+}
 
 
+void linkArgToLocal(UInt src) {
+}
+void linkArgToConst() {
+}
+void transferAndUnlinkArg(UInt dest) {
+}
 
+UInt logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
+}
+
+void logBBVisit(UInt bb_id) {
+}
+
+
+void initProfiler() {
+}
+
+void deinitProfiler() {
+}
 
 
