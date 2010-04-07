@@ -7,18 +7,48 @@
 #include <sys/time.h>
 #include "defs.h"
 
+#define MAX_ARGS 	10
+typedef struct _CDT_T {
+	TEntry* entry;
+	struct _CDT_T* next;
+} CDT;
 
-#define MAX_REGION_LEVEL	100
+typedef struct _FuncContext {
+	LTable* table;
+	TEntry* ret;
+	TEntry* args[MAX_ARGS];
+	int		writeIndex;
+	int		readIndex;
+	struct _FuncContext* next;
+	
+} FuncContext;
+
+
+
 static int regionLevel = -1;
-static int versions[MAX_REGION_LEVEL];
+static int* versions;
+static CDT* cdtHead;
+static FuncContext* funcHead;
 
+static FuncContext* pushFuncContext() {
+	FuncContext* prevHead = funcHead;
+	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext()));
+	toAdd->next = prevHead;
+	funcHead = toAdd;
+}
+
+static FuncContext* popFuncContext() {
+	FuncContext* ret = funcHead;
+	funcHead = ret->next;
+	return ret;
+}
 
 static inline int getRegionLevel() {
 	return regionLevel;
 }
 
 UInt64 getCdt(int level) {
-	return 0x1000;
+	return getTimestampNoVersion(cdtHead->entry, level);
 }
 
 UInt getVersion(int level) {
@@ -28,6 +58,7 @@ UInt getVersion(int level) {
 void logRegionEntry(UInt region_id, UInt region_type) {
 	regionLevel++;
 	versions[regionLevel]++;
+	
 }
 
 
@@ -141,38 +172,91 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 	
 }
 
-void addControlDep(UInt cond) {
 
+void addControlDep(UInt cond) {
+	TEntry* entry = getLTEntry(cond);
+	CDT* toAdd = (CDT*) malloc(sizeof(CDT));
+	toAdd->entry = entry;
+	toAdd->next = cdtHead;
 }
 
 void removeControlDep() {
+	CDT* toRemove = cdtHead;
+	cdtHead = cdtHead->next;
+	free(toRemove);
 }
 
+
+// prepare timestamp storage for return value
 void addReturnValueLink(UInt dest) {
+	pushFuncContext();
+	funcHead->ret = getLTEntry(dest);
 }
 
+// write timestamp to the prepared storage
 void logFuncReturn(UInt src) {
+	TEntry* srcEntry = getLTEntry(src);
+	copyTEntry(funcHead->ret, srcEntry);
 }
 
-
+// give timestamp for an arg
 void linkArgToLocal(UInt src) {
-}
-void linkArgToConst() {
-}
-void transferAndUnlinkArg(UInt dest) {
+	TEntry* srcEntry = getLTEntry(src);
+	funcHead->args[funcHead->writeIndex++] = srcEntry;
 }
 
-UInt logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
+
+TEntry* dummyEntry = NULL;
+static void allocDummyTEntry() {
+	dummyEntry = (TEntry*) allocTEntry(getMaxRegionLevel());
 }
+static TEntry* getDummyTEntry() {
+	return dummyEntry;
+}
+
+static void freeDummyTEntry() {
+	free(dummyEntry);
+}
+
+// special case for constant arg
+void linkArgToConst() {
+	funcHead->args[funcHead->writeIndex++] = getDummyTEntry();
+}
+
+// get timestamp for an arg and associate it with a local vreg
+// should be called in the order of linkArgToLocal
+void transferAndUnlinkArg(UInt dest) {
+	TEntry* destEntry = getLTEntry(dest);
+	copyTEntry(destEntry, funcHead->args[funcHead->readIndex++]);
+}
+
+
+// use estimated cost for a callee function we cannot instrument
+UInt logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
+	
+}
+
+static UInt	prevBB;
+static UInt	currentBB;
 
 void logBBVisit(UInt bb_id) {
+	prevBB = currentBB;
+	currentBB = bb_id;
 }
 
 
-void initProfiler() {
+void initProfiler(int maxRegionLevel) {
+	int maxVreg = 1000;
+	initDataStructure(maxVreg, maxRegionLevel);
+	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
+	allocDummyTEntry();
+	pushFuncContext();
 }
 
 void deinitProfiler() {
+	finalizeDataStructure();
+	freeDummyTEntry();
+	free(versions);
 }
 
 

@@ -4,7 +4,15 @@ GTable* gTable;
 LTable* lTable;
 UInt32	maxRegionLevel;
 
-static void freeTEntry(TEntry* entry);
+UInt32 getMaxRegionLevel() {
+	return maxRegionLevel;
+}
+
+void setMaxRegionLevel(UInt32 max) {
+	maxRegionLevel = max;
+}
+
+void freeTEntry(TEntry* entry);
 
 static GTable* allocGlobalTable(int depth) {
 	GTable* ret = (GTable*) malloc(sizeof(GTable));
@@ -30,7 +38,7 @@ static void freeGlobalTable(GTable* table) {
 }
 
 
-static TEntry* allocTEntry(int size) {
+TEntry* allocTEntry(int size) {
 	TEntry* ret = (TEntry*) malloc(sizeof(TEntry));
 	ret->version = (UInt32*) malloc(sizeof(UInt32) * size);
 	ret->time = (UInt64*) malloc(sizeof(UInt64) * size);
@@ -39,7 +47,7 @@ static TEntry* allocTEntry(int size) {
 	return ret;
 }
 
-static void freeTEntry(TEntry* entry) {
+void freeTEntry(TEntry* entry) {
 	free(entry->version);
 	free(entry->time);
 	free(entry);
@@ -51,19 +59,27 @@ static GEntry* createGEntry() {
 	return ret;
 }
 
-static LTable* allocLocalTable(int size, int regionLevel) {
+void copyTEntry(TEntry* dest, TEntry* src) {
+	int i;
+	for (i=0; i<maxRegionLevel; i++) {
+		dest->version[i] = src->version[i];
+		dest->time[i] = src->time[i];
+	}	
+}
+
+LTable* allocLocalTable(int size) {
 	int i;	
 	LTable* ret = (LTable*) malloc(sizeof(LTable));
 	ret->size = size;
 	ret->array = (TEntry**) malloc(sizeof(TEntry*) * size);
 	for (i=0; i<size; i++) {
-		ret->array[i] = allocTEntry(regionLevel);
+		ret->array[i] = allocTEntry(getMaxRegionLevel());
 	}
 	return ret;
 }
 
 
-static void freeLocalTable(LTable* table) {
+void freeLocalTable(LTable* table) {
 	int i;
 	for (i=0; i<table->size; i++) {
 		freeTEntry(table->array[i]);
@@ -72,14 +88,18 @@ static void freeLocalTable(LTable* table) {
 	free(table);
 }
 
+void setLocalTable(LTable* table) {
+	lTable = table;
+}
+
 void initDataStructure(int size, int regionLevel) {
-	gTable = allocGlobalTable(regionLevel);
-	lTable = allocLocalTable(size, regionLevel);
+	gTable = allocGlobalTable(maxRegionLevel);
+//	lTable = allocLocalTable(size, regionLevel);
 	maxRegionLevel = regionLevel;
 }
 
 void finalizeDataStructure() {
-	freeLocalTable(lTable);
+//	freeLocalTable(lTable);
 	freeGlobalTable(gTable);
 }
 
@@ -87,6 +107,10 @@ UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
 	UInt64 ret = (entry->version[level] == version) ?
 					entry->time[level] : 0;
 	return ret;
+}
+
+UInt64 getTimestampNoVersion(TEntry* entry, UInt32 level) {
+	return entry->time[level];
 }
 
 void updateTimestamp(TEntry* entry, UInt32 level, UInt32 version, UInt64 timestamp) {

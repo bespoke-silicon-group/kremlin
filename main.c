@@ -5,7 +5,14 @@
 int cnt = 0;
 
 int main() {
-	initDataStructure(1000, 10);
+	initProfiler(10);
+	testTable();
+	deinitProfiler();
+}
+
+int testTable() {
+	LTable* table = allocLocalTable(1000, 10);
+	setLocalTable(table);
 	TEntry* entry = getLTEntry(30);
 	UInt64 value = getTimestamp(entry, 5, 10);
 	updateTimestamp(entry, 5, 10, 1234);
@@ -21,7 +28,6 @@ int main() {
 	UInt64 value4 = getTimestamp(entry, 5, 10);
 	printf("hello world %lld %lld\n", value3, value4);
 
-	finalizeDataStructure();
 #if 0
 	LTable* myTable = allocLocalTable(10, 30);
 	updateLocalTime(myTable, 5, 1234);

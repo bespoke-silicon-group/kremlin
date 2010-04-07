@@ -65,10 +65,15 @@ typedef struct _RegionInfo {
 } RegionInfo;
 
 
+TEntry* allocTEntry(int size);
+void freeTEntry(TEntry* entry);
+LTable* allocLocalTable(int size);
+void freeLocalTable(LTable* table);
 TEntry* getLTEntry(UInt32 index);
 TEntry* getGTEntry(Addr addr);
 void initDataStructure(int size, int regionLevel);
 void finalizeDataStructure();
+
 
 UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);
 void updateTimestamp(TEntry* entry, UInt32 level, UInt32 version, UInt64 timestamp);
