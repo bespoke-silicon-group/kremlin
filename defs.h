@@ -13,6 +13,8 @@
 #define TRUE 1
 #define FALSE 0
 
+typedef unsigned long       UInt32;
+typedef signed long         Int32;
 typedef unsigned int        UInt;
 typedef signed int          Int;
 typedef unsigned long long  UInt64;
@@ -25,7 +27,7 @@ typedef struct _DataEntry {
     UInt32* version;
     UInt64* time;
 
-} DataEntry;
+} TEntry;
 
 
 /*
@@ -34,13 +36,13 @@ typedef struct _DataEntry {
 */
 typedef struct _LocalTable {
     int             size;
-    DataEntry*      array;
+    TEntry**     array;
 
 } LTable;
 
 
 typedef struct _GTableEntry {
-    DataEntry array[0x4000];
+    TEntry* array[0x4000];
 } GEntry;
 
 /*
@@ -48,7 +50,7 @@ typedef struct _GTableEntry {
         global table is a hashtable with lower address as its primary key.
 */
 typedef struct _GloablTable {
-    GEntry array[0x10000];
+    GEntry* array[0x10000];
 } GTable;
 
 
@@ -62,16 +64,14 @@ typedef struct _RegionInfo {
 
 } RegionInfo;
 
-LTable* allocLocalTable(int size, int depth);
-void    freeLocalTable(LTable* table);
-void    updateLocalTime(LTable* table, int key, UInt64 timestamp);
-UInt64  getLocalTime(LTable* table, int key);
 
-GTable* allocGlobalTable(void);
-void    freeGlobalTable(GTable* table);
-GTEntry* getGTEntry(GTable* table, Addr addr);
-UInt64  getGlobalTime(GTable* table, Addr addr);
-void    updateGlobalTime(GTable* table, Addr addr, UInt64 timestamp);
+TEntry* getLTEntry(UInt32 index);
+TEntry* getGTEntry(Addr addr);
+void initDataStructure(int size, int regionLevel);
+void finalizeDataStructure();
+
+UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);
+void updateTimestamp(TEntry* entry, UInt32 level, UInt32 version, UInt64 timestamp);
 
 /* The following funcs are inserted by the critical path instrumentation pass */
 void* logBinaryOp(int op_cost, unsigned int src0, unsigned int src1, unsigned int dest); 
