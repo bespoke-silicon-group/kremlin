@@ -4,12 +4,28 @@ GTable* gTable;
 LTable* lTable;
 UInt32	maxRegionLevel;
 
+static void freeTEntry(TEntry* entry);
+
 static GTable* allocGlobalTable(int depth) {
 	GTable* ret = (GTable*) malloc(sizeof(GTable));
+	bzero(ret->array, sizeof(GTable));
 	return ret;
 }
 
 static void freeGlobalTable(GTable* table) {
+	int i, j;
+	for (i = 0; i < 0x10000; i++) {
+		if (table->array[i] != NULL) {
+			GEntry* entry = table->array[i];
+			for (j = 0; j < 0x4000; j++) {
+				if (entry->array[j] != NULL) {
+					TEntry* current = entry->array[j];
+					freeTEntry(current);	
+				}
+			}	
+			free(entry);
+		}
+	}
 	free(table);
 }
 
@@ -18,6 +34,8 @@ static TEntry* allocTEntry(int size) {
 	TEntry* ret = (TEntry*) malloc(sizeof(TEntry));
 	ret->version = (UInt32*) malloc(sizeof(UInt32) * size);
 	ret->time = (UInt64*) malloc(sizeof(UInt64) * size);
+	bzero(ret->version, sizeof(UInt32) * size);
+	bzero(ret->time, sizeof(UInt64) * size);
 	return ret;
 }
 

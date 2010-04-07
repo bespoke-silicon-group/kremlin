@@ -20,6 +20,8 @@ int main() {
 	assert(entry == entry2);
 	UInt64 value4 = getTimestamp(entry, 5, 10);
 	printf("hello world %lld %lld\n", value3, value4);
+
+	finalizeDataStructure();
 #if 0
 	LTable* myTable = allocLocalTable(10, 30);
 	updateLocalTime(myTable, 5, 1234);
