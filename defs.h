@@ -98,15 +98,17 @@ void removeControlDep();
 
 void addReturnValueLink(UInt dest);
 void logFuncReturn(UInt src); 
+void logFuncReturnConst();
 
 void linkArgToLocal(UInt src); 
 void linkArgToConst();
 void transferAndUnlinkArg(UInt dest); 
 
-UInt logLibraryCall(UInt cost, UInt dest, UInt num_in, ...); 
+void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...); 
 
 void logBBVisit(UInt bb_id); 
 
+void* logInductionVarDependence(UInt induct_var); 
 
 /* The following functions are inserted by region instrumentation pass */
 void initProfiler();
@@ -116,34 +118,7 @@ void logRegionEntry(UInt region_id, UInt region_type);
 void logRegionExit(UInt region_id, UInt region_type);
 
 
-
-
-
-
-/* The following functions are deprecated. Don't bother implementing them */
-void linkInitToCondition(const void* rhs, const void* lhs);
-UInt logInductionVarDependence(const void* induct_var); 
-
-UInt logOutputToConsole(UInt id, UInt bb_id, int num_out, ...); 
-UInt logInputFromConsole(UInt id, UInt bb_id, int num_in, ...); 
-
-void stackVariableAlloc(UInt bb_id, const void* address); 
-void stackVariableDealloc(UInt bb_id, const void* address); 
-
-void linkAddrToArgName(UInt bb_id, const void* address, char* argname); 
-
-void setReturnTimestampConst();
-void setReturnTimestamp(UInt bb_id, const void* retval);
-void getReturnTimestamp(UInt id, UInt bb_id, const void* address);
-
-void onBasicBlockEntry(UInt bb_id);
-
-void openOutputFile();
-void closeOutputFile();
-
-void linkInit(UInt cond);
-void removeInit();
-
-void printProfileData(void);
+// tempoarary use only
+void setVirtRegisterCount(unsigned int num);
 
 #endif
