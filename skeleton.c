@@ -20,20 +20,20 @@ UInt64 getCdt(int level) {
 	return 0x1000;
 }
 
-UInt getVersion() {
+UInt getVersion(int level) {
 	static UInt version = 0;
 	return version++;
 }
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	int level = getRegionLevel();
-	UInt version = getVersion();
 	int i = 0;
 	TEntry* entry0 = getLTEntry(src0);
 	TEntry* entry1 = getLTEntry(src1);
 	TEntry* entryDest = getLTEntry(dest);
 	
 	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 ts1 = getTimestamp(entry1, i, version);
@@ -48,12 +48,12 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 
 void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	int level = getRegionLevel();
-	UInt version = getVersion();
 	int i = 0;
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getLTEntry(dest);
 	
 	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
@@ -65,12 +65,12 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 
 void* logAssignment(UInt src, UInt dest) {
 	int level = getRegionLevel();
-	UInt version = getVersion();
 	int i = 0;
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getLTEntry(dest);
 	
 	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
@@ -83,11 +83,11 @@ void* logAssignment(UInt src, UInt dest) {
 
 void* logAssignmentConst(UInt dest) {
 	int level = getRegionLevel();
-	UInt version = getVersion();
 	int i = 0;
 	TEntry* entryDest = getLTEntry(dest);
 	
 	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		updateTimestamp(entryDest, i, version, cdt);
 	}
