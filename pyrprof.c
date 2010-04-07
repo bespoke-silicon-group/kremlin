@@ -30,17 +30,21 @@ static int* versions = NULL;
 static CDT* cdtHead = NULL;
 static FuncContext* funcHead = NULL;
 
+
+
 static FuncContext* pushFuncContext() {
 	FuncContext* prevHead = funcHead;
 	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
+	toAdd->table = NULL;
 	toAdd->next = prevHead;
 	funcHead = toAdd;
 }
 
-static FuncContext* popFuncContext() {
+static void popFuncContext() {
 	FuncContext* ret = funcHead;
 	funcHead = ret->next;
-	return ret;
+	freeLocalTable(ret->table);
+	free(ret);	
 }
 
 static inline int getRegionLevel() {
@@ -55,15 +59,29 @@ UInt getVersion(int level) {
 	return versions[level];
 }
 
+void setupLocalTable(UInt maxVregNum) {
+	LTable* table = allocLocalTable(maxVregNum);
+	assert(funcHead->table = NULL);
+	funcHead->table = table;	
+}
+
 void logRegionEntry(UInt region_id, UInt region_type) {
 	regionLevel++;
 	versions[regionLevel]++;
-	
+	if (region_type == RegionFunc) {
+		// the first function needs explicit context setup
+		pushFuncContext();
+	}
 }
+
+
 
 
 void logRegionExit(UInt region_id, UInt region_type) {
 	regionLevel--;
+	if (region_type == RegionFunc) {
+		popFuncContext();
+	}
 }
 
 
@@ -316,13 +334,10 @@ void* logInductionVarDependence(UInt induct_var) {
 
 void initProfiler() {
 	int maxRegionLevel = MAX_REGION_LEVEL;
-	int maxVreg = 1000;
-	initDataStructure(maxVreg, maxRegionLevel);
+	initDataStructure(maxRegionLevel);
 	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
 	allocDummyTEntry();
 
-	// the first function needs explicit context setup
-	pushFuncContext();
 }
 
 void deinitProfiler() {

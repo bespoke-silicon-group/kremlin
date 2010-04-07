@@ -72,7 +72,7 @@ LTable* allocLocalTable(int size);
 void freeLocalTable(LTable* table);
 TEntry* getLTEntry(UInt32 index);
 TEntry* getGTEntry(Addr addr);
-void initDataStructure(int size, int regionLevel);
+void initDataStructure(int regionLevel);
 void finalizeDataStructure();
 
 
@@ -120,6 +120,7 @@ void logRegionExit(UInt region_id, UInt region_type);
 
 
 // tempoarary use only
-void setVirtRegisterCount(unsigned int num);
+// setup local table. 
+void setupLocalTable(UInt maxVregNum);
 
 #endif

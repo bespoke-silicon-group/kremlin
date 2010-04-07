@@ -92,14 +92,12 @@ void setLocalTable(LTable* table) {
 	lTable = table;
 }
 
-void initDataStructure(int size, int regionLevel) {
+void initDataStructure(int regionLevel) {
 	gTable = allocGlobalTable(maxRegionLevel);
-//	lTable = allocLocalTable(size, regionLevel);
 	maxRegionLevel = regionLevel;
 }
 
 void finalizeDataStructure() {
-//	freeLocalTable(lTable);
 	freeGlobalTable(gTable);
 }
 
