@@ -97,12 +97,13 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...);
 void addControlDep(UInt cond);
 void removeControlDep();
 
+void prepareCall(void);
 void addReturnValueLink(UInt dest);
 void logFuncReturn(UInt src); 
-void logFuncReturnConst();
+void logFuncReturnConst(void);
 
 void linkArgToLocal(UInt src); 
-void linkArgToConst();
+void linkArgToConst(void);
 void transferAndUnlinkArg(UInt dest); 
 
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...); 
@@ -110,6 +111,7 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...);
 void logBBVisit(UInt bb_id); 
 
 void* logInductionVarDependence(UInt induct_var); 
+
 
 /* The following functions are inserted by region instrumentation pass */
 void initProfiler();

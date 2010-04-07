@@ -30,13 +30,13 @@ static int* versions = NULL;
 static CDT* cdtHead = NULL;
 static FuncContext* funcHead = NULL;
 
-
-
 static FuncContext* pushFuncContext() {
 	FuncContext* prevHead = funcHead;
 	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
 	toAdd->table = NULL;
 	toAdd->next = prevHead;
+	toAdd->writeIndex = 0;
+	toAdd->readIndex = 0;
 	funcHead = toAdd;
 }
 
@@ -65,22 +65,22 @@ void setupLocalTable(UInt maxVregNum) {
 	funcHead->table = table;	
 }
 
+void prepareCall() {
+	pushFuncContext();
+}
+
 void logRegionEntry(UInt region_id, UInt region_type) {
 	regionLevel++;
 	versions[regionLevel]++;
-	if (region_type == RegionFunc) {
-		// the first function needs explicit context setup
-		pushFuncContext();
-	}
+	setLocalTable(funcHead->table);
 }
-
-
 
 
 void logRegionExit(UInt region_id, UInt region_type) {
 	regionLevel--;
 	if (region_type == RegionFunc) {
 		popFuncContext();
+		setLocalTable(funcHead->table);
 	}
 }
 
@@ -202,7 +202,6 @@ void removeControlDep() {
 
 // prepare timestamp storage for return value
 void addReturnValueLink(UInt dest) {
-	pushFuncContext();
 	funcHead->ret = getLTEntry(dest);
 }
 
