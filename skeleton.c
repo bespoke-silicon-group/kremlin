@@ -8,12 +8,13 @@
 #include "defs.h"
 
 
+#define MAX_REGION_LEVEL	100
+static int regionLevel = -1;
+static int versions[MAX_REGION_LEVEL];
 
-int foo() {
-}
 
-int getRegionLevel() {
-	return 5;
+static inline int getRegionLevel() {
+	return regionLevel;
 }
 
 UInt64 getCdt(int level) {
@@ -21,9 +22,19 @@ UInt64 getCdt(int level) {
 }
 
 UInt getVersion(int level) {
-	static UInt version = 0;
-	return version++;
+	return versions[level];
 }
+
+void logRegionEntry(UInt region_id, UInt region_type) {
+	regionLevel++;
+	versions[regionLevel]++;
+}
+
+
+void logRegionExit(UInt region_id, UInt region_type) {
+	regionLevel--;
+}
+
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	int level = getRegionLevel();
@@ -42,7 +53,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		updateTimestamp(entryDest, i, version, greater1 + opCost);
 	}
 
-	return NULL;
+	return entryDest;
 }
 
 
@@ -60,7 +71,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 		updateTimestamp(entryDest, i, version, greater1 + opCost);
 	}
 
-	return NULL;
+	return entryDest;
 }
 
 void* logAssignment(UInt src, UInt dest) {
@@ -77,7 +88,7 @@ void* logAssignment(UInt src, UInt dest) {
 		updateTimestamp(entryDest, i, version, greater1);
 	}
 
-	return NULL;
+	return entryDest;
 
 }
 
@@ -92,17 +103,54 @@ void* logAssignmentConst(UInt dest) {
 		updateTimestamp(entryDest, i, version, cdt);
 	}
 
-	return NULL;
+	return entryDest;
 
 }
 
-void* logInsertValue(UInt src_addr, UInt dst_addr);
-void* logInsertValueConst(UInt dst_addr);
+void* logLoadInst(const void* src_addr, UInt dest) {
+	int level = getRegionLevel();
+	int i = 0;
+	TEntry* entry0 = getGTEntry(src_addr);
+	TEntry* entryDest = getLTEntry(dest);
+	
+	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
+		UInt64 cdt = getCdt(i);
+		UInt64 ts0 = getTimestamp(entry0, i, version);
+		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
+		updateTimestamp(entryDest, i, version, greater1);
+	}
 
-void* logLoadInst(const void* src_addr, UInt dest);
-void* logStoreInst(UInt src, const void* dest_addr);
+	return entryDest;
+}
 
-void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...);
+void* logStoreInst(UInt src, const void* dest_addr) {
+	int level = getRegionLevel();
+	int i = 0;
+	TEntry* entry0 = getLTEntry(src);
+	TEntry* entryDest = getGTEntry(dest_addr);
+	
+	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
+		UInt64 cdt = getCdt(i);
+		UInt64 ts0 = getTimestamp(entry0, i, version);
+		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
+		updateTimestamp(entryDest, i, version, greater1);
+	}
+
+	return entryDest;
+}
+
+
+void* logInsertValue(UInt src, UInt dst) {
+}
+void* logInsertValueConst(UInt dst) {
+}
+
+
+void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
+	
+}
 
 void addControlDep(UInt cond);
 void removeControlDep();
@@ -122,37 +170,7 @@ void logBBVisit(UInt bb_id);
 void initProfiler();
 void deinitProfiler();
 
-void logRegionEntry(UInt region_id, UInt region_type);
-void logRegionExit(UInt region_id, UInt region_type);
 
 
 
-
-
-
-/* The following functions are deprecated. Don't bother implementing them */
-void linkInitToCondition(const void* rhs, const void* lhs);
-UInt logInductionVarDependence(const void* induct_var);
-
-UInt logOutputToConsole(UInt id, UInt bb_id, int num_out, ...);
-UInt logInputFromConsole(UInt id, UInt bb_id, int num_in, ...);
-
-void stackVariableAlloc(UInt bb_id, const void* address);
-void stackVariableDealloc(UInt bb_id, const void* address);
-
-void linkAddrToArgName(UInt bb_id, const void* address, char* argname);
-
-void setReturnTimestampConst();
-void setReturnTimestamp(UInt bb_id, const void* retval);
-void getReturnTimestamp(UInt id, UInt bb_id, const void* address);
-
-void onBasicBlockEntry(UInt bb_id);
-
-void openOutputFile();
-void closeOutputFile();
-
-void linkInit(UInt cond);
-void removeInit();
-
-void printProfileData(void);
 

@@ -80,8 +80,8 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest);
 void* logAssignment(UInt src, UInt dest);
 void* logAssignmentConst(UInt dest); 
 
-void* logInsertValue(UInt src_addr, UInt dst_addr); 
-void* logInsertValueConst(UInt dst_addr); 
+void* logInsertValue(UInt src, UInt dest); 
+void* logInsertValueConst(UInt dest); 
 
 void* logLoadInst(const void* src_addr, UInt dest); 
 void* logStoreInst(UInt src, const void* dest_addr); 
