@@ -81,7 +81,9 @@ LTable* allocLocalTable(int size) {
 
 void freeLocalTable(LTable* table) {
 	int i;
+	assert(table->array != NULL);
 	for (i=0; i<table->size; i++) {
+		assert(table->array[i] != NULL);
 		freeTEntry(table->array[i]);
 	}
 	free(table->array);

@@ -23,16 +23,18 @@ typedef struct _FuncContext {
 	
 } FuncContext;
 
-
-
 static int regionLevel = -1;
 static int* versions = NULL;
 static CDT* cdtHead = NULL;
 static FuncContext* funcHead = NULL;
 
 static FuncContext* pushFuncContext() {
+	int i;
 	FuncContext* prevHead = funcHead;
 	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
+	for (i = 0; i < MAX_ARGS; i++) {
+		toAdd->args[i] = NULL;
+	}
 	toAdd->table = NULL;
 	toAdd->next = prevHead;
 	toAdd->writeIndex = 0;
@@ -43,6 +45,8 @@ static FuncContext* pushFuncContext() {
 static void popFuncContext() {
 	FuncContext* ret = funcHead;
 	funcHead = ret->next;
+	assert(ret != NULL);
+	assert(ret->table != NULL);
 	freeLocalTable(ret->table);
 	free(ret);	
 }
@@ -61,7 +65,7 @@ UInt getVersion(int level) {
 
 void setupLocalTable(UInt maxVregNum) {
 	LTable* table = allocLocalTable(maxVregNum);
-	assert(funcHead->table = NULL);
+	assert(funcHead->table == NULL);
 	funcHead->table = table;	
 }
 
@@ -80,7 +84,8 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	regionLevel--;
 	if (region_type == RegionFunc) {
 		popFuncContext();
-		setLocalTable(funcHead->table);
+		if (funcHead != NULL)
+			setLocalTable(funcHead->table);
 	}
 }
 
@@ -208,6 +213,7 @@ void addReturnValueLink(UInt dest) {
 // write timestamp to the prepared storage
 void logFuncReturn(UInt src) {
 	TEntry* srcEntry = getLTEntry(src);
+	assert(funcHead->ret != NULL);
 	copyTEntry(funcHead->ret, srcEntry);
 }
 
@@ -222,6 +228,7 @@ TEntry* dummyEntry = NULL;
 static void allocDummyTEntry() {
 	dummyEntry = (TEntry*) allocTEntry(getMaxRegionLevel());
 }
+
 static TEntry* getDummyTEntry() {
 	return dummyEntry;
 }
@@ -239,6 +246,7 @@ void linkArgToConst() {
 // should be called in the order of linkArgToLocal
 void transferAndUnlinkArg(UInt dest) {
 	TEntry* destEntry = getLTEntry(dest);
+	assert(funcHead->args[funcHead->readIndex] != NULL);
 	copyTEntry(destEntry, funcHead->args[funcHead->readIndex++]);
 }
 
