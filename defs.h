@@ -12,6 +12,7 @@
 
 #define TRUE 1
 #define FALSE 0
+#define MAX_REGION_LEVEL	30
 
 typedef unsigned long       UInt32;
 typedef signed long         Int32;

@@ -26,13 +26,13 @@ typedef struct _FuncContext {
 
 
 static int regionLevel = -1;
-static int* versions;
-static CDT* cdtHead;
-static FuncContext* funcHead;
+static int* versions = NULL;
+static CDT* cdtHead = NULL;
+static FuncContext* funcHead = NULL;
 
 static FuncContext* pushFuncContext() {
 	FuncContext* prevHead = funcHead;
-	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext()));
+	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
 	toAdd->next = prevHead;
 	funcHead = toAdd;
 }
@@ -168,11 +168,6 @@ void* logInsertValueConst(UInt dest) {
 }
 
 
-void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
-	
-}
-
-
 void addControlDep(UInt cond) {
 	TEntry* entry = getLTEntry(cond);
 	CDT* toAdd = (CDT*) malloc(sizeof(CDT));
@@ -215,7 +210,7 @@ static TEntry* getDummyTEntry() {
 }
 
 static void freeDummyTEntry() {
-	free(dummyEntry);
+	freeTEntry(dummyEntry);
 }
 
 // special case for constant arg
@@ -231,11 +226,6 @@ void transferAndUnlinkArg(UInt dest) {
 }
 
 
-// use estimated cost for a callee function we cannot instrument
-UInt logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
-	
-}
-
 static UInt	prevBB;
 static UInt	currentBB;
 
@@ -244,12 +234,94 @@ void logBBVisit(UInt bb_id) {
 	currentBB = bb_id;
 }
 
+#define MAX_ENTRY 10
 
-void initProfiler(int maxRegionLevel) {
+void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
+	TEntry* destEntry = getLTEntry(dest);
+	TEntry* cdtEntry[MAX_ENTRY];
+	TEntry* srcEntry = NULL;
+	UInt	incomingBB[MAX_ENTRY];
+	UInt	srcList[MAX_ENTRY];
+
+	va_list ap;
+	va_start(ap, num_t_inits);
+	int level = getRegionLevel();
+	int i, j;
+	
+	// catch src dep
+	for (i = 0; i < num_incoming_values; i++) { 
+		incomingBB[i] = va_arg(ap, UInt);
+		srcList[i] = va_arg(ap, UInt);
+		if (incomingBB[i] == prevBB) {
+			srcEntry = getLTEntry(srcList[i]);
+		}
+	}
+
+	// read all CDT
+	for (i = 0; i < num_t_inits; i++) {
+		UInt cdt = va_arg(ap, UInt);
+		cdtEntry[i] = getLTEntry(cdt);
+	}
+	va_end(ap);
+
+	// get max
+	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
+		UInt64 max = getTimestamp(srcEntry, i, version);
+		
+		for (j = 0; j < num_t_inits; j++) {
+			UInt64 ts = getTimestamp(cdtEntry[j], i, version);
+			if (ts > max)
+				max = ts;		
+		}
+		updateTimestamp(destEntry, i, version, max);
+	}
+}
+
+
+// use estimated cost for a callee function we cannot instrument
+void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
+	int i, j;
+	int level = getRegionLevel();
+	TEntry* srcEntry[MAX_ENTRY];
+	TEntry* destEntry = getLTEntry(dest);
+	va_list ap;
+	va_start(ap, num_in);
+
+	for (i = 0; i < num_in; i++) {
+		UInt src = va_arg(ap, UInt);
+		srcEntry[i] = getLTEntry(src);
+	}	
+	va_end(ap);
+
+	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
+		UInt64 max = 0;
+		
+		for (j = 0; j < num_in; j++) {
+			UInt64 ts = getTimestamp(srcEntry[j], i, version);
+			if (ts > max)
+				max = ts;
+		}	
+		
+		updateTimestamp(destEntry, i, version, max + cost);
+	}
+	return destEntry;
+	
+}
+
+void* logInductionVarDependence(UInt induct_var) {
+}
+
+
+void initProfiler() {
+	int maxRegionLevel = MAX_REGION_LEVEL;
 	int maxVreg = 1000;
 	initDataStructure(maxVreg, maxRegionLevel);
 	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
 	allocDummyTEntry();
+
+	// the first function needs explicit context setup
 	pushFuncContext();
 }
 
