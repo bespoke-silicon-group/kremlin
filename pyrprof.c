@@ -19,14 +19,26 @@ typedef struct _FuncContext {
 	TEntry* args[MAX_ARGS];
 	int		writeIndex;
 	int		readIndex;
+	UInt64	work;
 	struct _FuncContext* next;
 	
 } FuncContext;
 
-static int regionLevel = -1;
-static int* versions = NULL;
-static CDT* cdtHead = NULL;
+static int 			regionNum = 0;
+static int* 		versions = NULL;
+static UInt64* 		cpLengths = NULL;
+static CDT* 		cdtHead = NULL;
 static FuncContext* funcHead = NULL;
+
+static updateCP(TEntry* entry, int numLevel) {
+	int i;
+	for (i = 0; i < numLevel; i++) {
+		UInt64 value = entry->time[i];
+		if (value > cpLengths[i]) {
+			cpLengths[i] = value;
+		}
+	}
+}
 
 static FuncContext* pushFuncContext() {
 	int i;
@@ -39,23 +51,35 @@ static FuncContext* pushFuncContext() {
 	toAdd->next = prevHead;
 	toAdd->writeIndex = 0;
 	toAdd->readIndex = 0;
+	toAdd->work = 0;
 	funcHead = toAdd;
+}
+
+static inline void addWork(UInt work) {
+	funcHead->work += work;	
 }
 
 static void popFuncContext() {
 	FuncContext* ret = funcHead;
 	funcHead = ret->next;
-	assert(ret != NULL);
-	assert(ret->table != NULL);
+	if (funcHead != NULL)
+		addWork(ret->work);
 	freeLocalTable(ret->table);
 	free(ret);	
 }
 
-static inline int getRegionLevel() {
-	return regionLevel;
+static inline int getRegionNum() {
+	return regionNum;
 }
 
+static inline int getCurrentRegion() {
+	return regionNum - 1;
+}
+
+
+
 UInt64 getCdt(int level) {
+	assert(cdtHead != NULL);
 	return getTimestampNoVersion(cdtHead->entry, level);
 }
 
@@ -67,6 +91,7 @@ void setupLocalTable(UInt maxVregNum) {
 	LTable* table = allocLocalTable(maxVregNum);
 	assert(funcHead->table == NULL);
 	funcHead->table = table;	
+	setLocalTable(funcHead->table);
 }
 
 void prepareCall() {
@@ -74,25 +99,33 @@ void prepareCall() {
 }
 
 void logRegionEntry(UInt region_id, UInt region_type) {
-	regionLevel++;
-	versions[regionLevel]++;
-	setLocalTable(funcHead->table);
+	regionNum++;
+	int region = getCurrentRegion();
+	versions[region]++;
+	cpLengths[region] = 0;
 }
 
 
 void logRegionExit(UInt region_id, UInt region_type) {
-	regionLevel--;
+	int i;
+	int region = getCurrentRegion();
+	UInt64 cpLength = cpLengths[region];
+	printf("region %d level %d cp %d work %d\n", 
+			region_id, region, cpLength, funcHead->work);
+
 	if (region_type == RegionFunc) {
 		popFuncContext();
 		if (funcHead != NULL)
 			setLocalTable(funcHead->table);
 	}
+	regionNum--;
 }
 
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
-	int level = getRegionLevel();
+	int level = getRegionNum();
 	int i = 0;
+	addWork(opCost);
 	TEntry* entry0 = getLTEntry(src0);
 	TEntry* entry1 = getLTEntry(src1);
 	TEntry* entryDest = getLTEntry(dest);
@@ -106,14 +139,16 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		UInt64 greater1 = (cdt > greater0) ? cdt : greater0;
 		updateTimestamp(entryDest, i, version, greater1 + opCost);
 	}
+	updateCP(entryDest, level);
 
 	return entryDest;
 }
 
 
 void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
-	int level = getRegionLevel();
+	int level = getRegionNum();
 	int i = 0;
+	addWork(opCost);
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getLTEntry(dest);
 	
@@ -125,6 +160,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 		updateTimestamp(entryDest, i, version, greater1 + opCost);
 	}
 
+	updateCP(entryDest, level);
 	return entryDest;
 }
 
@@ -133,7 +169,7 @@ void* logAssignment(UInt src, UInt dest) {
 }
 
 void* logAssignmentConst(UInt dest) {
-	int level = getRegionLevel();
+	int level = getRegionNum();
 	int i = 0;
 	TEntry* entryDest = getLTEntry(dest);
 	
@@ -143,13 +179,17 @@ void* logAssignmentConst(UInt dest) {
 		updateTimestamp(entryDest, i, version, cdt);
 	}
 
+	updateCP(entryDest, level);
 	return entryDest;
 
 }
 
+#define LOADCOST	10
+#define STORECOST	10
 void* logLoadInst(Addr src_addr, UInt dest) {
-	int level = getRegionLevel();
+	int level = getRegionNum();
 	int i = 0;
+	addWork(LOADCOST);
 	TEntry* entry0 = getGTEntry(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
 	
@@ -158,15 +198,17 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-		updateTimestamp(entryDest, i, version, greater1);
+		updateTimestamp(entryDest, i, version, greater1+LOADCOST);
 	}
 
+	updateCP(entryDest, level);
 	return entryDest;
 }
 
 void* logStoreInst(UInt src, Addr dest_addr) {
-	int level = getRegionLevel();
+	int level = getRegionNum();
 	int i = 0;
+	addWork(STORECOST);
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	
@@ -175,9 +217,10 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-		updateTimestamp(entryDest, i, version, greater1);
+		updateTimestamp(entryDest, i, version, greater1+STORECOST);
 	}
 
+	updateCP(entryDest, level);
 	return entryDest;
 }
 
@@ -196,6 +239,7 @@ void addControlDep(UInt cond) {
 	CDT* toAdd = (CDT*) malloc(sizeof(CDT));
 	toAdd->entry = entry;
 	toAdd->next = cdtHead;
+	cdtHead = toAdd;
 }
 
 void removeControlDep() {
@@ -270,7 +314,7 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 
 	va_list ap;
 	va_start(ap, num_t_inits);
-	int level = getRegionLevel();
+	int level = getRegionNum();
 	int i, j;
 	
 	// catch src dep
@@ -307,7 +351,7 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 // use estimated cost for a callee function we cannot instrument
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
 	int i, j;
-	int level = getRegionLevel();
+	int level = getRegionNum();
 	TEntry* srcEntry[MAX_ENTRY];
 	TEntry* destEntry = getLTEntry(dest);
 	va_list ap;
@@ -343,13 +387,19 @@ void initProfiler() {
 	int maxRegionLevel = MAX_REGION_LEVEL;
 	initDataStructure(maxRegionLevel);
 	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
+	bzero(versions, sizeof(int) * maxRegionLevel);
+
+	cpLengths = (UInt64*) malloc(sizeof(UInt64) * maxRegionLevel);
+	bzero(cpLengths, sizeof(UInt64) * maxRegionLevel);
 	allocDummyTEntry();
+	prepareCall();
 
 }
 
 void deinitProfiler() {
 	finalizeDataStructure();
 	freeDummyTEntry();
+	free(cpLengths);
 	free(versions);
 }
 
