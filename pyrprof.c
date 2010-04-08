@@ -62,20 +62,28 @@ typedef struct _cpLength {
 	UInt64 end;
 } CPLength;
 
-static int 			regionNum = 0;
-static int* 		versions = NULL;
-static CPLength*	cpLengths = NULL;
-static CDT* 		cdtHead = NULL;
-static FuncContext* funcHead = NULL;
+int 		regionNum = 0;
+int* 		versions = NULL;
+UInt64*		cpLengths = NULL;
+CDT* 		cdtHead = NULL;
+FuncContext* funcHead = NULL;
 
-static updateCP(UInt64 value, int level) {
+// declaration of functions in table.c
+void setLocalTable(LTable* table);
+UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);
+UInt64 getTimestampNoVersion(TEntry* entry, UInt32 level);
+void copyTEntry(TEntry* dest, TEntry* src);
+UInt32 getMaxRegionLevel();
+void finalizeDataStructure();
+
+updateCP(UInt64 value, int level) {
 	int i;
 	if (value > cpLengths[level].end) {
 		cpLengths[level].end = value;
 	}
 }
 
-static FuncContext* pushFuncContext() {
+FuncContext* pushFuncContext() {
 	int i;
 	FuncContext* prevHead = funcHead;
 	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
@@ -90,11 +98,11 @@ static FuncContext* pushFuncContext() {
 	funcHead = toAdd;
 }
 
-static inline void addWork(UInt work) {
+inline void addWork(UInt work) {
 	funcHead->work += work;	
 }
 
-static void popFuncContext() {
+void popFuncContext() {
 	FuncContext* ret = funcHead;
 	funcHead = ret->next;
 	if (funcHead != NULL)
@@ -103,11 +111,11 @@ static void popFuncContext() {
 	free(ret);	
 }
 
-static inline int getRegionNum() {
+inline int getRegionNum() {
 	return regionNum;
 }
 
-static inline int getCurrentRegion() {
+inline int getCurrentRegion() {
 	return regionNum - 1;
 }
 
@@ -374,6 +382,9 @@ void logFuncReturn(UInt src) {
 	copyTEntry(funcHead->ret, srcEntry);
 }
 
+void logFuncReturnConst(void) {
+}
+
 // give timestamp for an arg
 void linkArgToLocal(UInt src) {
 	TEntry* srcEntry = getLTEntry(src);
@@ -382,15 +393,15 @@ void linkArgToLocal(UInt src) {
 
 
 TEntry* dummyEntry = NULL;
-static void allocDummyTEntry() {
+void allocDummyTEntry() {
 	dummyEntry = (TEntry*) allocTEntry(getMaxRegionLevel());
 }
 
-static TEntry* getDummyTEntry() {
+TEntry* getDummyTEntry() {
 	return dummyEntry;
 }
 
-static void freeDummyTEntry() {
+void freeDummyTEntry() {
 	freeTEntry(dummyEntry);
 }
 
@@ -408,8 +419,8 @@ void transferAndUnlinkArg(UInt dest) {
 }
 
 
-static UInt	prevBB;
-static UInt	currentBB;
+UInt	prevBB;
+UInt	currentBB;
 
 void logBBVisit(UInt bb_id) {
 	prevBB = currentBB;

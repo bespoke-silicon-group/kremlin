@@ -14,13 +14,13 @@ void setMaxRegionLevel(UInt32 max) {
 
 void freeTEntry(TEntry* entry);
 
-static GTable* allocGlobalTable(int depth) {
+GTable* allocGlobalTable(int depth) {
 	GTable* ret = (GTable*) malloc(sizeof(GTable));
 	bzero(ret->array, sizeof(GTable));
 	return ret;
 }
 
-static void freeGlobalTable(GTable* table) {
+void freeGlobalTable(GTable* table) {
 	int i, j;
 	for (i = 0; i < 0x10000; i++) {
 		if (table->array[i] != NULL) {
@@ -53,7 +53,7 @@ void freeTEntry(TEntry* entry) {
 	free(entry);
 }
 
-static GEntry* createGEntry() {
+GEntry* createGEntry() {
 	GEntry* ret = (GEntry*) malloc(sizeof(GEntry));
 	bzero(ret, sizeof(GEntry));
 	return ret;
