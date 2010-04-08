@@ -64,7 +64,7 @@ typedef struct _cpLength {
 
 int 		regionNum = 0;
 int* 		versions = NULL;
-UInt64*		cpLengths = NULL;
+CPLength*	cpLengths = NULL;
 CDT* 		cdtHead = NULL;
 FuncContext* funcHead = NULL;
 
@@ -173,7 +173,7 @@ UInt getVersion(int level) {
 }
 
 
-static inline UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
+inline UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
