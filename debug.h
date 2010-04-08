@@ -3,6 +3,9 @@
 
 #if PYRPROF_DEBUG == 1
     void MSG(int level, char* format, ...);
+	void updateTabString();
+	void incIndentTab();
+	void decIndentTab();
 #else
     #define MSG(level, a, args...)  ((void)0)
     #define incIndentTab()          ((void)0)

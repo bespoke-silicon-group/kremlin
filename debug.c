@@ -32,7 +32,7 @@ void MSG(int level, char* format, ...) {
     free(buf);
 }
 
-inline void updateTabString() {
+void updateTabString() {
     int i;
     for (i = 0; i < tabLevel*2; i++) {
         tabString[i] = ' ';
@@ -40,12 +40,12 @@ inline void updateTabString() {
     tabString[i] = 0;
 }
 
-inline void incIndentTab() {
+void incIndentTab() {
     tabLevel++;
     updateTabString();
 }
 
-inline void decIndentTab() {
+void decIndentTab() {
     tabLevel--;
     updateTabString();
 }
