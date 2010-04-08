@@ -40,6 +40,9 @@ CDT* 		cdtHead = NULL;
 FuncContext* funcHead = NULL;
 UInt64*		works = NULL;
 
+#define getRegionNum() regionNum
+#define getCurrentRegion() regionNum-1
+
 void updateCP(UInt64 value, int level) {
 	int i;
 	if (value > cpLengths[level].end) {
@@ -62,16 +65,7 @@ FuncContext* pushFuncContext() {
 	funcHead = toAdd;
 }
 
-inline int getRegionNum() {
-	return regionNum;
-}
-
-inline int getCurrentRegion() {
-	return regionNum - 1;
-}
-
-
-inline void addWork(UInt work) {
+void addWork(UInt work) {
 	//funcHead->work += work;	
 	int level = getCurrentRegion();
 	works[level] += work;
@@ -120,7 +114,7 @@ UInt getVersion(int level) {
 }
 
 
-inline UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
+UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
