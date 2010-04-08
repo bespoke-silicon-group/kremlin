@@ -33,15 +33,15 @@ typedef struct _cpLength {
 	UInt64 end;
 } CPLength;
 
-int 		regionNum = 0;
-int* 		versions = NULL;
-CPLength*	cpLengths = NULL;
-CDT* 		cdtHead = NULL;
-FuncContext* funcHead = NULL;
-UInt64*		works = NULL;
+int 			regionNum = 0;
+int* 			versions = NULL;
+CPLength*		cpLengths = NULL;
+CDT* 			cdtHead = NULL;
+FuncContext* 	funcHead = NULL;
+UInt64*			works = NULL;
 
-#define getRegionNum() regionNum
-#define getCurrentRegion() regionNum-1
+#define getRegionNum() 		(regionNum)
+#define getCurrentRegion() 	(regionNum-1)
 
 void updateCP(UInt64 value, int level) {
 	int i;
@@ -310,6 +310,7 @@ void* logInsertValueConst(UInt dest) {
 
 
 void addControlDep(UInt cond) {
+	MSG(1, "push ControlDep ts[%d]\n", cond);
 	TEntry* entry = getLTEntry(cond);
 	CDT* toAdd = allocCDT();
 	fillCDT(toAdd, entry);
@@ -318,6 +319,7 @@ void addControlDep(UInt cond) {
 }
 
 void removeControlDep() {
+	MSG(1, "pop  ControlDep\n");
 	CDT* toRemove = cdtHead;
 	cdtHead = cdtHead->next;
 	freeCDT(toRemove);
@@ -326,11 +328,13 @@ void removeControlDep() {
 
 // prepare timestamp storage for return value
 void addReturnValueLink(UInt dest) {
+	MSG(1, "prepare return storage ts[%d]\n", dest);
 	funcHead->ret = getLTEntry(dest);
 }
 
 // write timestamp to the prepared storage
 void logFuncReturn(UInt src) {
+	MSG(1, "write return value ts[%d]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
 	assert(funcHead->ret != NULL);
 	copyTEntry(funcHead->ret, srcEntry);
@@ -339,6 +343,7 @@ void logFuncReturn(UInt src) {
 void logFuncReturnConst(void) {
 	int i;
 	int level = getRegionNum();
+	MSG(1, "logFuncReturnConst\n");
 	for (i = 0; i < level; i++) {
 		UInt64 cdt = getCdt(i);
 		int version = getVersion(i);
@@ -351,6 +356,7 @@ void logFuncReturnConst(void) {
 
 // give timestamp for an arg
 void linkArgToLocal(UInt src) {
+	MSG(1, "linkArgToLocal to ts[%d]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
 	funcHead->args[funcHead->writeIndex++] = srcEntry;
 }
@@ -371,12 +377,14 @@ void freeDummyTEntry() {
 
 // special case for constant arg
 void linkArgToConst() {
+	MSG(1, "linkArgToConst\n");
 	funcHead->args[funcHead->writeIndex++] = getDummyTEntry();
 }
 
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
 void transferAndUnlinkArg(UInt dest) {
+	MSG(1, "getArgInfo to ts[%d]\n", dest);
 	TEntry* destEntry = getLTEntry(dest);
 	assert(funcHead->args[funcHead->readIndex] != NULL);
 	copyTEntry(destEntry, funcHead->args[funcHead->readIndex++]);
@@ -400,6 +408,7 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 	UInt	incomingBB[MAX_ENTRY];
 	UInt	srcList[MAX_ENTRY];
 
+	MSG(1, "logPhiNode to ts[%d] from %d srcs\n", dest, num_incoming_values);
 	va_list ap;
 	va_start(ap, num_t_inits);
 	int level = getRegionNum();
@@ -438,6 +447,7 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 
 // use estimated cost for a callee function we cannot instrument
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
+	MSG(1, "logLibraryCall to ts[%d] with cost %d\n", dest, cost);
 	int i, j;
 	int level = getRegionNum();
 	TEntry* srcEntry[MAX_ENTRY];
@@ -491,8 +501,8 @@ void deinitProfiler() {
 	freeDummyTEntry();
 	free(cpLengths);
 	free(versions);
-	free(cdtHead);
 	free(works);
+	freeCDT(cdtHead);
 	cdtHead = NULL;
 }
 
