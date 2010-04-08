@@ -30,13 +30,10 @@ static UInt64* 		cpLengths = NULL;
 static CDT* 		cdtHead = NULL;
 static FuncContext* funcHead = NULL;
 
-static updateCP(TEntry* entry, int numLevel) {
+static updateCP(UInt64 value, int level) {
 	int i;
-	for (i = 0; i < numLevel; i++) {
-		UInt64 value = entry->time[i];
-		if (value > cpLengths[i]) {
-			cpLengths[i] = value;
-		}
+	if (value > cpLengths[level]) {
+		cpLengths[level] = value;
 	}
 }
 
@@ -137,9 +134,10 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		UInt64 ts1 = getTimestamp(entry1, i, version);
 		UInt64 greater0 = (ts0 > ts1) ? ts0 : ts1;
 		UInt64 greater1 = (cdt > greater0) ? cdt : greater0;
-		updateTimestamp(entryDest, i, version, greater1 + opCost);
+		UInt64 value = greater1 + opCost;
+		updateTimestamp(entryDest, i, version, value);
+		updateCP(value, i);
 	}
-	updateCP(entryDest, level);
 
 	return entryDest;
 }
@@ -157,10 +155,11 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
+		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, greater1 + opCost);
+		updateCP(value, i);
 	}
 
-	updateCP(entryDest, level);
 	return entryDest;
 }
 
@@ -177,9 +176,9 @@ void* logAssignmentConst(UInt dest) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		updateTimestamp(entryDest, i, version, cdt);
+		updateCP(cdt, i);
 	}
 
-	updateCP(entryDest, level);
 	return entryDest;
 
 }
@@ -198,10 +197,11 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
+		UInt64 value = greater1 + LOADCOST;
 		updateTimestamp(entryDest, i, version, greater1+LOADCOST);
+		updateCP(value, i);
 	}
 
-	updateCP(entryDest, level);
 	return entryDest;
 }
 
@@ -217,13 +217,31 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-		updateTimestamp(entryDest, i, version, greater1+STORECOST);
+		UInt64 value = greater1 + STORECOST;
+		updateTimestamp(entryDest, i, version, value);
+		updateCP(value, i);
 	}
 
-	updateCP(entryDest, level);
 	return entryDest;
 }
 
+
+void* logStoreInstConst(Addr dest_addr) {
+	int level = getRegionNum();
+	int i = 0;
+	addWork(STORECOST);
+	TEntry* entryDest = getGTEntry(dest_addr);
+	
+	for (i = 0; i < level; i++) {
+		UInt version = getVersion(i);
+		UInt64 cdt = getCdt(i);
+		UInt64 value = cdt + STORECOST;
+		updateTimestamp(entryDest, i, version, value);
+		updateCP(value, i);
+	}
+
+	return entryDest;
+}
 
 void* logInsertValue(UInt src, UInt dest) {
 	return logAssignment(src, dest);
