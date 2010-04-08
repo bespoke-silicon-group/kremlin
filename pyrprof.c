@@ -9,7 +9,7 @@
 
 #define MAX_ARGS 		10
 #define PYRPROF_DEBUG	1
-#define DEBUGLEVEL		50
+#define DEBUGLEVEL		1
 
 
 #if PYRPROF_DEBUG == 1
@@ -18,9 +18,9 @@
 	#define MSG(level, a, args...)	((void)0)
 #endif
 
-static int			tabLevel = 0;
+int			tabLevel = 0;
 #if PYRPROF_DEBUG == 1
-static char			tabString[MAX_REGION_LEVEL*2+1];
+char			tabString[MAX_REGION_LEVEL*2+1];
 
 void MSG(int level, char* format, ...) {
 	if (level > DEBUGLEVEL) {
@@ -103,7 +103,6 @@ inline void addWork(UInt work) {
 	//funcHead->work += work;	
 	int level = getCurrentRegion();
 	works[level] += work;
-	printf("adding work %d to level %d resulting in %d\n", work, level, works[level]);
 }
 
 void popFuncContext() {
@@ -121,7 +120,7 @@ inline int getCurrentRegion() {
 	return regionNum - 1;
 }
 
-static void updateTabString() {
+inline void updateTabString() {
 	int i;
 	for (i = 0; i < tabLevel*2; i++) {
 		tabString[i] = ' ';
@@ -129,12 +128,12 @@ static void updateTabString() {
 	tabString[i] = 0;
 }
 
-static void incIndentTab() {
+inline void incIndentTab() {
 	tabLevel++;
 	updateTabString();
 }
 
-static void decIndentTab() {
+inline void decIndentTab() {
 	tabLevel--;
 	updateTabString();
 }
@@ -232,6 +231,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	TEntry* entry1 = getLTEntry(src1);
 	TEntry* entryDest = getLTEntry(dest);
 	
+	MSG(1, "binOp ts[%d] = max(ts[%d], ts[%d]) + %d\n", dest, src0, src1, opCost);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -242,9 +242,9 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
-	MSG(1, "level %d version %d work %d\n", i, version, works[i]);
-	MSG(1, " src0 %d src1 %d dest %d\n", src0, src1, dest);
-	MSG(1, " ts0 %d ts1 %d cdt %d value %d\n", ts0, ts1, cdt, value);
+	MSG(2, "binOp[%d] level %d version %d work %d\n", opCost, i, version, works[i]);
+	MSG(2, " src0 %d src1 %d dest %d\n", src0, src1, dest);
+	MSG(2, " ts0 %d ts1 %d cdt %d value %d\n", ts0, ts1, cdt, value);
 	}
 
 	return entryDest;
@@ -258,6 +258,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getLTEntry(dest);
 	
+	MSG(1, "binOpConst ts[%d] = ts[%d] + %d\n", dest, src, opCost);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -266,6 +267,9 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, greater1 + opCost);
 		updateCP(value, i);
+	MSG(2, "binOpConst[%d] level %d version %d work %d\n", opCost, i, version, works[i]);
+	MSG(2, " src %d dest %d\n", src, dest);
+	MSG(2, " ts0 %d cdt %d value %d\n", ts0, cdt, value);
 	}
 
 	return entryDest;
@@ -300,6 +304,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	TEntry* entry0 = getGTEntry(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
 	
+	MSG(1, "load ts[%d] = ts[0x%x] + %d\n", dest, src_addr, LOADCOST);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -320,6 +325,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	
+	MSG(1, "store ts[0x%x] = ts[%d] + %d\n", dest_addr, src, STORECOST);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -340,6 +346,7 @@ void* logStoreInstConst(Addr dest_addr) {
 	addWork(STORECOST);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	
+	MSG(1, "storeConst ts[0x%x] = %d\n", dest_addr, STORECOST);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -352,10 +359,12 @@ void* logStoreInstConst(Addr dest_addr) {
 }
 
 void* logInsertValue(UInt src, UInt dest) {
+	printf("Warning: logInsertValue not correctly implemented\n");
 	return logAssignment(src, dest);
 }
 
 void* logInsertValueConst(UInt dest) {
+	printf("Warning: logInsertValueConst not correctly implemented\n");
 	return logAssignmentConst(dest);
 }
 
