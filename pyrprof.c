@@ -6,40 +6,11 @@
 #include <string.h>
 #include <sys/time.h>
 #include "defs.h"
+#include "debug.h"
+#include "table.h"
 
 #define MAX_ARGS 		10
-#define PYRPROF_DEBUG	1
-#define DEBUGLEVEL		1
 
-
-#if PYRPROF_DEBUG == 1
-	void MSG(int level, char* format, ...);
-#else
-	#define MSG(level, a, args...)	((void)0)
-#endif
-
-int			tabLevel = 0;
-#if PYRPROF_DEBUG == 1
-char			tabString[MAX_REGION_LEVEL*2+1];
-
-void MSG(int level, char* format, ...) {
-	if (level > DEBUGLEVEL) {
-		return;		
-	}
-
-	int strSize = strlen(format) + strlen(tabString);
-	char* buf = malloc(strSize + 5);
-	strcpy(buf, tabString);
-	strcat(buf, format);
-	//printf("%s\n", buf);
-	
-	va_list args;
-	va_start(args, format);
-	vfprintf(stderr, buf, args);
-	va_end(args);
-	free(buf);
-}
-#endif
 
 typedef struct _CDT_T {
 	UInt64*	time;
@@ -69,15 +40,7 @@ CDT* 		cdtHead = NULL;
 FuncContext* funcHead = NULL;
 UInt64*		works = NULL;
 
-// declaration of functions in table.c
-void setLocalTable(LTable* table);
-UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);
-UInt64 getTimestampNoVersion(TEntry* entry, UInt32 level);
-void copyTEntry(TEntry* dest, TEntry* src);
-UInt32 getMaxRegionLevel();
-void finalizeDataStructure();
-
-updateCP(UInt64 value, int level) {
+void updateCP(UInt64 value, int level) {
 	int i;
 	if (value > cpLengths[level].end) {
 		cpLengths[level].end = value;
@@ -99,6 +62,15 @@ FuncContext* pushFuncContext() {
 	funcHead = toAdd;
 }
 
+inline int getRegionNum() {
+	return regionNum;
+}
+
+inline int getCurrentRegion() {
+	return regionNum - 1;
+}
+
+
 inline void addWork(UInt work) {
 	//funcHead->work += work;	
 	int level = getCurrentRegion();
@@ -110,32 +82,6 @@ void popFuncContext() {
 	funcHead = ret->next;
 	freeLocalTable(ret->table);
 	free(ret);	
-}
-
-inline int getRegionNum() {
-	return regionNum;
-}
-
-inline int getCurrentRegion() {
-	return regionNum - 1;
-}
-
-inline void updateTabString() {
-	int i;
-	for (i = 0; i < tabLevel*2; i++) {
-		tabString[i] = ' ';
-	}	
-	tabString[i] = 0;
-}
-
-inline void incIndentTab() {
-	tabLevel++;
-	updateTabString();
-}
-
-inline void decIndentTab() {
-	tabLevel--;
-	updateTabString();
 }
 
 CDT* allocCDT() {
@@ -535,7 +481,7 @@ void initProfiler() {
 	int maxRegionLevel = MAX_REGION_LEVEL;
 	initDataStructure(maxRegionLevel);
 	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
-	works = (UInt*) malloc(sizeof(UInt64) * maxRegionLevel);
+	works = (UInt64*) malloc(sizeof(UInt64) * maxRegionLevel);
 	bzero(versions, sizeof(int) * maxRegionLevel);
 	bzero(works, sizeof(UInt64) * maxRegionLevel);
 

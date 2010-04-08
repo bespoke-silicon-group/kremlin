@@ -10,6 +10,9 @@
 #ifndef _PYRPROF_DEF
 #define _PYRPROF_DEF
 
+#define PYRPROF_DEBUG	1
+#define DEBUGLEVEL		1
+
 #define TRUE 1
 #define FALSE 0
 #define MAX_REGION_LEVEL	30
