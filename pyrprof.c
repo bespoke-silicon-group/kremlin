@@ -7,9 +7,42 @@
 #include <sys/time.h>
 #include "defs.h"
 
-#define MAX_ARGS 	10
+#define MAX_ARGS 		10
+#define PYRPROF_DEBUG	1
+#define DEBUGLEVEL		50
+
+
+#if PYRPROF_DEBUG == 1
+	void MSG(int level, char* format, ...);
+#else
+	#define MSG(level, a, args...)	((void)0)
+#endif
+
+static int			tabLevel = 0;
+#if PYRPROF_DEBUG == 1
+static char			tabString[MAX_REGION_LEVEL*2+1];
+
+void MSG(int level, char* format, ...) {
+	if (level > DEBUGLEVEL) {
+		return;		
+	}
+
+	int strSize = strlen(format) + strlen(tabString);
+	char* buf = malloc(strSize + 5);
+	strcpy(buf, tabString);
+	strcat(buf, format);
+	//printf("%s\n", buf);
+	
+	va_list args;
+	va_start(args, format);
+	vfprintf(stderr, buf, args);
+	va_end(args);
+	free(buf);
+}
+#endif
+
 typedef struct _CDT_T {
-	TEntry* entry;
+	UInt64*	time;
 	struct _CDT_T* next;
 } CDT;
 
@@ -24,16 +57,21 @@ typedef struct _FuncContext {
 	
 } FuncContext;
 
+typedef struct _cpLength {
+	UInt64 start;
+	UInt64 end;
+} CPLength;
+
 static int 			regionNum = 0;
 static int* 		versions = NULL;
-static UInt64* 		cpLengths = NULL;
+static CPLength*	cpLengths = NULL;
 static CDT* 		cdtHead = NULL;
 static FuncContext* funcHead = NULL;
 
 static updateCP(UInt64 value, int level) {
 	int i;
-	if (value > cpLengths[level]) {
-		cpLengths[level] = value;
+	if (value > cpLengths[level].end) {
+		cpLengths[level].end = value;
 	}
 }
 
@@ -73,16 +111,66 @@ static inline int getCurrentRegion() {
 	return regionNum - 1;
 }
 
+static void updateTabString() {
+	int i;
+	for (i = 0; i < tabLevel*2; i++) {
+		tabString[i] = ' ';
+	}	
+	tabString[i] = 0;
+}
+
+static void incIndentTab() {
+	tabLevel++;
+	updateTabString();
+}
+
+static void decIndentTab() {
+	tabLevel--;
+	updateTabString();
+}
+
+CDT* allocCDT() {
+	CDT* ret = (CDT*) malloc(sizeof(CDT));
+	ret->time = (UInt64*) malloc(sizeof(UInt64) * getMaxRegionLevel());
+	bzero(ret->time, sizeof(UInt64) * getMaxRegionLevel());
+	ret->next = NULL;
+	return ret;
+}
+
+void fillCDT(CDT* cdt, TEntry* entry) {
+	int numRegion = getRegionNum();
+	int i;
+	for (i = 0; i < numRegion; i++) {
+		cdt->time[i] = entry->time[i];
+	}
+	UInt64 ts = cdt->time[i-1];
+	for (; i < getMaxRegionLevel(); i++) {
+		cdt->time[i] = ts;	
+	}
+}
+
+void freeCDT(CDT* cdt) {
+	free(cdt->time);
+	free(cdt);	
+}
 
 
 UInt64 getCdt(int level) {
 	assert(cdtHead != NULL);
-	return getTimestampNoVersion(cdtHead->entry, level);
+	return cdtHead->time[level];
 }
 
 UInt getVersion(int level) {
 	return versions[level];
 }
+
+
+static inline UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
+    UInt64 ret = (entry->version[level] == version) ?
+                    entry->time[level] : 0;
+    return ret;
+}
+
 
 void setupLocalTable(UInt maxVregNum) {
 	LTable* table = allocLocalTable(maxVregNum);
@@ -99,16 +187,20 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	regionNum++;
 	int region = getCurrentRegion();
 	versions[region]++;
-	cpLengths[region] = 0;
+	MSG(0, "[+++] region %d level %d version %d\n", region_id, region, versions[region]);
+	cpLengths[region].start = (region == 0) ? 0 : cpLengths[region-1].end;
+	incIndentTab();
 }
 
 
 void logRegionExit(UInt region_id, UInt region_type) {
 	int i;
 	int region = getCurrentRegion();
-	UInt64 cpLength = cpLengths[region];
-	printf("region %d level %d cp %d work %d\n", 
-			region_id, region, cpLength, funcHead->work);
+	decIndentTab();
+	UInt64 cpLength = cpLengths[region].end - cpLengths[region].start;
+	MSG(0, "[---] region %d level %d cpStart %d cpEnd %d cp %d work %d\n", 
+			region_id, region, cpLengths[region].start, cpLengths[region].end, 
+			cpLength, funcHead->work);
 
 	if (region_type == RegionFunc) {
 		popFuncContext();
@@ -137,6 +229,9 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
+	MSG(1, "level %d version %d\n", i, version);
+	MSG(1, " src0 %d src1 %d dest %d\n", src0, src1, dest);
+	MSG(1, " ts0 %d ts1 %d cdt %d value %d\n", ts0, ts1, cdt, value);
 	}
 
 	return entryDest;
@@ -254,8 +349,8 @@ void* logInsertValueConst(UInt dest) {
 
 void addControlDep(UInt cond) {
 	TEntry* entry = getLTEntry(cond);
-	CDT* toAdd = (CDT*) malloc(sizeof(CDT));
-	toAdd->entry = entry;
+	CDT* toAdd = allocCDT();
+	fillCDT(toAdd, entry);
 	toAdd->next = cdtHead;
 	cdtHead = toAdd;
 }
@@ -263,7 +358,7 @@ void addControlDep(UInt cond) {
 void removeControlDep() {
 	CDT* toRemove = cdtHead;
 	cdtHead = cdtHead->next;
-	free(toRemove);
+	freeCDT(toRemove);
 }
 
 
@@ -407,8 +502,8 @@ void initProfiler() {
 	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
 	bzero(versions, sizeof(int) * maxRegionLevel);
 
-	cpLengths = (UInt64*) malloc(sizeof(UInt64) * maxRegionLevel);
-	bzero(cpLengths, sizeof(UInt64) * maxRegionLevel);
+	cpLengths = (CPLength*) malloc(sizeof(CPLength) * maxRegionLevel);
+	bzero(cpLengths, sizeof(CPLength) * maxRegionLevel);
 	allocDummyTEntry();
 	prepareCall();
 

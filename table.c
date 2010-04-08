@@ -103,6 +103,7 @@ void finalizeDataStructure() {
 	freeGlobalTable(gTable);
 }
 
+#if 0
 UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
 	UInt64 ret = (entry->version[level] == version) ?
 					entry->time[level] : 0;
@@ -112,6 +113,7 @@ UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
 UInt64 getTimestampNoVersion(TEntry* entry, UInt32 level) {
 	return entry->time[level];
 }
+#endif
 
 void updateTimestamp(TEntry* entry, UInt32 level, UInt32 version, UInt64 timestamp) {
 	entry->version[level] = version;

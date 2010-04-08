@@ -76,7 +76,7 @@ void initDataStructure(int regionLevel);
 void finalizeDataStructure();
 
 
-UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);
+//UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);
 void updateTimestamp(TEntry* entry, UInt32 level, UInt32 version, UInt64 timestamp);
 
 /* The following funcs are inserted by the critical path instrumentation pass */
