@@ -67,6 +67,7 @@ int* 		versions = NULL;
 CPLength*	cpLengths = NULL;
 CDT* 		cdtHead = NULL;
 FuncContext* funcHead = NULL;
+UInt64*		works = NULL;
 
 // declaration of functions in table.c
 void setLocalTable(LTable* table);
@@ -99,14 +100,15 @@ FuncContext* pushFuncContext() {
 }
 
 inline void addWork(UInt work) {
-	funcHead->work += work;	
+	//funcHead->work += work;	
+	int level = getCurrentRegion();
+	works[level] += work;
+	printf("adding work %d to level %d resulting in %d\n", work, level, works[level]);
 }
 
 void popFuncContext() {
 	FuncContext* ret = funcHead;
 	funcHead = ret->next;
-	if (funcHead != NULL)
-		addWork(ret->work);
 	freeLocalTable(ret->table);
 	free(ret);	
 }
@@ -195,6 +197,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	regionNum++;
 	int region = getCurrentRegion();
 	versions[region]++;
+	works[region] = 0;
 	MSG(0, "[+++] region %d level %d version %d\n", region_id, region, versions[region]);
 	cpLengths[region].start = (region == 0) ? 0 : cpLengths[region-1].end;
 	incIndentTab();
@@ -208,14 +211,16 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 cpLength = cpLengths[region].end - cpLengths[region].start;
 	MSG(0, "[---] region %d level %d cpStart %d cpEnd %d cp %d work %d\n", 
 			region_id, region, cpLengths[region].start, cpLengths[region].end, 
-			cpLength, funcHead->work);
+			cpLength, works[region]);
 
+	regionNum--;
 	if (region_type == RegionFunc) {
 		popFuncContext();
 		if (funcHead != NULL)
 			setLocalTable(funcHead->table);
 	}
-	regionNum--;
+	if (regionNum > 0)
+		addWork(works[region]);
 }
 
 
@@ -237,7 +242,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
-	MSG(1, "level %d version %d\n", i, version);
+	MSG(1, "level %d version %d work %d\n", i, version, works[i]);
 	MSG(1, " src0 %d src1 %d dest %d\n", src0, src1, dest);
 	MSG(1, " ts0 %d ts1 %d cdt %d value %d\n", ts0, ts1, cdt, value);
 	}
@@ -383,6 +388,16 @@ void logFuncReturn(UInt src) {
 }
 
 void logFuncReturnConst(void) {
+	int i;
+	int level = getRegionNum();
+	for (i = 0; i < level; i++) {
+		UInt64 cdt = getCdt(i);
+		int version = getVersion(i);
+		funcHead->ret->version[i] = version;
+		funcHead->ret->time[i] = cdt;
+	}
+	
+	
 }
 
 // give timestamp for an arg
@@ -511,13 +526,15 @@ void initProfiler() {
 	int maxRegionLevel = MAX_REGION_LEVEL;
 	initDataStructure(maxRegionLevel);
 	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
+	works = (UInt*) malloc(sizeof(UInt64) * maxRegionLevel);
 	bzero(versions, sizeof(int) * maxRegionLevel);
+	bzero(works, sizeof(UInt64) * maxRegionLevel);
 
 	cpLengths = (CPLength*) malloc(sizeof(CPLength) * maxRegionLevel);
 	bzero(cpLengths, sizeof(CPLength) * maxRegionLevel);
 	allocDummyTEntry();
 	prepareCall();
-
+	cdtHead = allocCDT();
 }
 
 void deinitProfiler() {
@@ -525,6 +542,9 @@ void deinitProfiler() {
 	freeDummyTEntry();
 	free(cpLengths);
 	free(versions);
+	free(cdtHead);
+	free(works);
+	cdtHead = NULL;
 }
 
 
