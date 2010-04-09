@@ -132,8 +132,10 @@ TEntry* getLTEntry(UInt32 vreg) {
 	return lTable->array[vreg];	
 }
 
+// FIXME: 64bit address?
 TEntry* getGTEntry(Addr addr) {
-	UInt32 index = (UInt64) addr >> 16;
+	UInt32 index = ((UInt64) addr >> 16);
+	assert(index < 0x10000);
 	GEntry* entry = gTable->array[index];
 	if (entry == NULL) {
 		entry = createGEntry();

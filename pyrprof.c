@@ -23,7 +23,6 @@ typedef struct _FuncContext {
 	TEntry* args[MAX_ARGS];
 	int		writeIndex;
 	int		readIndex;
-	UInt64	work;
 	struct _FuncContext* next;
 	
 } FuncContext;
@@ -43,8 +42,15 @@ UInt64*			works = NULL;
 #define getRegionNum() 		(regionNum)
 #define getCurrentRegion() 	(regionNum-1)
 
-void updateCP(UInt64 value, int level) {
+void dumpCPLength() {
 	int i;
+	for (i = 0; i < getRegionNum(); i++) {
+		printf("%d: %lld\t%lld\n", 
+			i, cpLengths[i].start, cpLengths[i].end);
+	}
+}
+
+void updateCP(UInt64 value, int level) {
 	if (value > cpLengths[level].end) {
 		cpLengths[level].end = value;
 	}
@@ -61,7 +67,6 @@ FuncContext* pushFuncContext() {
 	toAdd->next = prevHead;
 	toAdd->writeIndex = 0;
 	toAdd->readIndex = 0;
-	toAdd->work = 0;
 	funcHead = toAdd;
 }
 
@@ -122,6 +127,7 @@ UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
 
 
 void setupLocalTable(UInt maxVregNum) {
+	MSG(0, "setupLocalTable size %d\n", maxVregNum);
 	LTable* table = allocLocalTable(maxVregNum);
 	assert(funcHead->table == NULL);
 	funcHead->table = table;	
@@ -129,6 +135,7 @@ void setupLocalTable(UInt maxVregNum) {
 }
 
 void prepareCall() {
+	MSG(0, "prepareCall\n");
 	pushFuncContext();
 }
 
@@ -138,12 +145,16 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	versions[region]++;
 	works[region] = 0;
 	MSG(0, "[+++] region %d level %d version %d\n", region_id, region, versions[region]);
-	cpLengths[region].start = (region == 0) ? 0 : cpLengths[region-1].end;
+	//cpLengths[region].start = (region == 0) ? 0 : cpLengths[region-1].end;
+	cpLengths[region].start = 0;
+	cdtHead->time[region] = 0;
 	incIndentTab();
+	dumpCPLength();
 }
 
 
 void logRegionExit(UInt region_id, UInt region_type) {
+	dumpCPLength();
 	int i;
 	int region = getCurrentRegion();
 	decIndentTab();
@@ -187,6 +198,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	MSG(2, " ts0 %d ts1 %d cdt %d value %d\n", ts0, ts1, cdt, value);
 	}
 
+	dumpCPLength();
 	return entryDest;
 }
 
@@ -212,6 +224,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	MSG(2, " ts0 %d cdt %d value %d\n", ts0, cdt, value);
 	}
 
+	dumpCPLength();
 	return entryDest;
 }
 
@@ -240,11 +253,11 @@ void* logAssignmentConst(UInt dest) {
 void* logLoadInst(Addr src_addr, UInt dest) {
 	int level = getRegionNum();
 	int i = 0;
+	MSG(1, "load ts[%d] = ts[0x%x] + %d\n", dest, src_addr, LOADCOST);
 	addWork(LOADCOST);
 	TEntry* entry0 = getGTEntry(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
 	
-	MSG(1, "load ts[%d] = ts[0x%x] + %d\n", dest, src_addr, LOADCOST);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -391,12 +404,13 @@ void transferAndUnlinkArg(UInt dest) {
 }
 
 
-UInt	prevBB;
-UInt	currentBB;
+UInt	__prevBB;
+UInt	__currentBB;
 
 void logBBVisit(UInt bb_id) {
-	prevBB = currentBB;
-	currentBB = bb_id;
+	MSG(1, "logBBVisit(%d)\n", bb_id);
+	__prevBB = __currentBB;
+	__currentBB = bb_id;
 }
 
 #define MAX_ENTRY 10
@@ -418,7 +432,7 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 	for (i = 0; i < num_incoming_values; i++) { 
 		incomingBB[i] = va_arg(ap, UInt);
 		srcList[i] = va_arg(ap, UInt);
-		if (incomingBB[i] == prevBB) {
+		if (incomingBB[i] == __prevBB) {
 			srcEntry = getLTEntry(srcList[i]);
 		}
 	}
