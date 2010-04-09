@@ -24,6 +24,7 @@ typedef signed int          Int;
 typedef unsigned long long  UInt64;
 typedef signed long long    Int64;
 typedef void*               Addr;
+typedef FILE                File;
 
 enum RegionType {RegionFunc, RegionLoop};
 
