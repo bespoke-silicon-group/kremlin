@@ -9,7 +9,8 @@
 #include "debug.h"
 #include "table.h"
 
-#define MAX_ARGS 		10
+#define MAX_ARGS 			10
+#define MAX_STATIC_REGION	1000
 
 
 typedef struct _CDT_T {
@@ -27,32 +28,38 @@ typedef struct _FuncContext {
 	
 } FuncContext;
 
-typedef struct _cpLength {
+typedef struct _region_t {
 	UInt64 start;
-	UInt64 end;
-} CPLength;
+	UInt64 cp;
+	UInt64 regionId;
+} Region;
 
 int 			regionNum = 0;
 int* 			versions = NULL;
-CPLength*		cpLengths = NULL;
+Region*			regionInfo = NULL;
 CDT* 			cdtHead = NULL;
 FuncContext* 	funcHead = NULL;
-UInt64*			works = NULL;
+UInt64			timestamp = 0;
+File* 			fp = NULL;
+UInt64			dynamicRegionId[MAX_STATIC_REGION];	
 
 #define getRegionNum() 		(regionNum)
 #define getCurrentRegion() 	(regionNum-1)
+#define getCurrentTime()	(timestamp)
 
-void dumpCPLength() {
+void dumpRegion() {
+#if 0
 	int i;
 	for (i = 0; i < getRegionNum(); i++) {
-		printf("%d: %lld\t%lld\n", 
-			i, cpLengths[i].start, cpLengths[i].end);
+		fprintf(stderr, "%d: %lld\t%lld\n", 
+			i, regionInfo[i].start, regionInfo[i].end);
 	}
+#endif
 }
 
 void updateCP(UInt64 value, int level) {
-	if (value > cpLengths[level].end) {
-		cpLengths[level].end = value;
+	if (value > regionInfo[level].cp) {
+		regionInfo[level].cp = value;
 	}
 }
 
@@ -73,8 +80,8 @@ FuncContext* pushFuncContext() {
 
 void addWork(UInt work) {
 	//funcHead->work += work;	
-	int level = getCurrentRegion();
-	works[level] += work;
+	//int level = getCurrentRegion();
+	timestamp += work;
 }
 
 void popFuncContext() {
@@ -146,28 +153,40 @@ void prepareCall() {
 void logRegionEntry(UInt region_id, UInt region_type) {
 	regionNum++;
 	int region = getCurrentRegion();
+	dynamicRegionId[region_id]++;
 	versions[region]++;
-	works[region] = 0;
-	MSG(0, "[+++] region %u level %u version %u\n", region_id, region, versions[region]);
-	//cpLengths[region].start = (region == 0) ? 0 : cpLengths[region-1].end;
-	cpLengths[region].start = 0;
-	cpLengths[region].end = 0;
+	MSG(0, "[+++] type: %u region %u level %u version %u\n", 
+		region_type, region_id, region, versions[region]);
+	regionInfo[region].regionId = region_id;
+	regionInfo[region].start = getCurrentTime();
+	regionInfo[region].cp = 0;
 	cdtHead->time[region] = 0;
 	incIndentTab();
-	dumpCPLength();
+	dumpRegion();
 }
 
 
 void logRegionExit(UInt region_id, UInt region_type) {
 	int i;
 	int region = getCurrentRegion();
-	decIndentTab();
-	UInt64 cpLength = cpLengths[region].end - cpLengths[region].start;
-	MSG(0, "[---] region %u level %u cpStart %u cpEnd %u cp %u work %u\n", 
-			region_id, region, cpLengths[region].start, cpLengths[region].end, 
-			cpLength, works[region]);
 
-	dumpCPLength();
+	UInt64 startTime = regionInfo[region].start;
+	UInt64 endTime = getCurrentTime();
+	UInt64 work = endTime - regionInfo[region].start;
+	UInt64 cp = regionInfo[region].cp;
+	assert(region_id == regionInfo[region].regionId);
+	UInt64 did = dynamicRegionId[region_id];
+	UInt64 parentSid = (region > 1) ? regionInfo[region-1].regionId : 0;
+	UInt64 parentDid = (region > 1) ? dynamicRegionId[parentSid] : 0;
+
+	decIndentTab();
+	MSG(0, "[---] type: %u region [%u:%u] level %u cpStart %u cp %u work %u parent[%u:%u]\n", 
+			region_type, region_id, did, region, regionInfo[region].start, regionInfo[region].cp, 
+			work, parentSid, parentDid);
+
+	log_write(fp, region_id, 0, startTime, endTime, cp, parentSid, parentDid);
+
+	dumpRegion();
 	if (region_type == RegionFunc) { 
 		popFuncContext();
 		if (funcHead == NULL) {
@@ -178,8 +197,6 @@ void logRegionExit(UInt region_id, UInt region_type) {
 		}
 	}
 	regionNum--;
-	if (regionNum > 0)
-		addWork(works[region]);
 }
 
 
@@ -203,12 +220,12 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		assert(entryDest != NULL);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
-	MSG(2, "binOp[%u] level %u version %u work %u\n", opCost, i, version, works[i]);
+	MSG(2, "binOp[%u] level %u version %u \n", opCost, i, version);
 	MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
 	MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
 	}
 
-	dumpCPLength();
+	dumpRegion();
 	return entryDest;
 }
 
@@ -229,12 +246,12 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, greater1 + opCost);
 		updateCP(value, i);
-	MSG(2, "binOpConst[%u] level %u version %u work %u\n", opCost, i, version, works[i]);
+	MSG(2, "binOpConst[%u] level %u version %u \n", opCost, i, version);
 	MSG(2, " src %u dest %u\n", src, dest);
 	MSG(2, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
 	}
 
-	dumpCPLength();
+	dumpRegion();
 	return entryDest;
 }
 
@@ -360,6 +377,7 @@ void logFuncReturn(UInt src) {
 	MSG(1, "write return value ts[%u]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
 	assert(funcHead->ret != NULL);
+	MSG(2, " entry = %s\n", toStringTEntry(srcEntry));
 	copyTEntry(funcHead->ret, srcEntry);
 }
 
@@ -510,25 +528,25 @@ void initProfiler() {
 	int maxRegionLevel = MAX_REGION_LEVEL;
 	initDataStructure(maxRegionLevel);
 	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
-	works = (UInt64*) malloc(sizeof(UInt64) * maxRegionLevel);
 	bzero(versions, sizeof(int) * maxRegionLevel);
-	bzero(works, sizeof(UInt64) * maxRegionLevel);
 
-	cpLengths = (CPLength*) malloc(sizeof(CPLength) * maxRegionLevel);
-	bzero(cpLengths, sizeof(CPLength) * maxRegionLevel);
+	regionInfo = (Region*) malloc(sizeof(Region) * maxRegionLevel);
+	bzero(regionInfo, sizeof(Region) * maxRegionLevel);
 	allocDummyTEntry();
 	prepareCall();
 	cdtHead = allocCDT();
+	
+	fp = log_open("cpInfo.bin");
 }
 
 void deinitProfiler() {
 	finalizeDataStructure();
 	freeDummyTEntry();
-	free(cpLengths);
+	free(regionInfo);
 	free(versions);
-	free(works);
 	freeCDT(cdtHead);
 	cdtHead = NULL;
+	log_close(fp);
 }
 
 

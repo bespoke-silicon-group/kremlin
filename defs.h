@@ -11,7 +11,7 @@
 #define _PYRPROF_DEF
 
 #define PYRPROF_DEBUG	1
-#define DEBUGLEVEL		5
+#define DEBUGLEVEL		0
 
 #define TRUE 1
 #define FALSE 0
