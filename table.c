@@ -75,6 +75,7 @@ LTable* allocLocalTable(int size) {
 	for (i=0; i<size; i++) {
 		ret->array[i] = allocTEntry(getMaxRegionLevel());
 	}
+//	printf("Alloc LTable to 0x%x\n", ret);
 	return ret;
 }
 
@@ -91,6 +92,7 @@ void freeLocalTable(LTable* table) {
 }
 
 void setLocalTable(LTable* table) {
+//	printf("Set LTable to 0x%x\n", table);
 	lTable = table;
 }
 
@@ -129,12 +131,13 @@ void printTEntry(TEntry* entry) {
 
 TEntry* getLTEntry(UInt32 vreg) {
 	assert(lTable != NULL);
+	assert(vreg < lTable->size);
 	return lTable->array[vreg];	
 }
 
 // FIXME: 64bit address?
 TEntry* getGTEntry(Addr addr) {
-	UInt32 index = ((UInt64) addr >> 16);
+	UInt32 index = ((UInt64) addr >> 16) & 0xffff;
 	assert(index < 0x10000);
 	GEntry* entry = gTable->array[index];
 	if (entry == NULL) {

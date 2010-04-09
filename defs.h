@@ -11,7 +11,7 @@
 #define _PYRPROF_DEF
 
 #define PYRPROF_DEBUG	1
-#define DEBUGLEVEL		1
+#define DEBUGLEVEL		5
 
 #define TRUE 1
 #define FALSE 0
@@ -25,7 +25,7 @@ typedef unsigned long long  UInt64;
 typedef signed long long    Int64;
 typedef void*               Addr;
 
-enum RegionType {RegionLoop, RegionFunc};
+enum RegionType {RegionFunc, RegionLoop};
 
 typedef struct _DataEntry {
     UInt32* version;

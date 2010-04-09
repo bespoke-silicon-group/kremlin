@@ -68,6 +68,7 @@ FuncContext* pushFuncContext() {
 	toAdd->writeIndex = 0;
 	toAdd->readIndex = 0;
 	funcHead = toAdd;
+//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 }
 
 void addWork(UInt work) {
@@ -79,6 +80,8 @@ void addWork(UInt work) {
 void popFuncContext() {
 	FuncContext* ret = funcHead;
 	funcHead = ret->next;
+	FuncContext* next = (funcHead == NULL) ? NULL : ret->next;
+//fprintf(stderr, "[pop ] head = 0x%x next = 0x%x\n", funcHead, next);
 	freeLocalTable(ret->table);
 	free(ret);	
 }
@@ -111,6 +114,7 @@ void freeCDT(CDT* cdt) {
 
 UInt64 getCdt(int level) {
 	assert(cdtHead != NULL);
+	assert(level >= 0);
 	return cdtHead->time[level];
 }
 
@@ -147,6 +151,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	MSG(0, "[+++] region %u level %u version %u\n", region_id, region, versions[region]);
 	//cpLengths[region].start = (region == 0) ? 0 : cpLengths[region-1].end;
 	cpLengths[region].start = 0;
+	cpLengths[region].end = 0;
 	cdtHead->time[region] = 0;
 	incIndentTab();
 	dumpCPLength();
@@ -154,7 +159,6 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 
 
 void logRegionExit(UInt region_id, UInt region_type) {
-	dumpCPLength();
 	int i;
 	int region = getCurrentRegion();
 	decIndentTab();
@@ -163,12 +167,17 @@ void logRegionExit(UInt region_id, UInt region_type) {
 			region_id, region, cpLengths[region].start, cpLengths[region].end, 
 			cpLength, works[region]);
 
-	regionNum--;
-	if (region_type == RegionFunc) {
+	dumpCPLength();
+	if (region_type == RegionFunc) { 
 		popFuncContext();
-		if (funcHead != NULL)
+		if (funcHead == NULL) {
+			assert(getCurrentRegion() == 0);
+
+		} else {
 			setLocalTable(funcHead->table);
+		}
 	}
+	regionNum--;
 	if (regionNum > 0)
 		addWork(works[region]);
 }
@@ -191,6 +200,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		UInt64 greater0 = (ts0 > ts1) ? ts0 : ts1;
 		UInt64 greater1 = (cdt > greater0) ? cdt : greater0;
 		UInt64 value = greater1 + opCost;
+		assert(entryDest != NULL);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	MSG(2, "binOp[%u] level %u version %u work %u\n", opCost, i, version, works[i]);
