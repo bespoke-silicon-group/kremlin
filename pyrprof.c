@@ -496,6 +496,7 @@ void* logInductionVarDependence(UInt induct_var) {
 
 
 void initProfiler() {
+	regionNum = 0;
 	int maxRegionLevel = MAX_REGION_LEVEL;
 	initDataStructure(maxRegionLevel);
 	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
