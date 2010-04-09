@@ -123,7 +123,7 @@ void updateTimestamp(TEntry* entry, UInt32 level, UInt32 version, UInt64 timesta
 void printTEntry(TEntry* entry) {
 	int i;
 	for (i = 0; i < getMaxRegionLevel(); i++) {
-		printf("%d %lld\n", entry->version[i], entry->time[i]);
+		printf("%u %lld\n", entry->version[i], entry->time[i]);
 	}
 }
 

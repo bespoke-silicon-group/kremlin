@@ -127,7 +127,7 @@ UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
 
 
 void setupLocalTable(UInt maxVregNum) {
-	MSG(0, "setupLocalTable size %d\n", maxVregNum);
+	MSG(0, "setupLocalTable size %u\n", maxVregNum);
 	LTable* table = allocLocalTable(maxVregNum);
 	assert(funcHead->table == NULL);
 	funcHead->table = table;	
@@ -144,7 +144,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	int region = getCurrentRegion();
 	versions[region]++;
 	works[region] = 0;
-	MSG(0, "[+++] region %d level %d version %d\n", region_id, region, versions[region]);
+	MSG(0, "[+++] region %u level %u version %u\n", region_id, region, versions[region]);
 	//cpLengths[region].start = (region == 0) ? 0 : cpLengths[region-1].end;
 	cpLengths[region].start = 0;
 	cdtHead->time[region] = 0;
@@ -159,7 +159,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	int region = getCurrentRegion();
 	decIndentTab();
 	UInt64 cpLength = cpLengths[region].end - cpLengths[region].start;
-	MSG(0, "[---] region %d level %d cpStart %d cpEnd %d cp %d work %d\n", 
+	MSG(0, "[---] region %u level %u cpStart %u cpEnd %u cp %u work %u\n", 
 			region_id, region, cpLengths[region].start, cpLengths[region].end, 
 			cpLength, works[region]);
 
@@ -182,7 +182,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	TEntry* entry1 = getLTEntry(src1);
 	TEntry* entryDest = getLTEntry(dest);
 	
-	MSG(1, "binOp ts[%d] = max(ts[%d], ts[%d]) + %d\n", dest, src0, src1, opCost);
+	MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -193,9 +193,9 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
-	MSG(2, "binOp[%d] level %d version %d work %d\n", opCost, i, version, works[i]);
-	MSG(2, " src0 %d src1 %d dest %d\n", src0, src1, dest);
-	MSG(2, " ts0 %d ts1 %d cdt %d value %d\n", ts0, ts1, cdt, value);
+	MSG(2, "binOp[%u] level %u version %u work %u\n", opCost, i, version, works[i]);
+	MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
+	MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
 	}
 
 	dumpCPLength();
@@ -210,7 +210,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getLTEntry(dest);
 	
-	MSG(1, "binOpConst ts[%d] = ts[%d] + %d\n", dest, src, opCost);
+	MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -219,9 +219,9 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, greater1 + opCost);
 		updateCP(value, i);
-	MSG(2, "binOpConst[%d] level %d version %d work %d\n", opCost, i, version, works[i]);
-	MSG(2, " src %d dest %d\n", src, dest);
-	MSG(2, " ts0 %d cdt %d value %d\n", ts0, cdt, value);
+	MSG(2, "binOpConst[%u] level %u version %u work %u\n", opCost, i, version, works[i]);
+	MSG(2, " src %u dest %u\n", src, dest);
+	MSG(2, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
 	}
 
 	dumpCPLength();
@@ -253,7 +253,7 @@ void* logAssignmentConst(UInt dest) {
 void* logLoadInst(Addr src_addr, UInt dest) {
 	int level = getRegionNum();
 	int i = 0;
-	MSG(1, "load ts[%d] = ts[0x%x] + %d\n", dest, src_addr, LOADCOST);
+	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOADCOST);
 	addWork(LOADCOST);
 	TEntry* entry0 = getGTEntry(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
@@ -278,7 +278,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	
-	MSG(1, "store ts[0x%x] = ts[%d] + %d\n", dest_addr, src, STORECOST);
+	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORECOST);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -299,7 +299,7 @@ void* logStoreInstConst(Addr dest_addr) {
 	addWork(STORECOST);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	
-	MSG(1, "storeConst ts[0x%x] = %d\n", dest_addr, STORECOST);
+	MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORECOST);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -323,7 +323,7 @@ void* logInsertValueConst(UInt dest) {
 
 
 void addControlDep(UInt cond) {
-	MSG(1, "push ControlDep ts[%d]\n", cond);
+	MSG(1, "push ControlDep ts[%u]\n", cond);
 	TEntry* entry = getLTEntry(cond);
 	CDT* toAdd = allocCDT();
 	fillCDT(toAdd, entry);
@@ -341,13 +341,13 @@ void removeControlDep() {
 
 // prepare timestamp storage for return value
 void addReturnValueLink(UInt dest) {
-	MSG(1, "prepare return storage ts[%d]\n", dest);
+	MSG(1, "prepare return storage ts[%u]\n", dest);
 	funcHead->ret = getLTEntry(dest);
 }
 
 // write timestamp to the prepared storage
 void logFuncReturn(UInt src) {
-	MSG(1, "write return value ts[%d]\n", src);
+	MSG(1, "write return value ts[%u]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
 	assert(funcHead->ret != NULL);
 	copyTEntry(funcHead->ret, srcEntry);
@@ -369,7 +369,7 @@ void logFuncReturnConst(void) {
 
 // give timestamp for an arg
 void linkArgToLocal(UInt src) {
-	MSG(1, "linkArgToLocal to ts[%d]\n", src);
+	MSG(1, "linkArgToLocal to ts[%u]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
 	funcHead->args[funcHead->writeIndex++] = srcEntry;
 }
@@ -397,7 +397,7 @@ void linkArgToConst() {
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
 void transferAndUnlinkArg(UInt dest) {
-	MSG(1, "getArgInfo to ts[%d]\n", dest);
+	MSG(1, "getArgInfo to ts[%u]\n", dest);
 	TEntry* destEntry = getLTEntry(dest);
 	assert(funcHead->args[funcHead->readIndex] != NULL);
 	copyTEntry(destEntry, funcHead->args[funcHead->readIndex++]);
@@ -408,7 +408,7 @@ UInt	__prevBB;
 UInt	__currentBB;
 
 void logBBVisit(UInt bb_id) {
-	MSG(1, "logBBVisit(%d)\n", bb_id);
+	MSG(1, "logBBVisit(%u)\n", bb_id);
 	__prevBB = __currentBB;
 	__currentBB = bb_id;
 }
@@ -422,7 +422,7 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 	UInt	incomingBB[MAX_ENTRY];
 	UInt	srcList[MAX_ENTRY];
 
-	MSG(1, "logPhiNode to ts[%d] from %d srcs\n", dest, num_incoming_values);
+	MSG(1, "logPhiNode to ts[%u] from %u srcs\n", dest, num_incoming_values);
 	va_list ap;
 	va_start(ap, num_t_inits);
 	int level = getRegionNum();
@@ -461,7 +461,7 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 
 // use estimated cost for a callee function we cannot instrument
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
-	MSG(1, "logLibraryCall to ts[%d] with cost %d\n", dest, cost);
+	MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
 	int i, j;
 	int level = getRegionNum();
 	TEntry* srcEntry[MAX_ENTRY];
