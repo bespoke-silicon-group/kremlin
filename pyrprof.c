@@ -157,8 +157,8 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	int region = getCurrentRegion();
 	dynamicRegionId[region_id]++;
 	versions[region]++;
-	MSG(0, "[+++] type: %u region %u level %u version %u\n", 
-		region_type, region_id, region, versions[region]);
+	MSG(0, "[+++] type: %u region [%u:%u] level %u \n", 
+		region_type, region_id, dynamicRegionId[region_id], region);
 	regionInfo[region].regionId = region_id;
 	regionInfo[region].start = getCurrentTime();
 	regionInfo[region].cp = 0;
@@ -182,7 +182,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 parentDid = (region > 1) ? dynamicRegionId[parentSid] : 0;
 
 	decIndentTab();
-	MSG(0, "[---] type: %u region [%u:%u] level %u cpStart %u cp %u work %u parent[%u:%u]\n", 
+	MSG(0, "[---] type: %u region [%u:%u] level %u cpStart %u cp %llu work %llu parent[%u:%u]\n", 
 			region_type, region_id, did, region, regionInfo[region].start, regionInfo[region].cp, 
 			work, parentSid, parentDid);
 
