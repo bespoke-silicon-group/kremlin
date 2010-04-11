@@ -37,7 +37,7 @@ void MSG(int level, char* format, ...) {
     }
 
     int strSize = strlen(format) + strlen(tabString);
-    char* buf = malloc(strSize + 5);
+    char* buf = malloc(500);
     strcpy(buf, tabString);
     strcat(buf, format);
     //printf("%s\n", buf);

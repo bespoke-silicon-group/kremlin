@@ -39,13 +39,12 @@ int* 			versions = NULL;
 Region*			regionInfo = NULL;
 CDT* 			cdtHead = NULL;
 FuncContext* 	funcHead = NULL;
-UInt64			timestamp = 0;
+UInt64			timestamp = 0llu;
 File* 			fp = NULL;
 UInt64			dynamicRegionId[MAX_STATIC_REGION];	
 
 #define getRegionNum() 		(regionNum)
 #define getCurrentRegion() 	(regionNum-1)
-#define getCurrentTime()	(timestamp)
 
 void dumpRegion() {
 #if 0
@@ -82,6 +81,7 @@ void addWork(UInt work) {
 	//funcHead->work += work;	
 	//int level = getCurrentRegion();
 	timestamp += work;
+	//fprintf(stderr, "\tcurrent time = %llu\n", timestamp);
 }
 
 void popFuncContext() {
@@ -157,10 +157,10 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	int region = getCurrentRegion();
 	dynamicRegionId[region_id]++;
 	versions[region]++;
-	MSG(0, "[+++] type: %u region [%u:%u] level %u \n", 
-		region_type, region_id, dynamicRegionId[region_id], region);
+	MSG(0, "[+++] type: %u region [%u, %u:%llu] start: %llu\n",
+		region_type, region, region_id, dynamicRegionId[region_id], timestamp);
 	regionInfo[region].regionId = region_id;
-	regionInfo[region].start = getCurrentTime();
+	regionInfo[region].start = timestamp;
 	regionInfo[region].cp = 0;
 	cdtHead->time[region] = 0;
 	incIndentTab();
@@ -173,7 +173,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	int region = getCurrentRegion();
 
 	UInt64 startTime = regionInfo[region].start;
-	UInt64 endTime = getCurrentTime();
+	UInt64 endTime = timestamp;
 	UInt64 work = endTime - regionInfo[region].start;
 	UInt64 cp = regionInfo[region].cp;
 	assert(region_id == regionInfo[region].regionId);
@@ -182,9 +182,10 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 parentDid = (region > 1) ? dynamicRegionId[parentSid] : 0;
 
 	decIndentTab();
-	MSG(0, "[---] type: %u region [%u:%u] level %u cpStart %u cp %llu work %llu parent[%u:%u]\n", 
-			region_type, region_id, did, region, regionInfo[region].start, regionInfo[region].cp, 
-			work, parentSid, parentDid);
+	MSG(0, "[---] type: %u region [%u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
+			region_type, region, region_id, did, parentSid, parentDid, 
+			regionInfo[region].cp, work);
+
 
 	log_write(fp, region_id, 0, startTime, endTime, cp, parentSid, parentDid);
 
