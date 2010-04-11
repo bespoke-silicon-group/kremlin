@@ -131,6 +131,8 @@ UInt getVersion(int level) {
 
 
 UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
+	assert(entry != NULL);
+	assert(level < MAX_REGION_LEVEL);
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
@@ -207,6 +209,12 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	TEntry* entry0 = getLTEntry(src0);
 	TEntry* entry1 = getLTEntry(src1);
 	TEntry* entryDest = getLTEntry(dest);
+	assert(funcHead->table->size > src0);
+	assert(funcHead->table->size > src1);
+	assert(funcHead->table->size > dest);
+	assert(entry0 != NULL);
+	assert(entry1 != NULL);
+	assert(entryDest != NULL);
 	
 	MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
 	for (i = 0; i < level; i++) {
@@ -237,6 +245,11 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getLTEntry(dest);
 	
+	assert(funcHead->table->size > src);
+	assert(funcHead->table->size > dest);
+	assert(entry0 != NULL);
+	assert(entryDest != NULL);
+
 	MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
@@ -264,6 +277,9 @@ void* logAssignmentConst(UInt dest) {
 	int i = 0;
 	TEntry* entryDest = getLTEntry(dest);
 	
+	assert(funcHead->table->size > dest);
+	assert(entryDest != NULL);
+
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -284,6 +300,9 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	addWork(LOADCOST);
 	TEntry* entry0 = getGTEntry(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
+	assert(funcHead->table->size > dest);
+	assert(entryDest != NULL);
+	assert(entry0 != NULL);
 	
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
@@ -305,6 +324,10 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	
+	assert(funcHead->table->size > src);
+	assert(entryDest != NULL);
+	assert(entry0 != NULL);
+
 	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORECOST);
 	for (i = 0; i < level; i++) {
 		UInt version = getVersion(i);
@@ -325,6 +348,7 @@ void* logStoreInstConst(Addr dest_addr) {
 	int i = 0;
 	addWork(STORECOST);
 	TEntry* entryDest = getGTEntry(dest_addr);
+	assert(entryDest != NULL);
 	
 	MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORECOST);
 	for (i = 0; i < level; i++) {
@@ -462,13 +486,23 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 		srcList[i] = va_arg(ap, UInt);
 		if (incomingBB[i] == __prevBB) {
 			srcEntry = getLTEntry(srcList[i]);
+			assert(srcEntry != NULL);
 		}
+	}
+	if (srcEntry == NULL) {
+		MSG(0, " actual prev = %d current = %d\n", __prevBB, __currentBB);
+		for (i = 0; i < num_incoming_values; i++) {
+			MSG(0, "\t phi prev[%d] = %d\n", i, incomingBB[i]);
+			
+		}
+		assert(0);
 	}
 
 	// read all CDT
 	for (i = 0; i < num_t_inits; i++) {
 		UInt cdt = va_arg(ap, UInt);
 		cdtEntry[i] = getLTEntry(cdt);
+		assert(cdtEntry[i] != NULL);
 	}
 	va_end(ap);
 
@@ -500,6 +534,7 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 	for (i = 0; i < num_in; i++) {
 		UInt src = va_arg(ap, UInt);
 		srcEntry[i] = getLTEntry(src);
+		assert(srcEntry[i] != NULL);
 	}	
 	va_end(ap);
 
@@ -537,6 +572,7 @@ void initProfiler() {
 	cdtHead = allocCDT();
 	
 	fp = log_open("cpInfo.bin");
+	assert(fp != NULL);
 }
 
 void deinitProfiler() {
