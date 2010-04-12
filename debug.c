@@ -1,16 +1,5 @@
 #include "defs.h"
-
-#if PYRPROF_DEBUG == 1
-    void 	MSG(int level, char* format, ...);
-	char* 	toStringTEntry(TEntry* entry);
-#else
-    #define MSG(level, a, args...)  ((void)0)
-    #define incIndentTab()          ((void)0)
-    #define decIndentTab()          ((void)0)
-    #define updateTabString()       ((void)0)
-    #define toStringTEntry(entry)       ((void)0)
-
-#endif
+#include "debug.h"
 
 #if PYRPROF_DEBUG == 1
 char            tabString[2000];
