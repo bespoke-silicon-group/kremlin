@@ -23,9 +23,9 @@
 
 #define TRUE 1
 #define FALSE 0
-//#define MAX_REGION_LEVEL		30		// acceptable max region level
+
 #define MAX_LOG_REGION_LEVEL	10		
-#define MIN_LOG_REGION_LEVEL	2
+#define MIN_LOG_REGION_LEVEL	0
 
 typedef unsigned long       UInt32;
 typedef signed long         Int32;
