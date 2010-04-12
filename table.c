@@ -63,7 +63,7 @@ void copyTEntry(TEntry* dest, TEntry* src) {
 	int i;
 	assert(dest != NULL);
 	assert(src != NULL);
-	for (i=0; i<maxRegionLevel; i++) {
+	for (i=0; i<getMaxRegionLevel(); i++) {
 		dest->version[i] = src->version[i];
 		dest->time[i] = src->time[i];
 	}	

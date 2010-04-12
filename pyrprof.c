@@ -9,7 +9,7 @@
 #include "debug.h"
 #include "table.h"
 
-#define MAX_ARGS 			10
+#define MAX_ARGS 			20
 #define MAX_STATIC_REGION	1000
 
 
@@ -25,6 +25,10 @@ typedef struct _FuncContext {
 	int		writeIndex;
 	int		readIndex;
 	struct _FuncContext* next;
+#ifdef MANAGE_BB_INFO
+	UInt	retBB;
+	UInt	retPrevBB;
+#endif
 	
 } FuncContext;
 
@@ -42,6 +46,11 @@ FuncContext* 	funcHead = NULL;
 UInt64			timestamp = 0llu;
 File* 			fp = NULL;
 UInt64			dynamicRegionId[MAX_STATIC_REGION];	
+
+#ifdef MANAGE_BB_INFO
+UInt	__prevBB;
+UInt	__currentBB;
+#endif
 
 #define getRegionNum() 		(regionNum)
 #define getCurrentRegion() 	(regionNum-1)
@@ -73,6 +82,11 @@ FuncContext* pushFuncContext() {
 	toAdd->next = prevHead;
 	toAdd->writeIndex = 0;
 	toAdd->readIndex = 0;
+#ifdef MANAGE_BB_INFO
+	toAdd->retBB = __currentBB;
+	toAdd->retPrevBB = __prevBB;
+#endif
+	MSG(0, "[push] current = %u last = %u\n", __currentBB, __prevBB);
 	funcHead = toAdd;
 //fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 }
@@ -86,6 +100,11 @@ void addWork(UInt work) {
 
 void popFuncContext() {
 	FuncContext* ret = funcHead;
+	// restore currentBB and prevBB
+#ifdef MANAGE_BB_INFO
+	__currentBB = ret->retBB;
+	__prevBB = ret->retPrevBB;
+#endif
 	funcHead = ret->next;
 	FuncContext* next = (funcHead == NULL) ? NULL : ret->next;
 //fprintf(stderr, "[pop ] head = 0x%x next = 0x%x\n", funcHead, next);
@@ -154,6 +173,7 @@ void prepareCall() {
 
 void logRegionEntry(UInt region_id, UInt region_type) {
 	regionNum++;
+	assert(regionNum < MAX_REGION_LEVEL);
 	int region = getCurrentRegion();
 	dynamicRegionId[region_id]++;
 	versions[region]++;
@@ -198,6 +218,10 @@ void logRegionExit(UInt region_id, UInt region_type) {
 		} else {
 			setLocalTable(funcHead->table);
 		}
+#if MANAGE_BB_INFO
+		MSG(0, "	currentBB: %u   lastBB: %u\n",
+			__currentBB, __prevBB);
+#endif
 	}
 	regionNum--;
 }
@@ -424,6 +448,7 @@ void logFuncReturnConst(void) {
 void linkArgToLocal(UInt src) {
 	MSG(1, "linkArgToLocal to ts[%u]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
+	assert(funcHead->writeIndex < MAX_ARGS);
 	funcHead->args[funcHead->writeIndex++] = srcEntry;
 }
 
@@ -444,6 +469,7 @@ void freeDummyTEntry() {
 // special case for constant arg
 void linkArgToConst() {
 	MSG(1, "linkArgToConst\n");
+	assert(funcHead->writeIndex < MAX_ARGS);
 	funcHead->args[funcHead->writeIndex++] = getDummyTEntry();
 }
 
@@ -452,18 +478,19 @@ void linkArgToConst() {
 void transferAndUnlinkArg(UInt dest) {
 	MSG(1, "getArgInfo to ts[%u]\n", dest);
 	TEntry* destEntry = getLTEntry(dest);
+	assert(funcHead != NULL);
+	assert(funcHead->args != NULL);
 	assert(funcHead->args[funcHead->readIndex] != NULL);
+	assert(funcHead->readIndex < funcHead->writeIndex);
 	copyTEntry(destEntry, funcHead->args[funcHead->readIndex++]);
 }
 
-
-UInt	__prevBB;
-UInt	__currentBB;
-
 void logBBVisit(UInt bb_id) {
+#ifdef MANAGE_BB_INFO
 	MSG(1, "logBBVisit(%u)\n", bb_id);
 	__prevBB = __currentBB;
 	__currentBB = bb_id;
+#endif
 }
 
 #define MAX_ENTRY 10
@@ -483,11 +510,6 @@ void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
 
 	// catch src dep
 	srcEntry = getLTEntry(src);
-	
-	if (srcEntry == NULL) {
-		MSG(0, " actual prev = %d current = %d\n", __prevBB, __currentBB);
-		assert(0);
-	}
 
 	// read all CDT
 	for (i = 0; i < num_cont_dep; i++) {

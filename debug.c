@@ -8,7 +8,7 @@
     #define incIndentTab()          ((void)0)
     #define decIndentTab()          ((void)0)
     #define updateTabString()       ((void)0)
-    #define toStringTEntry(TEntry* entry)       ((void)0)
+    #define toStringTEntry(entry)       ((void)0)
 
 #endif
 

@@ -10,8 +10,15 @@
 #ifndef _PYRPROF_DEF
 #define _PYRPROF_DEF
 
-#define PYRPROF_DEBUG	1
+#define PYRPROF_DEBUG	0
 #define DEBUGLEVEL		0
+
+
+// save the last visited BB number 
+// for now we do not use it
+// but if we need it later, define it 
+
+//#define MANAGE_BB_INFO	
 
 #define TRUE 1
 #define FALSE 0
