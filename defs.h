@@ -1,3 +1,4 @@
+//#define NDEBUG
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */
@@ -22,7 +23,8 @@
 
 #define TRUE 1
 #define FALSE 0
-#define MAX_REGION_LEVEL	30
+#define MAX_REGION_LEVEL		30		// acceptable max region level
+#define MAX_LOG_REGION_LEVEL	1		// max region level logged
 
 typedef unsigned long       UInt32;
 typedef signed long         Int32;

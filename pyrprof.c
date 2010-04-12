@@ -12,6 +12,7 @@
 #define MAX_ARGS 			20
 #define MAX_STATIC_REGION	1000
 
+#define GET_LOG_MAX(a)	((a < MAX_LOG_REGION_LEVEL) ? a : MAX_LOG_REGION_LEVEL)
 
 typedef struct _CDT_T {
 	UInt64*	time;
@@ -85,8 +86,8 @@ FuncContext* pushFuncContext() {
 #ifdef MANAGE_BB_INFO
 	toAdd->retBB = __currentBB;
 	toAdd->retPrevBB = __prevBB;
-#endif
 	MSG(0, "[push] current = %u last = %u\n", __currentBB, __prevBB);
+#endif
 	funcHead = toAdd;
 //fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 }
@@ -228,7 +229,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
-	int level = getRegionNum();
+	int level = GET_LOG_MAX(getRegionNum());
 	int i = 0;
 	addWork(opCost);
 	TEntry* entry0 = getLTEntry(src0);
@@ -264,7 +265,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 
 
 void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
-	int level = getRegionNum();
+	int level = GET_LOG_MAX(getRegionNum());
 	int i = 0;
 	addWork(opCost);
 	TEntry* entry0 = getLTEntry(src);
@@ -298,7 +299,7 @@ void* logAssignment(UInt src, UInt dest) {
 }
 
 void* logAssignmentConst(UInt dest) {
-	int level = getRegionNum();
+	int level = GET_LOG_MAX(getRegionNum());
 	int i = 0;
 	TEntry* entryDest = getLTEntry(dest);
 	
@@ -319,7 +320,7 @@ void* logAssignmentConst(UInt dest) {
 #define LOADCOST	10
 #define STORECOST	10
 void* logLoadInst(Addr src_addr, UInt dest) {
-	int level = getRegionNum();
+	int level = GET_LOG_MAX(getRegionNum());
 	int i = 0;
 	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOADCOST);
 	addWork(LOADCOST);
@@ -343,7 +344,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 }
 
 void* logStoreInst(UInt src, Addr dest_addr) {
-	int level = getRegionNum();
+	int level = GET_LOG_MAX(getRegionNum());
 	int i = 0;
 	addWork(STORECOST);
 	TEntry* entry0 = getLTEntry(src);
@@ -369,7 +370,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 
 
 void* logStoreInstConst(Addr dest_addr) {
-	int level = getRegionNum();
+	int level = GET_LOG_MAX(getRegionNum());
 	int i = 0;
 	addWork(STORECOST);
 	TEntry* entryDest = getGTEntry(dest_addr);
