@@ -40,8 +40,8 @@ typedef struct _region_t {
 } Region;
 
 
-int				_maxRegionToLog = MAX_LOG_REGION_LEVEL;
-int				_minRegionToLog = MIN_LOG_REGION_LEVEL;
+int				_maxRegionToLog = MAX_REGION_LEVEL;
+int				_minRegionToLog = MIN_REGION_LEVEL;
 
 int 			regionNum = 0;
 int* 			versions = NULL;
@@ -598,8 +598,7 @@ void initProfiler() {
 	int i;
 	regionNum = 0;
 	int storageSize = _maxRegionToLog - _minRegionToLog + 1;
-	//initDataStructure(storageSize);
-	initDataStructure(30);
+	initDataStructure(storageSize);
 
 	versions = (int*) malloc(sizeof(int) * _maxRegionToLog);
 	bzero(versions, sizeof(int) * _maxRegionToLog);
