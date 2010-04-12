@@ -11,8 +11,8 @@
 #ifndef _PYRPROF_DEF
 #define _PYRPROF_DEF
 
-#define PYRPROF_DEBUG	0
-#define DEBUGLEVEL		0
+#define PYRPROF_DEBUG	1
+#define DEBUGLEVEL		3
 
 
 // save the last visited BB number 
@@ -23,8 +23,9 @@
 
 #define TRUE 1
 #define FALSE 0
-#define MAX_REGION_LEVEL		30		// acceptable max region level
-#define MAX_LOG_REGION_LEVEL	1		// max region level logged
+//#define MAX_REGION_LEVEL		30		// acceptable max region level
+#define MAX_LOG_REGION_LEVEL	10		
+#define MIN_LOG_REGION_LEVEL	2
 
 typedef unsigned long       UInt32;
 typedef signed long         Int32;

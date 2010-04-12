@@ -13,7 +13,7 @@
 #endif
 
 #if PYRPROF_DEBUG == 1
-char            tabString[MAX_REGION_LEVEL*2+1];
+char            tabString[2000];
 int tabLevel = 0;
 
 extern int regionNum;
@@ -37,7 +37,7 @@ void MSG(int level, char* format, ...) {
     }
 
     int strSize = strlen(format) + strlen(tabString);
-    char* buf = malloc(500);
+    char* buf = malloc(2000);
     strcpy(buf, tabString);
     strcat(buf, format);
     //printf("%s\n", buf);

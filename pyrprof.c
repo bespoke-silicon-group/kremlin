@@ -12,7 +12,7 @@
 #define MAX_ARGS 			20
 #define MAX_STATIC_REGION	1000
 
-#define GET_LOG_MAX(a)	((a < MAX_LOG_REGION_LEVEL) ? a : MAX_LOG_REGION_LEVEL)
+#define MIN(a, b)	(((a) < (b)) ? (a) : (b))
 
 typedef struct _CDT_T {
 	UInt64*	time;
@@ -25,11 +25,11 @@ typedef struct _FuncContext {
 	TEntry* args[MAX_ARGS];
 	int		writeIndex;
 	int		readIndex;
-	struct _FuncContext* next;
 #ifdef MANAGE_BB_INFO
 	UInt	retBB;
 	UInt	retPrevBB;
 #endif
+	struct _FuncContext* next;
 	
 } FuncContext;
 
@@ -39,6 +39,10 @@ typedef struct _region_t {
 	UInt64 regionId;
 } Region;
 
+
+int				_maxRegionToLog = MAX_LOG_REGION_LEVEL;
+int				_minRegionToLog = MIN_LOG_REGION_LEVEL;
+
 int 			regionNum = 0;
 int* 			versions = NULL;
 Region*			regionInfo = NULL;
@@ -46,7 +50,8 @@ CDT* 			cdtHead = NULL;
 FuncContext* 	funcHead = NULL;
 UInt64			timestamp = 0llu;
 File* 			fp = NULL;
-UInt64			dynamicRegionId[MAX_STATIC_REGION];	
+UInt64*			dynamicRegionId[MAX_STATIC_REGION];	
+
 
 #ifdef MANAGE_BB_INFO
 UInt	__prevBB;
@@ -93,10 +98,7 @@ FuncContext* pushFuncContext() {
 }
 
 void addWork(UInt work) {
-	//funcHead->work += work;	
-	//int level = getCurrentRegion();
 	timestamp += work;
-	//fprintf(stderr, "\tcurrent time = %llu\n", timestamp);
 }
 
 void popFuncContext() {
@@ -108,7 +110,6 @@ void popFuncContext() {
 #endif
 	funcHead = ret->next;
 	FuncContext* next = (funcHead == NULL) ? NULL : ret->next;
-//fprintf(stderr, "[pop ] head = 0x%x next = 0x%x\n", funcHead, next);
 	freeLocalTable(ret->table);
 	free(ret);	
 }
@@ -124,9 +125,14 @@ CDT* allocCDT() {
 void fillCDT(CDT* cdt, TEntry* entry) {
 	int numRegion = getRegionNum();
 	int i;
-	for (i = 0; i < numRegion; i++) {
-		cdt->time[i] = entry->time[i];
+	for (i = 0; i < _minRegionToLog; i++) {
+		cdt->time[i] = 0;
 	}
+
+	for (; i < _minRegionToLog + numRegion; i++) {
+		cdt->time[i] = entry->time[i-_minRegionToLog];
+	}
+
 	UInt64 ts = cdt->time[i-1];
 	for (; i < getMaxRegionLevel(); i++) {
 		cdt->time[i] = ts;	
@@ -150,12 +156,20 @@ UInt getVersion(int level) {
 }
 
 
-UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version) {
+UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
+	int level = inLevel - _minRegionToLog;
 	assert(entry != NULL);
-	assert(level < MAX_REGION_LEVEL);
+	assert(level < _maxRegionToLog);
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
+}
+
+void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
+	int level = inLevel - _minRegionToLog;
+    assert(entry != NULL);
+    entry->version[level] = version;
+    entry->time[level] = timestamp;
 }
 
 
@@ -174,12 +188,14 @@ void prepareCall() {
 
 void logRegionEntry(UInt region_id, UInt region_type) {
 	regionNum++;
-	assert(regionNum < MAX_REGION_LEVEL);
 	int region = getCurrentRegion();
 	dynamicRegionId[region_id]++;
 	versions[region]++;
-	MSG(0, "[+++] type: %u region [%u, %u:%llu] start: %llu\n",
-		region_type, region, region_id, dynamicRegionId[region_id], timestamp);
+	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
+	UInt64 parentDid = (region > 0) ? dynamicRegionId[parentSid] : 0;
+	MSG(0, "[+++] region [%u, %u, %u:%llu] parent [%u:%llu] start: %llu\n",
+		region_type, region, region_id, dynamicRegionId[region_id], 
+		parentSid, parentDid, timestamp);
 	regionInfo[region].regionId = region_id;
 	regionInfo[region].start = timestamp;
 	regionInfo[region].cp = 0;
@@ -199,11 +215,11 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 cp = regionInfo[region].cp;
 	assert(region_id == regionInfo[region].regionId);
 	UInt64 did = dynamicRegionId[region_id];
-	UInt64 parentSid = (region > 1) ? regionInfo[region-1].regionId : 0;
-	UInt64 parentDid = (region > 1) ? dynamicRegionId[parentSid] : 0;
+	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
+	UInt64 parentDid = (region > 0) ? dynamicRegionId[parentSid] : 0;
 
 	decIndentTab();
-	MSG(0, "[---] type: %u region [%u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
+	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 			region_type, region, region_id, did, parentSid, parentDid, 
 			regionInfo[region].cp, work);
 
@@ -229,7 +245,8 @@ void logRegionExit(UInt region_id, UInt region_type) {
 
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
-	int level = GET_LOG_MAX(getRegionNum());
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	addWork(opCost);
 	TEntry* entry0 = getLTEntry(src0);
@@ -243,7 +260,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	assert(entryDest != NULL);
 	
 	MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
@@ -265,7 +282,8 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 
 
 void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
-	int level = GET_LOG_MAX(getRegionNum());
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	addWork(opCost);
 	TEntry* entry0 = getLTEntry(src);
@@ -277,7 +295,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	assert(entryDest != NULL);
 
 	MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
@@ -299,14 +317,15 @@ void* logAssignment(UInt src, UInt dest) {
 }
 
 void* logAssignmentConst(UInt dest) {
-	int level = GET_LOG_MAX(getRegionNum());
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	TEntry* entryDest = getLTEntry(dest);
 	
 	assert(funcHead->table->size > dest);
 	assert(entryDest != NULL);
 
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		updateTimestamp(entryDest, i, version, cdt);
@@ -320,7 +339,8 @@ void* logAssignmentConst(UInt dest) {
 #define LOADCOST	10
 #define STORECOST	10
 void* logLoadInst(Addr src_addr, UInt dest) {
-	int level = GET_LOG_MAX(getRegionNum());
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOADCOST);
 	addWork(LOADCOST);
@@ -330,7 +350,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	assert(entryDest != NULL);
 	assert(entry0 != NULL);
 	
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
@@ -344,7 +364,8 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 }
 
 void* logStoreInst(UInt src, Addr dest_addr) {
-	int level = GET_LOG_MAX(getRegionNum());
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	addWork(STORECOST);
 	TEntry* entry0 = getLTEntry(src);
@@ -355,7 +376,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	assert(entry0 != NULL);
 
 	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORECOST);
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
@@ -370,14 +391,15 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 
 
 void* logStoreInstConst(Addr dest_addr) {
-	int level = GET_LOG_MAX(getRegionNum());
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	addWork(STORECOST);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	assert(entryDest != NULL);
 	
 	MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORECOST);
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 value = cdt + STORECOST;
@@ -573,14 +595,17 @@ void* logInductionVarDependence(UInt induct_var) {
 
 
 void initProfiler() {
+	int i;
 	regionNum = 0;
-	int maxRegionLevel = MAX_REGION_LEVEL;
-	initDataStructure(maxRegionLevel);
-	versions = (int*) malloc(sizeof(int) * maxRegionLevel);
-	bzero(versions, sizeof(int) * maxRegionLevel);
+	int storageSize = _maxRegionToLog - _minRegionToLog + 1;
+	//initDataStructure(storageSize);
+	initDataStructure(30);
 
-	regionInfo = (Region*) malloc(sizeof(Region) * maxRegionLevel);
-	bzero(regionInfo, sizeof(Region) * maxRegionLevel);
+	versions = (int*) malloc(sizeof(int) * _maxRegionToLog);
+	bzero(versions, sizeof(int) * _maxRegionToLog);
+
+	regionInfo = (Region*) malloc(sizeof(Region) * _maxRegionToLog);
+	bzero(regionInfo, sizeof(Region) * _maxRegionToLog);
 	allocDummyTEntry();
 	prepareCall();
 	cdtHead = allocCDT();
