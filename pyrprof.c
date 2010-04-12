@@ -468,39 +468,29 @@ void logBBVisit(UInt bb_id) {
 
 #define MAX_ENTRY 10
 
-void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
+void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
 	TEntry* destEntry = getLTEntry(dest);
 	TEntry* cdtEntry[MAX_ENTRY];
 	TEntry* srcEntry = NULL;
 	UInt	incomingBB[MAX_ENTRY];
 	UInt	srcList[MAX_ENTRY];
 
-	MSG(1, "logPhiNode to ts[%u] from %u srcs\n", dest, num_incoming_values);
+	MSG(1, "logPhiNode to ts[%u] from ts[%u] and %u control deps\n", dest, src, num_cont_dep);
 	va_list ap;
-	va_start(ap, num_t_inits);
+	va_start(ap, num_cont_dep);
 	int level = getRegionNum();
 	int i, j;
-	
+
 	// catch src dep
-	for (i = 0; i < num_incoming_values; i++) { 
-		incomingBB[i] = va_arg(ap, UInt);
-		srcList[i] = va_arg(ap, UInt);
-		if (incomingBB[i] == __prevBB) {
-			srcEntry = getLTEntry(srcList[i]);
-			assert(srcEntry != NULL);
-		}
-	}
+	srcEntry = getLTEntry(src);
+	
 	if (srcEntry == NULL) {
 		MSG(0, " actual prev = %d current = %d\n", __prevBB, __currentBB);
-		for (i = 0; i < num_incoming_values; i++) {
-			MSG(0, "\t phi prev[%d] = %d\n", i, incomingBB[i]);
-			
-		}
 		assert(0);
 	}
 
 	// read all CDT
-	for (i = 0; i < num_t_inits; i++) {
+	for (i = 0; i < num_cont_dep; i++) {
 		UInt cdt = va_arg(ap, UInt);
 		cdtEntry[i] = getLTEntry(cdt);
 		assert(cdtEntry[i] != NULL);
@@ -512,7 +502,7 @@ void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...) {
 		UInt version = getVersion(i);
 		UInt64 max = getTimestamp(srcEntry, i, version);
 		
-		for (j = 0; j < num_t_inits; j++) {
+		for (j = 0; j < num_cont_dep; j++) {
 			UInt64 ts = getTimestamp(cdtEntry[j], i, version);
 			if (ts > max)
 				max = ts;		

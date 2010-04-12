@@ -97,7 +97,7 @@ void* logLoadInst(Addr src_addr, UInt dest);
 void* logStoreInst(UInt src, Addr dest_addr); 
 void* logStoreInstConst(Addr dest_addr); 
 
-void logPhiNode(UInt dest, UInt num_incoming_values, UInt num_t_inits, ...); 
+void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...); 
 
 void addControlDep(UInt cond);
 void removeControlDep();
