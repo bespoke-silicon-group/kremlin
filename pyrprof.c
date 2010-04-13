@@ -67,6 +67,25 @@ UInt	__currentBB;
 #define getRegionNum() 		(regionNum)
 #define getCurrentRegion() 	(regionNum-1)
 
+void dumpCdt(CDT* cdt) {
+	int i;
+	fprintf(stderr, "cdtHead = 0x%x\n", cdt);
+	for (i = 0; i < 5; i++) {
+		fprintf(stderr, "\t%llu", cdt->time[i]);
+	}
+	fprintf(stderr, "\n");
+}
+
+void dumpTEntry(TEntry* entry) {
+	int i;
+	fprintf(stderr, "entry = 0x%x\n", entry);
+	for (i = 0; i < 5; i++) {
+		fprintf(stderr, "\t%llu", entry->time[i]);
+	}
+	fprintf(stderr, "\n");
+}
+
+
 void dumpRegion() {
 #if 0
 	int i;
@@ -172,7 +191,7 @@ void fillCDT(CDT* cdt, TEntry* entry) {
 	int numRegion = getRegionNum();
 	int i;
 	for (i = _minRegionToLog; i <= _maxRegionToLog; i++) {
-		setCdt(i, entry->time[i - _minRegionToLog]);
+		cdt->time[i - _minRegionToLog] = entry->time[i - _minRegionToLog];
 	}
 }
 
