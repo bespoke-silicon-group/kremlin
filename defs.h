@@ -11,7 +11,7 @@
 #ifndef _PYRPROF_DEF
 #define _PYRPROF_DEF
 
-#define PYRPROF_DEBUG	0
+#define PYRPROF_DEBUG	1
 #define DEBUGLEVEL		0
 
 
@@ -93,6 +93,7 @@ TEntry* getLTEntry(UInt32 index);
 TEntry* getGTEntry(Addr addr);
 void initDataStructure(int regionLevel);
 void finalizeDataStructure();
+UInt32 getTEntrySize(void);
 
 
 //UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);

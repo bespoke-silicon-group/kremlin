@@ -40,8 +40,14 @@ typedef struct _region_t {
 } Region;
 
 
-int				_maxRegionToLog = MAX_REGION_LEVEL;
-int				_minRegionToLog = MIN_REGION_LEVEL;
+#if 1
+const int				_maxRegionToLog = MAX_REGION_LEVEL;
+const int				_minRegionToLog = MIN_REGION_LEVEL;
+#endif
+#if 0
+#define			_maxRegionToLog		5
+#define			_minRegionToLog		0
+#endif
 
 int 			regionNum = 0;
 int* 			versions = NULL;
@@ -114,43 +120,6 @@ void popFuncContext() {
 	free(ret);	
 }
 
-CDT* allocCDT() {
-	CDT* ret = (CDT*) malloc(sizeof(CDT));
-	ret->time = (UInt64*) malloc(sizeof(UInt64) * getMaxRegionLevel());
-	bzero(ret->time, sizeof(UInt64) * getMaxRegionLevel());
-	ret->next = NULL;
-	return ret;
-}
-
-void fillCDT(CDT* cdt, TEntry* entry) {
-	int numRegion = getRegionNum();
-	int i;
-	for (i = 0; i < _minRegionToLog; i++) {
-		cdt->time[i] = 0;
-	}
-
-	for (; i < _minRegionToLog + numRegion; i++) {
-		cdt->time[i] = entry->time[i-_minRegionToLog];
-	}
-
-	UInt64 ts = cdt->time[i-1];
-	for (; i < getMaxRegionLevel(); i++) {
-		cdt->time[i] = ts;	
-	}
-}
-
-void freeCDT(CDT* cdt) {
-	free(cdt->time);
-	free(cdt);	
-}
-
-
-UInt64 getCdt(int level) {
-	assert(cdtHead != NULL);
-	assert(level >= 0);
-	return cdtHead->time[level];
-}
-
 UInt getVersion(int level) {
 	return versions[level];
 }
@@ -172,6 +141,38 @@ void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 times
     entry->time[level] = timestamp;
 }
 
+
+CDT* allocCDT() {
+	CDT* ret = (CDT*) malloc(sizeof(CDT));
+	ret->time = (UInt64*) malloc(sizeof(UInt64) * getTEntrySize());
+	bzero(ret->time, sizeof(UInt64) * getTEntrySize());
+	ret->next = NULL;
+	return ret;
+}
+
+void freeCDT(CDT* cdt) {
+	free(cdt->time);
+	free(cdt);	
+}
+
+
+UInt64 getCdt(int level) {
+	assert(cdtHead != NULL);
+	assert(level >= 0);
+	return cdtHead->time[level - _minRegionToLog];
+}
+
+void setCdt(int level, UInt64 time) {
+	cdtHead->time[level - _minRegionToLog] = time;
+}
+
+void fillCDT(CDT* cdt, TEntry* entry) {
+	int numRegion = getRegionNum();
+	int i;
+	for (i = _minRegionToLog; i < _maxRegionToLog; i++) {
+		setCdt(i, entry->time[i - _minRegionToLog]);
+	}
+}
 
 void setupLocalTable(UInt maxVregNum) {
 	MSG(0, "setupLocalTable size %u\n", maxVregNum);
@@ -201,7 +202,6 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	regionInfo[region].cp = 0;
 	cdtHead->time[region] = 0;
 	incIndentTab();
-	dumpRegion();
 }
 
 
@@ -226,7 +226,6 @@ void logRegionExit(UInt region_id, UInt region_type) {
 
 	log_write(fp, region_id, 0, startTime, endTime, cp, parentSid, parentDid);
 
-	dumpRegion();
 	if (region_type == RegionFunc) { 
 		popFuncContext();
 		if (funcHead == NULL) {
@@ -276,7 +275,6 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
 	}
 
-	dumpRegion();
 	return entryDest;
 }
 
@@ -301,14 +299,13 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + opCost;
-		updateTimestamp(entryDest, i, version, greater1 + opCost);
+		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	MSG(2, "binOpConst[%u] level %u version %u \n", opCost, i, version);
 	MSG(2, " src %u dest %u\n", src, dest);
 	MSG(2, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
 	}
 
-	dumpRegion();
 	return entryDest;
 }
 
@@ -356,7 +353,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + LOADCOST;
-		updateTimestamp(entryDest, i, version, greater1+LOADCOST);
+		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}
 
@@ -478,7 +475,7 @@ void linkArgToLocal(UInt src) {
 
 TEntry* dummyEntry = NULL;
 void allocDummyTEntry() {
-	dummyEntry = (TEntry*) allocTEntry(getMaxRegionLevel());
+	dummyEntry = (TEntry*) allocTEntry(getTEntrySize());
 }
 
 TEntry* getDummyTEntry() {

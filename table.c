@@ -4,13 +4,10 @@ GTable* gTable;
 LTable* lTable;
 UInt32	maxRegionLevel;
 
-UInt32 getMaxRegionLevel() {
+UInt32 getTEntrySize() {
 	return maxRegionLevel;
 }
 
-void setMaxRegionLevel(UInt32 max) {
-	maxRegionLevel = max;
-}
 
 void freeTEntry(TEntry* entry);
 
@@ -63,7 +60,7 @@ void copyTEntry(TEntry* dest, TEntry* src) {
 	int i;
 	assert(dest != NULL);
 	assert(src != NULL);
-	for (i=0; i<getMaxRegionLevel(); i++) {
+	for (i=0; i<getTEntrySize(); i++) {
 		dest->version[i] = src->version[i];
 		dest->time[i] = src->time[i];
 	}	
@@ -75,7 +72,7 @@ LTable* allocLocalTable(int size) {
 	ret->size = size;
 	ret->array = (TEntry**) malloc(sizeof(TEntry*) * size);
 	for (i=0; i<size; i++) {
-		ret->array[i] = allocTEntry(getMaxRegionLevel());
+		ret->array[i] = allocTEntry(getTEntrySize());
 	}
 //	printf("Alloc LTable to 0x%x\n", ret);
 	return ret;
@@ -109,7 +106,7 @@ void finalizeDataStructure() {
 
 void printTEntry(TEntry* entry) {
 	int i;
-	for (i = 0; i < getMaxRegionLevel(); i++) {
+	for (i = 0; i < getTEntrySize(); i++) {
 		printf("%u %lld\n", entry->version[i], entry->time[i]);
 	}
 }
