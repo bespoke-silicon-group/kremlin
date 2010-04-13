@@ -147,9 +147,8 @@ UInt getVersion(int level) {
 
 UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
 	int level = inLevel - _minRegionToLog;
-	assert(level >= _minRegionToLog);
 	assert(entry != NULL);
-	assert(level <= _maxRegionToLog);
+	assert(level >= 0 && level < getTEntrySize());
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
