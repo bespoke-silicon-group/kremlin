@@ -9,8 +9,9 @@
 #include "debug.h"
 #include "table.h"
 
-#define MAX_ARGS 			20
-#define MAX_STATIC_REGION	1000
+#define _MAX_ARGS 			20
+#define _MAX_STATIC_REGION	1000	// used for dynamic region id
+#define _MAX_REGION_LEVEL	100		// used for static data structures
 
 #define MIN(a, b)	(((a) < (b)) ? (a) : (b))
 
@@ -22,7 +23,7 @@ typedef struct _CDT_T {
 typedef struct _FuncContext {
 	LTable* table;
 	TEntry* ret;
-	TEntry* args[MAX_ARGS];
+	TEntry* args[_MAX_ARGS];
 	int		writeIndex;
 	int		readIndex;
 #ifdef MANAGE_BB_INFO
@@ -56,7 +57,7 @@ CDT* 			cdtHead = NULL;
 FuncContext* 	funcHead = NULL;
 UInt64			timestamp = 0llu;
 File* 			fp = NULL;
-UInt64*			dynamicRegionId[MAX_STATIC_REGION];	
+UInt64*			dynamicRegionId[_MAX_STATIC_REGION];	
 
 
 #ifdef MANAGE_BB_INFO
@@ -76,10 +77,10 @@ void dumpCdt(CDT* cdt) {
 	fprintf(stderr, "\n");
 }
 
-void dumpTEntry(TEntry* entry) {
+void dumpTEntry(TEntry* entry, int size) {
 	int i;
 	fprintf(stderr, "entry = 0x%x\n", entry);
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < size; i++) {
 		fprintf(stderr, "\t%llu", entry->time[i]);
 	}
 	fprintf(stderr, "\n");
@@ -106,7 +107,7 @@ FuncContext* pushFuncContext() {
 	int i;
 	FuncContext* prevHead = funcHead;
 	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
-	for (i = 0; i < MAX_ARGS; i++) {
+	for (i = 0; i < _MAX_ARGS; i++) {
 		toAdd->args[i] = NULL;
 	}
 	toAdd->table = NULL;
@@ -146,9 +147,9 @@ UInt getVersion(int level) {
 
 UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
 	int level = inLevel - _minRegionToLog;
-	assert(level >= 0);
+	assert(level >= _minRegionToLog);
 	assert(entry != NULL);
-	assert(level < _maxRegionToLog);
+	assert(level <= _maxRegionToLog);
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
@@ -491,7 +492,7 @@ void logFuncReturnConst(void) {
 void linkArgToLocal(UInt src) {
 	MSG(1, "linkArgToLocal to ts[%u]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
-	assert(funcHead->writeIndex < MAX_ARGS);
+	assert(funcHead->writeIndex < _MAX_ARGS);
 	funcHead->args[funcHead->writeIndex++] = srcEntry;
 }
 
@@ -512,7 +513,7 @@ void freeDummyTEntry() {
 // special case for constant arg
 void linkArgToConst() {
 	MSG(1, "linkArgToConst\n");
-	assert(funcHead->writeIndex < MAX_ARGS);
+	assert(funcHead->writeIndex < _MAX_ARGS);
 	funcHead->args[funcHead->writeIndex++] = getDummyTEntry();
 }
 
@@ -621,13 +622,15 @@ void initProfiler() {
 	int i;
 	regionNum = 0;
 	int storageSize = _maxRegionToLog - _minRegionToLog + 1;
+	MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
+		_minRegionToLog, _maxRegionToLog, storageSize);
 	initDataStructure(storageSize);
 
-	versions = (int*) malloc(sizeof(int) * _maxRegionToLog);
-	bzero(versions, sizeof(int) * _maxRegionToLog);
+	versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL);
+	bzero(versions, sizeof(int) * _MAX_REGION_LEVEL);
 
-	regionInfo = (Region*) malloc(sizeof(Region) * _maxRegionToLog);
-	bzero(regionInfo, sizeof(Region) * _maxRegionToLog);
+	regionInfo = (Region*) malloc(sizeof(Region) * _MAX_REGION_LEVEL);
+	bzero(regionInfo, sizeof(Region) * _MAX_REGION_LEVEL);
 	allocDummyTEntry();
 	prepareCall();
 	cdtHead = allocCDT();

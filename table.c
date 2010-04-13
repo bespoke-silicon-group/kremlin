@@ -96,8 +96,8 @@ void setLocalTable(LTable* table) {
 }
 
 void initDataStructure(int regionLevel) {
-	gTable = allocGlobalTable(maxRegionLevel);
 	maxRegionLevel = regionLevel;
+	gTable = allocGlobalTable(maxRegionLevel);
 }
 
 void finalizeDataStructure() {
