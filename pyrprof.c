@@ -127,6 +127,7 @@ UInt getVersion(int level) {
 
 UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
 	int level = inLevel - _minRegionToLog;
+	assert(level >= 0);
 	assert(entry != NULL);
 	assert(level < _maxRegionToLog);
     UInt64 ret = (entry->version[level] == version) ?
@@ -163,13 +164,14 @@ UInt64 getCdt(int level) {
 }
 
 void setCdt(int level, UInt64 time) {
+	assert(level >= _minRegionToLog);
 	cdtHead->time[level - _minRegionToLog] = time;
 }
 
 void fillCDT(CDT* cdt, TEntry* entry) {
 	int numRegion = getRegionNum();
 	int i;
-	for (i = _minRegionToLog; i < _maxRegionToLog; i++) {
+	for (i = _minRegionToLog; i <= _maxRegionToLog; i++) {
 		setCdt(i, entry->time[i - _minRegionToLog]);
 	}
 }
@@ -200,7 +202,8 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	regionInfo[region].regionId = region_id;
 	regionInfo[region].start = timestamp;
 	regionInfo[region].cp = 0;
-	cdtHead->time[region] = 0;
+	if (region >= _minRegionToLog && region <= _maxRegionToLog)
+		setCdt(region, 0);
 	incIndentTab();
 }
 
@@ -446,19 +449,20 @@ void logFuncReturn(UInt src) {
 	MSG(1, "write return value ts[%u]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
 	assert(funcHead->ret != NULL);
-	MSG(2, " entry = %s\n", toStringTEntry(srcEntry));
 	copyTEntry(funcHead->ret, srcEntry);
 }
 
 void logFuncReturnConst(void) {
 	int i;
-	int level = getRegionNum();
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	MSG(1, "logFuncReturnConst\n");
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt64 cdt = getCdt(i);
 		int version = getVersion(i);
-		funcHead->ret->version[i] = version;
-		funcHead->ret->time[i] = cdt;
+		updateTimestamp(funcHead->ret, i, version, cdt);
+//		funcHead->ret->version[i] = version;
+//		funcHead->ret->time[i] = cdt;
 	}
 	
 	
@@ -525,7 +529,9 @@ void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
 	MSG(1, "logPhiNode to ts[%u] from ts[%u] and %u control deps\n", dest, src, num_cont_dep);
 	va_list ap;
 	va_start(ap, num_cont_dep);
-	int level = getRegionNum();
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
+	//int level = getRegionNum();
 	int i, j;
 
 	// catch src dep
@@ -540,7 +546,7 @@ void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
 	va_end(ap);
 
 	// get max
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 max = getTimestamp(srcEntry, i, version);
 		
@@ -558,7 +564,8 @@ void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
 	MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
 	int i, j;
-	int level = getRegionNum();
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	TEntry* srcEntry[MAX_ENTRY];
 	TEntry* destEntry = getLTEntry(dest);
 	va_list ap;
@@ -571,7 +578,7 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 	}	
 	va_end(ap);
 
-	for (i = 0; i < level; i++) {
+	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 max = 0;
 		
