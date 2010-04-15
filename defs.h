@@ -32,6 +32,10 @@
 #define MIN_REGION_LEVEL	0
 #endif
 
+#define LOAD_COST			3
+#define STORE_COST			1
+
+
 typedef unsigned long       UInt32;
 typedef signed long         Int32;
 typedef unsigned int		UInt;

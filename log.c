@@ -58,13 +58,15 @@ void log_write(File* log,
                Int64 parent_static_id,
                Int64 parent_dynamic_id)
 {
-    fwrite(&static_id,            sizeof(Int64), 1, log);
-    fwrite(&dynamic_id,           sizeof(Int64), 1, log);
-    fwrite(&start_time,           sizeof(Int64), 1, log);
-    fwrite(&end_time,             sizeof(Int64), 1, log);
-    fwrite(&critical_path_length, sizeof(Int64), 1, log);
-    fwrite(&parent_static_id,     sizeof(Int64), 1, log);
-    fwrite(&parent_dynamic_id,    sizeof(Int64), 1, log);
+	int res = 0;
+    res += fwrite(&static_id,            sizeof(Int64), 1, log);
+    res += fwrite(&dynamic_id,           sizeof(Int64), 1, log);
+    res += fwrite(&start_time,           sizeof(Int64), 1, log);
+    res += fwrite(&end_time,             sizeof(Int64), 1, log);
+    res += fwrite(&critical_path_length, sizeof(Int64), 1, log);
+    res += fwrite(&parent_static_id,     sizeof(Int64), 1, log);
+    res += fwrite(&parent_dynamic_id,    sizeof(Int64), 1, log);
+	assert(res == sizeof(Int64) * 7);
 }
 
 /**

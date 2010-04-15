@@ -365,14 +365,12 @@ void* logAssignmentConst(UInt dest) {
 
 }
 
-#define LOADCOST	10
-#define STORECOST	10
 void* logLoadInst(Addr src_addr, UInt dest) {
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOADCOST);
-	addWork(LOADCOST);
+	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
+	addWork(LOAD_COST);
 	TEntry* entry0 = getGTEntry(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
 	assert(funcHead->table->size > dest);
@@ -384,7 +382,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-		UInt64 value = greater1 + LOADCOST;
+		UInt64 value = greater1 + LOAD_COST;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}
@@ -396,7 +394,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	addWork(STORECOST);
+	addWork(STORE_COST);
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	
@@ -404,13 +402,13 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	assert(entryDest != NULL);
 	assert(entry0 != NULL);
 
-	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORECOST);
+	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-		UInt64 value = greater1 + STORECOST;
+		UInt64 value = greater1 + STORE_COST;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}
@@ -423,15 +421,15 @@ void* logStoreInstConst(Addr dest_addr) {
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	addWork(STORECOST);
+	addWork(STORE_COST);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	assert(entryDest != NULL);
 	
-	MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORECOST);
+	MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
-		UInt64 value = cdt + STORECOST;
+		UInt64 value = cdt + STORE_COST;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}
