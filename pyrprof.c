@@ -256,7 +256,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 			regionInfo[region].cp, work);
 
 
-	log_write(fp, region_id, did, startTime, endTime, cp, parentSid, parentDid);
+	log_write(fp, (UInt64)region_id, did, startTime, endTime, cp, parentSid, parentDid);
 
 	if (region_type == RegionFunc) { 
 		popFuncContext();

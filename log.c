@@ -66,6 +66,7 @@ void log_write(File* log,
     res += fwrite(&critical_path_length, sizeof(Int64), 1, log);
     res += fwrite(&parent_static_id,     sizeof(Int64), 1, log);
     res += fwrite(&parent_dynamic_id,    sizeof(Int64), 1, log);
+	assert(static_id < 10000);
 	assert(res == sizeof(Int64) * 7);
 }
 
