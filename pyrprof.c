@@ -57,7 +57,7 @@ CDT* 			cdtHead = NULL;
 FuncContext* 	funcHead = NULL;
 UInt64			timestamp = 0llu;
 File* 			fp = NULL;
-UInt64*			dynamicRegionId[_MAX_STATIC_REGION];	
+UInt64			dynamicRegionId[_MAX_STATIC_REGION];	
 
 
 #ifdef MANAGE_BB_INFO
@@ -87,6 +87,7 @@ void dumpTEntry(TEntry* entry, int size) {
 }
 
 
+
 void dumpRegion() {
 #if 0
 	int i;
@@ -95,6 +96,15 @@ void dumpRegion() {
 			i, regionInfo[i].start, regionInfo[i].end);
 	}
 #endif
+}
+
+void incDynamicRegionId(UInt64 sid) {
+	dynamicRegionId[sid]++;
+	int i;
+}
+
+UInt64 getDynamicRegionId(UInt64 sid) {
+	return dynamicRegionId[sid];
 }
 
 void updateCP(UInt64 value, int level) {
@@ -211,12 +221,12 @@ void prepareCall() {
 void logRegionEntry(UInt region_id, UInt region_type) {
 	regionNum++;
 	int region = getCurrentRegion();
-	dynamicRegionId[region_id]++;
+	incDynamicRegionId(region_id);
 	versions[region]++;
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
-	UInt64 parentDid = (region > 0) ? dynamicRegionId[parentSid] : 0;
+	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
 	MSG(0, "[+++] region [%u, %u, %u:%llu] parent [%u:%llu] start: %llu\n",
-		region_type, region, region_id, dynamicRegionId[region_id], 
+		region_type, region, region_id, getDynamicRegionId(region_id), 
 		parentSid, parentDid, timestamp);
 	regionInfo[region].regionId = region_id;
 	regionInfo[region].start = timestamp;
@@ -236,9 +246,9 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 work = endTime - regionInfo[region].start;
 	UInt64 cp = regionInfo[region].cp;
 	assert(region_id == regionInfo[region].regionId);
-	UInt64 did = dynamicRegionId[region_id];
+	UInt64 did = getDynamicRegionId(region_id);
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
-	UInt64 parentDid = (region > 0) ? dynamicRegionId[parentSid] : 0;
+	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
 
 	decIndentTab();
 	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
@@ -246,7 +256,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 			regionInfo[region].cp, work);
 
 
-	log_write(fp, region_id, 0, startTime, endTime, cp, parentSid, parentDid);
+	log_write(fp, region_id, did, startTime, endTime, cp, parentSid, parentDid);
 
 	if (region_type == RegionFunc) { 
 		popFuncContext();
@@ -568,12 +578,15 @@ void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 max = getTimestamp(srcEntry, i, version);
+	MSG(2, "logPhiNode level %u version %u \n", i, version);
+	MSG(2, " src %u dest %u srcTs %u\n", src, dest, max);
 		
 		for (j = 0; j < num_cont_dep; j++) {
 			UInt64 ts = getTimestamp(cdtEntry[j], i, version);
 			if (ts > max)
 				max = ts;		
 		}
+	MSG(2, " final Ts %u\n", max);
 		updateTimestamp(destEntry, i, version, max);
 	}
 }
