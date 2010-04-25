@@ -81,6 +81,7 @@ LTable* allocLocalTable(int size) {
 
 void freeLocalTable(LTable* table) {
 	int i;
+	assert(table != NULL);
 	assert(table->array != NULL);
 	for (i=0; i<table->size; i++) {
 		assert(table->array[i] != NULL);
@@ -113,7 +114,11 @@ void printTEntry(TEntry* entry) {
 
 TEntry* getLTEntry(UInt32 vreg) {
 	assert(lTable != NULL);
+	if (vreg >= lTable->size) {
+		fprintf("vreg = %d, lTable size = %d\n", vreg, lTable->size);
+	}
 	assert(vreg < lTable->size);
+	
 	return lTable->array[vreg];	
 }
 

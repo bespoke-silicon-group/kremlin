@@ -137,8 +137,15 @@ void addWork(UInt work) {
 	timestamp += work;
 }
 
+UInt64 _regionEntryCnt;
+UInt64 _regionFuncCnt;
+UInt64 _setupTableCnt;
+int	_requireSetupTable;
+
 void popFuncContext() {
 	FuncContext* ret = funcHead;
+	assert(ret != NULL);
+	//assert(ret->table != NULL);
 	// restore currentBB and prevBB
 #ifdef MANAGE_BB_INFO
 	__currentBB = ret->retBB;
@@ -146,7 +153,11 @@ void popFuncContext() {
 #endif
 	funcHead = ret->next;
 	FuncContext* next = (funcHead == NULL) ? NULL : ret->next;
-	freeLocalTable(ret->table);
+	assert(_regionFuncCnt == _setupTableCnt);
+	assert(_requireSetupTable == 0);
+	assert(ret->table != NULL);
+	if (ret->table != NULL)
+		freeLocalTable(ret->table);
 	free(ret);	
 }
 
@@ -209,17 +220,28 @@ void setupLocalTable(UInt maxVregNum) {
 	MSG(0, "setupLocalTable size %u\n", maxVregNum);
 	LTable* table = allocLocalTable(maxVregNum);
 	assert(funcHead->table == NULL);
+	assert(table != NULL);
 	funcHead->table = table;	
 	setLocalTable(funcHead->table);
+	_setupTableCnt++;
+	assert(_requireSetupTable == 1);
+	_requireSetupTable = 0;
 }
 
 void prepareCall() {
 	MSG(0, "prepareCall\n");
 	pushFuncContext();
+	_requireSetupTable = 1;
 }
+
+
 
 void logRegionEntry(UInt region_id, UInt region_type) {
 	regionNum++;
+	_regionEntryCnt++;
+	if (region_type == 0)
+		_regionFuncCnt++;
+
 	int region = getCurrentRegion();
 	incDynamicRegionId(region_id);
 	versions[region]++;
@@ -236,11 +258,21 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	incIndentTab();
 }
 
+UInt64 _lastSid;
+UInt64 _lastDid;
+UInt64 _lastWork;
+UInt64 _lastCP;
+UInt64 _lastStart;
+UInt64 _lastEnd;
+UInt64 _lastCnt;
+UInt64 _lastParentSid;
+UInt64 _lastParentDid;
 
 void logRegionExit(UInt region_id, UInt region_type) {
 	int i;
 	int region = getCurrentRegion();
 
+	UInt64 sid = (UInt64)region_id;
 	UInt64 startTime = regionInfo[region].start;
 	UInt64 endTime = timestamp;
 	UInt64 work = endTime - regionInfo[region].start;
@@ -254,10 +286,26 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 			region_type, region, region_id, did, parentSid, parentDid, 
 			regionInfo[region].cp, work);
+	if (_lastWork == work &&
+		_lastCP == cp &&
+		_lastCnt > 0 &&
+		_lastSid == sid ) {
+		_lastCnt++;
 
-
-	log_write(fp, (UInt64)region_id, did, startTime, endTime, cp, parentSid, parentDid);
-
+	} else {
+		if (_lastCnt > 0)
+			log_write(fp, _lastSid, _lastDid, _lastStart, _lastEnd, _lastCP, _lastParentSid, _lastParentDid, _lastCnt);
+		_lastSid = sid;
+		_lastDid = did;
+		_lastWork = work;
+		_lastCP = cp;
+		_lastCnt = 1;		
+		_lastStart = startTime;
+		_lastEnd = endTime;
+		_lastParentSid = parentSid;
+		_lastParentDid = parentDid;
+	}
+		
 	if (region_type == RegionFunc) { 
 		popFuncContext();
 		if (funcHead == NULL) {
@@ -650,6 +698,8 @@ void initProfiler() {
 }
 
 void deinitProfiler() {
+	assert(_lastCnt == 1 && _lastParentSid == 0);
+	log_write(fp, _lastSid, _lastDid, _lastStart, _lastEnd, _lastCP, _lastParentSid, _lastParentDid, _lastCnt);
 	finalizeDataStructure();
 	freeDummyTEntry();
 	free(regionInfo);

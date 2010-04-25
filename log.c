@@ -29,7 +29,9 @@
  */
 File* log_open(const char* file_name)
 {
-    return fopen(file_name, "wb");
+    File* ret = fopen(file_name, "wb");
+	assert(ret != NULL);
+	return ret;
 }
 
 /**
@@ -56,9 +58,11 @@ void log_write(File* log,
                Int64 end_time,
                Int64 critical_path_length,
                Int64 parent_static_id,
-               Int64 parent_dynamic_id)
+               Int64 parent_dynamic_id,
+			   Int64 cnt)
 {
 	int res = 0;
+	assert(log != NULL);
     res += fwrite(&static_id,            sizeof(Int64), 1, log);
     res += fwrite(&dynamic_id,           sizeof(Int64), 1, log);
     res += fwrite(&start_time,           sizeof(Int64), 1, log);
@@ -66,8 +70,10 @@ void log_write(File* log,
     res += fwrite(&critical_path_length, sizeof(Int64), 1, log);
     res += fwrite(&parent_static_id,     sizeof(Int64), 1, log);
     res += fwrite(&parent_dynamic_id,    sizeof(Int64), 1, log);
+    res += fwrite(&cnt,    				 sizeof(Int64), 1, log);
 	assert(static_id < 10000);
-	assert(res == sizeof(Int64) * 7);
+	//fprintf(stderr, "%d", res);
+	assert(res == 8);
 }
 
 /**
