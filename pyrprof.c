@@ -218,13 +218,13 @@ void fillCDT(CDT* cdt, TEntry* entry) {
 
 void setupLocalTable(UInt maxVregNum) {
 	MSG(0, "setupLocalTable size %u\n", maxVregNum);
+	assert(_requireSetupTable == 1);
 	LTable* table = allocLocalTable(maxVregNum);
 	assert(funcHead->table == NULL);
 	assert(table != NULL);
 	funcHead->table = table;	
 	setLocalTable(funcHead->table);
 	_setupTableCnt++;
-	assert(_requireSetupTable == 1);
 	_requireSetupTable = 0;
 }
 
@@ -286,6 +286,10 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 			region_type, region, region_id, did, parentSid, parentDid, 
 			regionInfo[region].cp, work);
+
+#ifdef USE_UREGION
+	processUdr(sid, did, parentSid, parentDid, work, cp);
+#else
 	if (_lastWork == work &&
 		_lastCP == cp &&
 		_lastCnt > 0 &&
@@ -305,6 +309,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 		_lastParentSid = parentSid;
 		_lastParentDid = parentDid;
 	}
+#endif
 		
 	if (region_type == RegionFunc) { 
 		popFuncContext();
@@ -363,16 +368,17 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
+	MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
 	addWork(opCost);
+	assert(funcHead->table != NULL);
+	assert(funcHead->table->size > src);
+	assert(funcHead->table->size > dest);
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getLTEntry(dest);
 	
-	assert(funcHead->table->size > src);
-	assert(funcHead->table->size > dest);
 	assert(entry0 != NULL);
 	assert(entryDest != NULL);
 
-	MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
@@ -698,8 +704,12 @@ void initProfiler() {
 }
 
 void deinitProfiler() {
+#ifdef USE_UREGION
+	finalizeUdr();
+#else
 	assert(_lastCnt == 1 && _lastParentSid == 0);
 	log_write(fp, _lastSid, _lastDid, _lastStart, _lastEnd, _lastCP, _lastParentSid, _lastParentDid, _lastCnt);
+#endif
 	finalizeDataStructure();
 	freeDummyTEntry();
 	free(regionInfo);
