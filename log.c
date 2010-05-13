@@ -46,11 +46,12 @@ File* log_open(const char* file_name)
  * @param critical_path_length  The length of the critical path through the
  *                              region.
  * @param parent_static_id      The static id of the parent of this region.
- *                              Use -1 to indicate that this region has no 
+ *                              Use 0 to indicate that this region has no 
  *                              parent.
  * @param parent_dynamic_id     The dynamic id of the parent of this region.
- *                              Use -1 to indicate that this region has no
+ *                              Use 0 to indicate that this region has no
  *                              parent.
+ * @param cnt                   The number of times this region repeats.
  */
 void log_write(File* log, 
                Int64 static_id, 

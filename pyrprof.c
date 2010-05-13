@@ -650,6 +650,34 @@ void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
 	}
 }
 
+void logPhiNodeAddCondition(UInt dest, UInt src) {
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
+	int i = 0;
+	MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
+	assert(funcHead->table != NULL);
+	assert(funcHead->table->size > src);
+	assert(funcHead->table->size > dest);
+	TEntry* entry0 = getLTEntry(src);
+	TEntry* entry1 = getLTEntry(dest);
+	TEntry* entryDest = entry1;
+	
+	assert(entry0 != NULL);
+	assert(entry1 != NULL);
+	assert(entryDest != NULL);
+
+	for (i = minLevel; i < maxLevel; i++) {
+		UInt version = getVersion(i);
+		UInt64 ts0 = getTimestamp(entry0, i, version);
+		UInt64 ts1 = getTimestamp(entry1, i, version);
+		UInt64 value = (ts0 > ts1) ? ts0 : ts1;
+		updateTimestamp(entryDest, i, version, value);
+		updateCP(value, i);
+	MSG(2, "logPhiAddCond level %u version %u \n", i, version);
+	MSG(2, " src %u dest %u\n", src, dest);
+	MSG(2, " ts0 %u ts1 %u value %u\n", ts0, ts1, value);
+	}
+}
 
 // use estimated cost for a callee function we cannot instrument
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
