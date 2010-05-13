@@ -286,6 +286,13 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 			region_type, region, region_id, did, parentSid, parentDid, 
 			regionInfo[region].cp, work);
+	if (work > 0 && cp == 0) {
+		fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
+		fprintf(stderr, "[---] region [type: %u, level: %u, id: %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
+			region_type, region, region_id, did, parentSid, parentDid, 
+			regionInfo[region].cp, work);
+		assert(0);
+	}
 
 #ifdef USE_UREGION
 	processUdr(sid, did, parentSid, parentDid, work, cp);

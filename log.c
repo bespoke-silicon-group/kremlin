@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include "defs.h"
+#include "udr.h"
 
 /**
  * Opens the log file.
@@ -72,6 +73,15 @@ void log_write(File* log,
     res += fwrite(&parent_dynamic_id,    sizeof(Int64), 1, log);
     res += fwrite(&cnt,    				 sizeof(Int64), 1, log);
 	assert(static_id < 10000);
+	if (end_time <= start_time) {
+		fprintf(stderr, "sregion %d has 0 work\n", static_id);
+	}
+	if (critical_path_length == 0) {
+		fprintf(stderr, "sregion %d has 0 cp length\n", static_id);
+	}
+	if (start_time < end_time)
+		assert(critical_path_length > 0);
+//	assert(end_time > start_time);
 	//fprintf(stderr, "%d", res);
 	assert(res == 8);
 }
@@ -84,4 +94,23 @@ void log_write(File* log,
 void log_close(File* log)
 {
     fclose(log);
+}
+
+void writeURegion(File* fp, URegion* region) {
+	assert(fp != NULL);
+	fwrite(&region->uid, sizeof(Int64), 1, fp);
+	fwrite(&region->sid, sizeof(Int64), 1, fp);
+	fwrite(&region->work, sizeof(Int64), 1, fp);
+	fwrite(&region->cp, sizeof(Int64), 1, fp);
+	assert(region->cnt != 0);
+	fwrite(&region->cnt, sizeof(Int64), 1, fp);
+	//fwrite(&region->pSid, sizeof(Int64), 1, fp);
+	fwrite(&region->childrenSize, sizeof(Int64), 1, fp);
+	
+	ChildInfo* current = region->cHeader;
+	while (current != NULL) {
+		fwrite(&current->uid, sizeof(Int64), 1, fp);	
+		fwrite(&current->cnt, sizeof(Int64), 1, fp);	
+		current = current->next;
+	}			
 }

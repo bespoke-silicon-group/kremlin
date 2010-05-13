@@ -14,6 +14,7 @@
 #define PYRPROF_DEBUG	0
 #define DEBUGLEVEL		0
 
+#define USE_UREGION
 
 // save the last visited BB number 
 // for now we do not use it
@@ -25,7 +26,7 @@
 #define FALSE 0
 
 #ifndef MAX_REGION_LEVEL
-#define MAX_REGION_LEVEL	10		
+#define MAX_REGION_LEVEL	100		
 #endif
 
 #ifndef MIN_REGION_LEVEL
