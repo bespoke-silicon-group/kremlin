@@ -119,6 +119,7 @@ void* logStoreInst(UInt src, Addr dest_addr);
 void* logStoreInstConst(Addr dest_addr); 
 
 void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...); 
+void logPhiNodeAddCondition(UInt dest, UInt src);
 
 void addControlDep(UInt cond);
 void removeControlDep();

@@ -40,4 +40,6 @@ typedef struct _ChildInfo_ {
 void processUdr(UInt64 sid, UInt64 did, UInt64 pSid, UInt64 pDid, 
 	UInt64 work, UInt64 cp);
 
+void finalizeUdr();
+
 #endif
