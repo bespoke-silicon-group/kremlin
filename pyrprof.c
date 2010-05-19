@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include "defs.h"
 #include "udr.h"
+#include "log.h"
 #include "debug.h"
 #include "table.h"
 

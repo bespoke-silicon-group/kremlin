@@ -1,4 +1,5 @@
 #include "udr.h"
+#include "log.h"
 
 #include <stdlib.h>
 
@@ -137,6 +138,14 @@ ChildInfo* copyChildren(ChildInfo* head) {
 	return retHead;
 }
 
+void printChildren(ChildInfo* head) {
+	ChildInfo* current = head;
+	while (current != NULL) {
+		fprintf(stderr, "\t[%lld:%lld]", current->uid, current->cnt);
+		current = current->next;
+	}
+}
+
 void checkChildren(ChildInfo* head) {
 	if (head == NULL)
 		return;
@@ -150,14 +159,6 @@ void checkChildren(ChildInfo* head) {
 			assert(0);
 		}
 		last = current;
-		current = current->next;
-	}
-}
-
-void printChildren(ChildInfo* head) {
-	ChildInfo* current = head;
-	while (current != NULL) {
-		fprintf(stderr, "\t[%lld:%lld]", current->uid, current->cnt);
 		current = current->next;
 	}
 }

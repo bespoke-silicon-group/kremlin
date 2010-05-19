@@ -115,7 +115,7 @@ void printTEntry(TEntry* entry) {
 TEntry* getLTEntry(UInt32 vreg) {
 	assert(lTable != NULL);
 	if (vreg >= lTable->size) {
-		fprintf("vreg = %d, lTable size = %d\n", vreg, lTable->size);
+		fprintf(stderr,"vreg = %d, lTable size = %d\n", vreg, lTable->size);
 	}
 	assert(vreg < lTable->size);
 	
