@@ -137,6 +137,7 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...);
 
 void logBBVisit(UInt bb_id); 
 
+void* logInductionVar(UInt dest); 
 void* logInductionVarDependence(UInt induct_var); 
 
 
@@ -146,6 +147,10 @@ void deinitProfiler();
 
 void logRegionEntry(UInt region_id, UInt region_type);
 void logRegionExit(UInt region_id, UInt region_type);
+
+// the following two functions are part of our plans for c++ support
+void cppEntry();
+void cppExit();
 
 
 // tempoarary use only
