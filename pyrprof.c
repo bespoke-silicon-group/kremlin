@@ -164,6 +164,7 @@ void popFuncContext() {
 }
 
 UInt getVersion(int level) {
+	assert(level >= 0 && level < _MAX_REGION_LEVEL);
 	return versions[level];
 }
 
@@ -578,6 +579,7 @@ TEntry* getDummyTEntry() {
 
 void freeDummyTEntry() {
 	freeTEntry(dummyEntry);
+	dummyEntry = NULL;
 }
 
 // special case for constant arg
@@ -718,8 +720,12 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 void* logInductionVarDependence(UInt induct_var) {
 }
 
+UInt isCpp = FALSE;
+UInt hasInitialized = 0;
+int init() {
+	if(hasInitialized++)
+		return FALSE;
 
-void initProfiler() {
 	int i;
 	regionNum = 0;
 	int storageSize = _maxRegionToLog - _minRegionToLog + 1;
@@ -727,10 +733,10 @@ void initProfiler() {
 		_minRegionToLog, _maxRegionToLog, storageSize);
 	initDataStructure(storageSize);
 
-	versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL);
+	assert(versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL));
 	bzero(versions, sizeof(int) * _MAX_REGION_LEVEL);
 
-	regionInfo = (Region*) malloc(sizeof(Region) * _MAX_REGION_LEVEL);
+	assert(regionInfo = (Region*) malloc(sizeof(Region) * _MAX_REGION_LEVEL));
 	bzero(regionInfo, sizeof(Region) * _MAX_REGION_LEVEL);
 	allocDummyTEntry();
 	prepareCall();
@@ -738,22 +744,54 @@ void initProfiler() {
 	
 	fp = log_open("cpInfo.bin");
 	assert(fp != NULL);
+	return TRUE;
 }
 
-void deinitProfiler() {
+int deinit() {
+	if(--hasInitialized)
+		return FALSE;
+
 #ifdef USE_UREGION
 	finalizeUdr();
 #else
 	assert(_lastCnt == 1 && _lastParentSid == 0);
 	log_write(fp, _lastSid, _lastDid, _lastStart, _lastEnd, _lastCP, _lastParentSid, _lastParentDid, _lastCnt);
 #endif
+
 	finalizeDataStructure();
 	freeDummyTEntry();
+
 	free(regionInfo);
+	regionInfo = NULL;
+
 	free(versions);
+	versions = NULL;
+
 	freeCDT(cdtHead);
 	cdtHead = NULL;
+
 	log_close(fp);
+
+	return TRUE;
+}
+
+void initProfiler() {
+	init();
+}
+
+void cppEntry() {
+	isCpp = TRUE;
+	init();
+}
+
+void cppExit() {
+	deinit();
+}
+
+void deinitProfiler() {
+	deinit();
+	if(isCpp)
+		prepareCall();
 }
 
 
