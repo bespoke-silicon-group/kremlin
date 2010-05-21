@@ -719,7 +719,7 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 
 // this function is the same as logAssignmentConst but helps to quickly
 // identify induction variables in the source code
-void* logInductionVarDependence(UInt dest) {
+void* logInductionVar(UInt dest) {
 	return logAssignmentConst(dest);
 }
 
