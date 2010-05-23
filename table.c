@@ -37,8 +37,16 @@ void freeGlobalTable(GTable* table) {
 
 TEntry* allocTEntry(int size) {
 	TEntry* ret = (TEntry*) malloc(sizeof(TEntry));
+	assert(ret != NULL);
 	ret->version = (UInt32*) malloc(sizeof(UInt32) * size);
 	ret->time = (UInt64*) malloc(sizeof(UInt64) * size);
+	if (ret->version == NULL || ret->time == NULL) {
+		fprintf(stderr, "allocTEntry size = %d\n", size);
+		assert(malloc(sizeof(UInt64) * size) == NULL);
+		fprintf(stderr, "additional malloc succeeded\n");
+	}
+	assert(ret->version != NULL && ret->time != NULL);
+	
 	bzero(ret->version, sizeof(UInt32) * size);
 	bzero(ret->time, sizeof(UInt64) * size);
 	return ret;
