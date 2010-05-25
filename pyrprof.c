@@ -360,6 +360,8 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	decrementRegionLevel();
 }
 
+// TODO: implement me
+void logLoopIteration() {}
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	int minLevel = _minRegionToLog;

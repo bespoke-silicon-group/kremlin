@@ -149,6 +149,8 @@ void deinitProfiler();
 void logRegionEntry(UInt region_id, UInt region_type);
 void logRegionExit(UInt region_id, UInt region_type);
 
+void logLoopIteration();
+
 // the following two functions are part of our plans for c++ support
 void cppEntry();
 void cppExit();
