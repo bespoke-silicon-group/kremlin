@@ -12,7 +12,7 @@
 #define _PYRPROF_DEF
 
 #define PYRPROF_DEBUG	0
-#define DEBUGLEVEL		0
+#define DEBUGLEVEL		1
 
 #define USE_UREGION
 
@@ -140,6 +140,7 @@ void logBBVisit(UInt bb_id);
 void* logInductionVar(UInt dest); 
 void* logInductionVarDependence(UInt induct_var); 
 
+void* logReductionVar(UInt opCost, UInt dest); 
 
 /* The following functions are inserted by region instrumentation pass */
 void initProfiler();

@@ -109,6 +109,10 @@ UInt64 getDynamicRegionId(UInt64 sid) {
 	return dynamicRegionId[sid];
 }
 
+UInt64 getCP(int level) {
+	return regionInfo[level].cp;
+}
+
 void updateCP(UInt64 value, int level) {
 	if (value > regionInfo[level].cp) {
 		regionInfo[level].cp = value;
@@ -290,6 +294,9 @@ void logRegionExit(UInt region_id, UInt region_type) {
 			region_type, region, region_id, did, parentSid, parentDid, 
 			regionInfo[region].cp, work);
 	if (work > 0 && cp == 0) {
+		if(region > _maxRegionToLog) {
+			fprintf(stderr,"duh!\n");
+		}
 		fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
 		fprintf(stderr, "[---] region [type: %u, level: %u, id: %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 			region_type, region, region_id, did, parentSid, parentDid, 
@@ -365,10 +372,12 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		assert(entryDest != NULL);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
-	MSG(2, "binOp[%u] level %u version %u \n", opCost, i, version);
-	MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
-	MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
+		MSG(2, "binOp[%u] level %u version %u \n", opCost, i, version);
+		MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
+		MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
 	}
+
+	MSG(1,"CP of innermost region: %llu\n",getCP(i));
 
 	return entryDest;
 }
@@ -724,6 +733,10 @@ void* logInductionVar(UInt dest) {
 }
 
 void* logInductionVarDependence(UInt induct_var) {
+}
+
+void* logReductionVar(UInt opCost, UInt dest) {
+	addWork(opCost);
 }
 
 UInt isCpp = FALSE;
