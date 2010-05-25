@@ -168,6 +168,7 @@ void checkChildren(ChildInfo* head) {
 URegion* _uregionMap[MAPSIZE][ENTRYSIZE];
 int _uregionMapPtr[MAPSIZE];
 int _uidPtr;
+long long _uregionCnt = 0;
 
 URegion* createURegion(UInt64 uid, UInt64 sid, UInt64 work, UInt64 cp, UInt64 pSid, ChildInfo* head) {
 	URegion* ret = (URegion*)malloc(sizeof(URegion));
@@ -180,12 +181,14 @@ URegion* createURegion(UInt64 uid, UInt64 sid, UInt64 work, UInt64 cp, UInt64 pS
 	ret->childrenSize = getChildrenSize(head);
 	ret->cHeader = copyChildren(head);
 	//checkChildren(ret->cHeader);
+	_uregionCnt++;
 	return ret;
 }
 
 void freeURegion(URegion* region) {
 	freeChildren(region->cHeader);
 	free(region);
+	_uregionCnt--;
 }
 
 void printURegion(URegion* region) {

@@ -10,7 +10,8 @@ void log_write(File* log,                   /* Writes to a log file */
                Int64 end_time,
                Int64 critical_path_length,
                Int64 parent_static_id,
-               Int64 parent_dynamic_id);
+               Int64 parent_dynamic_id,
+			   Int64 cnt);
 
 void log_close(File* log);                  /* Closes a log file */
 

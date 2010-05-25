@@ -34,15 +34,23 @@ void freeGlobalTable(GTable* table) {
 	free(table);
 }
 
+long long _tEntryLocalCnt = 0;
+long long _tEntryGlobalCnt = 0;
 
 TEntry* allocTEntry(int size) {
 	TEntry* ret = (TEntry*) malloc(sizeof(TEntry));
+	if (ret == NULL) {
+		fprintf(stderr, "TEntry alloc error\n");
+	}
 	assert(ret != NULL);
 	ret->version = (UInt32*) malloc(sizeof(UInt32) * size);
 	ret->time = (UInt64*) malloc(sizeof(UInt64) * size);
 	if (ret->version == NULL || ret->time == NULL) {
-		fprintf(stderr, "allocTEntry size = %d\n", size);
-		assert(malloc(sizeof(UInt64) * size) == NULL);
+		fprintf(stderr, "allocTEntry size = %d Each TEntry Size = %d\n", 
+			size, getTEntrySize());
+		dumpTableMemAlloc(); 
+		
+		assert(malloc(sizeof(UInt64) * size) != NULL);
 		fprintf(stderr, "additional malloc succeeded\n");
 	}
 	assert(ret->version != NULL && ret->time != NULL);
@@ -82,6 +90,7 @@ LTable* allocLocalTable(int size) {
 	for (i=0; i<size; i++) {
 		ret->array[i] = allocTEntry(getTEntrySize());
 	}
+	_tEntryLocalCnt += size;
 //	printf("Alloc LTable to 0x%x\n", ret);
 	return ret;
 }
@@ -95,6 +104,7 @@ void freeLocalTable(LTable* table) {
 		assert(table->array[i] != NULL);
 		freeTEntry(table->array[i]);
 	}
+	_tEntryLocalCnt -= table->size;
 	free(table->array);
 	free(table);
 }
@@ -105,6 +115,7 @@ void setLocalTable(LTable* table) {
 }
 
 void initDataStructure(int regionLevel) {
+	fprintf(stderr, "# of instrumented region Levels = %d\n", regionLevel);
 	maxRegionLevel = regionLevel;
 	gTable = allocGlobalTable(maxRegionLevel);
 }
@@ -144,8 +155,13 @@ TEntry* getGTEntry(Addr addr) {
 	if (ret == NULL) {
 		ret = allocTEntry(maxRegionLevel);
 		entry->array[index2] = ret;
+		_tEntryGlobalCnt++;
 	}
 	return ret;
 }
 
+void dumpTableMemAlloc() {
+	fprintf(stderr, "local TEntry = %lld\n", _tEntryLocalCnt);
+	fprintf(stderr, "global TEntry = %lld\n", _tEntryGlobalCnt);
+}
 

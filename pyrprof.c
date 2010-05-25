@@ -17,6 +17,7 @@
 
 #define MIN(a, b)	(((a) < (b)) ? (a) : (b))
 
+
 typedef struct _CDT_T {
 	UInt64*	time;
 	struct _CDT_T* next;
@@ -69,7 +70,18 @@ UInt	__currentBB;
 
 #define getRegionNum() 		(regionNum)
 #define getCurrentRegion() 	(regionNum-1)
+#define isCurrentRegionInstrumentable() (((regionNum-1) >= _minRegionToLog) && ((regionNum-1) <= _maxRegionToLog))
 
+int _maxRegionNum = 0;
+inline void incrementRegionLevel() {
+	regionNum++;
+	if (regionNum > _maxRegionNum)
+		_maxRegionNum = regionNum;
+}
+
+inline void decrementRegionLevel() {
+	regionNum--;
+}
 void dumpCdt(CDT* cdt) {
 	int i;
 	fprintf(stderr, "cdtHead = 0x%x\n", cdt);
@@ -244,12 +256,16 @@ void prepareCall() {
 
 
 void logRegionEntry(UInt region_id, UInt region_type) {
-	regionNum++;
+	incrementRegionLevel();
 	_regionEntryCnt++;
 	if (region_type == 0)
 		_regionFuncCnt++;
 
 	int region = getCurrentRegion();
+/*
+	if (region < _minRegionToLog || region > _maxRegionToLog)
+		return;
+*/
 	incDynamicRegionId(region_id);
 	versions[region]++;
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
@@ -293,7 +309,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 			region_type, region, region_id, did, parentSid, parentDid, 
 			regionInfo[region].cp, work);
-	if (work > 0 && cp == 0) {
+	if (work > 0 && cp == 0 && isCurrentRegionInstrumentable()) {
 		if(region > _maxRegionToLog) {
 			fprintf(stderr,"duh!\n");
 		}
@@ -341,7 +357,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 			__currentBB, __prevBB);
 #endif
 	}
-	regionNum--;
+	decrementRegionLevel();
 }
 
 
@@ -791,6 +807,9 @@ int deinit() {
 
 	log_close(fp);
 
+	fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
+		_minRegionToLog, _maxRegionToLog);
+	fprintf(stderr, "[pyrprof] app MaxRegionLevel = %d\n", _maxRegionNum);
 	return TRUE;
 }
 
