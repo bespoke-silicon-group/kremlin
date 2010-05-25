@@ -760,8 +760,12 @@ void* logReductionVar(UInt opCost, UInt dest) {
 UInt isCpp = FALSE;
 UInt hasInitialized = 0;
 int init() {
-	if(hasInitialized++)
+	if(hasInitialized++) {
+		MSG(0, "init skipped\n");
+		prepareCall();
 		return FALSE;
+	}
+	MSG(0, "init running\n");
 
 	int i;
 	regionNum = 0;
@@ -785,8 +789,11 @@ int init() {
 }
 
 int deinit() {
-	if(--hasInitialized)
+	if(--hasInitialized) {
+		MSG(0, "deinit skipped\n");
 		return FALSE;
+	}
+	MSG(0, "deinit running\n");
 
 #ifdef USE_UREGION
 	finalizeUdr();
