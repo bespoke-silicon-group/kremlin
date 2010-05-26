@@ -528,6 +528,15 @@ void* logStoreInstConst(Addr dest_addr) {
 	return entryDest;
 }
 
+// TODO: implement logMalloc
+void logMalloc(Addr addr, UInt64 size) {}
+
+// TODO: implement logRealloc
+void logRealloc(Addr old_addr, Addr new_addr, UInt64 size) {}
+
+// TODO: implement logFree
+void logFree(Addr addr) {}
+
 void* logInsertValue(UInt src, UInt dest) {
 	printf("Warning: logInsertValue not correctly implemented\n");
 	return logAssignment(src, dest);

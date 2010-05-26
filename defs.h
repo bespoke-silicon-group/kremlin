@@ -118,6 +118,10 @@ void* logLoadInst(Addr src_addr, UInt dest);
 void* logStoreInst(UInt src, Addr dest_addr); 
 void* logStoreInstConst(Addr dest_addr); 
 
+void logMalloc(Addr addr, UInt64 size);
+void logRealloc(Addr old_addr, Addr new_addr, UInt64 size);
+void logFree(Addr addr);
+
 void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...); 
 void logPhiNodeAddCondition(UInt dest, UInt src);
 
