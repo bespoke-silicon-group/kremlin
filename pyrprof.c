@@ -529,10 +529,10 @@ void* logStoreInstConst(Addr dest_addr) {
 }
 
 // TODO: implement logMalloc
-void logMalloc(Addr addr, UInt64 size) {}
+void logMalloc(Addr addr, size_t size) {}
 
 // TODO: implement logRealloc
-void logRealloc(Addr old_addr, Addr new_addr, UInt64 size) {}
+void logRealloc(Addr old_addr, Addr new_addr, size_t size) {}
 
 // TODO: implement logFree
 void logFree(Addr addr) {}
