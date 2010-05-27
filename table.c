@@ -4,6 +4,8 @@ GTable* gTable;
 LTable* lTable;
 UInt32	maxRegionLevel;
 
+void dumpTableMemAlloc(void);
+
 UInt32 getTEntrySize() {
 	return maxRegionLevel;
 }
