@@ -17,7 +17,6 @@
 
 #define MIN(a, b)	(((a) < (b)) ? (a) : (b))
 
-
 typedef struct _CDT_T {
 	UInt64*	time;
 	struct _CDT_T* next;
@@ -62,6 +61,9 @@ UInt64			timestamp = 0llu;
 File* 			fp = NULL;
 UInt64			dynamicRegionId[_MAX_STATIC_REGION];	
 
+#ifdef __cplusplus
+int instrument = 0;
+#endif
 
 #ifdef MANAGE_BB_INFO
 UInt	__prevBB;
@@ -132,6 +134,9 @@ void updateCP(UInt64 value, int level) {
 }
 
 FuncContext* pushFuncContext() {
+#ifdef __cplusplus
+	instrument++;
+#endif
 	int i;
 	FuncContext* prevHead = funcHead;
 	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
@@ -161,6 +166,9 @@ UInt64 _setupTableCnt;
 int	_requireSetupTable;
 
 void popFuncContext() {
+#ifdef __cplusplus
+	instrument--;
+#endif
 	FuncContext* ret = funcHead;
 	assert(ret != NULL);
 	//assert(ret->table != NULL);
@@ -197,6 +205,7 @@ UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
 void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
 	int level = inLevel - _minRegionToLog;
     assert(entry != NULL);
+
     entry->version[level] = version;
     entry->time[level] = timestamp;
 }
@@ -236,6 +245,10 @@ void fillCDT(CDT* cdt, TEntry* entry) {
 }
 
 void setupLocalTable(UInt maxVregNum) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(0, "setupLocalTable size %u\n", maxVregNum);
 	assert(_requireSetupTable == 1);
 	LTable* table = allocLocalTable(maxVregNum);
@@ -248,6 +261,10 @@ void setupLocalTable(UInt maxVregNum) {
 }
 
 void prepareCall() {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(0, "prepareCall\n");
 	pushFuncContext();
 	_requireSetupTable = 1;
@@ -256,6 +273,11 @@ void prepareCall() {
 
 
 void logRegionEntry(UInt region_id, UInt region_type) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
+
 	incrementRegionLevel();
 	_regionEntryCnt++;
 	if (region_type == 0)
@@ -292,6 +314,10 @@ UInt64 _lastParentSid;
 UInt64 _lastParentDid;
 
 void logRegionExit(UInt region_id, UInt region_type) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	int i;
 	int region = getCurrentRegion();
 
@@ -364,6 +390,10 @@ void logRegionExit(UInt region_id, UInt region_type) {
 void logLoopIteration() {}
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
@@ -402,6 +432,10 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 
 
 void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
@@ -433,10 +467,18 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 }
 
 void* logAssignment(UInt src, UInt dest) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
 	return logBinaryOpConst(0, src, dest);
 }
 
 void* logAssignmentConst(UInt dest) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
@@ -457,6 +499,10 @@ void* logAssignmentConst(UInt dest) {
 }
 
 void* logLoadInst(Addr src_addr, UInt dest) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
@@ -482,6 +528,10 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 }
 
 void* logStoreInst(UInt src, Addr dest_addr) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
@@ -509,6 +559,10 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 
 
 void* logStoreInstConst(Addr dest_addr) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
@@ -549,6 +603,10 @@ void* logInsertValueConst(UInt dest) {
 
 
 void addControlDep(UInt cond) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(1, "push ControlDep ts[%u]\n", cond);
 	TEntry* entry = getLTEntry(cond);
 	CDT* toAdd = allocCDT();
@@ -558,6 +616,10 @@ void addControlDep(UInt cond) {
 }
 
 void removeControlDep() {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(1, "pop  ControlDep\n");
 	CDT* toRemove = cdtHead;
 	cdtHead = cdtHead->next;
@@ -567,12 +629,20 @@ void removeControlDep() {
 
 // prepare timestamp storage for return value
 void addReturnValueLink(UInt dest) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(1, "prepare return storage ts[%u]\n", dest);
 	funcHead->ret = getLTEntry(dest);
 }
 
 // write timestamp to the prepared storage
 void logFuncReturn(UInt src) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(1, "write return value ts[%u]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
 	assert(funcHead->ret != NULL);
@@ -580,6 +650,10 @@ void logFuncReturn(UInt src) {
 }
 
 void logFuncReturnConst(void) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	int i;
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -597,6 +671,10 @@ void logFuncReturnConst(void) {
 
 // give timestamp for an arg
 void linkArgToLocal(UInt src) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(1, "linkArgToLocal to ts[%u]\n", src);
 	TEntry* srcEntry = getLTEntry(src);
 	assert(funcHead->writeIndex < _MAX_ARGS);
@@ -620,6 +698,10 @@ void freeDummyTEntry() {
 
 // special case for constant arg
 void linkArgToConst() {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(1, "linkArgToConst\n");
 	assert(funcHead->writeIndex < _MAX_ARGS);
 	funcHead->args[funcHead->writeIndex++] = getDummyTEntry();
@@ -628,6 +710,10 @@ void linkArgToConst() {
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
 void transferAndUnlinkArg(UInt dest) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	MSG(1, "getArgInfo to ts[%u]\n", dest);
 	TEntry* destEntry = getLTEntry(dest);
 	assert(funcHead != NULL);
@@ -638,6 +724,10 @@ void transferAndUnlinkArg(UInt dest) {
 }
 
 void logBBVisit(UInt bb_id) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 #ifdef MANAGE_BB_INFO
 	MSG(1, "logBBVisit(%u)\n", bb_id);
 	__prevBB = __currentBB;
@@ -648,6 +738,10 @@ void logBBVisit(UInt bb_id) {
 #define MAX_ENTRY 10
 
 void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	TEntry* destEntry = getLTEntry(dest);
 	TEntry* cdtEntry[MAX_ENTRY];
 	TEntry* srcEntry = NULL;
@@ -691,6 +785,10 @@ void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
 }
 
 void logPhiNodeAddCondition(UInt dest, UInt src) {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
@@ -721,6 +819,10 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
 
 // use estimated cost for a callee function we cannot instrument
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
 	MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
 	int i, j;
 	int minLevel = _minRegionToLog;
@@ -771,10 +873,13 @@ UInt hasInitialized = 0;
 int init() {
 	if(hasInitialized++) {
 		MSG(0, "init skipped\n");
-		prepareCall();
 		return FALSE;
 	}
 	MSG(0, "init running\n");
+
+#ifdef __cplusplus
+	instrument++;
+#endif
 
 	int i;
 	regionNum = 0;
@@ -823,6 +928,10 @@ int deinit() {
 	freeCDT(cdtHead);
 	cdtHead = NULL;
 
+#ifdef __cplusplus
+	instrument--;
+#endif
+
 	log_close(fp);
 
 	fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
@@ -846,8 +955,6 @@ void cppExit() {
 
 void deinitProfiler() {
 	deinit();
-	if(isCpp)
-		prepareCall();
 }
 
 
