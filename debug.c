@@ -10,7 +10,7 @@ char* toStringTEntry(TEntry* entry) {
 	int level = regionNum;
 	int i;
 	char temp[50];
-	char* ret = malloc(300);
+	char* ret = (char*)malloc(300);
 	ret[0] = 0;
 
 	for (i = 0; i < level; i++) {
@@ -26,7 +26,7 @@ void MSG(int level, char* format, ...) {
     }
 
     int strSize = strlen(format) + strlen(tabString);
-    char* buf = malloc(2000);
+    char* buf = (char*)malloc(2000);
     strcpy(buf, tabString);
     strcat(buf, format);
     //printf("%s\n", buf);

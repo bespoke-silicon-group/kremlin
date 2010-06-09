@@ -57,6 +57,8 @@ int* 			versions = NULL;
 Region*			regionInfo = NULL;
 CDT* 			cdtHead = NULL;
 FuncContext* 	funcHead = NULL;
+int 			invokeStack[_MAX_REGION_LEVEL];
+int*			invokeStackTop;
 UInt64			timestamp = 0llu;
 File* 			fp = NULL;
 UInt64			dynamicRegionId[_MAX_STATIC_REGION];	
@@ -258,6 +260,38 @@ void setupLocalTable(UInt maxVregNum) {
 	setLocalTable(funcHead->table);
 	_setupTableCnt++;
 	_requireSetupTable = 0;
+}
+
+void prepareInvoke() {
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
+	MSG(0, "prepareInvoke - saved at %d\n", instrument);
+	assert(invokeStackTop < invokeStack + _MAX_REGION_LEVEL);
+	*invokeStackTop++ = instrument;
+	pushFuncContext();
+	_requireSetupTable = 1;
+}
+
+void logInvokeInstLandingPad()
+{
+#ifdef __cplusplus
+	if(!instrument)
+		return;
+#endif
+	int lastInvokeStackHeight = *(invokeStackTop - 1);
+	MSG(0, "logInvokeInstLandingPad() - Popping to %d\n", lastInvokeStackHeight);
+	int lastInstrument = instrument;
+	while(instrument > lastInvokeStackHeight)
+	{
+		int region = getCurrentRegion();
+		logRegionExit(regionInfo[region].regionId, 0);
+
+		assert(instrument < lastInstrument);
+		lastInstrument = instrument;
+	}
+	invokeStackTop--;
 }
 
 void prepareCall() {
@@ -883,6 +917,7 @@ int init() {
 
 	int i;
 	regionNum = 0;
+	invokeStackTop = invokeStack;
 	int storageSize = _maxRegionToLog - _minRegionToLog + 1;
 	MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
 		_minRegionToLog, _maxRegionToLog, storageSize);

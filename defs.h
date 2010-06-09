@@ -11,7 +11,7 @@
 #ifndef _PYRPROF_DEF
 #define _PYRPROF_DEF
 
-#define PYRPROF_DEBUG	0
+#define PYRPROF_DEBUG	1
 #define DEBUGLEVEL		1
 
 #define USE_UREGION
@@ -90,6 +90,10 @@ typedef struct _RegionInfo {
 } RegionInfo;
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 TEntry* allocTEntry(int size);
 void freeTEntry(TEntry* entry);
 LTable* allocLocalTable(int size);
@@ -124,6 +128,9 @@ void logFree(Addr addr);
 
 void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...); 
 void logPhiNodeAddCondition(UInt dest, UInt src);
+
+void prepareInvoke(void);
+void logInvokeInstLandingPad(void);
 
 void addControlDep(UInt cond);
 void removeControlDep();
@@ -163,5 +170,9 @@ void cppExit();
 // tempoarary use only
 // setup local table. 
 void setupLocalTable(UInt maxVregNum);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif /* __cplusplus */
 
 #endif
