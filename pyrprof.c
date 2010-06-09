@@ -58,6 +58,7 @@ Region*			regionInfo = NULL;
 CDT* 			cdtHead = NULL;
 FuncContext* 	funcHead = NULL;
 int 			invokeStack[_MAX_REGION_LEVEL];
+int				invokeJustCalled = 0;
 int*			invokeStackTop;
 UInt64			timestamp = 0llu;
 File* 			fp = NULL;
@@ -262,26 +263,33 @@ void setupLocalTable(UInt maxVregNum) {
 	_requireSetupTable = 0;
 }
 
-void prepareInvoke() {
 #ifdef __cplusplus
+void prepareInvoke() {
 	if(!instrument)
 		return;
-#endif
 	MSG(0, "prepareInvoke - saved at %d\n", instrument);
+
 	assert(invokeStackTop < invokeStack + _MAX_REGION_LEVEL);
 	*invokeStackTop++ = instrument;
 	pushFuncContext();
 	_requireSetupTable = 1;
 }
 
-void logInvokeInstLandingPad()
+void invokeOkay()
 {
-#ifdef __cplusplus
 	if(!instrument)
 		return;
-#endif
+
+	MSG(0, "invokeOkay\n");
+	invokeStackTop--;
+}
+void invokeThrew()
+{
+	if(!instrument)
+		return;
+
 	int lastInvokeStackHeight = *(invokeStackTop - 1);
-	MSG(0, "logInvokeInstLandingPad() - Popping to %d\n", lastInvokeStackHeight);
+	MSG(0, "invokeThrew() - Popping to %d\n", lastInvokeStackHeight);
 	int lastInstrument = instrument;
 	while(instrument > lastInvokeStackHeight)
 	{
@@ -293,6 +301,7 @@ void logInvokeInstLandingPad()
 	}
 	invokeStackTop--;
 }
+#endif
 
 void prepareCall() {
 #ifdef __cplusplus

@@ -11,7 +11,7 @@
 #ifndef _PYRPROF_DEF
 #define _PYRPROF_DEF
 
-#define PYRPROF_DEBUG	1
+#define PYRPROF_DEBUG	0
 #define DEBUGLEVEL		1
 
 #define USE_UREGION
@@ -130,7 +130,8 @@ void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...);
 void logPhiNodeAddCondition(UInt dest, UInt src);
 
 void prepareInvoke(void);
-void logInvokeInstLandingPad(void);
+void invokeThrew(void);
+void invokeOkay(void);
 
 void addControlDep(UInt cond);
 void removeControlDep();
