@@ -42,6 +42,10 @@ typedef struct _region_t {
 	UInt64 regionId;
 } Region;
 
+typedef struct _InvokeRecord {
+	UInt id;
+	int stackHeight;
+} InvokeRecord;
 
 #if 1
 const int				_maxRegionToLog = MAX_REGION_LEVEL;
@@ -57,9 +61,8 @@ int* 			versions = NULL;
 Region*			regionInfo = NULL;
 CDT* 			cdtHead = NULL;
 FuncContext* 	funcHead = NULL;
-int 			invokeStack[_MAX_REGION_LEVEL];
-int				invokeJustCalled = 0;
-int*			invokeStackTop;
+InvokeRecord 	invokeStack[_MAX_REGION_LEVEL];
+InvokeRecord*	invokeStackTop;
 UInt64			timestamp = 0llu;
 File* 			fp = NULL;
 UInt64			dynamicRegionId[_MAX_STATIC_REGION];	
@@ -264,42 +267,64 @@ void setupLocalTable(UInt maxVregNum) {
 }
 
 #ifdef __cplusplus
-void prepareInvoke() {
-	if(!instrument)
-		return;
-	MSG(0, "prepareInvoke - saved at %d\n", instrument);
-
+void invokeAssert() {
+	assert(invokeStackTop >= invokeStack);
 	assert(invokeStackTop < invokeStack + _MAX_REGION_LEVEL);
-	*invokeStackTop++ = instrument;
-	pushFuncContext();
-	_requireSetupTable = 1;
 }
 
-void invokeOkay()
+void prepareInvoke(UInt id) {
+	if(!instrument)
+		return;
+	MSG(0, "prepareInvoke(%u) - saved at %d\n", id, instrument);
+
+	invokeAssert();
+
+	InvokeRecord* currentRecord = invokeStackTop++;
+	currentRecord->id = id;
+	currentRecord->stackHeight = instrument;
+
+	invokeAssert();
+}
+
+void invokeOkay(UInt id) {
+	if(!instrument)
+		return;
+
+	invokeAssert();
+	if(invokeStackTop > invokeStack && (invokeStackTop - 1)->id == id) {
+		MSG(0, "invokeOkay(%u)\n", id);
+		invokeStackTop--;
+
+		invokeAssert();
+	} else
+		MSG(0, "invokeOkay(%u) ignored\n", id);
+}
+void invokeThrew(UInt id)
 {
 	if(!instrument)
 		return;
 
-	MSG(0, "invokeOkay\n");
-	invokeStackTop--;
-}
-void invokeThrew()
-{
-	if(!instrument)
-		return;
+	invokeAssert();
 
-	int lastInvokeStackHeight = *(invokeStackTop - 1);
-	MSG(0, "invokeThrew() - Popping to %d\n", lastInvokeStackHeight);
-	int lastInstrument = instrument;
-	while(instrument > lastInvokeStackHeight)
-	{
-		int region = getCurrentRegion();
-		logRegionExit(regionInfo[region].regionId, 0);
+	if(invokeStackTop > invokeStack && (invokeStackTop - 1)->id == id) {
+		InvokeRecord* currentRecord = invokeStackTop - 1;
+		MSG(0, "invokeThrew(%u) - Popping to %d\n", currentRecord->id, currentRecord->stackHeight);
 
-		assert(instrument < lastInstrument);
-		lastInstrument = instrument;
+		int lastInstrument = instrument;
+		while(instrument > currentRecord->stackHeight)
+		{
+			int region = getCurrentRegion();
+			logRegionExit(regionInfo[region].regionId, 0);
+
+			assert(instrument < lastInstrument);
+			lastInstrument = instrument;
+		}
+		invokeStackTop--;
+		
+		invokeAssert();
 	}
-	invokeStackTop--;
+	else
+		MSG(0, "invokeThrew(%u) ignored\n", id);
 }
 #endif
 
