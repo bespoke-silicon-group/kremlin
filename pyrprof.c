@@ -398,6 +398,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 did = getDynamicRegionId(region_id);
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
 	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
+	assert(work >= cp);
 
 	decIndentTab();
 	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
