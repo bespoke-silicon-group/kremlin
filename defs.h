@@ -11,8 +11,14 @@
 #ifndef _PYRPROF_DEF
 #define _PYRPROF_DEF
 
-#define PYRPROF_DEBUG	1
+// unless specified, we assume no debugging
+#ifndef PYRPROF_DEBUG
+#define PYRPROF_DEBUG	0
+#endif
+
+#ifndef DEBUGLEVEL
 #define DEBUGLEVEL		1
+#endif
 
 #define USE_UREGION
 
@@ -126,7 +132,13 @@ void logMalloc(Addr addr, size_t size);
 void logRealloc(Addr old_addr, Addr new_addr, size_t size);
 void logFree(Addr addr);
 
-void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...); 
+void* logPhiNode1CD(UInt dest, UInt src, UInt cd); 
+void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2); 
+void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3); 
+void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4); 
+
+void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4);
+
 void logPhiNodeAddCondition(UInt dest, UInt src);
 
 void prepareInvoke(UInt);

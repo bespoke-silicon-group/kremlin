@@ -137,6 +137,8 @@ void updateCP(UInt64 value, int level) {
 	if (value > regionInfo[level].cp) {
 		regionInfo[level].cp = value;
 	}
+
+	//MSG(1,"CP[%d] = %llu\n",level,regionInfo[level].cp);
 }
 
 FuncContext* pushFuncContext() {
@@ -360,7 +362,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	versions[region]++;
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
 	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
-	MSG(0, "[+++] region [%u, %u, %u:%llu] parent [%u:%llu] start: %llu\n",
+	MSG(0, "[+++] region [%u, %d, %u:%llu] parent [%llu:%llu] start: %llu\n",
 		region_type, region, region_id, getDynamicRegionId(region_id), 
 		parentSid, parentDid, timestamp);
 	regionInfo[region].regionId = region_id;
@@ -394,7 +396,11 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 endTime = timestamp;
 	UInt64 work = endTime - regionInfo[region].start;
 	UInt64 cp = regionInfo[region].cp;
-	assert(region_id == regionInfo[region].regionId);
+	//assert(region_id == regionInfo[region].regionId);
+	if(region_id != regionInfo[region].regionId) {
+		MSG(1,"ERROR: unexpected region exit: %u (expected region %u)\n",region_id,regionInfo[region].regionId);
+		assert(0);
+	}
 	UInt64 did = getDynamicRegionId(region_id);
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
 	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
@@ -494,8 +500,6 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 		MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
 	}
 
-	MSG(1,"CP of innermost region: %llu\n",getCP(i));
-
 	return entryDest;
 }
 
@@ -555,6 +559,8 @@ void* logAssignmentConst(UInt dest) {
 	
 	assert(funcHead->table->size > dest);
 	assert(entryDest != NULL);
+
+	MSG(1, "logAssignmentConst ts[%u]\n", dest);
 
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
@@ -640,7 +646,8 @@ void* logStoreInstConst(Addr dest_addr) {
 	assert(entryDest != NULL);
 	
 	MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
-	for (i = minLevel; i < maxLevel; i++) {
+
+	for (i = minLevel; i < maxLevel; ++i) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i);
 		UInt64 value = cdt + STORE_COST;
@@ -804,54 +811,229 @@ void logBBVisit(UInt bb_id) {
 #endif
 }
 
-#define MAX_ENTRY 10
-
-void logPhiNode(UInt dest, UInt src, UInt num_cont_dep, ...) {
+void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 #ifdef __cplusplus
 	if(!instrument)
-		return;
+		return NULL;
 #endif
-	TEntry* destEntry = getLTEntry(dest);
-	TEntry* cdtEntry[MAX_ENTRY];
-	TEntry* srcEntry = NULL;
-	UInt	incomingBB[MAX_ENTRY];
-	UInt	srcList[MAX_ENTRY];
+	TEntry* entrySrc = getLTEntry(src);
+	TEntry* entryCD = getLTEntry(cd);
+	TEntry* entryDest = getLTEntry(dest);
 
-	MSG(1, "logPhiNode to ts[%u] from ts[%u] and %u control deps\n", dest, src, num_cont_dep);
-	va_list ap;
-	va_start(ap, num_cont_dep);
+	assert(funcHead->table->size > src);
+	assert(funcHead->table->size > cd);
+	assert(funcHead->table->size > dest);
+	assert(entrySrc != NULL);
+	assert(entryCD != NULL);
+	assert(entryDest != NULL);
+	
+	MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
+
+	int i = 0;
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
-	//int level = getRegionNum();
-	int i, j;
 
-	// catch src dep
-	srcEntry = getLTEntry(src);
-
-	// read all CDT
-	for (i = 0; i < num_cont_dep; i++) {
-		UInt cdt = va_arg(ap, UInt);
-		cdtEntry[i] = getLTEntry(cdt);
-		assert(cdtEntry[i] != NULL);
-	}
-	va_end(ap);
-
-	// get max
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
-		UInt64 max = getTimestamp(srcEntry, i, version);
-	MSG(2, "logPhiNode level %u version %u \n", i, version);
-	MSG(2, " src %u dest %u srcTs %u\n", src, dest, max);
-		
-		for (j = 0; j < num_cont_dep; j++) {
-			UInt64 ts = getTimestamp(cdtEntry[j], i, version);
-			if (ts > max)
-				max = ts;		
-		}
-	MSG(2, " final Ts %u\n", max);
-		updateTimestamp(destEntry, i, version, max);
+		UInt64 ts_src = getTimestamp(entrySrc, i, version);
+		UInt64 ts_cd = getTimestamp(entryCD, i, version);
+		UInt64 max = (ts_src > ts_cd) ? ts_src : ts_cd;
+		updateTimestamp(entryDest, i, version, max);
+		MSG(2, "logPhiNode1CD level %u version %u \n", i, version);
+		MSG(2, " src %u cd %u dest %u\n", src, cd, dest);
+		MSG(2, " ts_src %u ts_cd %u max %u\n", ts_src, ts_cd, max);
 	}
+
+	return entryDest;
 }
+
+void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
+	TEntry* entrySrc = getLTEntry(src);
+	TEntry* entryCD1 = getLTEntry(cd1);
+	TEntry* entryCD2 = getLTEntry(cd2);
+	TEntry* entryDest = getLTEntry(dest);
+
+	assert(funcHead->table->size > src);
+	assert(funcHead->table->size > cd1);
+	assert(funcHead->table->size > cd2);
+	assert(funcHead->table->size > dest);
+	assert(entrySrc != NULL);
+	assert(entryCD1 != NULL);
+	assert(entryCD2 != NULL);
+	assert(entryDest != NULL);
+	
+	MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
+
+	int i = 0;
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
+
+	for (i = minLevel; i < maxLevel; i++) {
+		UInt version = getVersion(i);
+		UInt64 ts_src = getTimestamp(entrySrc, i, version);
+		UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
+		UInt64 ts_cd2 = getTimestamp(entryCD2, i, version);
+		UInt64 max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+		UInt64 max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+		updateTimestamp(entryDest, i, version, max2);
+		MSG(2, "logPhiNode2CD level %u version %u \n", i, version);
+		MSG(2, " src %u cd1 %u cd2 %u dest %u\n", src, cd1, cd2, dest);
+		MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u max %u\n", ts_src, ts_cd1, ts_cd2, max2);
+	}
+
+	return entryDest;
+}
+
+void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
+	TEntry* entrySrc = getLTEntry(src);
+	TEntry* entryCD1 = getLTEntry(cd1);
+	TEntry* entryCD2 = getLTEntry(cd2);
+	TEntry* entryCD3 = getLTEntry(cd3);
+	TEntry* entryDest = getLTEntry(dest);
+
+	assert(funcHead->table->size > src);
+	assert(funcHead->table->size > cd1);
+	assert(funcHead->table->size > cd2);
+	assert(funcHead->table->size > cd3);
+	assert(funcHead->table->size > dest);
+	assert(entrySrc != NULL);
+	assert(entryCD1 != NULL);
+	assert(entryCD2 != NULL);
+	assert(entryCD3 != NULL);
+	assert(entryDest != NULL);
+	
+	MSG(1, "logPhiNode3CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
+
+	int i = 0;
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
+
+	for (i = minLevel; i < maxLevel; i++) {
+		UInt version = getVersion(i);
+		UInt64 ts_src = getTimestamp(entrySrc, i, version);
+		UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
+		UInt64 ts_cd2 = getTimestamp(entryCD2, i, version);
+		UInt64 ts_cd3 = getTimestamp(entryCD3, i, version);
+		UInt64 max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+		UInt64 max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+		UInt64 max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+		updateTimestamp(entryDest, i, version, max3);
+		MSG(2, "logPhiNode3CD level %u version %u \n", i, version);
+		MSG(2, " src %u cd1 %u cd2 %u cd3 %u dest %u\n", src, cd1, cd2, cd3, dest);
+		MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u max %u\n", ts_src, ts_cd1, ts_cd2, ts_cd3, max3);
+	}
+
+	return entryDest;
+}
+
+void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
+	TEntry* entrySrc = getLTEntry(src);
+	TEntry* entryCD1 = getLTEntry(cd1);
+	TEntry* entryCD2 = getLTEntry(cd2);
+	TEntry* entryCD3 = getLTEntry(cd3);
+	TEntry* entryCD4 = getLTEntry(cd4);
+	TEntry* entryDest = getLTEntry(dest);
+
+	assert(funcHead->table->size > src);
+	assert(funcHead->table->size > cd1);
+	assert(funcHead->table->size > cd2);
+	assert(funcHead->table->size > cd3);
+	assert(funcHead->table->size > cd4);
+	assert(funcHead->table->size > dest);
+	assert(entrySrc != NULL);
+	assert(entryCD1 != NULL);
+	assert(entryCD2 != NULL);
+	assert(entryCD3 != NULL);
+	assert(entryCD4 != NULL);
+	assert(entryDest != NULL);
+	
+	MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3, cd4);
+
+	int i = 0;
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
+
+	for (i = minLevel; i < maxLevel; i++) {
+		UInt version = getVersion(i);
+		UInt64 ts_src = getTimestamp(entrySrc, i, version);
+		UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
+		UInt64 ts_cd2 = getTimestamp(entryCD2, i, version);
+		UInt64 ts_cd3 = getTimestamp(entryCD3, i, version);
+		UInt64 ts_cd4 = getTimestamp(entryCD4, i, version);
+		UInt64 max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+		UInt64 max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+		UInt64 max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+		UInt64 max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
+		updateTimestamp(entryDest, i, version, max4);
+		MSG(2, "logPhiNode4CD level %u version %u \n", i, version);
+		MSG(2, " src %u cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", src, cd1, cd2, cd3, cd4, dest);
+		MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_src, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
+	}
+
+	return entryDest;
+}
+
+void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+#ifdef __cplusplus
+	if(!instrument)
+		return NULL;
+#endif
+	TEntry* entryCD1 = getLTEntry(cd1);
+	TEntry* entryCD2 = getLTEntry(cd2);
+	TEntry* entryCD3 = getLTEntry(cd3);
+	TEntry* entryCD4 = getLTEntry(cd4);
+	TEntry* entryDest = getLTEntry(dest);
+
+	assert(funcHead->table->size > cd1);
+	assert(funcHead->table->size > cd2);
+	assert(funcHead->table->size > cd3);
+	assert(funcHead->table->size > cd4);
+	assert(funcHead->table->size > dest);
+	assert(entryCD1 != NULL);
+	assert(entryCD2 != NULL);
+	assert(entryCD3 != NULL);
+	assert(entryCD4 != NULL);
+	assert(entryDest != NULL);
+	
+	MSG(1, "log4CDToPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, dest, cd1, cd2, cd3, cd4);
+
+	int i = 0;
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
+
+	for (i = minLevel; i < maxLevel; i++) {
+		UInt version = getVersion(i);
+		UInt64 ts_dest = getTimestamp(entryDest, i, version);
+		UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
+		UInt64 ts_cd2 = getTimestamp(entryCD2, i, version);
+		UInt64 ts_cd3 = getTimestamp(entryCD3, i, version);
+		UInt64 ts_cd4 = getTimestamp(entryCD4, i, version);
+		UInt64 max1 = (ts_dest > ts_cd1) ? ts_dest : ts_cd1;
+		UInt64 max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+		UInt64 max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+		UInt64 max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
+		updateTimestamp(entryDest, i, version, max4);
+		MSG(2, "log4CDToPhiNode4CD level %u version %u \n", i, version);
+		MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", src, cd1, cd2, cd3, cd4, dest);
+		MSG(2, " ts_dest %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_dest, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
+	}
+
+	return entryDest;
+}
+
+#define MAX_ENTRY 10
 
 void logPhiNodeAddCondition(UInt dest, UInt src) {
 #ifdef __cplusplus
