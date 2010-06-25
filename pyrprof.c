@@ -404,7 +404,12 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 did = getDynamicRegionId(region_id);
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
 	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
-	assert(work >= cp);
+
+	if(work < cp) {
+		MSG(1,"ERROR: cp (%llu) > work (%llu)",cp,work);
+		assert(0);
+	}
+	//assert(work >= cp);
 
 	decIndentTab();
 	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
@@ -1026,7 +1031,7 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 		UInt64 max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
 		updateTimestamp(entryDest, i, version, max4);
 		MSG(2, "log4CDToPhiNode4CD level %u version %u \n", i, version);
-		MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", src, cd1, cd2, cd3, cd4, dest);
+		MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", cd1, cd2, cd3, cd4, dest);
 		MSG(2, " ts_dest %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_dest, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
 	}
 
@@ -1075,14 +1080,14 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 		return NULL;
 #endif
 	MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
-	int i, j;
-	int minLevel = _minRegionToLog;
-	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
+
 	TEntry* srcEntry[MAX_ENTRY];
 	TEntry* destEntry = getLTEntry(dest);
+
 	va_list ap;
 	va_start(ap, num_in);
 
+	int i;
 	for (i = 0; i < num_in; i++) {
 		UInt src = va_arg(ap, UInt);
 		srcEntry[i] = getLTEntry(src);
@@ -1090,10 +1095,16 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 	}	
 	va_end(ap);
 
+	addWork(cost);
+
+	int minLevel = _minRegionToLog;
+	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
+
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 max = 0;
 		
+		int j;
 		for (j = 0; j < num_in; j++) {
 			UInt64 ts = getTimestamp(srcEntry[j], i, version);
 			if (ts > max)
