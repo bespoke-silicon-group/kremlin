@@ -19,6 +19,7 @@
 
 typedef struct _CDT_T {
 	UInt64*	time;
+	UInt32* version;
 	struct _CDT_T* next;
 } CDT;
 
@@ -158,7 +159,7 @@ FuncContext* pushFuncContext() {
 #ifdef MANAGE_BB_INFO
 	toAdd->retBB = __currentBB;
 	toAdd->retPrevBB = __prevBB;
-	MSG(0, "[push] current = %u last = %u\n", __currentBB, __prevBB);
+	MSG(1, "[push] current = %u last = %u\n", __currentBB, __prevBB);
 #endif
 	funcHead = toAdd;
 //fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
@@ -222,26 +223,31 @@ void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 times
 CDT* allocCDT() {
 	CDT* ret = (CDT*) malloc(sizeof(CDT));
 	ret->time = (UInt64*) malloc(sizeof(UInt64) * getTEntrySize());
+	ret->version = (UInt32*) malloc(sizeof(UInt32) * getTEntrySize());
 	bzero(ret->time, sizeof(UInt64) * getTEntrySize());
+	bzero(ret->version, sizeof(UInt32) * getTEntrySize());
 	ret->next = NULL;
 	return ret;
 }
 
 void freeCDT(CDT* cdt) {
 	free(cdt->time);
+	free(cdt->version);
 	free(cdt);	
 }
 
 
-UInt64 getCdt(int level) {
+UInt64 getCdt(int level, UInt32 version) {
 	assert(cdtHead != NULL);
 	assert(level >= 0);
-	return cdtHead->time[level - _minRegionToLog];
+	return (cdtHead->version[level - _minRegionToLog] == version) ?
+		cdtHead->time[level - _minRegionToLog] : 0;
 }
 
-void setCdt(int level, UInt64 time) {
+void setCdt(int level, UInt32 version, UInt64 time) {
 	assert(level >= _minRegionToLog);
 	cdtHead->time[level - _minRegionToLog] = time;
+	cdtHead->version[level - _minRegionToLog] = version;
 }
 
 void fillCDT(CDT* cdt, TEntry* entry) {
@@ -249,6 +255,7 @@ void fillCDT(CDT* cdt, TEntry* entry) {
 	int i;
 	for (i = _minRegionToLog; i <= _maxRegionToLog; i++) {
 		cdt->time[i - _minRegionToLog] = entry->time[i - _minRegionToLog];
+		cdt->version[i - _minRegionToLog] = entry->version[i - _minRegionToLog];
 	}
 }
 
@@ -277,7 +284,7 @@ void invokeAssert() {
 void prepareInvoke(UInt id) {
 	if(!instrument)
 		return;
-	MSG(0, "prepareInvoke(%u) - saved at %d\n", id, instrument);
+	MSG(1, "prepareInvoke(%u) - saved at %d\n", id, instrument);
 
 	invokeAssert();
 
@@ -294,12 +301,12 @@ void invokeOkay(UInt id) {
 
 	invokeAssert();
 	if(invokeStackTop > invokeStack && (invokeStackTop - 1)->id == id) {
-		MSG(0, "invokeOkay(%u)\n", id);
+		MSG(1, "invokeOkay(%u)\n", id);
 		invokeStackTop--;
 
 		invokeAssert();
 	} else
-		MSG(0, "invokeOkay(%u) ignored\n", id);
+		MSG(1, "invokeOkay(%u) ignored\n", id);
 }
 void invokeThrew(UInt id)
 {
@@ -310,7 +317,7 @@ void invokeThrew(UInt id)
 
 	if(invokeStackTop > invokeStack && (invokeStackTop - 1)->id == id) {
 		InvokeRecord* currentRecord = invokeStackTop - 1;
-		MSG(0, "invokeThrew(%u) - Popping to %d\n", currentRecord->id, currentRecord->stackHeight);
+		MSG(1, "invokeThrew(%u) - Popping to %d\n", currentRecord->id, currentRecord->stackHeight);
 
 		int lastInstrument = instrument;
 		while(instrument > currentRecord->stackHeight)
@@ -326,7 +333,7 @@ void invokeThrew(UInt id)
 		invokeAssert();
 	}
 	else
-		MSG(0, "invokeThrew(%u) ignored\n", id);
+		MSG(1, "invokeThrew(%u) ignored\n", id);
 }
 #endif
 
@@ -369,7 +376,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	regionInfo[region].start = timestamp;
 	regionInfo[region].cp = 0;
 	if (region >= _minRegionToLog && region <= _maxRegionToLog)
-		setCdt(region, 0);
+		setCdt(region, versions[region], 0);
 	incIndentTab();
 }
 
@@ -396,9 +403,8 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 endTime = timestamp;
 	UInt64 work = endTime - regionInfo[region].start;
 	UInt64 cp = regionInfo[region].cp;
-	//assert(region_id == regionInfo[region].regionId);
 	if(region_id != regionInfo[region].regionId) {
-		MSG(1,"ERROR: unexpected region exit: %u (expected region %u)\n",region_id,regionInfo[region].regionId);
+		fprintf(stderr,"ERROR: unexpected region exit: %u (expected region %u)\n",region_id,regionInfo[region].regionId);
 		assert(0);
 	}
 	UInt64 did = getDynamicRegionId(region_id);
@@ -406,21 +412,17 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
 
 	if(work < cp) {
-		MSG(1,"ERROR: cp (%llu) > work (%llu)",cp,work);
+		fprintf(stderr,"ERROR: cp (%llu) > work (%llu) [region_id=%u]",cp,work,region_id);
 		assert(0);
 	}
-	//assert(work >= cp);
 
 	decIndentTab();
 	MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 			region_type, region, region_id, did, parentSid, parentDid, 
 			regionInfo[region].cp, work);
 	if (work > 0 && cp == 0 && isCurrentRegionInstrumentable()) {
-		if(region > _maxRegionToLog) {
-			fprintf(stderr,"duh!\n");
-		}
 		fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
-		fprintf(stderr, "[---] region [type: %u, level: %u, id: %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
+		fprintf(stderr, "region [type: %u, level: %u, id: %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 			region_type, region, region_id, did, parentSid, parentDid, 
 			regionInfo[region].cp, work);
 		assert(0);
@@ -459,7 +461,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 			setLocalTable(funcHead->table);
 		}
 #if MANAGE_BB_INFO
-		MSG(0, "	currentBB: %u   lastBB: %u\n",
+		MSG(1, "	currentBB: %u   lastBB: %u\n",
 			__currentBB, __prevBB);
 #endif
 	}
@@ -491,7 +493,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
-		UInt64 cdt = getCdt(i);
+		UInt64 cdt = getCdt(i,version);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 ts1 = getTimestamp(entry1, i, version);
 		UInt64 greater0 = (ts0 > ts1) ? ts0 : ts1;
@@ -530,15 +532,15 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
-		UInt64 cdt = getCdt(i);
+		UInt64 cdt = getCdt(i,version);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + opCost;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
-	MSG(2, "binOpConst[%u] level %u version %u \n", opCost, i, version);
-	MSG(2, " src %u dest %u\n", src, dest);
-	MSG(2, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
+		MSG(2, "binOpConst[%u] level %u version %u \n", opCost, i, version);
+		MSG(2, " src %u dest %u\n", src, dest);
+		MSG(2, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
 	}
 
 	return entryDest;
@@ -569,7 +571,7 @@ void* logAssignmentConst(UInt dest) {
 
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
-		UInt64 cdt = getCdt(i);
+		UInt64 cdt = getCdt(i,version);
 		updateTimestamp(entryDest, i, version, cdt);
 		updateCP(cdt, i);
 	}
@@ -596,7 +598,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
-		UInt64 cdt = getCdt(i);
+		UInt64 cdt = getCdt(i,version);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + LOAD_COST;
@@ -626,7 +628,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
-		UInt64 cdt = getCdt(i);
+		UInt64 cdt = getCdt(i,version);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + STORE_COST;
@@ -654,7 +656,7 @@ void* logStoreInstConst(Addr dest_addr) {
 
 	for (i = minLevel; i < maxLevel; ++i) {
 		UInt version = getVersion(i);
-		UInt64 cdt = getCdt(i);
+		UInt64 cdt = getCdt(i,version);
 		UInt64 value = cdt + STORE_COST;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
@@ -663,14 +665,230 @@ void* logStoreInstConst(Addr dest_addr) {
 	return entryDest;
 }
 
-// TODO: implement logMalloc
-void logMalloc(Addr addr, size_t size) {}
+// TODO: 64 bit?
+void logMalloc(Addr addr, size_t size) {
+	MSG(1, "logMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
+	assert(size != 0);
 
-// TODO: implement logRealloc
-void logRealloc(Addr old_addr, Addr new_addr, size_t size) {}
+	UInt32 start_index, end_index;
 
-// TODO: implement logFree
-void logFree(Addr addr) {}
+	start_index = ((UInt64) addr >> 16) & 0xffff;
+
+	UInt64 end_addr = (UInt64)addr + (size-1);
+
+	end_index = (end_addr >> 16) & 0xffff;
+
+	assert(start_index < 0x10000 && end_index < 0x10000);
+
+	//MSG(1,"start_index = %lu, end_index = %lu\n",start_index,end_index);
+
+	if(start_index == end_index) {
+		// get/create entry and set "used" field appropriately
+		GEntry* entry = gTable->array[start_index];
+		if (entry == NULL) {
+			entry = createGEntry();
+			gTable->array[start_index] = entry;
+			entry->used = (size >> 2);
+		}
+		else {
+			entry->used += (size >> 2);
+		}
+
+		MSG(2,"  allocating from gTable[%lu]. %hu used in this block\n",start_index,entry->used);
+
+		UInt32 start_index2, end_index2;
+
+		// find starting and ending addr
+		start_index2 = ((UInt64) addr >> 2) & 0x3fff;
+		end_index2 = (end_addr >> 2) & 0x3fff;
+
+		MSG(2,"  gTable entry range: [%lu:%lu]\n",start_index2,end_index2);
+
+		// create TEntry instances for the range of mem addrs
+		// We assume that TEntry instances don't exist for the
+		// index2 range because otherwise malloc would be buggy.
+		int i;
+		for(i = start_index2; i <= end_index2; ++i) {
+			entry->array[i] = allocTEntry(maxRegionLevel);
+		}
+	}
+	else {
+		// handle start_index
+		GEntry* entry = gTable->array[start_index];
+		UInt32 start_index2 = ((UInt64) addr >> 2) & 0x3fff;
+
+		if (entry == NULL) {
+			entry = createGEntry();
+			gTable->array[start_index] = entry;
+			entry->used = (0x4000-start_index2);
+		}
+		else {
+			entry->used += (0x4000-start_index2);
+		}
+
+		MSG(2,"  allocating from gTable[%lu]. %hu used in this block\n",start_index,entry->used);
+
+		int i;
+		for(i = start_index2; i < 0x4000; ++i) {
+			entry->array[i] = allocTEntry(maxRegionLevel);
+		}
+
+		// handle end_index
+		entry = gTable->array[end_index];
+		UInt32 end_index2 = (end_addr >> 2) & 0x3fff;
+
+		if (entry == NULL) {
+			entry = createGEntry();
+			gTable->array[end_index] = entry;
+			entry->used = end_index2 + 1;
+		}
+		else {
+			entry->used += (end_index2+1);
+		}
+
+		for(i = 0; i <= end_index2; ++i) {
+			entry->array[i] = allocTEntry(maxRegionLevel);
+		}
+
+		MSG(2,"  allocating from gTable[%lu]. %hu used in this block\n",end_index,entry->used);
+
+		// handle all intermediate indices
+		UInt32 curr_index;
+		for(curr_index = start_index+1; curr_index < end_index; ++curr_index) {
+			// assume that malloc isn't buggy and therefore won't give us addresses
+			// that have been used but not freed
+			entry = createGEntry();
+			gTable->array[curr_index] = entry;
+			entry->used = 0x4000;
+
+			MSG(2,"  allocating all entries in gTable[%lu].\n",curr_index);
+
+			for(i = 0; i < 0x4000; ++i) {
+				entry->array[i] = allocTEntry(maxRegionLevel);
+			}
+		}
+	}
+
+	createMEntry(addr,size);
+}
+
+void logFree(Addr addr) {
+	MSG(1, "logFree addr=0x%x\n", addr);
+	MEntry* me = getMEntry(addr);
+
+	size_t mem_size = me->size;
+
+	UInt32 start_index, end_index;
+
+	start_index = ((UInt64) addr >> 16) & 0xffff;
+
+	UInt64 end_addr = (UInt64)addr + (mem_size-1);
+
+	end_index = (end_addr >> 16) & 0xffff;
+
+	if(start_index == end_index) {
+		// get entry (must exist b/c of logMalloc)
+		GEntry* entry = gTable->array[start_index];
+		assert(entry != NULL);
+
+		entry->used -= (mem_size >> 2);
+
+		MSG(2,"  freeing from gTable[%lu]. %hu entries remain in use\n",start_index,entry->used);
+
+		UInt32 start_index2, end_index2;
+
+		// find starting and ending addr
+		start_index2 = ((UInt64) addr >> 2) & 0x3fff;
+		end_index2 = (end_addr >> 2) & 0x3fff;
+
+		MSG(2,"  gTable entry range: [%lu:%lu]\n",start_index2,end_index2);
+
+		// free TEntry instances for the range of mem addrs
+		int i;
+		for(i = start_index2; i <= end_index2; ++i) {
+			freeTEntry(entry->array[i]);
+			entry->array[i] = NULL;
+		}
+
+		// if nothing in this gtable entry is used
+		// then we can safely free it
+		if(entry->used == 0) { 
+			free(entry);
+			gTable->array[start_index] = NULL;
+			MSG(2,"    freeing gTable entry.\n");
+		}
+	}
+	else {
+		// handle start_index
+		GEntry* entry = gTable->array[start_index];
+		UInt32 start_index2 = ((UInt64) addr >> 2) & 0x3fff;
+
+		int i;
+		for(i = start_index2; i < 0x4000; ++i) {
+			freeTEntry(entry->array[i]);
+			entry->array[i] = NULL;
+		}
+
+		entry->used -= (0x4000-start_index2);
+
+		MSG(2,"  freeing from gTable[%lu] (range: [%lu:0x4000]). %hu entries remain in use\n",start_index,start_index2,entry->used);
+
+		// free it if nothing used
+		if(entry->used == 0) { 
+			free(entry);
+			gTable->array[start_index] = NULL;
+			MSG(2,"    freeing gTable entry.\n");
+		}
+
+		// handle end_index
+		entry = gTable->array[end_index];
+		UInt32 end_index2 = (end_addr >> 2) & 0x3fff;
+
+		for(i = 0; i <= end_index2; ++i) {
+			freeTEntry(entry->array[i]);
+			entry->array[i] = NULL;
+		}
+
+		entry->used -= (end_index2+1);
+
+		MSG(2,"  freeing from gTable[%lu] (range: [0:%lu]). %hu entries remain in use\n",end_index,entry->used);
+
+		// free it if nothing used
+		if(entry->used == 0) { 
+			free(entry);
+			gTable->array[end_index] = NULL;
+			MSG(2,"    freeing gTable entry.\n");
+		}
+
+		// handle all intermediate indices
+		UInt32 curr_index;
+		for(curr_index = start_index+1; curr_index < end_index; ++curr_index) {
+			entry = gTable->array[curr_index];
+
+			MSG(2,"  freeing all entries from gTable[%lu].\n",curr_index);
+
+			for(i = 0; i < 0x4000; ++i) {
+				freeTEntry(entry->array[i]);
+				// we don't need to set entry->array[i] to NULL here since we are
+				// nullifying the whole entry
+			}
+
+			// intermediate will always have all TEntries
+			// deleted and therefore are always safe to free
+			free(entry);
+			gTable->array[curr_index] = NULL;
+		}
+	}
+
+	freeMEntry(addr);
+}
+
+// TODO: more efficient implementation (if old_addr = new_addr)
+void logRealloc(Addr old_addr, Addr new_addr, size_t size) {
+	MSG(1, "logRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (UInt64)size);
+	logFree(old_addr);
+	logMalloc(new_addr,size);
+}
 
 void* logInsertValue(UInt src, UInt dest) {
 	printf("Warning: logInsertValue not correctly implemented\n");
@@ -740,8 +958,8 @@ void logFuncReturnConst(void) {
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	MSG(1, "logFuncReturnConst\n");
 	for (i = minLevel; i < maxLevel; i++) {
-		UInt64 cdt = getCdt(i);
 		int version = getVersion(i);
+		UInt64 cdt = getCdt(i,version);
 		updateTimestamp(funcHead->ret, i, version, cdt);
 //		funcHead->ret->version[i] = version;
 //		funcHead->ret->time[i] = cdt;
@@ -1067,9 +1285,9 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
 		UInt64 value = (ts0 > ts1) ? ts0 : ts1;
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
-	MSG(2, "logPhiAddCond level %u version %u \n", i, version);
-	MSG(2, " src %u dest %u\n", src, dest);
-	MSG(2, " ts0 %u ts1 %u value %u\n", ts0, ts1, value);
+		MSG(2, "logPhiAddCond level %u version %u \n", i, version);
+		MSG(2, " src %u dest %u\n", src, dest);
+		MSG(2, " ts0 %u ts1 %u value %u\n", ts0, ts1, value);
 	}
 }
 
@@ -1180,6 +1398,7 @@ int deinit() {
 #endif
 
 	finalizeDataStructure();
+
 	freeDummyTEntry();
 
 	free(regionInfo);

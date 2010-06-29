@@ -1,8 +1,7 @@
 #include <assert.h>
 #include "defs.h"
-GTable* gTable;
-LTable* lTable;
-UInt32	maxRegionLevel;
+#include "table.h"
+
 
 void dumpTableMemAlloc(void);
 
@@ -17,6 +16,24 @@ GTable* allocGlobalTable(int depth) {
 	GTable* ret = (GTable*) malloc(sizeof(GTable));
 	bzero(ret->array, sizeof(GTable));
 	return ret;
+}
+
+MTable* allocMallocTable() {
+	MTable* ret = (MTable*) calloc(1,sizeof(MTable));
+
+	ret->size = -1;
+	return ret;
+}
+
+freeMallocTable(MTable* table) {
+	if(table->size > 0) {
+		fprintf(stderr,"WARNING: %d entries left in malloc table. Should be 0.\n",table->size);
+	}
+
+	int i;
+	for(i = 0; i < table->size; ++i) {
+		free(table->array[i]);
+	}
 }
 
 void freeGlobalTable(GTable* table) {
@@ -66,6 +83,70 @@ void freeTEntry(TEntry* entry) {
 	free(entry->version);
 	free(entry->time);
 	free(entry);
+}
+
+void createMEntry(Addr start_addr, size_t entry_size) {
+	MEntry* me = (MEntry*)malloc(sizeof(MEntry));
+
+	me->start_addr = start_addr;
+	me->size = entry_size;
+
+	int mtable_size = mTable->size + 1;
+
+	assert(mtable_size < MALLOC_TABLE_SIZE);
+	mTable->size = mtable_size;
+
+	mTable->array[mtable_size] = me;
+}
+
+void freeMEntry(Addr start_addr) {
+	MEntry* me = NULL;
+
+	// most likely to free something we recently malloced
+	// so we'll start searching from the end
+	int i, found_index;
+	for(i = mTable->size; i >= 0; --i) {
+		if(mTable->array[i]->start_addr == start_addr) {
+			me = mTable->array[i];
+			found_index = i;
+			break;
+		}
+	}
+
+	assert(me != NULL);
+
+	// need to shuffle entries accordingly now that we
+	// are going to delete this entry
+	if(found_index != mTable->size) {
+		// starting from found index, shift everything
+		// to the left by one spot
+		for(i = found_index; i < mTable->size; ++i) {
+			mTable->array[i] = mTable->array[i+1];
+		}
+	}
+
+	// NULLIFIED!
+	free(me);
+	mTable->array[mTable->size] = NULL;
+
+	mTable->size -= 1;
+}
+
+MEntry* getMEntry(Addr start_addr) {
+	MEntry* me = NULL;
+
+	// search from end b/c we're most likely to find it there
+	int i;
+	for(i = mTable->size; i >= 0; --i) {
+		if(mTable->array[i]->start_addr == start_addr) {
+			me = mTable->array[i];
+			break;
+		}
+	}
+
+	assert(me != NULL);
+
+	return me;
 }
 
 GEntry* createGEntry() {
@@ -120,10 +201,12 @@ void initDataStructure(int regionLevel) {
 	fprintf(stderr, "# of instrumented region Levels = %d\n", regionLevel);
 	maxRegionLevel = regionLevel;
 	gTable = allocGlobalTable(maxRegionLevel);
+	mTable = allocMallocTable();
 }
 
 void finalizeDataStructure() {
 	freeGlobalTable(gTable);
+	freeMallocTable(mTable);
 }
 
 void printTEntry(TEntry* entry) {
@@ -157,6 +240,7 @@ TEntry* getGTEntry(Addr addr) {
 	if (ret == NULL) {
 		ret = allocTEntry(maxRegionLevel);
 		entry->array[index2] = ret;
+		entry->used += 1;
 		_tEntryGlobalCnt++;
 	}
 	return ret;

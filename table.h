@@ -9,5 +9,13 @@ void copyTEntry(TEntry* dest, TEntry* src);
 UInt32 getMaxRegionLevel();
 void finalizeDataStructure();
 
+GEntry* createGEntry();
+void createMEntry(Addr start_addr, size_t entry_size);
+MEntry* getMEntry(Addr start_addr);
+void freeMEntry(Addr start_addr);
 
+GTable* gTable;
+LTable* lTable;
+MTable* mTable;
+UInt32	maxRegionLevel;
 #endif

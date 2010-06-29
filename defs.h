@@ -42,6 +42,9 @@
 #define LOAD_COST			3
 #define STORE_COST			1
 
+#ifndef MALLOC_TABLE_SIZE
+#define MALLOC_TABLE_SIZE	10000
+#endif
 
 typedef unsigned long       UInt32;
 typedef signed long         Int32;
@@ -73,6 +76,7 @@ typedef struct _LocalTable {
 
 
 typedef struct _GTableEntry {
+	unsigned short used; // number of entries that are in use
     TEntry* array[0x4000];
 } GEntry;
 
@@ -80,9 +84,24 @@ typedef struct _GTableEntry {
     GlobalTable:
         global table is a hashtable with lower address as its primary key.
 */
-typedef struct _GloablTable {
+typedef struct _GlobalTable {
     GEntry* array[0x10000];
 } GTable;
+
+
+typedef struct _MTableEntry {
+	Addr start_addr;
+	size_t size;
+} MEntry;
+
+/*
+	MallocTable:
+		malloc table is a table to track active mallocs
+*/
+typedef struct _MallocTable {
+	int	size;
+	MEntry* array[MALLOC_TABLE_SIZE];
+} MTable;
 
 
 typedef UInt    WorkTable;
