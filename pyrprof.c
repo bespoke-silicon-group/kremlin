@@ -1350,12 +1350,12 @@ void* logReductionVar(UInt opCost, UInt dest) {
 
 UInt isCpp = FALSE;
 UInt hasInitialized = 0;
-int init() {
+int pyrprof_init() {
 	if(hasInitialized++) {
-		MSG(0, "init skipped\n");
+		MSG(0, "pyrprof_init skipped\n");
 		return FALSE;
 	}
-	MSG(0, "init running\n");
+	MSG(0, "pyrprof_init running\n");
 
 #ifdef __cplusplus
 	instrument++;
@@ -1383,12 +1383,12 @@ int init() {
 	return TRUE;
 }
 
-int deinit() {
+int pyrprof_deinit() {
 	if(--hasInitialized) {
-		MSG(0, "deinit skipped\n");
+		MSG(0, "pyrprof_deinit skipped\n");
 		return FALSE;
 	}
-	MSG(0, "deinit running\n");
+	MSG(0, "pyrprof_deinit running\n");
 
 #ifdef USE_UREGION
 	finalizeUdr();
@@ -1423,20 +1423,20 @@ int deinit() {
 }
 
 void initProfiler() {
-	init();
+	pyrprof_init();
 }
 
 void cppEntry() {
 	isCpp = TRUE;
-	init();
+	pyrprof_init();
 }
 
 void cppExit() {
-	deinit();
+	pyrprof_deinit();
 }
 
 void deinitProfiler() {
-	deinit();
+	pyrprof_deinit();
 }
 
 
