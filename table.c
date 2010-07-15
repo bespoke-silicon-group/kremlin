@@ -144,7 +144,10 @@ MEntry* getMEntry(Addr start_addr) {
 		}
 	}
 
-	assert(me != NULL);
+	if(me == NULL) {
+		fprintf(stderr,"no entry found with addr 0x%x. mTable->size = %d\n",start_addr,mTable->size);
+		assert(0);
+	}
 
 	return me;
 }
