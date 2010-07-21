@@ -1117,6 +1117,8 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 		return NULL;
 #endif
 
+	MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
+
 #ifndef WORK_ONLY
 	TEntry* entrySrc = getLTEntry(src);
 	TEntry* entryCD1 = getLTEntry(cd1);
@@ -1132,8 +1134,6 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 	assert(entryCD2 != NULL);
 	assert(entryDest != NULL);
 	
-	MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
-
 	int i = 0;
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -1152,6 +1152,9 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
