@@ -220,6 +220,7 @@ void printTEntry(TEntry* entry) {
 }
 
 TEntry* getLTEntry(UInt32 vreg) {
+#ifndef WORK_ONLY
 	assert(lTable != NULL);
 	if (vreg >= lTable->size) {
 		fprintf(stderr,"ERROR: vreg = %lu, lTable size = %d\n", vreg, lTable->size);
@@ -227,10 +228,14 @@ TEntry* getLTEntry(UInt32 vreg) {
 	assert(vreg < lTable->size);
 	
 	return lTable->array[vreg];	
+#else
+	return (TEntry*)1;
+#endif
 }
 
 // FIXME: 64bit address?
 TEntry* getGTEntry(Addr addr) {
+#ifndef WORK_ONLY
 	UInt32 index = ((UInt64) addr >> 16) & 0xffff;
 	assert(index < 0x10000);
 	GEntry* entry = gTable->array[index];
@@ -247,6 +252,9 @@ TEntry* getGTEntry(Addr addr) {
 		_tEntryGlobalCnt++;
 	}
 	return ret;
+#else
+	return (TEntry*)1;
+#endif
 }
 
 void dumpTableMemAlloc() {

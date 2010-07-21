@@ -20,8 +20,6 @@
 #define DEBUGLEVEL		1
 #endif
 
-#define USE_UREGION
-
 // save the last visited BB number 
 // for now we do not use it
 // but if we need it later, define it 

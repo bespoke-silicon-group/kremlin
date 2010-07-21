@@ -77,11 +77,13 @@ void log_write(File* log,
 	if (end_time <= start_time) {
 		fprintf(stderr, "sregion %d has 0 work\n", static_id);
 	}
+	/*
 	if (critical_path_length == 0) {
 		fprintf(stderr, "sregion %d has 0 cp length\n", static_id);
 	}
 	if (start_time < end_time)
 		assert(critical_path_length > 0);
+	*/
 //	assert(end_time > start_time);
 	//fprintf(stderr, "%d", res);
 	assert(res == 8);

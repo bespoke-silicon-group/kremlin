@@ -12,8 +12,11 @@
 #include "table.h"
 
 #define _MAX_ARGS 			20
-#define _MAX_STATIC_REGION	1000	// used for dynamic region id
 #define _MAX_REGION_LEVEL	100		// used for static data structures
+
+#ifndef _MAX_STATIC_REGION_ID
+#define _MAX_STATIC_REGION_ID	1000	// used for dynamic region id
+#endif
 
 #define MIN(a, b)	(((a) < (b)) ? (a) : (b))
 
@@ -66,7 +69,7 @@ InvokeRecord 	invokeStack[_MAX_REGION_LEVEL];
 InvokeRecord*	invokeStackTop;
 UInt64			timestamp = 0llu;
 File* 			fp = NULL;
-UInt64			dynamicRegionId[_MAX_STATIC_REGION];	
+UInt64			dynamicRegionId[_MAX_STATIC_REGION_ID];	
 
 #ifdef __cplusplus
 int instrument = 0;
@@ -476,10 +479,12 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	if(!instrument)
 		return NULL;
 #endif
+	addWork(opCost);
+
+#ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	addWork(opCost);
 	TEntry* entry0 = getLTEntry(src0);
 	TEntry* entry1 = getLTEntry(src1);
 	TEntry* entryDest = getLTEntry(dest);
@@ -508,6 +513,9 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 
@@ -516,11 +524,13 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	if(!instrument)
 		return NULL;
 #endif
+	addWork(opCost);
+
+#ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
-	addWork(opCost);
 	assert(funcHead->table != NULL);
 	assert(funcHead->table->size > src);
 	assert(funcHead->table->size > dest);
@@ -544,6 +554,9 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 void* logAssignment(UInt src, UInt dest) {
@@ -559,6 +572,8 @@ void* logAssignmentConst(UInt dest) {
 	if(!instrument)
 		return NULL;
 #endif
+	
+#ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
@@ -577,7 +592,9 @@ void* logAssignmentConst(UInt dest) {
 	}
 
 	return entryDest;
-
+#else
+	return NULL;
+#endif
 }
 
 void* logLoadInst(Addr src_addr, UInt dest) {
@@ -585,11 +602,13 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	if(!instrument)
 		return NULL;
 #endif
+	addWork(LOAD_COST);
+
+#ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
-	addWork(LOAD_COST);
 	TEntry* entry0 = getGTEntry(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
 	assert(funcHead->table->size > dest);
@@ -607,6 +626,9 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 void* logStoreInst(UInt src, Addr dest_addr) {
@@ -614,10 +636,12 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	if(!instrument)
 		return NULL;
 #endif
+
+	addWork(STORE_COST);
+#ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	addWork(STORE_COST);
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	
@@ -637,6 +661,9 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 
@@ -645,10 +672,12 @@ void* logStoreInstConst(Addr dest_addr) {
 	if(!instrument)
 		return NULL;
 #endif
+
+	addWork(STORE_COST);
+#ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	addWork(STORE_COST);
 	TEntry* entryDest = getGTEntry(dest_addr);
 	assert(entryDest != NULL);
 	
@@ -663,6 +692,9 @@ void* logStoreInstConst(Addr dest_addr) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 // TODO: 64 bit?
@@ -906,12 +938,14 @@ void addControlDep(UInt cond) {
 	if(!instrument)
 		return;
 #endif
+#ifndef WORK_ONLY
 	MSG(1, "push ControlDep ts[%u]\n", cond);
 	TEntry* entry = getLTEntry(cond);
 	CDT* toAdd = allocCDT();
 	fillCDT(toAdd, entry);
 	toAdd->next = cdtHead;
 	cdtHead = toAdd;
+#endif
 }
 
 void removeControlDep() {
@@ -919,10 +953,12 @@ void removeControlDep() {
 	if(!instrument)
 		return;
 #endif
+#ifndef WORK_ONLY
 	MSG(1, "pop  ControlDep\n");
 	CDT* toRemove = cdtHead;
 	cdtHead = cdtHead->next;
 	freeCDT(toRemove);
+#endif
 }
 
 
@@ -1039,6 +1075,10 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 	if(!instrument)
 		return NULL;
 #endif
+
+	MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
+
+#ifndef WORK_ONLY
 	TEntry* entrySrc = getLTEntry(src);
 	TEntry* entryCD = getLTEntry(cd);
 	TEntry* entryDest = getLTEntry(dest);
@@ -1050,8 +1090,6 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 	assert(entryCD != NULL);
 	assert(entryDest != NULL);
 	
-	MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
-
 	int i = 0;
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -1068,6 +1106,9 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
@@ -1075,6 +1116,8 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 	if(!instrument)
 		return NULL;
 #endif
+
+#ifndef WORK_ONLY
 	TEntry* entrySrc = getLTEntry(src);
 	TEntry* entryCD1 = getLTEntry(cd1);
 	TEntry* entryCD2 = getLTEntry(cd2);
@@ -1299,6 +1342,9 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 #endif
 	MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
 
+	addWork(cost);
+
+#ifndef WORK_ONLY
 	TEntry* srcEntry[MAX_ENTRY];
 	TEntry* destEntry = getLTEntry(dest);
 
@@ -1312,8 +1358,6 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 		assert(srcEntry[i] != NULL);
 	}	
 	va_end(ap);
-
-	addWork(cost);
 
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -1332,6 +1376,9 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 		updateTimestamp(destEntry, i, version, max + cost);
 	}
 	return destEntry;
+#else
+	return NULL;
+#endif
 	
 }
 
@@ -1356,6 +1403,10 @@ int pyrprof_init() {
 		return FALSE;
 	}
 	MSG(0, "pyrprof_init running\n");
+
+
+	int alky = _MAX_STATIC_REGION_ID;
+	fprintf(stderr,"number of static regions: %d\n",alky);
 
 #ifdef __cplusplus
 	instrument++;
