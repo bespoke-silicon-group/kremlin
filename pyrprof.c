@@ -268,6 +268,8 @@ void setupLocalTable(UInt maxVregNum) {
 		return;
 #endif
 	MSG(0, "setupLocalTable size %u\n", maxVregNum);
+
+#ifndef WORK_ONLY
 	assert(_requireSetupTable == 1);
 	LTable* table = allocLocalTable(maxVregNum);
 	assert(funcHead->table == NULL);
@@ -276,6 +278,7 @@ void setupLocalTable(UInt maxVregNum) {
 	setLocalTable(funcHead->table);
 	_setupTableCnt++;
 	_requireSetupTable = 0;
+#endif
 }
 
 #ifdef __cplusplus
@@ -346,8 +349,10 @@ void prepareCall() {
 		return;
 #endif
 	MSG(0, "prepareCall\n");
+#ifndef WORK_ONLY
 	pushFuncContext();
 	_requireSetupTable = 1;
+#endif
 }
 
 
@@ -378,8 +383,10 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	regionInfo[region].regionId = region_id;
 	regionInfo[region].start = timestamp;
 	regionInfo[region].cp = 0;
+#ifndef WORK_ONLY
 	if (region >= _minRegionToLog && region <= _maxRegionToLog)
 		setCdt(region, versions[region], 0);
+#endif
 	incIndentTab();
 }
 
@@ -455,6 +462,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	}
 #endif
 		
+#ifndef WORK_ONLY
 	if (region_type == RegionFunc) { 
 		popFuncContext();
 		if (funcHead == NULL) {
@@ -468,6 +476,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 			__currentBB, __prevBB);
 #endif
 	}
+#endif
 	decrementRegionLevel();
 }
 
@@ -479,6 +488,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	if(!instrument)
 		return NULL;
 #endif
+	MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
 	addWork(opCost);
 
 #ifndef WORK_ONLY
@@ -495,7 +505,6 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	assert(entry1 != NULL);
 	assert(entryDest != NULL);
 	
-	MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
@@ -524,13 +533,13 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	if(!instrument)
 		return NULL;
 #endif
+	MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
 	addWork(opCost);
 
 #ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
 	assert(funcHead->table != NULL);
 	assert(funcHead->table->size > src);
 	assert(funcHead->table->size > dest);
@@ -572,7 +581,8 @@ void* logAssignmentConst(UInt dest) {
 	if(!instrument)
 		return NULL;
 #endif
-	
+	MSG(1, "logAssignmentConst ts[%u]\n", dest);
+
 #ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -581,8 +591,6 @@ void* logAssignmentConst(UInt dest) {
 	
 	assert(funcHead->table->size > dest);
 	assert(entryDest != NULL);
-
-	MSG(1, "logAssignmentConst ts[%u]\n", dest);
 
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
@@ -602,13 +610,13 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	if(!instrument)
 		return NULL;
 #endif
+	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
 	addWork(LOAD_COST);
 
 #ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
 	TEntry* entry0 = getGTEntry(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
 	assert(funcHead->table->size > dest);
@@ -636,8 +644,9 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	if(!instrument)
 		return NULL;
 #endif
-
+	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
 	addWork(STORE_COST);
+
 #ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -649,7 +658,6 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	assert(entryDest != NULL);
 	assert(entry0 != NULL);
 
-	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
@@ -672,8 +680,9 @@ void* logStoreInstConst(Addr dest_addr) {
 	if(!instrument)
 		return NULL;
 #endif
-
+	MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
 	addWork(STORE_COST);
+
 #ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -681,8 +690,6 @@ void* logStoreInstConst(Addr dest_addr) {
 	TEntry* entryDest = getGTEntry(dest_addr);
 	assert(entryDest != NULL);
 	
-	MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
-
 	for (i = minLevel; i < maxLevel; ++i) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
@@ -700,6 +707,8 @@ void* logStoreInstConst(Addr dest_addr) {
 // TODO: 64 bit?
 void logMalloc(Addr addr, size_t size) {
 	MSG(1, "logMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
+
+#ifndef WORK_ONLY
 	assert(size != 0);
 
 	UInt32 start_index, end_index;
@@ -802,10 +811,13 @@ void logMalloc(Addr addr, size_t size) {
 	}
 
 	createMEntry(addr,size);
+#endif
 }
 
 void logFree(Addr addr) {
 	MSG(1, "logFree addr=0x%x\n", addr);
+
+#ifndef WORK_ONLY
 	MEntry* me = getMEntry(addr);
 
 	size_t mem_size = me->size;
@@ -913,6 +925,7 @@ void logFree(Addr addr) {
 	}
 
 	freeMEntry(addr);
+#endif
 }
 
 // TODO: more efficient implementation (if old_addr = new_addr)
@@ -938,8 +951,9 @@ void addControlDep(UInt cond) {
 	if(!instrument)
 		return;
 #endif
-#ifndef WORK_ONLY
 	MSG(1, "push ControlDep ts[%u]\n", cond);
+
+#ifndef WORK_ONLY
 	TEntry* entry = getLTEntry(cond);
 	CDT* toAdd = allocCDT();
 	fillCDT(toAdd, entry);
@@ -953,8 +967,9 @@ void removeControlDep() {
 	if(!instrument)
 		return;
 #endif
-#ifndef WORK_ONLY
 	MSG(1, "pop  ControlDep\n");
+
+#ifndef WORK_ONLY
 	CDT* toRemove = cdtHead;
 	cdtHead = cdtHead->next;
 	freeCDT(toRemove);
@@ -969,7 +984,9 @@ void addReturnValueLink(UInt dest) {
 		return;
 #endif
 	MSG(1, "prepare return storage ts[%u]\n", dest);
+#ifndef WORK_ONLY
 	funcHead->ret = getLTEntry(dest);
+#endif
 }
 
 // write timestamp to the prepared storage
@@ -979,9 +996,12 @@ void logFuncReturn(UInt src) {
 		return;
 #endif
 	MSG(1, "write return value ts[%u]\n", src);
+
+#ifndef WORK_ONLY
 	TEntry* srcEntry = getLTEntry(src);
 	assert(funcHead->ret != NULL);
 	copyTEntry(funcHead->ret, srcEntry);
+#endif
 }
 
 void logFuncReturnConst(void) {
@@ -989,10 +1009,12 @@ void logFuncReturnConst(void) {
 	if(!instrument)
 		return;
 #endif
+	MSG(1, "logFuncReturnConst\n");
+
+#ifndef WORK_ONLY
 	int i;
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
-	MSG(1, "logFuncReturnConst\n");
 	for (i = minLevel; i < maxLevel; i++) {
 		int version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
@@ -1000,8 +1022,7 @@ void logFuncReturnConst(void) {
 //		funcHead->ret->version[i] = version;
 //		funcHead->ret->time[i] = cdt;
 	}
-	
-	
+#endif
 }
 
 // give timestamp for an arg
@@ -1011,9 +1032,12 @@ void linkArgToLocal(UInt src) {
 		return;
 #endif
 	MSG(1, "linkArgToLocal to ts[%u]\n", src);
+
+#ifndef WORK_ONLY
 	TEntry* srcEntry = getLTEntry(src);
 	assert(funcHead->writeIndex < _MAX_ARGS);
 	funcHead->args[funcHead->writeIndex++] = srcEntry;
+#endif
 }
 
 
@@ -1038,8 +1062,11 @@ void linkArgToConst() {
 		return;
 #endif
 	MSG(1, "linkArgToConst\n");
+
+#ifndef WORK_ONLY
 	assert(funcHead->writeIndex < _MAX_ARGS);
 	funcHead->args[funcHead->writeIndex++] = getDummyTEntry();
+#endif
 }
 
 // get timestamp for an arg and associate it with a local vreg
@@ -1050,12 +1077,15 @@ void transferAndUnlinkArg(UInt dest) {
 		return;
 #endif
 	MSG(1, "getArgInfo to ts[%u]\n", dest);
+
+#ifndef WORK_ONLY
 	TEntry* destEntry = getLTEntry(dest);
 	assert(funcHead != NULL);
 	assert(funcHead->args != NULL);
 	assert(funcHead->args[funcHead->readIndex] != NULL);
 	assert(funcHead->readIndex < funcHead->writeIndex);
 	copyTEntry(destEntry, funcHead->args[funcHead->readIndex++]);
+#endif
 }
 
 void logBBVisit(UInt bb_id) {
@@ -1075,7 +1105,6 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 	if(!instrument)
 		return NULL;
 #endif
-
 	MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
 
 #ifndef WORK_ONLY
@@ -1162,6 +1191,9 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 	if(!instrument)
 		return NULL;
 #endif
+	MSG(1, "logPhiNode3CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
+
+#ifndef WORK_ONLY
 	TEntry* entrySrc = getLTEntry(src);
 	TEntry* entryCD1 = getLTEntry(cd1);
 	TEntry* entryCD2 = getLTEntry(cd2);
@@ -1179,8 +1211,6 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 	assert(entryCD3 != NULL);
 	assert(entryDest != NULL);
 	
-	MSG(1, "logPhiNode3CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
-
 	int i = 0;
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -1201,6 +1231,9 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
@@ -1208,6 +1241,9 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 	if(!instrument)
 		return NULL;
 #endif
+	MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3, cd4);
+
+#ifndef WORK_ONLY
 	TEntry* entrySrc = getLTEntry(src);
 	TEntry* entryCD1 = getLTEntry(cd1);
 	TEntry* entryCD2 = getLTEntry(cd2);
@@ -1228,8 +1264,6 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 	assert(entryCD4 != NULL);
 	assert(entryDest != NULL);
 	
-	MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3, cd4);
-
 	int i = 0;
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -1252,6 +1286,9 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
@@ -1259,6 +1296,9 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 	if(!instrument)
 		return NULL;
 #endif
+	MSG(1, "log4CDToPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, dest, cd1, cd2, cd3, cd4);
+
+#ifndef WORK_ONLY
 	TEntry* entryCD1 = getLTEntry(cd1);
 	TEntry* entryCD2 = getLTEntry(cd2);
 	TEntry* entryCD3 = getLTEntry(cd3);
@@ -1276,8 +1316,6 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 	assert(entryCD4 != NULL);
 	assert(entryDest != NULL);
 	
-	MSG(1, "log4CDToPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, dest, cd1, cd2, cd3, cd4);
-
 	int i = 0;
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
@@ -1300,6 +1338,9 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 	}
 
 	return entryDest;
+#else
+	return NULL;
+#endif
 }
 
 #define MAX_ENTRY 10
@@ -1309,10 +1350,12 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
 	if(!instrument)
 		return;
 #endif
+	MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
+
+#ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
-	MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
 	assert(funcHead->table != NULL);
 	assert(funcHead->table->size > src);
 	assert(funcHead->table->size > dest);
@@ -1335,6 +1378,7 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
 		MSG(2, " src %u dest %u\n", src, dest);
 		MSG(2, " ts0 %u ts1 %u value %u\n", ts0, ts1, value);
 	}
+#endif
 }
 
 // use estimated cost for a callee function we cannot instrument
@@ -1344,7 +1388,6 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 		return NULL;
 #endif
 	MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
-
 	addWork(cost);
 
 #ifndef WORK_ONLY
