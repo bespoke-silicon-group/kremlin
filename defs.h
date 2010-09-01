@@ -17,7 +17,7 @@
 #endif
 
 #ifndef DEBUGLEVEL
-#define DEBUGLEVEL		1
+#define DEBUGLEVEL		0
 #endif
 
 // save the last visited BB number 
@@ -186,6 +186,9 @@ void* logReductionVar(UInt opCost, UInt dest);
 /* The following functions are inserted by region instrumentation pass */
 void initProfiler();
 void deinitProfiler();
+
+void turnOnProfiler();
+void turnOffProfiler();
 
 void logRegionEntry(UInt region_id, UInt region_type);
 void logRegionExit(UInt region_id, UInt region_type);

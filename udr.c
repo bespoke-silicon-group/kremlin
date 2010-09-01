@@ -205,6 +205,7 @@ void printURegion(URegion* region) {
 // deep-copied
 URegion* updateURegion(DRegion* region, ChildInfo* head) {
 	int i = 0;
+
 	for (i = 0; i < _uregionMapPtr[region->sid]; i++) {
 		URegion* current = _uregionMap[region->sid][i];
 		if (current->sid == region->sid &&
