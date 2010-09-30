@@ -44,6 +44,8 @@ typedef struct _region_t {
 	UInt64 start;
 	UInt64 cp;
 	UInt64 regionId;
+	UInt64 readCnt;
+	UInt64 writeCnt;
 } Region;
 
 typedef struct _InvokeRecord {
@@ -69,6 +71,8 @@ FuncContext* 	funcHead = NULL;
 InvokeRecord 	invokeStack[_MAX_REGION_LEVEL];
 InvokeRecord*	invokeStackTop;
 UInt64			timestamp = 0llu;
+UInt64			loadCnt = 0llu;
+UInt64			storeCnt = 0llu;
 File* 			fp = NULL;
 UInt64			dynamicRegionId[_MAX_STATIC_REGION_ID];	
 
@@ -201,6 +205,14 @@ void addWork(UInt work) {
 	timestamp += work;
 }
 
+void addLoad() {
+	loadCnt++;
+}
+
+void addStore() {
+	storeCnt++;
+}
+
 UInt64 _regionEntryCnt;
 UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
@@ -241,6 +253,38 @@ UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
+}
+
+// 1) update readCnt and writeCnt
+// 2) update timestamp
+void updateMemoryAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp, int isRead) {
+	int region = inLevel;
+	
+	UInt64 startTime = regionInfo[region].start;
+	UInt64 prevTimestamp = getTimestamp(entry, inLevel, version);
+	int count = 0;
+
+	if (prevTimestamp == 0LL) {
+		count = 1;
+		if (isRead == 1) {
+			regionInfo[region].readCnt++;
+		}
+		else
+			regionInfo[region].writeCnt++;
+	} 
+	{
+
+/*
+		fprintf(stderr, "\n[%d, 0x%x] id: %d \t", count, entry, regionInfo[region].regionId); 
+		fprintf(stderr, "%lld\t", startTime);
+		fprintf(stderr, "%lld\t", prevTimestamp);
+		fprintf(stderr, "%lld\t", timestamp);
+		*/
+	}
+	//fprintf(stderr, "%d read: %d - (%d, %d)\t", regionInfo[region].regionId, isRead, 
+			//prevTimestamp, timestamp,
+	//		regionInfo[region].readCnt, regionInfo[region].writeCnt);
+	//updateTimestamp(entry, inLevel, version, timestamp);
 }
 
 void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
@@ -417,6 +461,8 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	regionInfo[region].regionId = region_id;
 	regionInfo[region].start = timestamp;
 	regionInfo[region].cp = 0;
+	regionInfo[region].readCnt = 0;
+	regionInfo[region].writeCnt = 0;
 #ifndef WORK_ONLY
 	if (region >= _minRegionToLog && region <= _maxRegionToLog)
 		setCdt(region, versions[region], 0);
@@ -458,6 +504,8 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 startTime = regionInfo[region].start;
 	UInt64 endTime = timestamp;
 	UInt64 work = endTime - regionInfo[region].start;
+	UInt64 readCnt = regionInfo[region].readCnt;
+	UInt64 writeCnt = regionInfo[region].writeCnt;
 	UInt64 cp = regionInfo[region].cp;
 	if(region_id != regionInfo[region].regionId) {
 		fprintf(stderr,"ERROR: unexpected region exit: %u (expected region %u)\n",region_id,regionInfo[region].regionId);
@@ -486,7 +534,13 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	}
 
 #ifdef USE_UREGION
-	processUdr(sid, did, parentSid, parentDid, work, cp);
+	URegionField field;
+	field.work = work;
+	field.cp = cp;
+	field.readCnt = readCnt;
+	field.writeCnt = writeCnt;
+	assert(work >= readCnt && work >= writeCnt);
+	processUdr(sid, did, parentSid, parentDid, field);
 #else
 	if (_lastWork == work &&
 		_lastCP == cp &&
@@ -668,6 +722,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 #endif
 	MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
 	addWork(LOAD_COST);
+	addLoad();
 
 #ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
@@ -679,12 +734,14 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	assert(entryDest != NULL);
 	assert(entry0 != NULL);
 	
+	//fprintf(stderr, "\n\nload ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + LOAD_COST;
+		updateMemoryAccess(entry0, i, version, value, 1);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}
@@ -704,6 +761,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 #endif
 	MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
 	addWork(STORE_COST);
+	addStore();
 
 #ifndef WORK_ONLY
 	int minLevel = _minRegionToLog;
@@ -716,12 +774,14 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	assert(entryDest != NULL);
 	assert(entry0 != NULL);
 
+	//fprintf(stderr, "\n\nstore ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + STORE_COST;
+		updateMemoryAccess(entryDest, i, version, value, 0);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}
@@ -750,10 +810,12 @@ void* logStoreInstConst(Addr dest_addr) {
 	TEntry* entryDest = getGTEntry(dest_addr);
 	assert(entryDest != NULL);
 	
+	//fprintf(stderr, "\nstoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
 	for (i = minLevel; i < maxLevel; ++i) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
 		UInt64 value = cdt + STORE_COST;
+		updateMemoryAccess(entryDest, i, version, value, 0);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}

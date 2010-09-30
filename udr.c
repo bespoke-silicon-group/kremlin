@@ -3,15 +3,27 @@
 
 #include <stdlib.h>
 
+int isEquivalent(URegionField field0, URegionField field1) {
+	if (field0.work != field1.work)
+		return 0;
+	if (field0.cp != field1.cp)
+		return 0;
+	if (field0.readCnt != field1.readCnt)
+		return 0;
+	if (field0.writeCnt != field1.writeCnt)
+		return 0;
+		
+	return 1;
+}
+
 DRegion* allocateDRegion(UInt64 sid, UInt64 did, UInt64 pSid,
-	UInt64 pDid, UInt64 work, UInt64 cp) {
+	UInt64 pDid, URegionField field) {
 	DRegion* ret = (DRegion*)malloc(sizeof(DRegion));
 	ret->sid = sid;
 	ret->did = did;
 	ret->pSid = pSid;
 	ret->pDid = pDid;
-	ret->work = work;
-	ret->cp = cp;
+	ret->field = field;
 	return ret;	
 }
 
@@ -170,12 +182,11 @@ int _uregionMapPtr[MAPSIZE];
 int _uidPtr;
 long long _uregionCnt = 0;
 
-URegion* createURegion(UInt64 uid, UInt64 sid, UInt64 work, UInt64 cp, UInt64 pSid, ChildInfo* head) {
+URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, ChildInfo* head) {
 	URegion* ret = (URegion*)malloc(sizeof(URegion));
 	ret->uid = uid;
 	ret->sid = sid;
-	ret->work = work;
-	ret->cp = cp;
+	ret->field = field;
 	ret->cnt = 1;
 //	ret->pSid = pSid;
 	ret->childrenSize = getChildrenSize(head);
@@ -210,16 +221,15 @@ URegion* updateURegion(DRegion* region, ChildInfo* head) {
 		URegion* current = _uregionMap[region->sid][i];
 		if (current->sid == region->sid &&
 			//current->pSid == region->pSid &&
-			current->work == region->work &&
-			current->cp == region->cp &&
+			isEquivalent(current->field, region->field) &&
 			isChildrenSame(current->cHeader, head)) {
 			current->cnt++;
 			return current;	
 		}
 	}	
 	
-	URegion* ret = createURegion(_uidPtr++, region->sid, region->work,
-					region->cp, region->pSid, head);
+	URegion* ret = createURegion(_uidPtr++, region->sid, region->field,
+					region->pSid, head);
 	assert(_uregionMapPtr[region->sid] <= ENTRYSIZE);
 
 	_uregionMap[region->sid][_uregionMapPtr[region->sid]++] = ret;
@@ -228,9 +238,9 @@ URegion* updateURegion(DRegion* region, ChildInfo* head) {
 }
 
 void processUdr(UInt64 sid, UInt64 did, UInt64 pSid, 
-	UInt64 pDid, UInt64 work, UInt64 cp) {
+	UInt64 pDid, URegionField field) {
 	
-	DRegion* region = allocateDRegion(sid, did, pSid, pDid, work, cp);
+	DRegion* region = allocateDRegion(sid, did, pSid, pDid, field);
 	
 	int exit = 0;
 	ChildInfo* headChild = NULL;
