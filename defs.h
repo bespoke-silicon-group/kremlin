@@ -37,7 +37,7 @@
 #define MIN_REGION_LEVEL	0
 #endif
 
-#define LOAD_COST			3
+#define LOAD_COST			4
 #define STORE_COST			1
 
 #ifndef MALLOC_TABLE_SIZE
