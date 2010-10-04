@@ -13,6 +13,13 @@ int isEquivalent(URegionField field0, URegionField field1) {
 	if (field0.writeCnt != field1.writeCnt)
 		return 0;
 		
+	if (field0.readLineCnt != field1.readLineCnt) {
+		return 0;
+	}
+	if (field0.writeLineCnt != field1.writeLineCnt) {
+		return 0;
+	}
+
 	return 1;
 }
 

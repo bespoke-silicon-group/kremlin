@@ -46,6 +46,8 @@ typedef struct _region_t {
 	UInt64 regionId;
 	UInt64 readCnt;
 	UInt64 writeCnt;
+	UInt64 readLineCnt;
+	UInt64 writeLineCnt;
 } Region;
 
 typedef struct _InvokeRecord {
@@ -56,10 +58,6 @@ typedef struct _InvokeRecord {
 #if 1
 const int				_maxRegionToLog = MAX_REGION_LEVEL;
 const int				_minRegionToLog = MIN_REGION_LEVEL;
-#endif
-#if 0
-#define			_maxRegionToLog		5
-#define			_minRegionToLog		0
 #endif
 
 int				pyrprofOn = 0;
@@ -255,36 +253,13 @@ UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
     return ret;
 }
 
-// 1) update readCnt and writeCnt
-// 2) update timestamp
-void updateMemoryAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp, int isRead) {
-	int region = inLevel;
-	
-	UInt64 startTime = regionInfo[region].start;
-	UInt64 prevTimestamp = getTimestamp(entry, inLevel, version);
-	int count = 0;
-
-	if (prevTimestamp == 0LL) {
-		count = 1;
-		if (isRead == 1) {
-			regionInfo[region].readCnt++;
-		}
-		else
-			regionInfo[region].writeCnt++;
-	} 
-	{
-
-/*
-		fprintf(stderr, "\n[%d, 0x%x] id: %d \t", count, entry, regionInfo[region].regionId); 
-		fprintf(stderr, "%lld\t", startTime);
-		fprintf(stderr, "%lld\t", prevTimestamp);
-		fprintf(stderr, "%lld\t", timestamp);
-		*/
-	}
-	//fprintf(stderr, "%d read: %d - (%d, %d)\t", regionInfo[region].regionId, isRead, 
-			//prevTimestamp, timestamp,
-	//		regionInfo[region].readCnt, regionInfo[region].writeCnt);
-	//updateTimestamp(entry, inLevel, version, timestamp);
+UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
+	int level = inLevel - _minRegionToLog;
+	assert(entry != NULL);
+	assert(level >= 0 && level < getTEntrySize());
+    UInt64 ret = (entry->readVersion[level] == version) ?
+                    entry->readTime[level] : 0;
+    return ret;
 }
 
 void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
@@ -295,6 +270,63 @@ void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 times
     entry->time[level] = timestamp;
 }
 
+
+void updateReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
+	int level = inLevel - _minRegionToLog;
+    assert(entry != NULL);
+
+    entry->readVersion[level] = version;
+    entry->readTime[level] = timestamp;
+}
+
+void updateReadMemoryAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
+	int region = inLevel;
+	UInt64 startTime = regionInfo[region].start;
+	UInt64 prevTimestamp = getReadTimestamp(entry, inLevel, version);
+
+	if (prevTimestamp == 0LL) {
+		regionInfo[region].readCnt++;
+		//fprintf(stderr, "\t[load] addr = 0x%x level = %d version = %d timestamp = %d\n",
+		//	entry, inLevel, version, timestamp);
+
+		updateReadTimestamp(entry, inLevel, version, timestamp);
+	}
+}
+	
+// 1) update readCnt and writeCnt
+// 2) update timestamp
+void updateWriteMemoryAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
+	int region = inLevel;
+	UInt64 startTime = regionInfo[region].start;
+	UInt64 prevTimestamp = getTimestamp(entry, inLevel, version);
+	if (prevTimestamp == 0LL) {
+		regionInfo[region].writeCnt++;
+	} 	
+	//updateTimestamp(entry, inLevel, version, timestamp);
+}
+
+void updateReadMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
+	int region = inLevel;
+	UInt64 startTime = regionInfo[region].start;
+	UInt64 prevTimestamp = getReadTimestamp(entry, inLevel, version);
+	if (prevTimestamp == 0LL) {
+		regionInfo[region].readLineCnt++;
+		//fprintf(stderr, "[line] addr = 0x%x level = %d version = %d timestamp = %d\n",
+		//	entry, inLevel, version, timestamp);
+		updateReadTimestamp(entry, inLevel, version, timestamp);
+
+	}
+}
+
+void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
+	int region = inLevel;
+	UInt64 startTime = regionInfo[region].start;
+	UInt64 prevTimestamp = getTimestamp(entry, inLevel, version);
+	if (prevTimestamp == 0LL) {
+		regionInfo[region].writeLineCnt++;
+	}
+	updateTimestamp(entry, inLevel, version, timestamp);
+}
 
 CDT* allocCDT() {
 	CDT* ret = (CDT*) malloc(sizeof(CDT));
@@ -463,6 +495,8 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	regionInfo[region].cp = 0;
 	regionInfo[region].readCnt = 0;
 	regionInfo[region].writeCnt = 0;
+	regionInfo[region].readLineCnt = 0;
+	regionInfo[region].writeLineCnt = 0;
 #ifndef WORK_ONLY
 	if (region >= _minRegionToLog && region <= _maxRegionToLog)
 		setCdt(region, versions[region], 0);
@@ -504,9 +538,8 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	UInt64 startTime = regionInfo[region].start;
 	UInt64 endTime = timestamp;
 	UInt64 work = endTime - regionInfo[region].start;
-	UInt64 readCnt = regionInfo[region].readCnt;
-	UInt64 writeCnt = regionInfo[region].writeCnt;
 	UInt64 cp = regionInfo[region].cp;
+
 	if(region_id != regionInfo[region].regionId) {
 		fprintf(stderr,"ERROR: unexpected region exit: %u (expected region %u)\n",region_id,regionInfo[region].regionId);
 		assert(0);
@@ -537,9 +570,12 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	URegionField field;
 	field.work = work;
 	field.cp = cp;
-	field.readCnt = readCnt;
-	field.writeCnt = writeCnt;
-	assert(work >= readCnt && work >= writeCnt);
+	field.readCnt = regionInfo[region].readCnt;
+	field.writeCnt = regionInfo[region].writeCnt;
+	field.readLineCnt = regionInfo[region].readLineCnt;
+	field.writeLineCnt = regionInfo[region].writeLineCnt;
+
+	assert(work >= field.readCnt && work >= field.writeCnt);
 	processUdr(sid, did, parentSid, parentDid, field);
 #else
 	if (_lastWork == work &&
@@ -729,19 +765,22 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	TEntry* entry0 = getGTEntry(src_addr);
+	TEntry* entry0Line = getGTEntryCacheLine(src_addr);
 	TEntry* entryDest = getLTEntry(dest);
 	assert(funcHead->table->size > dest);
 	assert(entryDest != NULL);
 	assert(entry0 != NULL);
 	
 	//fprintf(stderr, "\n\nload ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
+	//fprintf(stderr, "load addr = 0x%x, entryLine = 0x%x\n", src_addr, entry0Line);
 	for (i = minLevel; i < maxLevel; i++) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + LOAD_COST;
-		updateMemoryAccess(entry0, i, version, value, 1);
+		updateReadMemoryAccess(entry0, i, version, value);
+		updateReadMemoryLineAccess(entry0Line, i, version, value);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}
@@ -769,7 +808,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 	int i = 0;
 	TEntry* entry0 = getLTEntry(src);
 	TEntry* entryDest = getGTEntry(dest_addr);
-	
+	TEntry* entryLine = getGTEntryCacheLine(dest_addr);
 	assert(funcHead->table->size > src);
 	assert(entryDest != NULL);
 	assert(entry0 != NULL);
@@ -781,7 +820,8 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 		UInt64 ts0 = getTimestamp(entry0, i, version);
 		UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
 		UInt64 value = greater1 + STORE_COST;
-		updateMemoryAccess(entryDest, i, version, value, 0);
+		updateWriteMemoryAccess(entryDest, i, version, value);
+		updateWriteMemoryLineAccess(entryLine, i, version, value);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}
@@ -808,6 +848,7 @@ void* logStoreInstConst(Addr dest_addr) {
 	int maxLevel = MIN(_maxRegionToLog+1, getRegionNum());
 	int i = 0;
 	TEntry* entryDest = getGTEntry(dest_addr);
+	TEntry* entryLine = getGTEntryCacheLine(dest_addr);
 	assert(entryDest != NULL);
 	
 	//fprintf(stderr, "\nstoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
@@ -815,7 +856,8 @@ void* logStoreInstConst(Addr dest_addr) {
 		UInt version = getVersion(i);
 		UInt64 cdt = getCdt(i,version);
 		UInt64 value = cdt + STORE_COST;
-		updateMemoryAccess(entryDest, i, version, value, 0);
+		updateWriteMemoryAccess(entryDest, i, version, value);
+		updateWriteMemoryLineAccess(entryLine, i, version, value);
 		updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
 	}

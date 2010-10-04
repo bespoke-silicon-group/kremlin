@@ -107,11 +107,13 @@ void writeURegion(File* fp, URegion* region) {
 	fwrite(&region->field.cp, sizeof(Int64), 1, fp);
 	fwrite(&region->field.readCnt, sizeof(Int64), 1, fp);
 	fwrite(&region->field.writeCnt, sizeof(Int64), 1, fp);
+	fwrite(&region->field.readLineCnt, sizeof(Int64), 1, fp);
+	fwrite(&region->field.writeLineCnt, sizeof(Int64), 1, fp);
 	assert(region->cnt != 0);
 	fwrite(&region->cnt, sizeof(Int64), 1, fp);
 	//fwrite(&region->pSid, sizeof(Int64), 1, fp);
 	fwrite(&region->childrenSize, sizeof(Int64), 1, fp);
-	//fprintf(stderr, "%lld %lld\n", &region->field.readCnt, &region->field.writeCnt);
+	//fprintf(stderr, "%lld %lld\n", &region->field.readLineCnt, &region->field.writeLineCnt);
 	
 	ChildInfo* current = region->cHeader;
 	while (current != NULL) {

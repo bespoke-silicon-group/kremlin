@@ -8,7 +8,8 @@ typedef struct _URegionField_t {
 	UInt64 cp;
 	UInt64 readCnt;
 	UInt64 writeCnt;
-
+	UInt64 readLineCnt;
+	UInt64 writeLineCnt;
 } URegionField;
 
 typedef struct _URegion_t {

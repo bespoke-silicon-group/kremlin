@@ -44,6 +44,9 @@
 #define MALLOC_TABLE_SIZE	10000
 #endif
 
+#define CACHE_LINE_POWER_2	4
+#define CACHE_LINE_SIZE		(1 << CACHE_LINE_POWER_2)
+
 typedef unsigned long       UInt32;
 typedef signed long         Int32;
 typedef unsigned int		UInt;
@@ -57,7 +60,9 @@ enum RegionType {RegionFunc, RegionLoop};
 
 typedef struct _DataEntry {
     UInt32* version;
+    UInt32* readVersion;
     UInt64* time;
+    UInt64* readTime;
 
 } TEntry;
 
@@ -75,7 +80,9 @@ typedef struct _LocalTable {
 
 typedef struct _GTableEntry {
 	unsigned short used; // number of entries that are in use
+	unsigned short usedLine; // number of entries that are in use
     TEntry* array[0x4000];
+	TEntry* lineArray[0x4000 >> CACHE_LINE_POWER_2];
 } GEntry;
 
 /*
@@ -123,6 +130,7 @@ LTable* allocLocalTable(int size);
 void freeLocalTable(LTable* table);
 TEntry* getLTEntry(UInt32 index);
 TEntry* getGTEntry(Addr addr);
+TEntry* getGTEntryCacheLine(Addr addr);
 void initDataStructure(int regionLevel);
 void finalizeDataStructure();
 UInt32 getTEntrySize(void);

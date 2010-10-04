@@ -25,7 +25,7 @@ MTable* allocMallocTable() {
 	return ret;
 }
 
-freeMallocTable(MTable* table) {
+void freeMallocTable(MTable* table) {
 	if(table->size > 0) {
 		fprintf(stderr,"WARNING: %d entries left in malloc table. Should be 0.\n",table->size);
 	}
@@ -63,7 +63,10 @@ TEntry* allocTEntry(int size) {
 	}
 	assert(ret != NULL);
 	ret->version = (UInt32*) malloc(sizeof(UInt32) * size);
+	ret->readVersion = (UInt32*) malloc(sizeof(UInt32) * size);
 	ret->time = (UInt64*) malloc(sizeof(UInt64) * size);
+	ret->readTime = (UInt64*) malloc(sizeof(UInt64) * size);
+
 	if (ret->version == NULL || ret->time == NULL) {
 		fprintf(stderr, "allocTEntry size = %d Each TEntry Size = %d\n", 
 			size, getTEntrySize());
@@ -75,13 +78,17 @@ TEntry* allocTEntry(int size) {
 	assert(ret->version != NULL && ret->time != NULL);
 	
 	bzero(ret->version, sizeof(UInt32) * size);
+	bzero(ret->readVersion, sizeof(UInt32) * size);
 	bzero(ret->time, sizeof(UInt64) * size);
+	bzero(ret->readTime, sizeof(UInt64) * size);
 	return ret;
 }
 
 void freeTEntry(TEntry* entry) {
 	free(entry->version);
+	free(entry->readVersion);
 	free(entry->time);
+	free(entry->readTime);
 	free(entry);
 }
 
@@ -256,6 +263,30 @@ TEntry* getGTEntry(Addr addr) {
 	return (TEntry*)1;
 #endif
 }
+
+TEntry* getGTEntryCacheLine(Addr addr) {
+#ifndef WORK_ONLY
+	UInt32 index = ((UInt64) addr >> 16) & 0xffff;
+	assert(index < 0x10000);
+	GEntry* entry = gTable->array[index];
+	if (entry == NULL) {
+		entry = createGEntry();
+		gTable->array[index] = entry;
+	}
+	UInt32 index2 = ((UInt64) addr >> (2 + CACHE_LINE_POWER_2)) & 0x3ff;
+	TEntry* ret = entry->lineArray[index2];
+	if (ret == NULL) {
+		ret = allocTEntry(maxRegionLevel);
+		entry->lineArray[index2] = ret;
+		entry->usedLine += 1;
+		//_tEntryGlobalCnt++;
+	}
+	return ret;
+#else
+	return (TEntry*)1;
+#endif
+}
+
 
 void dumpTableMemAlloc() {
 	fprintf(stderr, "local TEntry = %lld\n", _tEntryLocalCnt);
