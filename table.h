@@ -14,8 +14,8 @@ void createMEntry(Addr start_addr, size_t entry_size);
 MEntry* getMEntry(Addr start_addr);
 void freeMEntry(Addr start_addr);
 
-GTable* gTable;
-LTable* lTable;
-MTable* mTable;
-UInt32	maxRegionLevel;
+extern GTable* gTable;
+extern LTable* lTable;
+extern MTable* mTable;
+extern UInt32  maxRegionLevel;
 #endif

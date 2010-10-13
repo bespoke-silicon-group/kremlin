@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+
+import os
+import Kremlin
+from MakefileGenerator import MakefileGenerator
+
+os.system("make -f %s %s" % (MakefileGenerator.default_makefile_name, MakefileGenerator.plan_rule))

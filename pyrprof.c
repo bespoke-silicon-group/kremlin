@@ -622,7 +622,7 @@ void logLoopIteration() {}
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
 
 #ifdef __cplusplus
 	if(!instrument)
@@ -670,7 +670,8 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 
 void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
+
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -712,7 +713,8 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 
 void* logAssignment(UInt src, UInt dest) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
+	
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -751,7 +753,8 @@ void* logAssignmentConst(UInt dest) {
 
 void* logLoadInst(Addr src_addr, UInt dest) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
+
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -793,7 +796,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 
 void* logStoreInst(UInt src, Addr dest_addr) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -835,7 +838,8 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 
 void* logStoreInstConst(Addr dest_addr) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
+
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -872,6 +876,7 @@ void* logStoreInstConst(Addr dest_addr) {
 void logMalloc(Addr addr, size_t size) {
 	if (!isPyrprofOn())
 		return;
+	
 	MSG(1, "logMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
 
 #ifndef WORK_ONLY
@@ -1100,6 +1105,7 @@ void logFree(Addr addr) {
 void logRealloc(Addr old_addr, Addr new_addr, size_t size) {
 	if (!isPyrprofOn())
 		return;
+
 	MSG(1, "logRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (UInt64)size);
 	logFree(old_addr);
 	logMalloc(new_addr,size);
@@ -1288,7 +1294,7 @@ void logBBVisit(UInt bb_id) {
 
 void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -1330,7 +1336,8 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 
 void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
+
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -1378,7 +1385,7 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 
 void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -1430,7 +1437,8 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 
 void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
+
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -1487,7 +1495,8 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 
 void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
+
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -1582,7 +1591,8 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
 // use estimated cost for a callee function we cannot instrument
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
 	if (!isPyrprofOn())
-		return;
+		return NULL;
+
 #ifdef __cplusplus
 	if(!instrument)
 		return NULL;
@@ -1632,7 +1642,7 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 // identify induction variables in the source code
 void* logInductionVar(UInt dest) {
 	if (!isPyrprofOn())
-		return;
+		return NULL;
 	return logAssignmentConst(dest);
 }
 
@@ -1653,6 +1663,7 @@ int pyrprof_init() {
 	}
 	MSG(0, "pyrprof_init running\n");
 
+	pyrprofOn = TRUE;
 
 	int alky = _MAX_STATIC_REGION_ID;
 	fprintf(stderr,"number of static regions: %d\n",alky);
@@ -1681,6 +1692,7 @@ int pyrprof_init() {
 	
 	fp = log_open("cpInfo.bin");
 	assert(fp != NULL);
+
 	return TRUE;
 }
 
@@ -1720,6 +1732,9 @@ int pyrprof_deinit() {
 	fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
 		_minRegionToLog, _maxRegionToLog);
 	fprintf(stderr, "[pyrprof] app MaxRegionLevel = %d\n", _maxRegionNum);
+
+	pyrprofOn = FALSE;
+
 	return TRUE;
 }
 

@@ -2,6 +2,10 @@
 #include "defs.h"
 #include "table.h"
 
+GTable* gTable;
+LTable* lTable;
+MTable* mTable;
+UInt32	maxRegionLevel;
 
 void dumpTableMemAlloc(void);
 

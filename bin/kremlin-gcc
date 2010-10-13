@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+
+from optparse import OptionParser
+import sys
+from MakefileGenerator import MakefileGenerator
+import os
+
+parser = OptionParser()
+
+parser.add_option("-o",dest="target",default="a.out")
+parser.add_option("-I",action="append",dest="includeDirs")
+
+parser.add_option("-c",action="store_true",dest="nolink",default=False)
+parser.add_option("-S",action="store_true",dest="noassemble",default=False)
+parser.add_option("-E",action="store_true",dest="nocompile",default=False)
+
+parser.add_option("-x",choices=['c','c++'],dest="language",default="c")
+
+parser.add_option("-f",action="append",dest="fOpts")
+parser.add_option("-W",action="append",dest="WOpts")
+parser.add_option("-l",action="append",dest="lOpts")
+parser.add_option("-L",action="append",dest="LOpts")
+
+#pyrprof specific options
+parser.add_option("--Pno-inline",action="store_false",dest="inline",default=True)
+
+(options,args) = parser.parse_args()
+
+"""
+print "target = %s" % (options.target)
+print options.fOpts
+print options.WOpts
+print options.language
+print args
+"""
+
+if options.nolink:
+	print "ERROR: -c is not supported."
+	sys.exit(1)
+
+if options.noassemble:
+	print "ERROR: -S is not supported."
+	sys.exit(1)
+
+makefile = MakefileGenerator()
+makefile.add_sources(args)
+makefile.set_target(options.target)
+makefile.set_inline(options.inline)
+makefile.write()
+
+os.system("make -f %s %s" % (makefile.get_makefile_name(), makefile.get_primary_build_target()))
