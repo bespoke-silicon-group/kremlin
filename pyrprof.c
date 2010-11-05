@@ -990,6 +990,10 @@ void logFree(Addr addr) {
 		return;
 	MSG(1, "logFree addr=0x%x\n", addr);
 
+	// Calls to free with NULL just return.
+	if(addr == NULL)
+		return;
+
 #ifndef WORK_ONLY
 	MEntry* me = getMEntry(addr);
 
