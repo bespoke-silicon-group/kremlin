@@ -10,6 +10,8 @@ char* toStringTEntry(TEntry* entry) {
 	int level = regionNum;
 	int i;
 	char temp[50];
+
+	// XXX: Causes memory leak?
 	char* ret = (char*)malloc(300);
 	ret[0] = 0;
 
@@ -25,8 +27,16 @@ void MSG(int level, char* format, ...) {
         return;
     }
 
+	fprintf(stderr, "%s", tabString);
+
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, buf, args);
+    va_end(args);
+
+	/*
     int strSize = strlen(format) + strlen(tabString);
-    char* buf = (char*)malloc(2000);
+    char buf = (char*)malloc(2000);
     strcpy(buf, tabString);
     strcat(buf, format);
     //printf("%s\n", buf);
@@ -36,6 +46,7 @@ void MSG(int level, char* format, ...) {
     vfprintf(stderr, buf, args);
     va_end(args);
     free(buf);
+	*/
 }
 
 void updateTabString() {

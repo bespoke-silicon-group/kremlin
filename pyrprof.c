@@ -10,6 +10,7 @@
 #include "log.h"
 #include "debug.h"
 #include "table.h"
+#include "kmalloc.h"
 
 #define _MAX_ARGS 			20
 #define _MAX_REGION_LEVEL	100		// used for static data structures
@@ -182,7 +183,7 @@ FuncContext* pushFuncContext() {
 #endif
 	int i;
 	FuncContext* prevHead = funcHead;
-	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
+	FuncContext* toAdd = (FuncContext*) kmalloc(sizeof(FuncContext));
 	for (i = 0; i < _MAX_ARGS; i++) {
 		toAdd->args[i] = NULL;
 	}
@@ -235,7 +236,7 @@ void popFuncContext() {
 	assert(ret->table != NULL);
 	if (ret->table != NULL)
 		freeLocalTable(ret->table);
-	free(ret);	
+	kfree(ret);	
 }
 
 UInt getVersion(int level) {
@@ -329,9 +330,9 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
 }
 
 CDT* allocCDT() {
-	CDT* ret = (CDT*) malloc(sizeof(CDT));
-	ret->time = (UInt64*) malloc(sizeof(UInt64) * getTEntrySize());
-	ret->version = (UInt32*) malloc(sizeof(UInt32) * getTEntrySize());
+	CDT* ret = (CDT*) kmalloc(sizeof(CDT));
+	ret->time = (UInt64*) kmalloc(sizeof(UInt64) * getTEntrySize());
+	ret->version = (UInt32*) kmalloc(sizeof(UInt32) * getTEntrySize());
 	bzero(ret->time, sizeof(UInt64) * getTEntrySize());
 	bzero(ret->version, sizeof(UInt32) * getTEntrySize());
 	ret->next = NULL;
@@ -339,9 +340,9 @@ CDT* allocCDT() {
 }
 
 void freeCDT(CDT* cdt) {
-	free(cdt->time);
-	free(cdt->version);
-	free(cdt);	
+	kfree(cdt->time);
+	kfree(cdt->version);
+	kfree(cdt);	
 }
 
 
@@ -918,7 +919,7 @@ void logMalloc(Addr addr, size_t size) {
 
 		// create TEntry instances for the range of mem addrs
 		// We assume that TEntry instances don't exist for the
-		// index2 range because otherwise malloc would be buggy.
+		// index2 range because otherwise kmalloc would be buggy.
 		int i;
 		for(i = start_index2; i <= end_index2; ++i) {
 			entry->array[i] = allocTEntry(maxRegionLevel);
@@ -967,7 +968,7 @@ void logMalloc(Addr addr, size_t size) {
 		// handle all intermediate indices
 		UInt32 curr_index;
 		for(curr_index = start_index+1; curr_index < end_index; ++curr_index) {
-			// assume that malloc isn't buggy and therefore won't give us addresses
+			// assume that kmalloc isn't buggy and therefore won't give us addresses
 			// that have been used but not freed
 			entry = createGEntry();
 			gTable->array[curr_index] = entry;
@@ -1034,7 +1035,7 @@ void logFree(Addr addr) {
 		// if nothing in this gtable entry is used
 		// then we can safely free it
 		if(entry->used == 0) { 
-			free(entry);
+			kfree(entry);
 			gTable->array[start_index] = NULL;
 			MSG(2,"    freeing gTable entry.\n");
 		}
@@ -1056,7 +1057,7 @@ void logFree(Addr addr) {
 
 		// free it if nothing used
 		if(entry->used == 0) { 
-			free(entry);
+			kfree(entry);
 			gTable->array[start_index] = NULL;
 			MSG(2,"    freeing gTable entry.\n");
 		}
@@ -1076,7 +1077,7 @@ void logFree(Addr addr) {
 
 		// free it if nothing used
 		if(entry->used == 0) { 
-			free(entry);
+			kfree(entry);
 			gTable->array[end_index] = NULL;
 			MSG(2,"    freeing gTable entry.\n");
 		}
@@ -1096,7 +1097,7 @@ void logFree(Addr addr) {
 
 			// intermediate will always have all TEntries
 			// deleted and therefore are always safe to free
-			free(entry);
+			kfree(entry);
 			gTable->array[curr_index] = NULL;
 		}
 	}
@@ -1685,10 +1686,10 @@ int pyrprof_init() {
 		_minRegionToLog, _maxRegionToLog, storageSize);
 	initDataStructure(storageSize);
 
-	assert(versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL));
+	assert(versions = (int*) kmalloc(sizeof(int) * _MAX_REGION_LEVEL));
 	bzero(versions, sizeof(int) * _MAX_REGION_LEVEL);
 
-	assert(regionInfo = (Region*) malloc(sizeof(Region) * _MAX_REGION_LEVEL));
+	assert(regionInfo = (Region*) kmalloc(sizeof(Region) * _MAX_REGION_LEVEL));
 	bzero(regionInfo, sizeof(Region) * _MAX_REGION_LEVEL);
 	allocDummyTEntry();
 	prepareCall();
@@ -1718,10 +1719,10 @@ int pyrprof_deinit() {
 
 	freeDummyTEntry();
 
-	free(regionInfo);
+	kfree(regionInfo);
 	regionInfo = NULL;
 
-	free(versions);
+	kfree(versions);
 	versions = NULL;
 
 	freeCDT(cdtHead);

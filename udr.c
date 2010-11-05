@@ -1,5 +1,6 @@
 #include "udr.h"
 #include "log.h"
+#include "kmalloc.h"
 
 #include <stdlib.h>
 
@@ -25,7 +26,7 @@ int isEquivalent(URegionField field0, URegionField field1) {
 
 DRegion* allocateDRegion(UInt64 sid, UInt64 did, UInt64 pSid,
 	UInt64 pDid, URegionField field) {
-	DRegion* ret = (DRegion*)malloc(sizeof(DRegion));
+	DRegion* ret = (DRegion*)kmalloc(sizeof(DRegion));
 	ret->sid = sid;
 	ret->did = did;
 	ret->pSid = pSid;
@@ -35,14 +36,14 @@ DRegion* allocateDRegion(UInt64 sid, UInt64 did, UInt64 pSid,
 }
 
 void freeDRegion(DRegion* target) {
-	free(target);
+	kfree(target);
 }
 
 
 DRegion* stackTop = NULL;
 
 ChildInfo* createChild(UInt64 uid) {
-	ChildInfo* ret = (ChildInfo*)malloc(sizeof(ChildInfo));
+	ChildInfo* ret = (ChildInfo*)kmalloc(sizeof(ChildInfo));
 	ret->uid = uid;
 	ret->cnt = 1;
 	ret->next = NULL;
@@ -117,7 +118,7 @@ void freeChildren(ChildInfo* head) {
 	ChildInfo* current = head;
 	while (current != NULL) {
 		ChildInfo* next = current->next;
-		free(current);
+		kfree(current);
 		current = next;
 	}
 }
@@ -190,7 +191,7 @@ int _uidPtr;
 long long _uregionCnt = 0;
 
 URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, ChildInfo* head) {
-	URegion* ret = (URegion*)malloc(sizeof(URegion));
+	URegion* ret = (URegion*)kmalloc(sizeof(URegion));
 	ret->uid = uid;
 	ret->sid = sid;
 	ret->field = field;
@@ -205,7 +206,7 @@ URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, 
 
 void freeURegion(URegion* region) {
 	freeChildren(region->cHeader);
-	free(region);
+	kfree(region);
 	_uregionCnt--;
 }
 

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include "defs.h"
 #include "table.h"
+#include "kmalloc.h"
 
 GTable* gTable;
 LTable* lTable;
@@ -17,7 +18,7 @@ UInt32 getTEntrySize() {
 void freeTEntry(TEntry* entry);
 
 GTable* allocGlobalTable(int depth) {
-	GTable* ret = (GTable*) malloc(sizeof(GTable));
+	GTable* ret = (GTable*) kmalloc(sizeof(GTable));
 	bzero(ret->array, sizeof(GTable));
 	return ret;
 }
@@ -31,12 +32,12 @@ MTable* allocMallocTable() {
 
 void freeMallocTable(MTable* table) {
 	if(table->size > 0) {
-		fprintf(stderr,"WARNING: %d entries left in malloc table. Should be 0.\n",table->size);
+		fprintf(stderr,"WARNING: %d entries left in kmalloc table. Should be 0.\n",table->size);
 	}
 
 	int i;
 	for(i = 0; i < table->size; ++i) {
-		free(table->array[i]);
+		kfree(table->array[i]);
 	}
 }
 
@@ -51,33 +52,33 @@ void freeGlobalTable(GTable* table) {
 					freeTEntry(current);	
 				}
 			}	
-			free(entry);
+			kfree(entry);
 		}
 	}
-	free(table);
+	kfree(table);
 }
 
 long long _tEntryLocalCnt = 0;
 long long _tEntryGlobalCnt = 0;
 
 TEntry* allocTEntry(int size) {
-	TEntry* ret = (TEntry*) malloc(sizeof(TEntry));
+	TEntry* ret = (TEntry*) kmalloc(sizeof(TEntry));
 	if (ret == NULL) {
 		fprintf(stderr, "TEntry alloc error\n");
 	}
 	assert(ret != NULL);
-	ret->version = (UInt32*) malloc(sizeof(UInt32) * size);
-	ret->readVersion = (UInt32*) malloc(sizeof(UInt32) * size);
-	ret->time = (UInt64*) malloc(sizeof(UInt64) * size);
-	ret->readTime = (UInt64*) malloc(sizeof(UInt64) * size);
+	ret->version = (UInt32*) kmalloc(sizeof(UInt32) * size);
+	ret->readVersion = (UInt32*) kmalloc(sizeof(UInt32) * size);
+	ret->time = (UInt64*) kmalloc(sizeof(UInt64) * size);
+	ret->readTime = (UInt64*) kmalloc(sizeof(UInt64) * size);
 
 	if (ret->version == NULL || ret->time == NULL) {
-		fprintf(stderr, "allocTEntry size = %d Each TEntry Size = %d\n", 
+		fprintf(stderr, "allocTEntry size = %d Each TEntry Size = %lu\n", 
 			size, getTEntrySize());
 		dumpTableMemAlloc(); 
 		
-		assert(malloc(sizeof(UInt64) * size) != NULL);
-		fprintf(stderr, "additional malloc succeeded\n");
+		assert(kmalloc(sizeof(UInt64) * size) != NULL);
+		fprintf(stderr, "additional kmalloc succeeded\n");
 	}
 	assert(ret->version != NULL && ret->time != NULL);
 	
@@ -89,15 +90,15 @@ TEntry* allocTEntry(int size) {
 }
 
 void freeTEntry(TEntry* entry) {
-	free(entry->version);
-	free(entry->readVersion);
-	free(entry->time);
-	free(entry->readTime);
-	free(entry);
+	kfree(entry->version);
+	kfree(entry->readVersion);
+	kfree(entry->time);
+	kfree(entry->readTime);
+	kfree(entry);
 }
 
 void createMEntry(Addr start_addr, size_t entry_size) {
-	MEntry* me = (MEntry*)malloc(sizeof(MEntry));
+	MEntry* me = (MEntry*)kmalloc(sizeof(MEntry));
 
 	me->start_addr = start_addr;
 	me->size = entry_size;
@@ -113,7 +114,7 @@ void createMEntry(Addr start_addr, size_t entry_size) {
 void freeMEntry(Addr start_addr) {
 	MEntry* me = NULL;
 
-	// most likely to free something we recently malloced
+	// most likely to free something we recently kmalloced
 	// so we'll start searching from the end
 	int i, found_index;
 	for(i = mTable->size; i >= 0; --i) {
@@ -137,7 +138,7 @@ void freeMEntry(Addr start_addr) {
 	}
 
 	// NULLIFIED!
-	free(me);
+	kfree(me);
 	mTable->array[mTable->size] = NULL;
 
 	mTable->size -= 1;
@@ -164,7 +165,7 @@ MEntry* getMEntry(Addr start_addr) {
 }
 
 GEntry* createGEntry() {
-	GEntry* ret = (GEntry*) malloc(sizeof(GEntry));
+	GEntry* ret = (GEntry*) kmalloc(sizeof(GEntry));
 	bzero(ret, sizeof(GEntry));
 	return ret;
 }
@@ -181,9 +182,9 @@ void copyTEntry(TEntry* dest, TEntry* src) {
 
 LTable* allocLocalTable(int size) {
 	int i;	
-	LTable* ret = (LTable*) malloc(sizeof(LTable));
+	LTable* ret = (LTable*) kmalloc(sizeof(LTable));
 	ret->size = size;
-	ret->array = (TEntry**) malloc(sizeof(TEntry*) * size);
+	ret->array = (TEntry**) kmalloc(sizeof(TEntry*) * size);
 	for (i=0; i<size; i++) {
 		ret->array[i] = allocTEntry(getTEntrySize());
 	}
@@ -202,8 +203,8 @@ void freeLocalTable(LTable* table) {
 		freeTEntry(table->array[i]);
 	}
 	_tEntryLocalCnt -= table->size;
-	free(table->array);
-	free(table);
+	kfree(table->array);
+	kfree(table);
 }
 
 void setLocalTable(LTable* table) {
