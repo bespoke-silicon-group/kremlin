@@ -10,7 +10,6 @@
 #include "log.h"
 #include "debug.h"
 #include "table.h"
-#include "kmalloc.h"
 
 #define _MAX_ARGS 			20
 #define _MAX_REGION_LEVEL	100		// used for static data structures
@@ -89,7 +88,6 @@ UInt	__currentBB;
 #define getCurrentRegion() 	(regionNum-1)
 #define isCurrentRegionInstrumentable() (((regionNum-1) >= _minRegionToLog) && ((regionNum-1) <= _maxRegionToLog))
 
-
 /*
  * start profiling
  *
@@ -126,6 +124,7 @@ inline void incrementRegionLevel() {
 inline void decrementRegionLevel() {
 	regionNum--;
 }
+
 void dumpCdt(CDT* cdt) {
 	int i;
 	fprintf(stderr, "cdtHead = 0x%x\n", cdt);
@@ -143,8 +142,6 @@ void dumpTEntry(TEntry* entry, int size) {
 	}
 	fprintf(stderr, "\n");
 }
-
-
 
 void dumpRegion() {
 #if 0
@@ -183,7 +180,7 @@ FuncContext* pushFuncContext() {
 #endif
 	int i;
 	FuncContext* prevHead = funcHead;
-	FuncContext* toAdd = (FuncContext*) kmalloc(sizeof(FuncContext));
+	FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
 	for (i = 0; i < _MAX_ARGS; i++) {
 		toAdd->args[i] = NULL;
 	}
@@ -236,7 +233,7 @@ void popFuncContext() {
 	assert(ret->table != NULL);
 	if (ret->table != NULL)
 		freeLocalTable(ret->table);
-	kfree(ret);	
+	free(ret);	
 }
 
 UInt getVersion(int level) {
@@ -270,7 +267,6 @@ void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 times
     entry->version[level] = version;
     entry->time[level] = timestamp;
 }
-
 
 void updateReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
 	int level = inLevel - _minRegionToLog;
@@ -330,9 +326,9 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
 }
 
 CDT* allocCDT() {
-	CDT* ret = (CDT*) kmalloc(sizeof(CDT));
-	ret->time = (UInt64*) kmalloc(sizeof(UInt64) * getTEntrySize());
-	ret->version = (UInt32*) kmalloc(sizeof(UInt32) * getTEntrySize());
+	CDT* ret = (CDT*) malloc(sizeof(CDT));
+	ret->time = (UInt64*) malloc(sizeof(UInt64) * getTEntrySize());
+	ret->version = (UInt32*) malloc(sizeof(UInt32) * getTEntrySize());
 	bzero(ret->time, sizeof(UInt64) * getTEntrySize());
 	bzero(ret->version, sizeof(UInt32) * getTEntrySize());
 	ret->next = NULL;
@@ -340,9 +336,9 @@ CDT* allocCDT() {
 }
 
 void freeCDT(CDT* cdt) {
-	kfree(cdt->time);
-	kfree(cdt->version);
-	kfree(cdt);	
+	free(cdt->time);
+	free(cdt->version);
+	free(cdt);	
 }
 
 
@@ -919,7 +915,7 @@ void logMalloc(Addr addr, size_t size) {
 
 		// create TEntry instances for the range of mem addrs
 		// We assume that TEntry instances don't exist for the
-		// index2 range because otherwise kmalloc would be buggy.
+		// index2 range because otherwise malloc would be buggy.
 		int i;
 		for(i = start_index2; i <= end_index2; ++i) {
 			entry->array[i] = allocTEntry(maxRegionLevel);
@@ -968,7 +964,7 @@ void logMalloc(Addr addr, size_t size) {
 		// handle all intermediate indices
 		UInt32 curr_index;
 		for(curr_index = start_index+1; curr_index < end_index; ++curr_index) {
-			// assume that kmalloc isn't buggy and therefore won't give us addresses
+			// assume that malloc isn't buggy and therefore won't give us addresses
 			// that have been used but not freed
 			entry = createGEntry();
 			gTable->array[curr_index] = entry;
@@ -1035,7 +1031,7 @@ void logFree(Addr addr) {
 		// if nothing in this gtable entry is used
 		// then we can safely free it
 		if(entry->used == 0) { 
-			kfree(entry);
+			free(entry);
 			gTable->array[start_index] = NULL;
 			MSG(2,"    freeing gTable entry.\n");
 		}
@@ -1057,7 +1053,7 @@ void logFree(Addr addr) {
 
 		// free it if nothing used
 		if(entry->used == 0) { 
-			kfree(entry);
+			free(entry);
 			gTable->array[start_index] = NULL;
 			MSG(2,"    freeing gTable entry.\n");
 		}
@@ -1077,7 +1073,7 @@ void logFree(Addr addr) {
 
 		// free it if nothing used
 		if(entry->used == 0) { 
-			kfree(entry);
+			free(entry);
 			gTable->array[end_index] = NULL;
 			MSG(2,"    freeing gTable entry.\n");
 		}
@@ -1097,7 +1093,7 @@ void logFree(Addr addr) {
 
 			// intermediate will always have all TEntries
 			// deleted and therefore are always safe to free
-			kfree(entry);
+			free(entry);
 			gTable->array[curr_index] = NULL;
 		}
 	}
@@ -1661,12 +1657,12 @@ void* logReductionVar(UInt opCost, UInt dest) {
 UInt isCpp = FALSE;
 UInt hasInitialized = 0;
 
-int pyrprof_init() {
+int pyrprofInit() {
 	if(hasInitialized++) {
-		MSG(0, "pyrprof_init skipped\n");
+		MSG(0, "pyrprofInit skipped\n");
 		return FALSE;
 	}
-	MSG(0, "pyrprof_init running\n");
+	MSG(0, "pyrprofInit running\n");
 
 	pyrprofOn = TRUE;
 
@@ -1686,10 +1682,10 @@ int pyrprof_init() {
 		_minRegionToLog, _maxRegionToLog, storageSize);
 	initDataStructure(storageSize);
 
-	assert(versions = (int*) kmalloc(sizeof(int) * _MAX_REGION_LEVEL));
+	assert(versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL));
 	bzero(versions, sizeof(int) * _MAX_REGION_LEVEL);
 
-	assert(regionInfo = (Region*) kmalloc(sizeof(Region) * _MAX_REGION_LEVEL));
+	assert(regionInfo = (Region*) malloc(sizeof(Region) * _MAX_REGION_LEVEL));
 	bzero(regionInfo, sizeof(Region) * _MAX_REGION_LEVEL);
 	allocDummyTEntry();
 	prepareCall();
@@ -1701,12 +1697,12 @@ int pyrprof_init() {
 	return TRUE;
 }
 
-int pyrprof_deinit() {
+int pyrprofDeinit() {
 	if(--hasInitialized) {
-		MSG(0, "pyrprof_deinit skipped\n");
+		MSG(0, "pyrprofDeinit skipped\n");
 		return FALSE;
 	}
-	MSG(0, "pyrprof_deinit running\n");
+	MSG(0, "pyrprofDeinit running\n");
 
 #ifdef USE_UREGION
 	finalizeUdr();
@@ -1715,14 +1711,14 @@ int pyrprof_deinit() {
 	log_write(fp, _lastSid, _lastDid, _lastStart, _lastEnd, _lastCP, _lastParentSid, _lastParentDid, _lastCnt);
 #endif
 
-	finalizeDataStructure();
-
 	freeDummyTEntry();
 
-	kfree(regionInfo);
+	finalizeDataStructure();
+
+	free(regionInfo);
 	regionInfo = NULL;
 
-	kfree(versions);
+	free(versions);
 	versions = NULL;
 
 	freeCDT(cdtHead);
@@ -1740,24 +1736,26 @@ int pyrprof_deinit() {
 
 	pyrprofOn = FALSE;
 
+	//printKmallocStats();
+
 	return TRUE;
 }
 
 void initProfiler() {
-	pyrprof_init();
+	pyrprofInit();
 }
 
 void cppEntry() {
 	isCpp = TRUE;
-	pyrprof_init();
+	pyrprofInit();
 }
 
 void cppExit() {
-	pyrprof_deinit();
+	pyrprofDeinit();
 }
 
 void deinitProfiler() {
-	pyrprof_deinit();
+	pyrprofDeinit();
 }
 
 
