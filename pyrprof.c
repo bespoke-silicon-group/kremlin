@@ -1664,10 +1664,7 @@ int pyrprofInit() {
 	}
 	MSG(0, "pyrprofInit running\n");
 
-	pyrprofOn = TRUE;
-
-	int alky = _MAX_STATIC_REGION_ID;
-	fprintf(stderr,"number of static regions: %d\n",alky);
+	fprintf(stderr,"number of static regions: %d\n",_MAX_STATIC_REGION_ID);
 	fprintf(stderr,"DEBUGLEVEL = %d\n", DEBUGLEVEL);
 
 #ifdef __cplusplus
@@ -1733,8 +1730,6 @@ int pyrprofDeinit() {
 	fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
 		_minRegionToLog, _maxRegionToLog);
 	fprintf(stderr, "[pyrprof] app MaxRegionLevel = %d\n", _maxRegionNum);
-
-	pyrprofOn = FALSE;
 
 	//printKmallocStats();
 
