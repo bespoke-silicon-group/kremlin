@@ -3,7 +3,7 @@
 #include "table.h"
 #include "pool.h"
 
-#define MAX_TENTRIES 10000000
+#define MAX_TENTRIES 10000000ull
 
 GTable* gTable;
 LTable* lTable;

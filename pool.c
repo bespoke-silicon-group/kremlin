@@ -19,7 +19,9 @@ struct Pool
 int PoolCreate(Pool** p, size_t pageCount, size_t pageSize)
 {
 	unsigned char* page;
-	
+
+	assert(sizeof(size_t) >= sizeof(unsigned long long));
+
 	if(!((*p) = (Pool*)malloc(sizeof(Pool) + pageSize * pageCount)))
 	{
 		assert(0 && "Failed to alloc pool.");
@@ -48,7 +50,7 @@ int PoolCreate(Pool** p, size_t pageCount, size_t pageSize)
 		pagesAllocated++;
 	}
 
-	fprintf(stderr, "pagesAllocated: %llu\n", pagesAllocated);
+	fprintf(stderr, "PoolCreate - pagesAllocated: %llu\n", pagesAllocated);
 
 	return TRUE;
 }
