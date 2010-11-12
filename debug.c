@@ -2,8 +2,8 @@
 #include "debug.h"
 
 #if PYRPROF_DEBUG == 1
-char            tabString[2000];
-int tabLevel = 0;
+static char            tabString[2000];
+static int tabLevel = 0;
 
 extern int regionNum;
 char* toStringTEntry(TEntry* entry) {
@@ -28,25 +28,11 @@ void MSG(int level, char* format, ...) {
     }
 
 	fprintf(stderr, "%s", tabString);
-
     va_list args;
     va_start(args, format);
-    vfprintf(stderr, buf, args);
+    vfprintf(stderr, format, args);
     va_end(args);
 
-	/*
-    int strSize = strlen(format) + strlen(tabString);
-    char buf = (char*)malloc(2000);
-    strcpy(buf, tabString);
-    strcat(buf, format);
-    //printf("%s\n", buf);
-
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, buf, args);
-    va_end(args);
-    free(buf);
-	*/
 }
 
 void updateTabString() {
