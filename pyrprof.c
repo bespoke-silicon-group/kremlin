@@ -99,8 +99,10 @@ UInt	__currentBB;
  * most instrumentation functions do nothing.
  */ 
 void turnOnProfiler() {
+	fprintf(stderr, "Kremlin: turnOnProfiler...");
 	pyrprofOn = 1;
 	logRegionEntry(0, 1);
+	fprintf(stderr, "Done!\n");
 }
 
 /*
@@ -109,8 +111,10 @@ void turnOnProfiler() {
  * pop the root region pushed in turnOnProfiler()
  */
 void turnOffProfiler() {
+	fprintf(stderr, "Kremlin: turnOffProfiler...");
 	logRegionExit(0, 1);
 	pyrprofOn = 0;
+	fprintf(stderr, "Done!\n");
 }
 
 
@@ -483,10 +487,12 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	versions[region]++;
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
 	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
-	if (region_type < 2)
+	if (region_type < 2) {
 		MSG(0, "[+++] region [%u, %d, %u:%llu] parent [%llu:%llu] start: %llu\n",
 			region_type, region, region_id, getDynamicRegionId(region_id), 
 			parentSid, parentDid, timestamp);
+	}
+	
 	regionInfo[region].regionId = region_id;
 	regionInfo[region].start = timestamp;
 	regionInfo[region].cp = 0;
@@ -555,6 +561,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 		MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
 				region_type, region, region_id, did, parentSid, parentDid, 
 				regionInfo[region].cp, work);
+
 	if (isPyrprofOn() && work > 0 && cp == 0 && isCurrentRegionInstrumentable()) {
 		fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
 		fprintf(stderr, "region [type: %u, level: %u, id: %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
@@ -1677,6 +1684,7 @@ int pyrprofInit() {
 	int storageSize = _maxRegionToLog - _minRegionToLog + 1;
 	MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
 		_minRegionToLog, _maxRegionToLog, storageSize);
+	initUdr();
 	initDataStructure(storageSize);
 
 	assert(versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL));
@@ -1688,8 +1696,10 @@ int pyrprofInit() {
 	prepareCall();
 	cdtHead = allocCDT();
 	
+#ifndef USE_UREGION
 	fp = log_open("cpInfo.bin");
 	assert(fp != NULL);
+#endif
 
 	return TRUE;
 }
@@ -1725,7 +1735,9 @@ int pyrprofDeinit() {
 	instrument--;
 #endif
 
+#ifndef USE_UREGION
 	log_close(fp);
+#endif
 
 	fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
 		_minRegionToLog, _maxRegionToLog);

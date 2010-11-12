@@ -183,11 +183,25 @@ void checkChildren(ChildInfo* head) {
 }
 
 #define MAPSIZE	4096
+//#define ENTRYSIZE (1024 * 256)
 #define ENTRYSIZE (1024 * 16)
-URegion* _uregionMap[MAPSIZE][ENTRYSIZE];
+//URegion* _uregionMap[MAPSIZE][ENTRYSIZE];
+
+URegion** _uregionMap[MAPSIZE];
 int _uregionMapPtr[MAPSIZE];
 int _uidPtr;
 long long _uregionCnt = 0;
+
+void initUdr() {
+	int i, j;
+	for (i=0; i<MAPSIZE; i++) {
+		_uregionMap[i] = malloc(ENTRYSIZE * sizeof(URegion *));
+		for (j=0; j<ENTRYSIZE; j++) {
+			_uregionMap[i][j] = NULL;
+		}
+
+	}
+}
 
 URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, ChildInfo* head) {
 	URegion* ret = (URegion*)malloc(sizeof(URegion));
