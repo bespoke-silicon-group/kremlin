@@ -42,6 +42,7 @@ typedef struct _FuncContext {
 
 typedef struct _region_t {
 	UInt64 start;
+	UInt64 did;
 	UInt64 cp;
 	UInt64 regionId;
 	UInt64 readCnt;
@@ -486,7 +487,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	incDynamicRegionId(region_id);
 	versions[region]++;
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
-	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
+	UInt64 parentDid = (region > 0) ? regionInfo[region-1].did : 0;
 	if (region_type < 2) {
 		MSG(0, "[+++] region [%u, %d, %u:%llu] parent [%llu:%llu] start: %llu\n",
 			region_type, region, region_id, getDynamicRegionId(region_id), 
@@ -494,6 +495,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	}
 	
 	regionInfo[region].regionId = region_id;
+	regionInfo[region].did = getDynamicRegionId(region_id);
 	regionInfo[region].start = timestamp;
 	regionInfo[region].cp = 0;
 	regionInfo[region].readCnt = 0;
@@ -538,6 +540,8 @@ void logRegionExit(UInt region_id, UInt region_type) {
 	int region = getCurrentRegion();
 
 	UInt64 sid = (UInt64)region_id;
+	UInt64 did = regionInfo[region].did;
+	assert(regionInfo[region].regionId == region_id);
 	UInt64 startTime = regionInfo[region].start;
 	UInt64 endTime = timestamp;
 	UInt64 work = endTime - regionInfo[region].start;
@@ -547,9 +551,8 @@ void logRegionExit(UInt region_id, UInt region_type) {
 		fprintf(stderr,"ERROR: unexpected region exit: %u (expected region %u)\n",region_id,regionInfo[region].regionId);
 		assert(0);
 	}
-	UInt64 did = getDynamicRegionId(region_id);
 	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
-	UInt64 parentDid = (region > 0) ? getDynamicRegionId(parentSid) : 0;
+	UInt64 parentDid = (region > 0) ? regionInfo[region-1].did : 0;
 
 	if(work < cp) {
 		fprintf(stderr,"ERROR: cp (%llu) > work (%llu) [region_id=%u]",cp,work,region_id);
