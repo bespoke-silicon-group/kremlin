@@ -4,7 +4,7 @@
 #include "pool.h"
 
 //#define MAX_TENTRIES 10000000ull
-#define MAX_TENTRIES 1024*1024*8ull
+#define MAX_TENTRIES 1024*1024*64ull
 
 GTable* gTable;
 LTable* lTable;
@@ -82,6 +82,8 @@ TEntry* allocTEntry(int size) {
         return NULL;
     }
 	//fprintf(stderr, "bzero addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
+	assert(tEntryPool->signature == 0xDEADBEEF);
+	assert(tEntryPool->pageSize >= spaceToAlloc);
     bzero(entry, spaceToAlloc); 
 	//fprintf(stderr, "bzero2 addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
 

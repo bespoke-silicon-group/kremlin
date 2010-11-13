@@ -1,7 +1,91 @@
 #include "udr.h"
 #include "log.h"
+#include "pool.h"
 
 #include <stdlib.h>
+
+#define MAPSIZE	_MAX_STATIC_REGION_ID
+#define ENTRYSIZE (1024 * 512)
+
+static URegion** _uregionMap[MAPSIZE];
+static int _uregionMapPtr[MAPSIZE];
+static int _uidPtr = 0;
+static long long _uregionCnt = 0;
+
+static Pool* udrPool = NULL;
+static Pool* dRegionPool = NULL;
+static Pool* childPool = NULL;
+
+void initUdr() {
+	int i, j;
+	for (i=0; i<MAPSIZE; i++) {
+		_uregionMap[i] = malloc(ENTRYSIZE * sizeof(URegion *));
+		for (j=0; j<ENTRYSIZE; j++) {
+			_uregionMap[i][j] = NULL;
+		}
+	}
+	PoolCreate(&udrPool, 4096, sizeof(URegion));
+	PoolCreate(&dRegionPool, 1024, sizeof(DRegion));
+	PoolCreate(&childPool, 4096, sizeof(ChildInfo));
+}
+
+void finalizeUdr() {
+	int i, j;
+	File* fp = log_open("cpURegion.bin");
+	for (i = 0; i < MAPSIZE; i++) {
+		for (j = 0; j < _uregionMapPtr[i]; j++) {
+			URegion* current = _uregionMap[i][j];
+			writeURegion(fp, current);	
+			freeURegion(current);
+		}
+	}
+	for (i=0; i<MAPSIZE; i++) {
+		free(_uregionMap[i]);
+	}
+	log_close(fp);
+	PoolDelete(&udrPool);
+	PoolDelete(&dRegionPool);
+	PoolDelete(&childPool);
+	fprintf(stderr, "%d entries emitted to cpURegion.bin\n", _uidPtr);
+}
+
+URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, ChildInfo* head) {
+	//URegion* ret = (URegion*)malloc(sizeof(URegion));
+	URegion* ret = (URegion*)PoolMalloc(udrPool);
+	assert(udrPool->signature == 0xDEADBEEF);
+	assert(ret != NULL);
+	ret->uid = uid;
+	ret->sid = sid;
+	ret->field = field;
+	ret->cnt = 1;
+	ret->childrenSize = getChildrenSize(head);
+	ret->cHeader = copyChildren(head);
+	_uregionCnt++;
+	return ret;
+}
+
+// find a compatible URegion, or create one
+// if a new URegion is created, Children info must be
+// deep-copied
+URegion* updateURegion(DRegion* region, ChildInfo* head) {
+	int i = 0;
+
+	for (i = 0; i < _uregionMapPtr[region->sid]; i++) {
+		URegion* current = _uregionMap[region->sid][i];
+		if (current->sid == region->sid &&
+			isEquivalent(current->field, region->field) &&
+			isChildrenSame(current->cHeader, head)) {
+			current->cnt++;
+			return current;	
+		}
+	}	
+	
+	URegion* ret = createURegion(_uidPtr++, region->sid, region->field,
+					region->pSid, head);
+	assert(_uregionMapPtr[region->sid] <= ENTRYSIZE);
+	_uregionMap[region->sid][_uregionMapPtr[region->sid]++] = ret;
+	return ret;
+}
 
 int isEquivalent(URegionField field0, URegionField field1) {
 	if (field0.work != field1.work)
@@ -25,7 +109,9 @@ int isEquivalent(URegionField field0, URegionField field1) {
 
 DRegion* allocateDRegion(UInt64 sid, UInt64 did, UInt64 pSid,
 	UInt64 pDid, URegionField field) {
-	DRegion* ret = (DRegion*)malloc(sizeof(DRegion));
+	//DRegion* ret = (DRegion*)malloc(sizeof(DRegion));
+	DRegion* ret = (DRegion*)PoolMalloc(dRegionPool);
+	assert(ret != NULL);
 	ret->sid = sid;
 	ret->did = did;
 	ret->pSid = pSid;
@@ -35,14 +121,15 @@ DRegion* allocateDRegion(UInt64 sid, UInt64 did, UInt64 pSid,
 }
 
 void freeDRegion(DRegion* target) {
-	free(target);
+	PoolFree(&dRegionPool, target);
 }
 
 
 DRegion* stackTop = NULL;
 
 ChildInfo* createChild(UInt64 uid) {
-	ChildInfo* ret = (ChildInfo*)malloc(sizeof(ChildInfo));
+	//ChildInfo* ret = (ChildInfo*)malloc(sizeof(ChildInfo));
+	ChildInfo* ret = (ChildInfo*)PoolMalloc(childPool);
 	ret->uid = uid;
 	ret->cnt = 1;
 	ret->next = NULL;
@@ -114,10 +201,11 @@ ChildInfo* addChild(DRegion* region, ChildInfo* head) {
 }
 
 void freeChildren(ChildInfo* head) {
+		
 	ChildInfo* current = head;
 	while (current != NULL) {
 		ChildInfo* next = current->next;
-		free(current);
+		PoolFree(&childPool, current);
 		current = next;
 	}
 }
@@ -182,44 +270,15 @@ void checkChildren(ChildInfo* head) {
 	}
 }
 
-#define MAPSIZE	4096
-//#define ENTRYSIZE (1024 * 256)
-#define ENTRYSIZE (1024 * 16)
-//URegion* _uregionMap[MAPSIZE][ENTRYSIZE];
 
-URegion** _uregionMap[MAPSIZE];
-int _uregionMapPtr[MAPSIZE];
-int _uidPtr;
-long long _uregionCnt = 0;
 
-void initUdr() {
-	int i, j;
-	for (i=0; i<MAPSIZE; i++) {
-		_uregionMap[i] = malloc(ENTRYSIZE * sizeof(URegion *));
-		for (j=0; j<ENTRYSIZE; j++) {
-			_uregionMap[i][j] = NULL;
-		}
 
-	}
-}
 
-URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, ChildInfo* head) {
-	URegion* ret = (URegion*)malloc(sizeof(URegion));
-	ret->uid = uid;
-	ret->sid = sid;
-	ret->field = field;
-	ret->cnt = 1;
-//	ret->pSid = pSid;
-	ret->childrenSize = getChildrenSize(head);
-	ret->cHeader = copyChildren(head);
-	//checkChildren(ret->cHeader);
-	_uregionCnt++;
-	return ret;
-}
+
 
 void freeURegion(URegion* region) {
 	freeChildren(region->cHeader);
-	free(region);
+	//free(region);
 	_uregionCnt--;
 }
 
@@ -230,32 +289,6 @@ void printURegion(URegion* region) {
 	printChildren(region->cHeader);
 	fprintf(stderr, "\n");
 #endif
-}
-
-// find a compatible URegion, or create one
-// if a new URegion is created, Children info must be
-// deep-copied
-URegion* updateURegion(DRegion* region, ChildInfo* head) {
-	int i = 0;
-
-	for (i = 0; i < _uregionMapPtr[region->sid]; i++) {
-		URegion* current = _uregionMap[region->sid][i];
-		if (current->sid == region->sid &&
-			//current->pSid == region->pSid &&
-			isEquivalent(current->field, region->field) &&
-			isChildrenSame(current->cHeader, head)) {
-			current->cnt++;
-			return current;	
-		}
-	}	
-	
-	URegion* ret = createURegion(_uidPtr++, region->sid, region->field,
-					region->pSid, head);
-	assert(_uregionMapPtr[region->sid] <= ENTRYSIZE);
-
-	_uregionMap[region->sid][_uregionMapPtr[region->sid]++] = ret;
-
-	return ret;
 }
 
 void processUdr(UInt64 sid, UInt64 did, UInt64 pSid, 
@@ -287,17 +320,4 @@ void processUdr(UInt64 sid, UInt64 did, UInt64 pSid,
 	printURegion(uregion);
 }
 
-void finalizeUdr() {
-	int i, j;
-	File* fp = log_open("cpURegion.bin");
-	for (i = 0; i < MAPSIZE; i++) {
-		for (j = 0; j < _uregionMapPtr[i]; j++) {
-			URegion* current = _uregionMap[i][j];
-			writeURegion(fp, current);	
-			freeURegion(current);
-		}
-	}
-	log_close(fp);
-	fprintf(stderr, "%d entries emitted to cpURegion.bin\n", _uidPtr);
-}
 

@@ -7,11 +7,11 @@
 #define TRUE 1
 #define FALSE 0
 
-#define MAX_ALLOC_SIZE  (1024*1024*1024)
+#define MAX_ALLOC_SIZE  (1024*1024*512)
 #define DEFAULT_PAGE_COUNT  16
 
 typedef struct SubPool SubPool;
-
+#if 0
 struct Pool
 {
     /// The size of the memory returned from this pool.
@@ -26,7 +26,7 @@ struct Pool
     /// Sub-pools of memory this pool can alloc/free memory from.
     vector* subPools;
 };
-
+#endif
 struct SubPool
 {
     /// The pool that owns this sub pool.
@@ -57,9 +57,16 @@ void* PoolFreeListPop(Pool* p);
 int SubPoolCreate(SubPool** p, Pool* parent, size_t size)
 {
     unsigned char* page;
+	size_t allocSize = sizeof(SubPool) + size;
 
-    if(!(*p = (SubPool*)malloc(sizeof(SubPool) + size)))
+    if(!(*p = (SubPool*)malloc(allocSize)))
         return FALSE;
+	
+	char* addr = *p;
+
+	//fprintf(stderr, "subpage size %lld, addr: 0x%llx to 0x%llx..", allocSize, addr, addr + allocSize);
+	bzero(*p, size);
+	//fprintf(stderr, "...Done\n");
 
     (*p)->parent = parent;
     (*p)->size = size;
@@ -84,7 +91,7 @@ int SubPoolDelete(SubPool** p)
     return TRUE;
 }
 
-int PoolCreate(Pool** p, size_t pageCount, size_t pageSize)
+int PoolCreate(Pool** p, size_t initPageCount, size_t pageSize)
 {
     unsigned char* page;
 
@@ -95,9 +102,9 @@ int PoolCreate(Pool** p, size_t pageCount, size_t pageSize)
         assert(0 && "Failed to alloc pool.");
         return FALSE;
     }
-
+	(*p)->signature = 0xDEADBEEF;
     (*p)->pageSize = pageSize;
-    (*p)->pageCount = DEFAULT_PAGE_COUNT; // the pageCount argument is ignored because this pool grows dynamically.
+    (*p)->pageCount = initPageCount;
 
     if(!vector_create(&(*p)->freeList, NULL, NULL))
     {
@@ -129,13 +136,14 @@ int PoolAllocNewSubPool(Pool* p)
     if(size > MAX_ALLOC_SIZE)
         size = MAX_ALLOC_SIZE;
 
-    p->pageCount += size / pageSize;
+	size_t actualPageCount = size / pageSize;
+    p->pageCount += actualPageCount;
 
     SubPoolCreate(&newPool, p, size);
     vector_push(p->subPools, newPool);
 
     // Add the pages from the newly allocated pool to our free list.
-    for(page = newPool->data; page < (unsigned char*)newPool->data + (pageCount-1) * pageSize; page += pageSize)
+    for(page = newPool->data; page < (unsigned char*)newPool->data + actualPageCount * pageSize; page += pageSize)
     {
         if(!(PoolFreeListPush(p, page)))
         {

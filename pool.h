@@ -2,6 +2,23 @@
 #define POOL_H
 
 #include <stdlib.h>
+#include "vector.h"
+
+struct Pool
+{   
+	unsigned long signature;
+    /// The size of the memory returned from this pool.
+    size_t pageSize;
+
+    /// The number of pages in the pool.
+    size_t pageCount;
+
+    /// The list of free pages.
+    vector* freeList;
+
+    /// Sub-pools of memory this pool can alloc/free memory from.
+    vector* subPools;
+};
 
 typedef struct Pool Pool;
 
