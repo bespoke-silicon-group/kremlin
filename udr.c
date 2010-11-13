@@ -5,9 +5,10 @@
 #include <stdlib.h>
 
 #define MAPSIZE	_MAX_STATIC_REGION_ID
-#define ENTRYSIZE (1024 * 512)
+//#define ENTRYSIZE (1024 * 512)
+#define ENTRYSIZE 4096
 
-static URegion** _uregionMap[MAPSIZE];
+static URegion* _uregionMap[MAPSIZE][ENTRYSIZE];
 static int _uregionMapPtr[MAPSIZE];
 static int _uidPtr = 0;
 static long long _uregionCnt = 0;
@@ -16,10 +17,12 @@ static Pool* udrPool = NULL;
 static Pool* dRegionPool = NULL;
 static Pool* childPool = NULL;
 
+ChildInfo* copyChildren(ChildInfo* head);
+void freeURegion(URegion* region);
+
 void initUdr() {
 	int i, j;
 	for (i=0; i<MAPSIZE; i++) {
-		_uregionMap[i] = malloc(ENTRYSIZE * sizeof(URegion *));
 		for (j=0; j<ENTRYSIZE; j++) {
 			_uregionMap[i][j] = NULL;
 		}
@@ -32,16 +35,17 @@ void initUdr() {
 void finalizeUdr() {
 	int i, j;
 	File* fp = log_open("cpURegion.bin");
-	for (i = 0; i < MAPSIZE; i++) {
-		for (j = 0; j < _uregionMapPtr[i]; j++) {
-			URegion* current = _uregionMap[i][j];
-			writeURegion(fp, current);	
-			freeURegion(current);
+	URegion* current = NULL;
+	for (i=0; i<MAPSIZE; i++) {
+		for (j=0; j<ENTRYSIZE; j++) {
+			current = _uregionMap[i][j];
+			while (current != NULL) {
+				writeURegion(fp, current);	
+				current = current->next;
+			}
 		}
 	}
-	for (i=0; i<MAPSIZE; i++) {
-		free(_uregionMap[i]);
-	}
+			
 	log_close(fp);
 	PoolDelete(&udrPool);
 	PoolDelete(&dRegionPool);
@@ -50,7 +54,6 @@ void finalizeUdr() {
 }
 
 URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, ChildInfo* head) {
-	//URegion* ret = (URegion*)malloc(sizeof(URegion));
 	URegion* ret = (URegion*)PoolMalloc(udrPool);
 	assert(udrPool->signature == 0xDEADBEEF);
 	assert(ret != NULL);
@@ -69,21 +72,27 @@ URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, 
 // deep-copied
 URegion* updateURegion(DRegion* region, ChildInfo* head) {
 	int i = 0;
+	URegion* current = NULL;
+	assert(region->sid < MAPSIZE);
+	int index = (int)(region->field.cp && 0xFFF);
+	current = _uregionMap[region->sid][index];
 
-	for (i = 0; i < _uregionMapPtr[region->sid]; i++) {
-		URegion* current = _uregionMap[region->sid][i];
+	while (current != NULL) {
 		if (current->sid == region->sid &&
 			isEquivalent(current->field, region->field) &&
 			isChildrenSame(current->cHeader, head)) {
 			current->cnt++;
 			return current;	
 		}
-	}	
+		current = current->next;
+	}
 	
 	URegion* ret = createURegion(_uidPtr++, region->sid, region->field,
 					region->pSid, head);
 	assert(_uregionMapPtr[region->sid] <= ENTRYSIZE);
-	_uregionMap[region->sid][_uregionMapPtr[region->sid]++] = ret;
+	URegion* prev = _uregionMap[region->sid][index];
+	_uregionMap[region->sid][index] = ret;
+	ret->next = prev;
 	return ret;
 }
 
@@ -121,7 +130,7 @@ DRegion* allocateDRegion(UInt64 sid, UInt64 did, UInt64 pSid,
 }
 
 void freeDRegion(DRegion* target) {
-	PoolFree(&dRegionPool, target);
+	PoolFree(dRegionPool, target);
 }
 
 
@@ -205,7 +214,7 @@ void freeChildren(ChildInfo* head) {
 	ChildInfo* current = head;
 	while (current != NULL) {
 		ChildInfo* next = current->next;
-		PoolFree(&childPool, current);
+		PoolFree(childPool, current);
 		current = next;
 	}
 }
