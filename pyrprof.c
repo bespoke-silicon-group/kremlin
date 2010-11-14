@@ -497,7 +497,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 	// for now, recursive call is not allowed
 	int i;
 	for (i=0; i<region; i++) {
-		assert(regionInfo[region].regionId != region_id);
+		assert(regionInfo[i].regionId != region_id);
 	}
 	
 	regionInfo[region].regionId = region_id;
