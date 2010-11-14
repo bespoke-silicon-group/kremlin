@@ -1,7 +1,88 @@
 #ifndef _TABLE_H
 #define _TABLE_H
 
+#include "MemMapPool.h"
+
+#ifndef MALLOC_TABLE_SIZE
+#define MALLOC_TABLE_SIZE   10000
+#endif
+
+#define CACHE_LINE_POWER_2  4
+#define CACHE_LINE_SIZE     (1 << CACHE_LINE_POWER_2)
+
+typedef struct _DataEntry {
+    UInt32* version;
+    UInt32* readVersion;
+    UInt64* time;
+    UInt64* readTime;
+
+} TEntry;
+
+
+/*
+    LocalTable:
+        local table uses virtual register number as its key
+*/
+typedef struct _LocalTable {
+    int             size;
+    TEntry**     array;
+
+} LTable;
+
+typedef struct _GTableEntry {
+    unsigned short used; // number of entries that are in use
+    unsigned short usedLine; // number of entries that are in use
+    TEntry* array[0x4000];
+    TEntry* lineArray[0x4000 >> CACHE_LINE_POWER_2];
+} GEntry;
+
+/*
+    GlobalTable:
+        global table is a hashtable with lower address as its primary key.
+*/
+typedef struct _GlobalTable {
+    GEntry* array[0x10000];
+} GTable;
+
+
+typedef struct _MTableEntry {
+    Addr start_addr;
+    size_t size;
+} MEntry;
+
+/*
+    MallocTable:
+        malloc table is a table to track active mallocs
+*/
+typedef struct _MallocTable {
+    int size;
+    MEntry* array[MALLOC_TABLE_SIZE];
+} MTable;
+
+
+typedef UInt    WorkTable;
+typedef struct _RegionInfo {
+    int         type;
+    UInt        did;
+    LTable      lTable;
+    GTable      gTable;
+    WorkTable   work;
+
+} RegionInfo;
+
 // declaration of functions in table.c
+TEntry* allocTEntry(int size);
+void freeTEntry(TEntry* entry);
+LTable* allocLocalTable(int size);
+void freeLocalTable(LTable* table);
+TEntry* getLTEntry(UInt32 index);
+TEntry* getGTEntry(Addr addr);
+TEntry* getGTEntryCacheLine(Addr addr);
+
+void initDataStructure(int regionLevel, MemMapPool* memMapPool);
+void finalizeDataStructure();
+UInt32 getTEntrySize(void);
+
 void setLocalTable(LTable* table);
 UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);
 UInt64 getTimestampNoVersion(TEntry* entry, UInt32 level);

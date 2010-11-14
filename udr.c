@@ -20,16 +20,16 @@ static Pool* childPool = NULL;
 ChildInfo* copyChildren(ChildInfo* head);
 void freeURegion(URegion* region);
 
-void initUdr() {
+void initUdr(MemMapPool* memMapPool) {
 	int i, j;
 	for (i=0; i<MAPSIZE; i++) {
 		for (j=0; j<ENTRYSIZE; j++) {
 			_uregionMap[i][j] = NULL;
 		}
 	}
-	PoolCreate(&udrPool, 4096, sizeof(URegion));
-	PoolCreate(&dRegionPool, 1024, sizeof(DRegion));
-	PoolCreate(&childPool, 4096, sizeof(ChildInfo));
+	PoolCreate(&udrPool, sizeof(URegion), memMapPool, (void* (*)(void*, size_t))MemMapPoolMalloc);
+	PoolCreate(&dRegionPool, sizeof(DRegion), memMapPool, (void* (*)(void*, size_t))MemMapPoolMalloc);
+	PoolCreate(&childPool, sizeof(ChildInfo), memMapPool, (void* (*)(void*, size_t))MemMapPoolMalloc);
 }
 
 void finalizeUdr() {
@@ -54,8 +54,8 @@ void finalizeUdr() {
 }
 
 URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, ChildInfo* head) {
+	//URegion* ret = (URegion*)malloc(sizeof(URegion));
 	URegion* ret = (URegion*)PoolMalloc(udrPool);
-	assert(udrPool->signature == 0xDEADBEEF);
 	assert(ret != NULL);
 	ret->uid = uid;
 	ret->sid = sid;

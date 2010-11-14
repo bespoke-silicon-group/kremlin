@@ -5,17 +5,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#include "defs.h"
 #include "udr.h"
 #include "log.h"
 #include "debug.h"
-#include "table.h"
+#include "pyrprof.h"
+#include "MemMapPool.h"
 
 #define _MAX_ARGS 			20
 #define _MAX_REGION_LEVEL	100		// used for static data structures
 
 #ifndef _MAX_STATIC_REGION_ID
 #define _MAX_STATIC_REGION_ID	1000	// used for dynamic region id
+#endif
+
+#ifndef MEM_MAP_POOL_SIZE
+#define MEM_MAP_POOL_SIZE (1024*1024*1024)
 #endif
 
 #define MIN(a, b)	(((a) < (b)) ? (a) : (b))
@@ -74,6 +78,7 @@ UInt64			loadCnt = 0llu;
 UInt64			storeCnt = 0llu;
 File* 			fp = NULL;
 UInt64			dynamicRegionId[_MAX_STATIC_REGION_ID];	
+MemMapPool*     memMapPool;
 
 #ifdef __cplusplus
 int instrument = 0;
@@ -1693,8 +1698,10 @@ int pyrprofInit() {
 	int storageSize = _maxRegionToLog - _minRegionToLog + 1;
 	MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
 		_minRegionToLog, _maxRegionToLog, storageSize);
-	initUdr();
-	initDataStructure(storageSize);
+
+	MemMapPoolCreate(&memMapPool, MEM_MAP_POOL_SIZE);
+	initUdr(memMapPool);
+	initDataStructure(storageSize, memMapPool);
 
 	assert(versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL));
 	bzero(versions, sizeof(int) * _MAX_REGION_LEVEL);

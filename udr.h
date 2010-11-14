@@ -2,6 +2,7 @@
 #define _UDR_H_
 
 #include "defs.h"
+#include "MemMapPool.h"
 
 typedef struct _URegionField_t {
 	UInt64 work;
@@ -41,11 +42,10 @@ typedef struct _ChildInfo_ {
 	struct _ChildInfo_* next; // for sorted list
 } ChildInfo;
 
-
-
 void processUdr(UInt64 sid, UInt64 did, UInt64 pSid, UInt64 pDid, 
 	URegionField field);
 
+void initUdr(MemMapPool* memMapPool);
 void finalizeUdr();
 
 #endif

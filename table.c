@@ -2,9 +2,7 @@
 #include "defs.h"
 #include "table.h"
 #include "pool.h"
-
-//#define MAX_TENTRIES 10000000ull
-#define MAX_TENTRIES 1024*1024*64ull
+#include "MemMapPool.h"
 
 GTable* gTable;
 LTable* lTable;
@@ -82,8 +80,7 @@ TEntry* allocTEntry(int size) {
         return NULL;
     }
 	//fprintf(stderr, "bzero addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
-	assert(tEntryPool->signature == 0xDEADBEEF);
-	assert(tEntryPool->pageSize >= spaceToAlloc);
+	assert(PoolGetPageSize(tEntryPool) >= spaceToAlloc);
     bzero(entry, spaceToAlloc); 
 	//fprintf(stderr, "bzero2 addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
 
@@ -213,7 +210,7 @@ void setLocalTable(LTable* table) {
     lTable = table;
 }
 
-void initDataStructure(int regionLevel) {
+void initDataStructure(int regionLevel, MemMapPool* memMapPool) {
     fprintf(stderr, "# of instrumented region Levels = %d\n", regionLevel);
     maxRegionLevel = regionLevel;
     gTable = allocGlobalTable(maxRegionLevel);
@@ -225,7 +222,7 @@ void initDataStructure(int regionLevel) {
     size_t timeSize = sizeof(UInt64) * size;
     size_t readTimeSize = sizeof(UInt64) * size;
     size_t spaceToAlloc = sizeof(TEntry) + versionSize + readVersionSize + timeSize + readTimeSize;
-    PoolCreate(&tEntryPool, MAX_TENTRIES, spaceToAlloc);
+    PoolCreate(&tEntryPool, spaceToAlloc, memMapPool, (void*(*)(void*, size_t))MemMapPoolMalloc);
 }
 
 void finalizeDataStructure() {
