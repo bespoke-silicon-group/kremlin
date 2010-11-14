@@ -1,7 +1,7 @@
 #include <assert.h>
 #include "defs.h"
 #include "table.h"
-#include "pool.h"
+#include "Pool.h"
 #include "MemMapPool.h"
 
 GTable* gTable;

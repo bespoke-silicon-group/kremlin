@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-#include "pool.h"
+#include "Pool.h"
 #include "vector.h"
 
 #define TRUE 1
