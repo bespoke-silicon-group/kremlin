@@ -493,6 +493,12 @@ void logRegionEntry(UInt region_id, UInt region_type) {
 			region_type, region, region_id, getDynamicRegionId(region_id), 
 			parentSid, parentDid, timestamp);
 	}
+
+	// for now, recursive call is not allowed
+	int i;
+	for (i=0; i<region; i++) {
+		assert(regionInfo[region].regionId != region_id);
+	}
 	
 	regionInfo[region].regionId = region_id;
 	regionInfo[region].did = getDynamicRegionId(region_id);
