@@ -51,10 +51,10 @@ int MemMapPoolCreate(MemMapPool** p, unsigned long long size)
     }
 
     // Allocate mmapped data.
-    if(((*p)->data = mmap(NULL, size, protection, flags, fileId, offset)) == MAP_FAILED)
+    if(((*p)->data = mmap64(NULL, size, protection, flags, fileId, offset)) == MAP_FAILED)
     {
         char* errorString;
-        asprintf(&errorString, "MemMapPoolCreate - unable to mmap %u bytes\n", size);
+        asprintf(&errorString, "MemMapPoolCreate - unable to mmap %llu bytes", size);
         perror(errorString);
         free(errorString);
         errorString = NULL;
