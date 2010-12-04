@@ -2,9 +2,12 @@ import sys
 
 class MakefileGenerator:
 	plan_rule = "analyze"
-	make_rule = "pyrprof"
 	default_makefile_name = "Makefile.kremlin"
 	default_executable_name = "a.out"
+	make_rule = "compile"
+	compile_rule = "compile"
+	assemble_rule = "assemble"
+	link_rule = "link"
 
 	def __init__(self):
 		self.name = MakefileGenerator.default_makefile_name
@@ -70,20 +73,18 @@ class MakefileGenerator:
 
 		makefile.write("TARGET=%s\n"%(self.target))
 
-		makefile.write("C_SRC=")
+		makefile.write("SOURCES=")
 
 		for file in self.sources:
 			makefile.write("%s "%(file))
 
 		makefile.write("\n")
-		makefile.write("X86_64=0\n")
 
 		if not self.inline:
 			makefile.write("INLINE=0\n")
 
-		makefile.write("LEVEL=%s/../../../test/parasites\n" % (sys.path[0]))
-		makefile.write("\ninclude $(LEVEL)/pyrprof/Makefile.pyrprof\n")
-		makefile.write("\ninclude $(LEVEL)/pyrprof/Makefile.omp\n")
+		makefile.write("LEVEL=%s/../instrument/make\n" % (sys.path[0]))
+		makefile.write("\ninclude $(LEVEL)/kremlin.mk\n")
 
 		makefile.close()
 

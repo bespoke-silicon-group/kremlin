@@ -1,51 +1,154 @@
 #!/usr/bin/env python
 
-from optparse import OptionParser
-import sys
 from MakefileGenerator import MakefileGenerator
+from optparse import OptionParser
 import os
+import subprocess
+import sys
 
-parser = OptionParser()
 
-parser.add_option("-o",dest="target",default="a.out")
-parser.add_option("-I",action="append",dest="includeDirs")
+def get_make_target(options):
 
-parser.add_option("-c",action="store_true",dest="nolink",default=False)
-parser.add_option("-S",action="store_true",dest="noassemble",default=False)
-parser.add_option("-E",action="store_true",dest="nocompile",default=False)
+    """ 
+    Returns the make target to only preprocess, compile, assemble or
+    link.
+    """
 
-parser.add_option("-x",choices=['c','c++'],dest="language",default="c")
+    # When gcc is passed options to only preprocess, compile, assemble, it
+    # choose the option that requires the least amount of work. That is, if -E
+    # is specified to preprocess only, it will only preprocess. It will not
+    # compile, assemble or link even if -c or -S are specified.
 
-parser.add_option("-f",action="append",dest="fOpts")
-parser.add_option("-W",action="append",dest="WOpts")
-parser.add_option("-l",action="append",dest="lOpts")
-parser.add_option("-L",action="append",dest="LOpts")
+    make_target = "link"
 
-#pyrprof specific options
-parser.add_option("--Pno-inline",action="store_false",dest="inline",default=True)
+    if options.assemble:
+        make_target = "assemble"
 
-(options,args) = parser.parse_args()
+    if options.compile:
+        make_target = "compile"
 
-"""
-print "target = %s" % (options.target)
-print options.fOpts
-print options.WOpts
-print options.language
-print args
-"""
+    # TODO: Write this rule in the makefile.
+    if options.preprocess:
+        make_target = "preprocess"
 
-if options.nolink:
-	print "ERROR: -c is not supported."
-	sys.exit(1)
+    return make_target
 
-if options.noassemble:
-	print "ERROR: -S is not supported."
-	sys.exit(1)
+# Creates an option that should just be passed to GCC through setting CFLAGS
+# in the makefile.
+class GccOption:
 
-makefile = MakefileGenerator()
-makefile.add_sources(args)
-makefile.set_target(options.target)
-makefile.set_inline(options.inline)
-makefile.write()
+    def __init__(self, parser, *flags, **parser_options):
 
-os.system("make -f %s %s" % (makefile.get_makefile_name(), makefile.get_primary_build_target()))
+        """Adds the option to the parser. Has the exact same signature as
+        OptionParser.add_option except it takes one as the first argument."""
+
+
+        parser_option_action = "action"
+        parser_option_dest = "dest"
+        parser_option_default = "default"
+
+        self.parser = parser
+        self.flags = flags
+        self.dest = parser_options[parser_option_dest]
+
+        # Default to empty list if no default is specified
+        if not parser_option_default in parser_options:
+            parser_options[parser_option_default] = []
+
+        # Default to append if no action is specified
+        if not parser_option_action in parser_options:
+            parser_options[parser_option_action] = "append"
+
+        parser.add_option(*flags, **parser_options)
+
+    def get_cflags_str(self, options):
+        """Takes the options returned by OptionParser.parse_args() and returns
+        a string of flags to be added to CFLAGS. These flags are the same
+        flags passed to this python script."""
+
+        value = options.__dict__[self.dest]
+
+        # If just a plain flag, add it if it's true
+        if value == True:
+            return self.flags[0]
+
+        # Otherwise, don't add it.
+        if value == False:
+            return ""
+
+        if isinstance(value, str):
+            return self.flags[0] + value
+
+        # If the flag can be specified multiple times, add them all.
+        if isinstance(value, list):
+            return " ".join([self.flags[0] + value for value in value])
+
+        raise "Uknown type?: " + value
+
+if __name__ == "__main__":
+    usage = "usage: %prog options sources"
+    parser = OptionParser(usage = usage)
+
+    # Output file target
+    parser.add_option("-o", dest = "target", default = "a.out")
+
+
+    # Partial compilation
+    parser.add_option("-c", action = "store_true", dest = "assemble", default = False)
+    parser.add_option("-S", action = "store_true", dest = "compile", default = False)
+    parser.add_option("-E", action = "store_true", dest = "preprocess", default = False)
+
+    # These options should just be passed to GCC by adding them to CFLAGS
+    gcc_options = [
+
+        # Includes
+        GccOption(parser, "-I", dest = "includeDirs"),
+
+        # Language
+        GccOption(parser, "-x", choices = ['none', 'c', 'c++'], dest = "language", default = 'none'),
+
+        GccOption(parser, "-g", action = "store_true", dest = "debug"),
+        GccOption(parser, "-O", dest = "optimization"),
+        GccOption(parser, "-f", dest = "fOpts"),
+        GccOption(parser, "-W", dest = "wOpts")]
+
+    #pyrprof specific options
+    parser.add_option("--Pno-inline", action = "store_false", dest = "inline", default = True)
+
+    (options, args) = parser.parse_args()
+
+    print "args: "
+    for arg in args:
+        print arg
+
+    make_target = get_make_target(options)
+
+    makefile_name = "kremlin.mk"
+    make_args = ["make", "-f", makefile_name, make_target]
+
+    def write_makefile(out):
+        def write_stdout_and_makefile(str):
+            sys.stdout.write(str)
+            out.write(str)
+
+        write = write_stdout_and_makefile
+        write("SOURCES = " + " ".join(args) + "\n")
+        write("TARGET = " + options.target + "\n")
+        write("CFLAGS + = " + " ".join([option.get_cflags_str(options) for option in gcc_options]) + "\n")
+        write("include " + sys.path[0] + "/../instrument/make/kremlin.mk\n")
+
+    # Write the makefile to disk
+    makefile = open(makefile_name, "w")
+    write_makefile(makefile)
+    makefile.close()
+
+    # Run make
+    print "running: " + ' '.join(make_args)
+
+    make_process = subprocess.Popen(make_args, stdin = subprocess.PIPE)
+    # write_makefile(make_process.stdin)
+    make_process.stdin.close()
+    make_process.wait()
+
+    # Return what make returned
+    sys.exit(make_process.returncode)

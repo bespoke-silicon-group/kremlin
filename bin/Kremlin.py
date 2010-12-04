@@ -6,4 +6,4 @@ makefile_name = "Makefile.kremlin"
 makefile_plan_rule = "analyze"
 
 # The rule in the makefile that generates the executable
-makefile_make_rule = "pyrprof"
+makefile_make_rule = "executable"
