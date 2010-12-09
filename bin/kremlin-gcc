@@ -137,7 +137,7 @@ if __name__ == "__main__":
         write = write_stdout_and_makefile
         write("SOURCES = " + " ".join(args) + "\n")
         write("TARGET = " + options.target + "\n")
-        write("CFLAGS + = " + " ".join([option.get_cflags_str(options) for option in gcc_options]) + "\n")
+        write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]) + "\n")
         write("include " + sys.path[0] + "/../instrument/make/kremlin.mk\n")
 
     # Write the makefile to disk
