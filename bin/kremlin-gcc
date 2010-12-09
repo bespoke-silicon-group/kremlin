@@ -107,12 +107,14 @@ if __name__ == "__main__":
         # Language
         GccOption(parser, "-x", choices = ['none', 'c', 'c++'], dest = "language", default = 'none'),
 
-		# Load math library
-        GccOption(parser, "-l", dest = "load_library"),
-
-        GccOption(parser, "-g", action = "store_true", dest = "debug"),
+        GccOption(parser, "-D", dest = "preprocessor_defines"),
         GccOption(parser, "-O", dest = "optimization"),
         GccOption(parser, "-f", dest = "fOpts"),
+        GccOption(parser, "-g", action = "store_true", dest = "debug"),
+
+		# Load library
+        GccOption(parser, "-l", dest = "load_library"),
+
         GccOption(parser, "-W", dest = "wOpts")]
 
     #pyrprof specific options
