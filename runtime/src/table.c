@@ -1,11 +1,13 @@
 #include <assert.h>
 #include "defs.h"
 #include "table.h"
+#include "MemMapAllocator.h"
 
 GTable* gTable;
 LTable* lTable;
 MTable* mTable;
 UInt32	maxRegionLevel;
+Pool* tEntryPool;
 
 void dumpTableMemAlloc(void);
 
@@ -60,40 +62,37 @@ void freeGlobalTable(GTable* table) {
 long long _tEntryLocalCnt = 0;
 long long _tEntryGlobalCnt = 0;
 
+// XXX: for PoolMalloc to work, size always must be the same!
 TEntry* allocTEntry(int size) {
-	TEntry* ret = (TEntry*) malloc(sizeof(TEntry));
-	if (ret == NULL) {
-		fprintf(stderr, "TEntry alloc error\n");
-	}
-	assert(ret != NULL);
-	ret->version = (UInt32*) malloc(sizeof(UInt32) * size);
-	ret->readVersion = (UInt32*) malloc(sizeof(UInt32) * size);
-	ret->time = (UInt64*) malloc(sizeof(UInt64) * size);
-	ret->readTime = (UInt64*) malloc(sizeof(UInt64) * size);
+    TEntry* entry;
+    size_t versionSize = sizeof(UInt32) * size;
+    size_t readVersionSize = sizeof(UInt32) * size;
+    size_t timeSize = sizeof(UInt64) * size;
+    size_t readTimeSize = sizeof(UInt64) * size;
+    size_t spaceToAlloc = sizeof(TEntry) + versionSize + readVersionSize + timeSize + readTimeSize;
+    
+    //if(!(entry = (TEntry*) malloc(spaceToAlloc)))
+    if(!(entry = (TEntry*) PoolMalloc(tEntryPool)))
+    {
+        fprintf(stderr, "Failed to alloc TEntry\n");
+        assert(0);
+        return NULL;
+    }
+    //fprintf(stderr, "bzero addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
+    assert(PoolGetPageSize(tEntryPool) >= spaceToAlloc);
+    bzero(entry, spaceToAlloc); 
+    //fprintf(stderr, "bzero2 addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
 
-	if (ret->version == NULL || ret->time == NULL) {
-		fprintf(stderr, "allocTEntry size = %d Each TEntry Size = %d\n", 
-			size, getTEntrySize());
-		dumpTableMemAlloc(); 
-		
-		assert(malloc(sizeof(UInt64) * size) != NULL);
-		fprintf(stderr, "additional malloc succeeded\n");
-	}
-	assert(ret->version != NULL && ret->time != NULL);
-	
-	bzero(ret->version, sizeof(UInt32) * size);
-	bzero(ret->readVersion, sizeof(UInt32) * size);
-	bzero(ret->time, sizeof(UInt64) * size);
-	bzero(ret->readTime, sizeof(UInt64) * size);
-	return ret;
+    entry->version = (UInt32*)((unsigned char*)entry + sizeof(TEntry));
+    entry->readVersion = (UInt32*)((unsigned char*)entry->version + versionSize);
+    entry->time = (UInt64*)((unsigned char*)entry->readVersion + readVersionSize);
+    entry->readTime = (UInt64*)((unsigned char*)entry->time + timeSize);
+    return entry;
 }
 
 void freeTEntry(TEntry* entry) {
-	free(entry->version);
-	free(entry->readVersion);
-	free(entry->time);
-	free(entry->readTime);
-	free(entry);
+	//free(entry);
+	PoolFree(tEntryPool, entry);
 }
 
 void createMEntry(Addr start_addr, size_t entry_size) {
@@ -156,7 +155,7 @@ MEntry* getMEntry(Addr start_addr) {
 	}
 
 	if(me == NULL) {
-		fprintf(stderr,"no entry found with addr 0x%x. mTable->size = %d\n",start_addr,mTable->size);
+		fprintf(stderr,"no entry found with addr 0x%p. mTable->size = %d\n",start_addr,mTable->size);
 		assert(0);
 	}
 
@@ -216,6 +215,14 @@ void initDataStructure(int regionLevel) {
 	maxRegionLevel = regionLevel;
 	gTable = allocGlobalTable(maxRegionLevel);
 	mTable = allocMallocTable();
+
+	// Set TEntry Size
+    size_t versionSize = sizeof(UInt32) * maxRegionLevel;
+    size_t readVersionSize = sizeof(UInt32) * maxRegionLevel;
+    size_t timeSize = sizeof(UInt64) * maxRegionLevel;
+    size_t readTimeSize = sizeof(UInt64) * maxRegionLevel;
+    size_t spaceToAlloc = sizeof(TEntry) + versionSize + readVersionSize + timeSize + readTimeSize;
+	PoolCreate(&tEntryPool, spaceToAlloc, memPool, (void*(*)(void*, size_t))MemMapAllocatorMalloc);
 }
 
 void finalizeDataStructure() {

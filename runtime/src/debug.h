@@ -6,14 +6,11 @@
 	void updateTabString();
 	void incIndentTab();
 	void decIndentTab();
-	char* toStringTEntry(TEntry* entry);
 #else
     #define MSG(level, a, args...)  ((void)0)
     #define incIndentTab()          ((void)0)
     #define decIndentTab()          ((void)0)
     #define updateTabString()       ((void)0)
-    #define toStringTEntry(entry)       ((void)0)
-
 #endif
 
 #endif

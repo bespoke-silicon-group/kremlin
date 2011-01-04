@@ -13,6 +13,8 @@
 #include "deque.h"
 #include "hash_map.h"
 
+#define ALLOCATOR_SIZE (2ll * 1024 * 1024 * 1024)
+
 #define _MAX_REGION_LEVEL   100     // used for static data structures
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
@@ -1710,6 +1712,10 @@ int pyrprofInit() {
     int storageSize = _maxRegionToLog - _minRegionToLog + 1;
     MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
         _minRegionToLog, _maxRegionToLog, storageSize);
+
+	// Allocate a memory allocator.
+	MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
+
     initDataStructure(storageSize);
 
     assert(versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL));
@@ -1717,13 +1723,14 @@ int pyrprofInit() {
 
     assert(regionInfo = (Region*) malloc(sizeof(Region) * _MAX_REGION_LEVEL));
     bzero(regionInfo, sizeof(Region) * _MAX_REGION_LEVEL);
-    allocDummyTEntry();
 
     // Allocate a deque to hold timestamps of args.
     deque_create(&argTimestamps, NULL, NULL);
 
     // Allocate the hash map to store dynamic region id counts.
     hash_map_sid_did_create(&sidToDid, sidHash, sidCompare, NULL, NULL);
+
+    allocDummyTEntry();
 
     prepareCall();
     cdtHead = allocCDT();

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include "MemMapAllocator.h"
 
 
 #ifndef _PYRPROF_DEF
@@ -57,87 +58,11 @@ typedef void*               Addr;
 typedef FILE                File;
 
 enum RegionType {RegionFunc, RegionLoop};
-
-typedef struct _DataEntry {
-    UInt32* version;
-    UInt32* readVersion;
-    UInt64* time;
-    UInt64* readTime;
-
-} TEntry;
-
-
-/*
-    LocalTable:
-        local table uses virtual register number as its key
-*/
-typedef struct _LocalTable {
-    int             size;
-    TEntry**     array;
-
-} LTable;
-
-
-typedef struct _GTableEntry {
-	unsigned short used; // number of entries that are in use
-	unsigned short usedLine; // number of entries that are in use
-    TEntry* array[0x4000];
-	TEntry* lineArray[0x4000 >> CACHE_LINE_POWER_2];
-} GEntry;
-
-/*
-    GlobalTable:
-        global table is a hashtable with lower address as its primary key.
-*/
-typedef struct _GlobalTable {
-    GEntry* array[0x10000];
-} GTable;
-
-
-typedef struct _MTableEntry {
-	Addr start_addr;
-	size_t size;
-} MEntry;
-
-/*
-	MallocTable:
-		malloc table is a table to track active mallocs
-*/
-typedef struct _MallocTable {
-	int	size;
-	MEntry* array[MALLOC_TABLE_SIZE];
-} MTable;
-
-
-typedef UInt    WorkTable;
-typedef struct _RegionInfo {
-    int         type;
-    UInt        did;
-    LTable      lTable;
-    GTable      gTable;
-    WorkTable   work;
-
-} RegionInfo;
-
+MemMapAllocator* memPool;
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-TEntry* allocTEntry(int size);
-void freeTEntry(TEntry* entry);
-LTable* allocLocalTable(int size);
-void freeLocalTable(LTable* table);
-TEntry* getLTEntry(UInt32 index);
-TEntry* getGTEntry(Addr addr);
-TEntry* getGTEntryCacheLine(Addr addr);
-void initDataStructure(int regionLevel);
-void finalizeDataStructure();
-UInt32 getTEntrySize(void);
-
-
-//UInt64 getTimestamp(TEntry* entry, UInt32 level, UInt32 version);
-void updateTimestamp(TEntry* entry, UInt32 level, UInt32 version, UInt64 timestamp);
 
 /* The following funcs are inserted by the critical path instrumentation pass */
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest); 
