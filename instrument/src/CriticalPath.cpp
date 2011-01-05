@@ -1035,7 +1035,7 @@ namespace {
 			// Instrument the module
 			instrumentModule(m,op_id,costs);
 
-			log.debug().close();
+			log.close();
 
 			return true;
 		}
@@ -1310,7 +1310,7 @@ namespace {
                                     default:
 										//args.push_back(ConstantInt::get(types.i32(),0));
 										//log.debug() << "unknown opcode (" << i->getOpcode() << ") for binop/icmp: " << *i;
-										log.debug().close();
+										log.close();
 										assert(0 && "unknown opcode for binop/icmp");
 										break;
 								}
@@ -2047,14 +2047,14 @@ namespace {
 								}
 								else if(isa<ConstantInt>(phi->getIncomingValue(n))) {
 									log.debug() << "ERROR: found multiple incoming constants to induction var phi node\n";
-									log.debug().close();
+									log.close();
 									assert(0);
 								}
 							}
 
 							if(const_idx == -1) {
 								log.debug() << "ERROR: could not find constant incoming value to induction variable phi node\n";
-								log.debug().close();
+								log.close();
 								assert(0);
 							}
 
@@ -2105,7 +2105,7 @@ namespace {
 						}
 						else {
 							log.debug() << "controlling terminator (" << controller->getTerminator()->getName() << ": " << *controller->getTerminator() << ") is not a branch or switch. what is it???\n";
-							log.debug().close();
+							log.close();
 							assert(0);
 						}
 

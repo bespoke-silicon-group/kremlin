@@ -15,11 +15,11 @@ include $(dir $(lastword $(MAKEFILE_LIST)))/../../common/make/paths.mk
 # ---------------------------------------------------------------------------
 
 # All the common source files.
-COMMON_SOURCES = deque.c hash_map.c
+COMMON_SOURCES = deque.c hash_map.c vector.c
 COMMON_SOURCES_WITH_PATH = $(addprefix $(KREMLIN_COMMON_SRC)/, $(COMMON_SOURCES))
 
 # All the kremlin runtime source files.
-KREMLIN_SOURCES = debug.c log.c kremlin.c table.c udr.c
+KREMLIN_SOURCES = debug.c log.c kremlin.c table.c udr.c MemMapAllocator.c Pool.c
 KREMLIN_SOURCES_WITH_PATH = $(addprefix $(KREMLIN_RUNTIME_SRC_DIR)/, $(KREMLIN_SOURCES))
 
 # All the sources required to build the kremlin library.

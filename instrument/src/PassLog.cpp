@@ -13,11 +13,7 @@ PassLog::PassLog()
 	std::string error_message;
 
 	// Allocate the output stream.
-	os.reset(new ostream(log_name.c_str(), error_message));
-
-	// Check for an error.
-	if(os->has_error())
-		std::cerr << "Failed to open log " << log_name << ": " << error_message << std::endl;
+	os.reset(new ostream(std::cerr));
 
 	// Logs should be unbuffered.
 	os->SetUnbuffered();
@@ -91,7 +87,6 @@ PassLog& PassLog::get()
  */
 void PassLog::close()
 {
-	os->close();
 	os.reset();
 	delete singleton;
 	singleton = NULL;

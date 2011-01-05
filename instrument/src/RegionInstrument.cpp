@@ -1,18 +1,19 @@
-#include <llvm/Pass.h>
+#include <llvm/Analysis/DebugInfo.h>
+#include <llvm/Analysis/Dominators.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Analysis/PostDominators.h>
-#include <llvm/Analysis/Dominators.h>
-#include <llvm/Function.h>
-#include <llvm/Module.h>
-#include <llvm/Support/CallSite.h>
-#include <llvm/Instructions.h>
-#include <llvm/Instruction.h>
 #include <llvm/Constants.h>
-#include <llvm/GlobalVariable.h>
-#include <llvm/User.h>
 #include <llvm/DerivedTypes.h>
+#include <llvm/Function.h>
+#include <llvm/GlobalVariable.h>
+#include <llvm/Instruction.h>
+#include <llvm/Instructions.h>
+#include <llvm/Module.h>
+#include <llvm/Pass.h>
+#include <llvm/Support/CallSite.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/User.h>
 #include <map>
 
 #include <iostream>
@@ -874,6 +875,12 @@ namespace {
 			// use this to create mapping between loop and source code line numbers (rough estimate)
 			loop_source_line_info_file.open(lineNumbersFile.c_str());
 
+			DebugInfoFinder debug_info_finder;
+			debug_info_finder.processModule(m);
+
+			for(DebugInfoFinder::iterator it = debug_info_finder.compile_unit_begin(), end = debug_info_finder.compile_unit_end(); it != end; it++)
+				log.debug() << *it << "\n";
+			
 			instrumentModule(m,bb_id);
 
 			loop_source_line_info_file.close();

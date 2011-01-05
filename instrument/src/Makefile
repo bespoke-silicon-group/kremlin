@@ -10,10 +10,17 @@
 LEVEL = ../llvm/2.8-obj/
 LIBRARYNAME = KremlinInstrument
 LOADABLE_MODULE = 1
-USEDLIBS =
+USEDLIBS = 
+LINK_COMPONENTS = support
 REQUIRES_RTTI = 1
+
+LLVM_INSTALL_DIR = ../llvm/install
+LLVM_INSTALL_BIN_DIR = $(LLVM_INSTALL_DIR)/bin
+LLVM_INSTALL_LIB_DIR = $(LLVM_INSTALL_DIR)/lib
 override PROJ_SRC_DIR = .
+override LLVMToolDir = $(LLVM_INSTALL_BIN_DIR)
 CXX.Flags += -I../../common/include
+LD.Flags += -L$(LLVM_INSTALL_LIB_DIR)
 
 ifndef ($(strip $(DEBUG)),)
 override ENABLE_OPTIMIZED = 0

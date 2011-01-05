@@ -2,7 +2,7 @@
 #define PASS_LOG_H
 
 #include <string>
-#include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/raw_os_ostream.h>
 #include <boost/smart_ptr.hpp>
 
 /**
@@ -23,7 +23,7 @@ class PassLog
 	/**
 	 * The type of the stream backing the log.
 	 */
-	typedef llvm::raw_fd_ostream ostream;
+	typedef llvm::raw_os_ostream ostream;
 
 	private:
 	boost::scoped_ptr<ostream> os;
