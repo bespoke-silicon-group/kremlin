@@ -31,6 +31,7 @@
 #include "LLVMTypes.h"
 #include "HashRegionIdGenerator.h"
 #include "FuncRegion.h"
+#include "LoopRegion.h"
 
 #include <limits.h>
 #include <boost/ptr_container/ptr_set.hpp>
@@ -60,6 +61,7 @@ namespace {
 		static char ID;
 		static const std::string CPP_ENTRY_FUNC;
 		static const std::string CPP_EXIT_FUNC;
+		static const std::string REGIONS_INFO_FILENAME;
 
 		PassLog& log;
 
@@ -68,6 +70,7 @@ namespace {
 		std::set<std::string> definedFunctions;
 		std::set<std::string> profilerFunctions;
 		boost::scoped_ptr<RegionIdGenerator> region_id_generator;
+		boost::ptr_set<Region> regions;
 
 		std::map<RegionId,std::vector<BasicBlockId> > region_id_to_contained_bb_ids;
 		std::map<RegionId,BasicBlockId> region_id_to_entry_bb_id;
@@ -84,6 +87,25 @@ namespace {
 		bool add_logBBVisit_func;
 		bool add_logRegionEntry_func;
 		bool add_logRegionExit_func;
+
+		void printRegions() const
+		{
+			std::ofstream out(REGIONS_INFO_FILENAME.c_str(), std::ios::app | std::ios::out);
+			std::string buf;
+
+			if(!out)
+			{
+				log.error() << "Failed to open " << REGIONS_INFO_FILENAME << "\n";
+				assert(0);
+			}
+
+			foreach(const Region& r, regions)
+			{
+				r.formatToString(buf);
+				out << buf << "\n";
+			}
+			out.close();
+		}
 
 		// Returns true if this function calls itself directly (i.e. is directly recursive).
 		// This doesn't return true for cycles in the call graph involving more than 1 node.
@@ -835,6 +857,10 @@ namespace {
 					}
 
 					RegionId region_id = (*region_id_generator)(func.getName());
+					FuncRegion* r = new FuncRegion(region_id, &func);
+					regions.insert(r);
+
+					log.debug() << "new region: " << *r << "\n";
 
 					log.debug() << "adding " << func.getName() << " (in module: " << m.getModuleIdentifier() << ") to list of defined functions (region_id: " << region_id << ")\n";
 					definedFunctions.insert(func.getName());
@@ -850,6 +876,8 @@ namespace {
 
 				}
 			}
+
+			log.debug() << "found " << regions.size() << " func regions\n";
 
 			region_id_to_func_name_map_file.close();
 
@@ -878,13 +906,26 @@ namespace {
 			DebugInfoFinder debug_info_finder;
 			debug_info_finder.processModule(m);
 
+			log.debug() << "Debug information:\n";
+
 			for(DebugInfoFinder::iterator it = debug_info_finder.compile_unit_begin(), end = debug_info_finder.compile_unit_end(); it != end; it++)
-				log.debug() << *it << "\n";
+				(*it)->dump();
+
+			for(DebugInfoFinder::iterator it = debug_info_finder.subprogram_begin(), end = debug_info_finder.subprogram_end(); it != end; it++)
+				(*it)->dump();
+
+			for(DebugInfoFinder::iterator it = debug_info_finder.global_variable_begin(), end = debug_info_finder.global_variable_end(); it != end; it++)
+				(*it)->dump();
+
+			for(DebugInfoFinder::iterator it = debug_info_finder.type_begin(), end = debug_info_finder.type_end(); it != end; it++)
+				(*it)->dump();
+
 			
 			instrumentModule(m,bb_id);
 
 			loop_source_line_info_file.close();
 
+			printRegions();
 			nesting_graph << "}\n";
 			nesting_graph.close();
 			region_graph.close();
@@ -999,6 +1040,7 @@ namespace {
 				std::set<BasicBlock*> loop_headers;
 
 				for(unsigned i = 0; i < function_loops.size(); ++i) {
+					Loop* loop = function_loops[i];
 					BasicBlock* loop_header = function_loops[i]->getHeader();
 
 					// insert this into a list of loop headers (to look up later for region_id_to_entry_bb_id mapping
@@ -1011,6 +1053,7 @@ namespace {
 					std::string loop_body_name = loop_name + "_body";
 					RegionId region_id = (*region_id_generator)(loop_header_name);
 					loop_header_name_to_region_id[loop_header->getName()] = region_id;
+					regions.insert(new LoopRegion(region_id, loop));
 					log.debug() << "assigning id = " << region_id << " to loop with the following BBs:\n\t";
 					
 					for(std::vector<BasicBlock*>::const_iterator block = function_loops[i]->getBlocks().begin(), block_end = function_loops[i]->getBlocks().end(); block != block_end; block++)
@@ -1208,6 +1251,7 @@ namespace {
 	char RegionInstrument::ID = 0;
 	const std::string RegionInstrument::CPP_ENTRY_FUNC = "_GLOBAL__I_main";
 	const std::string RegionInstrument::CPP_EXIT_FUNC = "__tcf_";
+	const std::string RegionInstrument::REGIONS_INFO_FILENAME = "sregions.txt";
 
 	RegisterPass<RegionInstrument> X("regioninstrument", "Region Instrumenter",
 	  false /* Only looks at CFG */,

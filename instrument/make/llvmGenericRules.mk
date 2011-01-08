@@ -187,7 +187,7 @@ OPT_PASS_SHARED_OBJ = $(if $(strip $(1)), $(LLVM_LIB_DIR)/$(strip $(1)))
 
 clean::
 	-rm -rf *.bc *.ll *.s *.log
-	$(RM) bb.info loop-source_line.txt Makefile.kremlin nesting.dot region.graph region_id-to-func_name.txt regions.info
+	$(RM) bb.info loop-source_line.txt Makefile.kremlin nesting.dot region.graph region_id-to-func_name.txt regions.info sregions.txt
 
 # ---------------------------------------------------------------------------
 # Required files
