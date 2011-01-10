@@ -48,30 +48,18 @@ LoopRegion::LoopRegion(RegionId id, llvm::Loop* loop) :
 	std::cerr << "Meta data for " << id << std::endl;
 
 	// Get the line numbers from the set of instructions.
-	// XXX: COMPLETE HAX
 	startLine = UINT_MAX;
 	endLine = 0;
 	foreach(BasicBlock* bb, loop->getBlocks())
 		foreach(Instruction& inst, *bb)
 		{
-			// Line information only can be grabbed from all data and it's the
-			// first argument?? This is not what the documentation says...
-			SmallVectorImpl<AllMetaType> metadata(256);
-			inst.getAllMetadata(metadata);
-			foreach(AllMetaType& p, metadata)
-			{
-				p.second->dump();
+			if (MDNode *N = inst.getMetadata("dbg")) {  // grab debug metadata from inst
+				DILocation Loc(N);                      // get location info from metadata
+				unsigned line_no = Loc.getLineNumber();
 
-				startLine = std::min(startLine, (unsigned int)DebugInfoParser::parseInt(p.second->getOperand(0)));
-				endLine = std::max(endLine, (unsigned int)DebugInfoParser::parseInt(p.second->getOperand(0)));
+				startLine = std::min(startLine,line_no);
+				endLine = std::max(endLine,line_no);
 			}
-
-
-			/*
-			 * This should work if the documentation was correct...
-			startLine = std::min(startLine, inst.getDebugLoc().getLine());
-			endLine = std::max(endLine, inst.getDebugLoc().getLine());
-			*/
 		}
 }
 
