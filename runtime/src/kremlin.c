@@ -544,7 +544,7 @@ void invokeThrew(UInt id)
 }
 #endif
 
-void logRegionEntry(UInt region_id, UInt region_type) {
+void logRegionEntry(UInt64 region_id, UInt region_type) {
     if (region_type == 0)
         _regionFuncCnt++;
 
@@ -575,7 +575,7 @@ void logRegionEntry(UInt region_id, UInt region_type) {
     UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
     UInt64 parentDid = (region > 0) ? regionInfo[region-1].did : 0;
     if (region_type < 2)
-        MSG(0, "[+++] region [%u, %d, %u:%llu] parent [%llu:%llu] start: %llu\n",
+        MSG(0, "[+++] region [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
             region_type, region, region_id, getDynamicRegionId(region_id), 
             parentSid, parentDid, timestamp);
 
@@ -610,7 +610,7 @@ UInt64 _lastCnt;
 UInt64 _lastParentSid;
 UInt64 _lastParentDid;
 
-void logRegionExit(UInt region_id, UInt region_type) {
+void logRegionExit(UInt64 region_id, UInt region_type) {
     if (!isPyrprofOn()) {
         if (region_type == RegionFunc) { 
             popFuncContext();
@@ -631,7 +631,7 @@ void logRegionExit(UInt region_id, UInt region_type) {
 #endif
     int region = getCurrentRegion();
 
-    UInt64 sid = (UInt64)region_id;
+    UInt64 sid = region_id;
     UInt64 did = regionInfo[region].did;
     assert(regionInfo[region].regionId == region_id);
     UInt64 startTime = regionInfo[region].start;
@@ -640,25 +640,25 @@ void logRegionExit(UInt region_id, UInt region_type) {
     UInt64 cp = regionInfo[region].cp;
 
     if(region_id != regionInfo[region].regionId) {
-        fprintf(stderr,"ERROR: unexpected region exit: %u (expected region %llu)\n",region_id,regionInfo[region].regionId);
+        fprintf(stderr,"ERROR: unexpected region exit: %llu (expected region %llu)\n",region_id,regionInfo[region].regionId);
         assert(0);
     }
     UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
     UInt64 parentDid = (region > 0) ? regionInfo[region-1].did : 0;
 
     if(work < cp) {
-        fprintf(stderr,"ERROR: cp (%llu) > work (%llu) [region_id=%u]",cp,work,region_id);
+        fprintf(stderr,"ERROR: cp (%llu) > work (%llu) [region_id=%llu]",cp,work,region_id);
         assert(0);
     }
 
     decIndentTab();
     if (region_type < 2)
-        MSG(0, "[---] region [%u, %u, %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
+        MSG(0, "[---] region [%u, %u, %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
                 region_type, region, region_id, did, parentSid, parentDid, 
                 regionInfo[region].cp, work);
     if (isPyrprofOn() && work > 0 && cp == 0 && isCurrentRegionInstrumentable()) {
         fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
-        fprintf(stderr, "region [type: %u, level: %u, id: %u:%llu] parent [%llu:%llu] cp %llu work %llu\n",
+        fprintf(stderr, "region [type: %u, level: %u, id: %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
             region_type, region, region_id, did, parentSid, parentDid, 
             regionInfo[region].cp, work);
         assert(0);

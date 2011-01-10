@@ -123,8 +123,8 @@ void deinitProfiler();
 void turnOnProfiler();
 void turnOffProfiler();
 
-void logRegionEntry(UInt region_id, UInt region_type);
-void logRegionExit(UInt region_id, UInt region_type);
+void logRegionEntry(UInt64 region_id, UInt region_type);
+void logRegionExit(UInt64 region_id, UInt region_type);
 
 void logLoopIteration();
 
