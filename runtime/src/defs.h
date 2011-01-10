@@ -30,6 +30,8 @@
 #define TRUE 1
 #define FALSE 0
 
+#define USE_UREGION
+
 #ifndef MAX_REGION_LEVEL
 #define MAX_REGION_LEVEL	20		
 #endif
