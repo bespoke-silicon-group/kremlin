@@ -1707,6 +1707,10 @@ int pyrprofInit() {
     instrument++;
 #endif
 
+#ifdef USE_UREGION
+	initializeUdr();
+#endif
+
     regionNum = 0;
     invokeStackTop = invokeStack;
     int storageSize = _maxRegionToLog - _minRegionToLog + 1;

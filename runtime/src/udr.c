@@ -1,7 +1,14 @@
 #include "udr.h"
 #include "log.h"
+#include "hash_map.h"
 
 #include <stdlib.h>
+
+HASH_MAP_DEFINE_PROTOTYPES(oid_nid, UInt64, UInt32);
+HASH_MAP_DEFINE_FUNCTIONS(oid_nid, UInt64, UInt32);
+
+UInt64 idHash(UInt64 id) { return id; }
+UInt64 idCompare(UInt64 id1, UInt64 id2) { return id1 == id2; }
 
 int isEquivalent(URegionField field0, URegionField field1) {
 	if (field0.work != field1.work)
@@ -182,6 +189,9 @@ void checkChildren(ChildInfo* head) {
 	}
 }
 
+hash_map_oid_nid*	old_id_to_new_id;
+unsigned max_mapped_val;
+
 #define MAPSIZE	4096
 #define ENTRYSIZE (1024 * 16)
 URegion* _uregionMap[MAPSIZE][ENTRYSIZE];
@@ -224,8 +234,19 @@ void printURegion(URegion* region) {
 URegion* updateURegion(DRegion* region, ChildInfo* head) {
 	int i = 0;
 
-	for (i = 0; i < _uregionMapPtr[region->sid]; i++) {
-		URegion* current = _uregionMap[region->sid][i];
+	UInt32 *mapped_sid_ptr = hash_map_oid_nid_get(old_id_to_new_id,region->sid);
+	UInt32 mapped_sid;
+	if(!mapped_sid_ptr) { 
+		hash_map_oid_nid_put(old_id_to_new_id,region->sid,max_mapped_val,0);
+		mapped_sid = max_mapped_val;
+		max_mapped_val++;
+	}
+	else {
+		mapped_sid = *mapped_sid_ptr;
+	}
+
+	for (i = 0; i < _uregionMapPtr[mapped_sid]; i++) {
+		URegion* current = _uregionMap[mapped_sid][i];
 		if (current->sid == region->sid &&
 			//current->pSid == region->pSid &&
 			isEquivalent(current->field, region->field) &&
@@ -237,9 +258,9 @@ URegion* updateURegion(DRegion* region, ChildInfo* head) {
 	
 	URegion* ret = createURegion(_uidPtr++, region->sid, region->field,
 					region->pSid, head);
-	assert(_uregionMapPtr[region->sid] <= ENTRYSIZE);
+	assert(_uregionMapPtr[mapped_sid] <= ENTRYSIZE);
 
-	_uregionMap[region->sid][_uregionMapPtr[region->sid]++] = ret;
+	_uregionMap[mapped_sid][_uregionMapPtr[mapped_sid]++] = ret;
 
 	return ret;
 }
@@ -274,6 +295,11 @@ void processUdr(UInt64 sid, UInt64 did, UInt64 pSid,
 }
 
 
+void initializeUdr() {
+	max_mapped_val = 0;
+    hash_map_oid_nid_create(&old_id_to_new_id, idHash, idCompare, NULL, NULL);
+}
+
 void finalizeUdr() {
 	int i, j;
 	File* fp = log_open("cpURegion.bin");
@@ -286,5 +312,7 @@ void finalizeUdr() {
 	}
 	log_close(fp);
 	fprintf(stderr, "%d entries emitted to cpURegion.bin\n", _uidPtr);
+
+    hash_map_oid_nid_delete(&old_id_to_new_id);
 }
 
