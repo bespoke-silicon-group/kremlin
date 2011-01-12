@@ -24,7 +24,7 @@
 using namespace llvm;
 
 namespace {
-	static cl::opt<std::string> RegionIDMapFile("map-file",cl::desc("File containing mapping for region IDs"),cl::value_desc("filename"),cl::Required);
+	static cl::opt<std::string> RegionIDMapFile("map-file",cl::desc("File containing mapping for region IDs"),cl::value_desc("filename"),cl::init("region-id-map.txt"));
 
 	struct RemapIDs : public ModulePass {
 		static char ID;
@@ -36,7 +36,7 @@ namespace {
 		virtual bool runOnModule(Module &M) {
 			bool was_changed = false;
 
-			LLVMTypes types(m.getContext());
+			LLVMTypes types(M.getContext());
 
 			std::map<uint64_t,uint64_t> rid_mapping;
 
@@ -79,7 +79,7 @@ namespace {
 
 						// check to see if this is a call to either logRegionEntry or logRegionExit
 						if(ci && ci->getCalledFunction()
-						  && (ci->getCalledFunction->getName() == "logRegionEntry" || ci->getCalledFunction->getName() == "logRegionExit")
+						  && (ci->getCalledFunction()->getName() == "logRegionEntry" || ci->getCalledFunction()->getName() == "logRegionExit")
 						  ) {
 							CallSite cs = CallSite::get(ci);
 
@@ -115,7 +115,7 @@ namespace {
 
 	char RemapIDs::ID = 0;
 
-	RegisterPass<RemapIDs> X("remap-ids", "Remaps region IDs according to specified map input file.",
+	RegisterPass<RemapIDs> X("remappedid", "Remaps region IDs according to specified map input file.",
 	  false /* Only looks at CFG? */,
 	  false /* Analysis Pass? */);
 } // end anon namespace
