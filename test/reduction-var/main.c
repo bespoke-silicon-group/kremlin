@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+int sneaky_sum;
+
 int sumArray(int* a, int num_elems) {
 	int i;
 	int sum = 0;
@@ -7,6 +9,18 @@ int sumArray(int* a, int num_elems) {
 		sum += a[i];	
 	}
 	return sum;
+}
+
+int sneakyReducer(int x) {
+	int i;
+	sneaky_sum = 0;
+	int tmp;
+	for (i = 0; i < x; i++) {
+		printf("enter an integer: ");
+		scanf("%d",&tmp);
+		sneaky_sum += tmp;	
+	}
+	return sneaky_sum;
 }
 
 int main() {
@@ -25,6 +39,9 @@ int main() {
 
 	int sum = sumArray(a,3);
 	printf("sum of entered values: %d\n", sum);
+
+	int red = sneakyReducer(3);
+	printf("sum of entered values: %d\n", red);
 
 #ifdef PYRPROF
 	turnOffProfiler();
