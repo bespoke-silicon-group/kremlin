@@ -32,6 +32,7 @@
 #include "HashRegionIdGenerator.h"
 #include "FuncRegion.h"
 #include "LoopRegion.h"
+#include "LoopBodyRegion.h"
 
 #include <limits.h>
 #include <boost/ptr_container/ptr_set.hpp>
@@ -1062,7 +1063,9 @@ namespace {
 					}
 					log.debug() << "\n";
 
-
+					region_id = (*region_id_generator)(loop_body_name);
+					regions.insert(new LoopBodyRegion(region_id, loop));
+					log.debug() << "assigning id = " << region_id << " to body of loop\n";
 				}
 
 				// Insert call to logVisitBB(bb_id) at the beginning of each bb.
