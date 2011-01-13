@@ -80,8 +80,6 @@ namespace {
 		std::ofstream nesting_graph; // DOT version for easy viewing of graph
 		std::ofstream region_graph; // file to be used by the parasite
 
-		std::ofstream loop_source_line_info_file;
-
 		bool add_initProfiler_func;
 		bool add_deinitProfiler_func;
 		bool add_printProfileData_func;
@@ -258,66 +256,6 @@ namespace {
 					orig_phi->addIncoming(promoted_phi,dest_bb);
 				}
 			}
-		}
-
-		// Takes vector of basic blocks and searches them for line number information. It then prints the min and max line numers or -1 if no line number
-		// info is located. Line number information will only be available if source was compiled with debugging info (i.e. "llvm-gcc -g")
-		void printRegionLineNumbers(std::vector<BasicBlock*>& bbs, RegionId region_id) {
-			unsigned int min_line_num = UINT_MAX;
-			unsigned int max_line_num = 0;
-
-			for(std::vector<BasicBlock*>::iterator bb_it = bbs.begin(), bb_end = bbs.end(); bb_it != bb_end; ++bb_it) {
-				for(BasicBlock::iterator inst = (*bb_it)->begin(), inst_end = (*bb_it)->end(); inst != inst_end; ++inst) {
-					if(CallInst* ci = dyn_cast<CallInst>(inst)) {
-						Function* called_func = ci->getCalledFunction();
-
-						if(called_func && called_func->getName() == "llvm.dbg.stoppoint") {
-							CallSite cs = CallSite::get(ci);
-
-							ConstantInt* line_num_const = dyn_cast<ConstantInt>(cs.getArgument(0)); // first arg of llvm.dbg.stoppoint will be line number
-							unsigned int line_num = line_num_const->getZExtValue();
-
-							if(line_num < min_line_num) {
-								min_line_num = line_num;
-							}
-							
-							if(line_num > max_line_num) {
-								max_line_num = line_num;
-							}
-						}
-					}
-				}
-			}
-
-			Module* enclosing_mod = (*bbs.begin())->getParent()->getParent();
-
-			// print out the following info: "region_id module_identifier min_line max_line"
-			loop_source_line_info_file << region_id << " " << enclosing_mod->getModuleIdentifier() << " ";
-
-			if(min_line_num == UINT_MAX && max_line_num == 0) {
-				// we print out -1 if we couldn't find any line number info
-				loop_source_line_info_file << "-1 -1" << "\n";
-			}
-			else {
-				loop_source_line_info_file << min_line_num << " " << max_line_num << "\n";
-			}
-		}
-
-		void writeFuncSourceLineInfo(Function* func, RegionId region_id) {
-			std::vector<BasicBlock*> bb_vector;
-
-			for(Function::iterator bb_it = func->begin(), bb_end = func->end(); bb_it != bb_end; ++bb_it) {
-				bb_vector.push_back(bb_it);
-			}
-			//bb_vector.insert(bb_vector.begin(),func->getBasicBlockList().begin(),func->getBasicBlockList().end());
-
-			printRegionLineNumbers(bb_vector,region_id);
-		}
-
-		void writeLoopSourceLineInfo(Loop* loop, RegionId region_id) {
-			std::vector<BasicBlock*> blocks = loop->getBlocks();
-
-			printRegionLineNumbers(blocks,region_id);
 		}
 
 		void instrumentLoop(Loop* loop, LoopInfo& LI, RegionId region_id, Function* logRegionEntry_func, Function* logRegionExit_func) {
@@ -530,9 +468,6 @@ namespace {
 				promotePHIsToOtherBlock(exit_bb, loop_exit);
 			}
 			*/
-
-			// print line numbers for this loop
-			writeLoopSourceLineInfo(loop,region_id);
 		}
 
 		unsigned int getNumInsts(BasicBlock* bb) {
@@ -901,9 +836,6 @@ namespace {
 			foreach(const std::string& func_name, profilerFunctions)
 				log.info() << func_name << "\n";
 
-			// use this to create mapping between loop and source code line numbers (rough estimate)
-			loop_source_line_info_file.open(lineNumbersFile.c_str());
-
 			DebugInfoFinder debug_info_finder;
 			debug_info_finder.processModule(m);
 
@@ -923,8 +855,6 @@ namespace {
 
 			
 			instrumentModule(m,bb_id);
-
-			loop_source_line_info_file.close();
 
 			printRegions();
 			nesting_graph << "}\n";
@@ -1025,9 +955,6 @@ namespace {
 
 				RegionId func_region_id = func_name_to_region_id[func.getName()];
 				log.debug() << "region name to id: " << func.getName() << " is " << func_region_id << "\n";
-
-				// print line numbers for this function
-				writeFuncSourceLineInfo(&func, func_region_id);
 
 				// get all the loops that exist in this function
 				std::vector<Loop*> function_loops = harvestLoops(LI);

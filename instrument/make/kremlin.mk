@@ -9,9 +9,6 @@
 # Debug mode.
 export DEBUG = 1
 
-# Output program name.
-TARGET = a.out
-
 # Source files.
 SOURCES ?= 
 
@@ -30,6 +27,7 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/spaceAndEmpty.mk
 include $(KREMLIN_INSTRUMENT_MAKE_DIR)/compile.mk
 include $(KREMLIN_INSTRUMENT_MAKE_DIR)/assemble.mk
 include $(KREMLIN_INSTRUMENT_MAKE_DIR)/link.mk
+include $(KREMLIN_INSTRUMENT_MAKE_DIR)/outputName.mk
 
 
 # ---------------------------------------------------------------------------
@@ -37,4 +35,4 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/link.mk
 # ---------------------------------------------------------------------------
 
 # Default to creating an executable
-executable: $(TARGET)
+executable: link

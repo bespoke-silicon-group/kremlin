@@ -26,18 +26,21 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/kremlinLib.mk
 # We also add the objects that we've assembled.
 SOURCES_OBJ = $(filter-out $(SOURCES_ASM) $(SOURCES_C), $(SOURCES)) $(SOURCES_OBJ_FROM_ASM)
 
+# The name of the executable to produce.
+EXECUTABLE_OUTPUT_NAME = a.out
+
 # ---------------------------------------------------------------------------
 # Rules (alpha order)
 # ---------------------------------------------------------------------------
 
 # Creates all the instrumented assembly
-link: $(TARGET)
+link: $(EXECUTABLE_OUTPUT_NAME)
 
 # Compiles and links the source with the kremlin library
-$(TARGET): $(SOURCES_OBJ) $(KREMLIN_LIB)
+$(EXECUTABLE_OUTPUT_NAME): $(SOURCES_OBJ) $(KREMLIN_LIB)
 	$(CC) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(SOURCES_OBJ) $(KREMLIN_LIB) -o $@
 
 clean::
-	$(RM) $(TARGET)
+	$(RM) $(EXECUTABLE_OUTPUT_NAME)
 
 endif # LINK_MK

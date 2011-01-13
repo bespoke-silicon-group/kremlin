@@ -7,11 +7,11 @@ import subprocess
 import sys
 
 
-def get_make_target(options):
+def get_make_targets(options):
 
     """ 
     Returns the make target to only preprocess, compile, assemble or
-    link.
+    link. Also whether to rename the resulting file.
     """
 
     # When gcc is passed options to only preprocess, compile, assemble, it
@@ -19,17 +19,22 @@ def get_make_target(options):
     # is specified to preprocess only, it will only preprocess. It will not
     # compile, assemble or link even if -c or -S are specified.
 
-    make_target = "link"
+    stage = "link"
 
     if options.assemble:
-        make_target = "assemble"
+        stage = "assemble"
 
     if options.compile:
-        make_target = "compile"
+        stage = "compile"
 
     # TODO: Write this rule in the makefile.
     if options.preprocess:
-        make_target = "preprocess"
+        stage = "preprocess"
+
+    make_target = [stage]
+
+    if options.target:
+        make_target.append(options.target)
 
     return make_target
 
@@ -90,7 +95,7 @@ if __name__ == "__main__":
     parser = OptionParser(usage = usage)
 
     # Output file target
-    parser.add_option("-o", dest = "target", default = "a.out")
+    parser.add_option("-o", dest = "target", default = None)
 
 
     # Partial compilation
@@ -122,14 +127,20 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
 
+    def check_options(parser, options, args):
+        if options.target and len(args) > 1 and (options.compile or options.assemble):
+            parser.error("cannot specify -o with -c or -S with multiple files")
+
+    check_options(parser, options, args)
+
     print "args: "
     for arg in args:
         print arg
 
-    make_target = get_make_target(options)
+    make_targets = get_make_targets(options)
 
     makefile_name = "kremlin.mk"
-    make_args = ["make", "-f", makefile_name, make_target]
+    make_args = ["make", "-f", makefile_name] + make_targets
 
     def write_makefile(out):
         def write_stdout_and_makefile(str):
@@ -138,7 +149,10 @@ if __name__ == "__main__":
 
         write = write_stdout_and_makefile
         write("SOURCES = " + " ".join(args) + "\n")
-        write("TARGET = " + options.target + "\n")
+
+        if options.target:
+            write("OUTPUT_NAME = " + options.target + "\n")
+
         write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]) + "\n")
         write("include " + sys.path[0] + "/../instrument/make/kremlin.mk\n")
 
