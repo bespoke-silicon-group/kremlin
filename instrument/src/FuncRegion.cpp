@@ -21,6 +21,7 @@ FuncRegion::FuncRegion(RegionId id, llvm::Function* func) :
 	for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
 	{
 		SubprogramDebugInfo debugInfo(*it);
+
 		if(debugInfo.func == func)
 		{
 			fileName = debugInfo.fileName;

@@ -1,6 +1,7 @@
 #include "SubprogramDebugInfo.h"
 #include <llvm/Constants.h>
 #include "DebugInfoParser.h"
+#include "PassLog.h"
 
 using namespace llvm;
 
@@ -12,6 +13,6 @@ SubprogramDebugInfo::SubprogramDebugInfo(MDNode* subprogramMetaData) :
 	mipsLinkageName(DebugInfoParser::parseString(subprogramMetaData->getOperand(MDI_MIPS_LINKAGE_NAME))),
 	fileName(DebugInfoParser::parseString(subprogramMetaData->getOperand(MDI_FILE))),
 	lineNumber((int)DebugInfoParser::parseInt(subprogramMetaData->getOperand(MDI_LINE_NUMBER))),
-	func(cast<Function>(subprogramMetaData->getOperand(MDI_FUNC_PTR)))
+	func(cast_or_null<Function>(subprogramMetaData->getOperand(MDI_FUNC_PTR)))
 {
 }
