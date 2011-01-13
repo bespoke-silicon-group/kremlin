@@ -1,10 +1,10 @@
 #include <stdio.h>
 
-int sumZeroToX(int x) {
+int sumArray(int* a, int num_elems) {
 	int i;
 	int sum = 0;
-	for (i = 0; i < x; i++) {
-		sum += i;	
+	for (i = 0; i < num_elems; i++) {
+		sum += a[i];	
 	}
 	return sum;
 }
@@ -15,9 +15,16 @@ int main() {
 	turnOnProfiler();
 #endif /* PYRPROF */
 
-	int x = sumZeroToX(3);
-	int y = sumZeroToX(5);
-	printf("%d\n", x + y);
+	int a[3];
+
+	int i;
+	for(i = 0; i < 3; ++i) {
+		printf("enter an integer for a[%d]: ",i);
+		scanf("%d",&a[i]);
+	}
+
+	int sum = sumArray(a,3);
+	printf("sum of entered values: %d\n", sum);
 
 #ifdef PYRPROF
 	turnOffProfiler();
