@@ -810,15 +810,11 @@ namespace {
 		void instrumentCall(Callable* ci, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& front) {
 			LLVMTypes types(ci->getContext());
 			std::vector<Value*> args;
-			// XXX let us pray that we don't encounter a function pointer to a vararg function!
 
-			// don't instrument any library calls to instrumentation (i.e. helper) functions
-			if(!ci->getCalledFunction() 				// either a function pointer...
-				|| !definitionIsVarArg(ci->getCalledFunction()) 	// ...or isn't var arg
-				) {
+			// don't do anything for LLVM instrinsic functions since we know we'll never instrument those functions
+			if(!(ci->getCalledFunction() && ci->getCalledFunction()->isIntrinsic())) {
 				Function* called_func = untangleCall(ci);
 
-				//if(ci->getCalledFunction()) // not a func ptr
 				if(called_func) // not a func ptr
 					log.debug() << "got a call to function " << called_func->getName() << "\n";
 				else
@@ -856,7 +852,7 @@ namespace {
 				} // end for(arg_it)
 			}
 			else {
-				log.debug() << "got a call to a var arg function: " << ci->getCalledFunction()->getName() << "\n";
+				log.debug() << "ignoring call to LLVM intrinsic function: " << ci->getCalledFunction()->getName() << "\n";
 			}
 		}
 		
@@ -1598,16 +1594,6 @@ namespace {
 								inst_calls_end.addCallInst(i,"logLibraryCall",args);
 
 								args.clear();
-							}
-
-							else {
-								log.debug() << "NOTE: found unsupported library function";
-
-								if(called_func) {
-									log.debug() << ": " << called_func->getName();
-								}
-
-								log.debug() << "\n";
 							}
 						} // end callinst
 
