@@ -1140,6 +1140,8 @@ namespace {
 		bool isNBitIntPointer(Value* val, unsigned n) {
 			const Type* val_type = val->getType();
 
+			log.info() << *val;
+
 			assert(isa<PointerType>(val_type) && "value is not even a pointer");
 
 			const Type* val_ele_type = cast<PointerType>(val_type)->getElementType();
@@ -1502,11 +1504,11 @@ namespace {
 
 								// Insert address (op 1 of callinst).
 								// If op1 isn't pointing to an 8-bit int then we need to cast it to one for use.
-								if(isNBitIntPointer(ci->getOperand(1),8)) {
-									args.push_back(ci->getOperand(1));
+								if(isNBitIntPointer(ci->getOperand(0),8)) {
+									args.push_back(ci->getOperand(0));
 								}
 								else {
-									args.push_back(CastInst::CreatePointerCast(ci->getOperand(1),types.pi8(),"free_arg_recast",blk->getTerminator()));
+									args.push_back(CastInst::CreatePointerCast(ci->getOperand(0),types.pi8(),"free_arg_recast",blk->getTerminator()));
 								}
 
 
@@ -1520,11 +1522,11 @@ namespace {
 
 								// Insert old addr (op1 of callinst).
 								// Just like for free, we need to make sure this has type i8*
-								if(isNBitIntPointer(ci->getOperand(1),8)) {
-									args.push_back(ci->getOperand(1));
+								if(isNBitIntPointer(ci->getOperand(0),8)) {
+									args.push_back(ci->getOperand(0));
 								}
 								else {
-									args.push_back(CastInst::CreatePointerCast(ci->getOperand(1),types.pi8(),"realloc_arg_recast",blk->getTerminator()));
+									args.push_back(CastInst::CreatePointerCast(ci->getOperand(0),types.pi8(),"realloc_arg_recast",blk->getTerminator()));
 								}
 
 								// insert new addr (return val of callinst)
