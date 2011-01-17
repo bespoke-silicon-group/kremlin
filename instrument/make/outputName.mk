@@ -23,11 +23,13 @@ BASE_NAME = $(basename $(firstword $(SOURCES)))
 # Rules (alpha order)
 # ---------------------------------------------------------------------------
 $(OUTPUT_NAME): 
-	# Try to move the output files to the desired output name. The last stage
-	# created will be the output name. This is kind of a hack.
-	-cp $(BASE_NAME).ii $@
-	-cp $(BASE_NAME).s $@
-	-cp $(BASE_NAME).o $@
-	-cp $(EXECUTABLE_OUTPUT_NAME) $@
+# 	XXX: This solution does not work.
+#
+#	# Try to move the output files to the desired output name. The last stage
+#	# created will be the output name. This is kind of a hack.
+#	-cp $(BASE_NAME).ii $@
+#	-cp $(BASE_NAME).s $@
+#	-cp $(BASE_NAME).o $@
+#	-cp $(EXECUTABLE_OUTPUT_NAME) $@
 
 endif # OUTPUT_NAME_MK
