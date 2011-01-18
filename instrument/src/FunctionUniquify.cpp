@@ -74,7 +74,11 @@ namespace {
 		virtual bool runOnModule(Module &M) {
 			unsigned i = 0;
 			for(Module::iterator func = M.begin(), func_end = M.end(); func != func_end; ++func) {
-				if(!func->isDeclaration()) { log.error() << i << ": " << func->getName() << "\n"; i++; }
+				if(!func->isDeclaration()
+				  && func->getLinkage() != GlobalValue::AvailableExternallyLinkage
+				  ) { 
+					log.debug() << i << ": " << func->getName() << "\n"; i++; 
+				}
 			}
 
 			bool changes_made = false;
@@ -95,7 +99,9 @@ namespace {
 
 				for(Module::iterator func = M.begin(), func_end = M.end(); func != func_end; ++func) {
 					
-					if(func->isDeclaration()) {
+					if(func->isDeclaration()
+				  	  || func->getLinkage() == GlobalValue::AvailableExternallyLinkage
+					  ) {
 						// this is potentially very bad if we have a declared function being called twice
 						/*
 						if(pass_num == 0 && func->getNumUses() > 1) {
