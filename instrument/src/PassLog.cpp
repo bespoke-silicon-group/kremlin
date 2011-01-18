@@ -74,6 +74,15 @@ PassLog::ostream& PassLog::debug()
 }
 
 /**
+ * Prints a non-decorated message.
+ * @return A stream to print undecorated messages to.
+ */
+PassLog::ostream& PassLog::plain()
+{
+	return *os;
+}
+
+/**
  * Returns an instance of this class.
  * @return an instance of this class.
  */

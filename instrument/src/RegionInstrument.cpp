@@ -332,6 +332,7 @@ namespace {
 
 			SmallVector<BasicBlock*,16> exiting_bbs;
 			loop->getExitingBlocks(exiting_bbs);
+
 			// Instrument loop regions
 			for(unsigned i = 0; i < exiting_bbs.size(); ++i) {
 				BasicBlock* exiting_bb = exiting_bbs[i];
@@ -344,7 +345,8 @@ namespace {
 
 					if(!loop->contains(succ) 
 					  ) {
-						assert(target_bb == NULL && "already found target outside of loop");
+						log.debug() << "found target_bb outside of loop: " << (*SI)->getName() << "\n";
+						assert(target_bb == NULL && "loop has multiple targets outside of loop");
 						target_bb = *SI;
 					}
 				}
@@ -990,9 +992,9 @@ namespace {
 					
 					for(std::vector<BasicBlock*>::const_iterator block = function_loops[i]->getBlocks().begin(), block_end = function_loops[i]->getBlocks().end(); block != block_end; block++)
 					{
-						log.debug() << (*block)->getName() << " ";
+						log.plain() << (*block)->getName() << " ";
 					}
-					log.debug() << "\n";
+					log.plain() << "\n";
 
 					region_id = (*region_id_generator)(loop_body_name);
 					regions.insert(new LoopBodyRegion(region_id, loop));

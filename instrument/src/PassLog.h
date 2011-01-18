@@ -38,6 +38,7 @@ class PassLog
 	ostream& warn();
 	ostream& info();
 	ostream& debug();
+	ostream& plain();
 
 	void close();
 };
