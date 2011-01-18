@@ -1185,6 +1185,7 @@ namespace {
 
 				// skip unsupported funcs
 				if(func->isDeclaration()                                      // can't instrument if this is only a declaration (i.e. has no body)
+				  || func->getLinkage() == GlobalValue::AvailableExternallyLinkage // LLVM 2.6 allows outside funcs to temporarily be visible. ignore them.
 				  || func->isVarArg()                                         // no support for vararg funcs now (TODO?)
 				  ) {
 					//log.debug() << "ignoring function " << func->getName() << "\n";

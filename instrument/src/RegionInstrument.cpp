@@ -772,7 +772,11 @@ namespace {
 			foreach(Function& func, m) {
 
 				// if not a declaration, this is a definition so we add to the map
-				if(!func.isDeclaration() && (!noRecursiveFuncs || !isRecursive(&func)) && (!noRecursiveFuncs || !func.isVarArg())) {
+				if(!func.isDeclaration() 
+				  && func.getLinkage() != GlobalValue::AvailableExternallyLinkage
+				  && (!noRecursiveFuncs || !isRecursive(&func)) 
+				  && (!noRecursiveFuncs || !func.isVarArg())
+				  ) {
 					// if this function name already exists (b/c of static functions in different modules) then we
 					// rename it to be unique. The renaming is just the original name with "__<modulename>" tacked
 					// onto the end
