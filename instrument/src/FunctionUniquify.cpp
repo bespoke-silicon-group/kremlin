@@ -111,7 +111,6 @@ namespace {
 					}
 					else if(func->getNumUses() > 1) { 
 						changes_made = true;
-						new_changes = true;
 
 						std::vector<CallInst*> call_insts;
 						std::vector<Function*> cloned_funcs;
@@ -122,27 +121,30 @@ namespace {
 						// is to make sure that the function that the callsite that does NOT get uniquified comes from is determinant.
 						unsigned use_no = 0;
 						for(Value::use_iterator ui = func->use_begin(), uie = func->use_end(); ui != uie; ++ui, ++use_no) {
-							if(!isa<CallInst>(*ui)) {
+							log.info() << "\tuse " << use_no << ": " << **ui << "\n";
+
+							// If this user is a store or compare, it's most likely being used as a function pointer.
+							// Function pointers aren't really supported so we'll warn the user when this is the case.
+							if(isa<StoreInst>(*ui)
+							  || isa<CmpInst>(*ui)
+							  ) {
+								log.warn() << "use store or compare suggests function pointer usage. Function pointers are not uniquified.\n";
+								continue;
+							}
+							else if(!isa<CallInst>(*ui)) {
 								log.error() << "use is not a callinst (user: " << **ui << ")\n";
 								assert(0);
 							}
 
 							CallInst* ci = cast<CallInst>(*ui);
-							call_insts.push_back(ci);
+							call_insts.push_back(cast<CallInst>(*ui));
 
-							log.info() << "\tuse " << use_no << " in function " << ci->getParent()->getParent()->getName() << ": " << *ci << "\n";
-
-							/*
-							// if no call_insts added yet then we don't have to worry about comparisons
-							if(call_insts.size() == 0) { call_insts.push_back(ci); }
-							// compare the function containing this callsite with function containing callsite at beginning of the list
-							// This will ensure than the "smallest" function name containing a calls comes first
-							else if(ci->getParent()->getParent()->getName().compare(call_insts[0]->getParent()->getParent()->getName()) < 0) {
-								call_insts.insert(call_insts.begin(),ci);
-							}
-							else { call_insts.push_back(ci); }
-							*/
+							//log.info() << "\t\t...in function: " ci->getParent()->getParent()->getName() << "\n";
 						}
+
+						if(call_insts.size() < 2) { continue; }
+
+						new_changes = true;
 
 						// sort call_insts by name of containing function
 						std::sort(call_insts.begin(),call_insts.end(),containing_function_lt);
