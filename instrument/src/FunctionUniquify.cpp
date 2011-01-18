@@ -120,7 +120,8 @@ namespace {
 
 						// Need to go through and create at least some predictable ordering for the uses. The most critical factor
 						// is to make sure that the function that the callsite that does NOT get uniquified comes from is determinant.
-						for(Value::use_iterator ui = func->use_begin(), uie = func->use_end(); ui != uie; ++ui) {
+						unsigned use_no = 0;
+						for(Value::use_iterator ui = func->use_begin(), uie = func->use_end(); ui != uie; ++ui, ++use_no) {
 							if(!isa<CallInst>(*ui)) {
 								log.error() << "use is not a callinst (user: " << **ui << ")\n";
 								assert(0);
@@ -129,7 +130,7 @@ namespace {
 							CallInst* ci = cast<CallInst>(*ui);
 							call_insts.push_back(ci);
 
-							log.info() << "callinst: " << *ci;
+							log.info() << "\tuse " << use_no << " in function " << ci->getParent()->getParent()->getName() << ": " << *ci << "\n";
 
 							/*
 							// if no call_insts added yet then we don't have to worry about comparisons
@@ -145,6 +146,10 @@ namespace {
 
 						// sort call_insts by name of containing function
 						std::sort(call_insts.begin(),call_insts.end(),containing_function_lt);
+
+						for(unsigned i = 0; i < call_insts.size(); ++i) {
+							assert(cast<Function>(func) != call_insts[i]->getParent()->getParent() && "can't uniquify recursive calls");
+						}
 
 						// we aren't going to replace the first callsite so erase it now
 						call_insts.erase(call_insts.begin());
@@ -174,7 +179,7 @@ namespace {
 						for(unsigned i = 0; i < call_insts.size(); ++i) {
 							//log.info() << "\tUsing " << cloned_funcs[i]->getName() << "...\n";
 							//log.info() << "\t\t... at call site: " << *call_insts[i];
-							log.info() << "\t" << i << ": replacing use in function " << call_insts[i]->getParent()->getParent()->getName() << "\n";
+							log.info() << "\t" << "replacing use " << i+1 << "\n"; //in function " << call_insts[i]->getParent()->getParent()->getName() << "\n";
 							call_insts[i]->replaceUsesOfWith(func,cloned_funcs[i]);
 						}
 					}
