@@ -20,6 +20,8 @@ class InstrumentationFuncManager
 
 	void initializeDefaultValues();
 
+	const llvm::Type* getArgTypeFromFirstUser(llvm::Function* func, unsigned arg_no);
+
 	llvm::Function* get(const std::string& name);
 };
 

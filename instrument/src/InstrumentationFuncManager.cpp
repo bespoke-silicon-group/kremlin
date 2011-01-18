@@ -25,6 +25,22 @@ void InstrumentationFuncManager::addFunc(const std::string& name, FunctionType* 
 	instrumentation_funcs[name] = cast<Function>(module.getOrInsertFunction(name, type));
 }
 
+const Type* InstrumentationFuncManager::getArgTypeFromFirstUser(Function* func, unsigned arg_no) {
+	log.info() << "Grabbing arg number " << arg_no << " from first user of " << func->getName() << "\n";
+
+	User* first_user = *(func->use_begin());
+
+	assert(isa<CallInst>(first_user) && "currently don't support finding type in non call inst user");
+	CallInst* ci = cast<CallInst>(first_user);
+
+	assert(arg_no < ci->getNumArgOperands() && "first user does not have that many arguments");
+
+	const Type* arg_type = ci->getArgOperand(arg_no)->getType();
+	log.info() << "Argument type is: " << *arg_type << "\n";
+
+	return arg_type;
+}
+
 void InstrumentationFuncManager::initializeDefaultValues()
 {
 	std::vector<const Type*> args;
@@ -138,7 +154,21 @@ void InstrumentationFuncManager::initializeDefaultValues()
 		log.debug() << "adding malloc/calloc func because we found: " << *malloc_func;
 
 		args.push_back(types.pi8()); // void*
-		args.push_back(malloc_func->getFunctionType()->getParamType(0)); // size if first and only param for malloc/calloc
+
+		// need to make sure malloc is actually defined. It's surprisingly common for people to not include stdlib.h when using malloc
+		const FunctionType* malloc_ft = malloc_func->getFunctionType();
+		if(malloc_ft->getNumParams() == 0) {
+			log.warn() << "malloc not fully defined. Did you forget to include stdlib.h?\n";
+
+			// let's be safe and find the type used by first user (should be same type for all users)
+			const Type* size_arg_type = getArgTypeFromFirstUser(malloc_func,0);
+
+			args.push_back(size_arg_type);
+		}
+		else {
+			args.push_back(malloc_ft->getParamType(0)); // size if first and only param for malloc/calloc
+		}
+
 		FunctionType* pvoid_sizet = FunctionType::get(types.voidTy(), args, false);
 
 		addFunc("logMalloc", pvoid_sizet);
@@ -153,7 +183,20 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 		args.push_back(types.pi8()); // void*
 		args.push_back(types.pi8()); // void*
-		args.push_back(realloc_func->getFunctionType()->getParamType(1)); // size will be 2nd param for realloc
+
+		// see above note about people forgetting to include stdlib.h when using malloc/realloc
+		const FunctionType* realloc_ft = realloc_func->getFunctionType();
+		if(realloc_ft->getNumParams() == 0) {
+			log.warn() << "realloc not fully defined. Did you forget to include stdlib.h?\n";
+
+			// let's be safe and find the type used by first user (should be same type for all users)
+			const Type* size_arg_type = getArgTypeFromFirstUser(realloc_func,1);
+
+			args.push_back(size_arg_type);
+		}
+		else {
+			args.push_back(realloc_ft->getParamType(1)); // size will be 2nd param for realloc
+		}
 
 		FunctionType* pvoid_pvoid_sizet = FunctionType::get(types.voidTy(), args, false);
 

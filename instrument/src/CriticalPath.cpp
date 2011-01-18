@@ -577,14 +577,14 @@ namespace {
 		{
 			if(ci->getCalledFunction()) { return ci->getCalledFunction(); }
 
-			Value* op0 = ci->getOperand(0);
+			Value* op0 = ci->getCalledValue(); // TODO: rename this to called_val
 			if(!isa<User>(op0)) {
 				log.debug() << "skipping op0 of callinst because it isn't a User: " << *op0 << "\n";
 
 				return NULL;
 			}
 
-			User* user = cast<User>(ci->getOperand(0));
+			User* user = cast<User>(op0);
 
 			Function* called_func = NULL;
 
@@ -1072,7 +1072,7 @@ namespace {
 						if(inst_to_id[i] != 0) { continue; }
 
 						if(isa<BinaryOperator>(i) 
-						  || isa<CastInst>(i) && isa<Constant>(cast<CastInst>(i)->getOperand(0)) 
+						  || isa<CastInst>(i) && isa<Constant>(cast<CastInst>(i)->getOperand(0))
 						  || isa<CmpInst>(i) 
 						  || isa<LoadInst>(i)
 						  || isa<PHINode>(i)
@@ -1490,7 +1490,7 @@ namespace {
 								args.push_back(ci);
 
 								// insert size (op 0 of callinst)
-								Value* sizeOperand = ci->getOperand(0);
+								Value* sizeOperand = ci->getArgOperand(0);
 								log.debug() << "pushing arg: " << *sizeOperand << "\n";
 								args.push_back(sizeOperand);
 								
@@ -1503,13 +1503,13 @@ namespace {
 							else if(called_func && called_func->getName() == "free") {
 								log.debug() << "found call to free\n";
 
-								// Insert address (op 1 of callinst).
+								// Insert address (first arg of call ist)
 								// If op1 isn't pointing to an 8-bit int then we need to cast it to one for use.
-								if(isNBitIntPointer(ci->getOperand(0),8)) {
-									args.push_back(ci->getOperand(0));
+								if(isNBitIntPointer(ci->getArgOperand(0),8)) {
+									args.push_back(ci->getArgOperand(0));
 								}
 								else {
-									args.push_back(CastInst::CreatePointerCast(ci->getOperand(0),types.pi8(),"free_arg_recast",blk->getTerminator()));
+									args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(0),types.pi8(),"free_arg_recast",blk->getTerminator()));
 								}
 
 
@@ -1523,18 +1523,18 @@ namespace {
 
 								// Insert old addr (op1 of callinst).
 								// Just like for free, we need to make sure this has type i8*
-								if(isNBitIntPointer(ci->getOperand(0),8)) {
-									args.push_back(ci->getOperand(0));
+								if(isNBitIntPointer(ci->getArgOperand(0),8)) {
+									args.push_back(ci->getArgOperand(0));
 								}
 								else {
-									args.push_back(CastInst::CreatePointerCast(ci->getOperand(0),types.pi8(),"realloc_arg_recast",blk->getTerminator()));
+									args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(0),types.pi8(),"realloc_arg_recast",blk->getTerminator()));
 								}
 
 								// insert new addr (return val of callinst)
 								args.push_back(ci);
 
 								// insert size (op 2 of callinst)
-								args.push_back(ci->getOperand(2));
+								args.push_back(ci->getArgOperand(1));
 
 								inst_calls_end.addCallInst(i,"logRealloc",args);
 								args.clear();
@@ -1544,13 +1544,13 @@ namespace {
 								log.debug() << "found call to fscanf\n";
 
 								// for each of the values we are writing to, we'll use logStoreInstConst since it will be an address being passed to fscanf
-								for(unsigned idx = 3; idx < ci->getNumOperands(); ++idx) {
+								for(unsigned idx = 2; idx < ci->getNumArgOperands(); ++idx) {
 									// we need to make sure this has type i8*
-									if(isNBitIntPointer(ci->getOperand(idx),8)) {
-										args.push_back(ci->getOperand(idx));
+									if(isNBitIntPointer(ci->getArgOperand(idx),8)) {
+										args.push_back(ci->getArgOperand(idx));
 									}
 									else {
-										args.push_back(CastInst::CreatePointerCast(ci->getOperand(idx),types.pi8(),"fscanf_arg_recast",blk->getTerminator()));
+										args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(idx),types.pi8(),"fscanf_arg_recast",blk->getTerminator()));
 									}
 
 									inst_calls_end.addCallInst(i,"logStoreInstConst",args);
@@ -1570,8 +1570,8 @@ namespace {
 								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
 								// as long at is isn't a constant, we are going to use it as an input to logLibraryCall
-								for(unsigned int q = 1; q < ci->getNumOperands(); ++q) {
-									Value* operand = ci->getOperand(q);
+								for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
+									Value* operand = ci->getArgOperand(q);
 
 									if(!isa<ConstantInt>(operand) && !isa<ConstantFP>(operand)) {
 										num_func_args++;
@@ -1581,13 +1581,13 @@ namespace {
 								args.push_back(ConstantInt::get(types.i32(),num_func_args));
 
 								// go through and push on pointers to all the non-const inputs to the function
-								for(unsigned int q = 1; q < ci->getNumOperands(); ++q) {
-									Value* operand = ci->getOperand(q);
+								for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
+									Value* operand = ci->getArgOperand(q);
 
 									log.debug() << "lib op " << q << ": " << *operand << "\n";
 
 									if(!isa<ConstantInt>(operand) && !isa<ConstantFP>(operand)) {
-										args.push_back(ConstantInt::get(types.i32(),inst_to_id[ci->getOperand(q)])); // dest ID
+										args.push_back(ConstantInt::get(types.i32(),inst_to_id[ci->getArgOperand(q)])); // dest ID
 									}
 									else {
 										log.debug() << "skipping constant operand\n";
