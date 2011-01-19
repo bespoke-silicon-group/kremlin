@@ -110,7 +110,7 @@ if __name__ == "__main__":
         GccOption(parser, "-I", dest = "includeDirs"),
 
         # Language
-        GccOption(parser, "-x", choices = ['none', 'c', 'c++'], dest = "language", default = 'none'),
+        GccOption(parser, "-x", choices = ['none', 'c', 'c++'], action = "store", dest = "language", default = 'none'),
 
         GccOption(parser, "-D", dest = "preprocessor_defines"),
         GccOption(parser, "-O", dest = "optimization"),
