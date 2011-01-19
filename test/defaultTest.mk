@@ -1,7 +1,7 @@
 include $(REGRESSION_TEST_ROOT)/buildTasks.mk
 
 CC = kremlin-gcc
-EXPECTED_BIN = cpInfo.bin
+EXPECTED_BIN = cpURegion.bin
 export CFLAGS += -Wall
 TARGET ?= a.out
 SOURCES ?= $(shell ls *.c)

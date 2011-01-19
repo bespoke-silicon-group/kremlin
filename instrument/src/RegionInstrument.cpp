@@ -87,25 +87,6 @@ namespace {
 		bool add_logRegionEntry_func;
 		bool add_logRegionExit_func;
 
-		void printRegions() const
-		{
-			std::ofstream out(REGIONS_INFO_FILENAME.c_str(), std::ios::app | std::ios::out);
-			std::string buf;
-
-			if(!out)
-			{
-				log.error() << "Failed to open " << REGIONS_INFO_FILENAME << "\n";
-				assert(0);
-			}
-
-			foreach(const Region& r, regions)
-			{
-				r.formatToString(buf);
-				out << buf << "\n";
-			}
-			out.close();
-		}
-
 		// Returns true if this function calls itself directly (i.e. is directly recursive).
 		// This doesn't return true for cycles in the call graph involving more than 1 node.
 		bool isRecursive(Function* func) {
@@ -802,6 +783,7 @@ namespace {
 					FuncRegion* r = new FuncRegion(region_id, &func);
 					regions.insert(r);
 
+
 					log.debug() << "new region: " << *r << "\n";
 
 					log.debug() << "adding " << func.getName() << " (in module: " << m.getModuleIdentifier() << ") to list of defined functions (region_id: " << region_id << ")\n";
@@ -862,7 +844,6 @@ namespace {
 			
 			instrumentModule(m,bb_id);
 
-			printRegions();
 			nesting_graph << "}\n";
 			nesting_graph.close();
 			region_graph.close();
@@ -1174,6 +1155,10 @@ namespace {
 					*/
 				}
 			} // end for loop
+            foreach(Region& r, regions) {
+                std::string encoded_region_str;
+                new GlobalVariable(m, types.i32(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i32(), 0), Twine(r.formatToString(encoded_region_str)));
+            }
 			bb_info_file.close();
 		} // end instrumentModule(...)
 

@@ -8,6 +8,7 @@
 #include "CompileUnitDebugInfo.h"
 #include "DebugInfoParser.h"
 #include "LoopBodyRegion.h"
+#include "PassLog.h"
 #include "SubprogramDebugInfo.h"
 #include "UnsupportedOperationException.h"
 #include "foreach.h"
@@ -16,7 +17,7 @@ using namespace llvm;
 
 typedef std::pair<unsigned, MDNode*> AllMetaType;
 
-const std::string LoopBodyRegion::REGION_NAME = "loop-body";
+const std::string LoopBodyRegion::REGION_NAME = "loop_body";
 
 LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) : 
 	loop(loop),
@@ -45,7 +46,7 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
 		fileName = compilationDebugInfo.fileName;
 	}
 
-	std::cerr << "Meta data for " << id << std::endl;
+	LOG_DEBUG() << "Meta data for " << id << "\n";
 
 	// Get the line numbers from the set of instructions.
 	startLine = UINT_MAX;

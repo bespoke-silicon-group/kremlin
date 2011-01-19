@@ -16,6 +16,8 @@ class Region
 	} RegionType;
 
 	public:
+    static RegionId generateId(std::string name, RegionType region_type);
+
 	virtual ~Region() {}
 
 	virtual RegionId getId() const = 0;

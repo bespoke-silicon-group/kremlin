@@ -5,6 +5,13 @@
 #include <llvm/Support/raw_os_ostream.h>
 #include <boost/smart_ptr.hpp>
 
+#define LOG_PLAIN() (PassLog::get().plain() << __FILE__ << ":" << __LINE__ << " ")
+#define LOG_DEBUG() (PassLog::get().debug() << __FILE__ << ":" << __LINE__ << " ")
+#define LOG_INFO()  (PassLog::get().info()  << __FILE__ << ":" << __LINE__ << " ")
+#define LOG_WARN()  (PassLog::get().warn()  << __FILE__ << ":" << __LINE__ << " ")
+#define LOG_ERROR() (PassLog::get().error() << __FILE__ << ":" << __LINE__ << " ")
+#define LOG_FATAL() (PassLog::get().fatal() << __FILE__ << ":" << __LINE__ << " ")
+
 /**
  * Logging class for LLVM Passes
  */

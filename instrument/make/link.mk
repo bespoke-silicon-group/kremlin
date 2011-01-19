@@ -28,17 +28,21 @@ SOURCES_OBJ = $(filter-out $(SOURCES_ASM) $(SOURCES_C), $(SOURCES)) $(SOURCES_OB
 
 # The name of the executable to produce.
 EXECUTABLE_OUTPUT_NAME = a.out
+DEBUG_INFO_FILE = sregions.txt
 
 # ---------------------------------------------------------------------------
 # Rules (alpha order)
 # ---------------------------------------------------------------------------
 
 # Creates all the instrumented assembly
-link: $(EXECUTABLE_OUTPUT_NAME)
+link: $(EXECUTABLE_OUTPUT_NAME) $(DEBUG_INFO_FILE)
 
 # Compiles and links the source with the kremlin library
 $(EXECUTABLE_OUTPUT_NAME): $(SOURCES_OBJ) $(KREMLIN_LIB)
 	$(CC) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(SOURCES_OBJ) $(KREMLIN_LIB) -o $@
+
+$(DEBUG_INFO_FILE): $(EXECUTABLE_OUTPUT_NAME)
+	objdump $< -t | grep "_krem_" | sed 's/^.*krem_region//g' | sed 's/_krem_/\t/g' > $@
 
 clean::
 	$(RM) $(EXECUTABLE_OUTPUT_NAME)
