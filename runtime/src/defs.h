@@ -100,7 +100,7 @@ void invokeOkay(UInt);
 void addControlDep(UInt cond);
 void removeControlDep();
 
-void prepareCall(void);
+void prepareCall(UInt64, UInt64);
 void addReturnValueLink(UInt dest);
 void logFuncReturn(UInt src); 
 void logFuncReturnConst(void);

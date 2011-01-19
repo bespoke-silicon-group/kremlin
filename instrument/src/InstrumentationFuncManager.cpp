@@ -26,7 +26,7 @@ void InstrumentationFuncManager::addFunc(const std::string& name, FunctionType* 
 }
 
 const Type* InstrumentationFuncManager::getArgTypeFromFirstUser(Function* func, unsigned arg_no) {
-	log.info() << "Grabbing arg number " << arg_no << " from first user of " << func->getName() << "\n";
+	LOG_INFO() << "Grabbing arg number " << arg_no << " from first user of " << func->getName() << "\n";
 
 	User* first_user = *(func->use_begin());
 
@@ -36,7 +36,7 @@ const Type* InstrumentationFuncManager::getArgTypeFromFirstUser(Function* func, 
 	assert(arg_no < ci->getNumArgOperands() && "first user does not have that many arguments");
 
 	const Type* arg_type = ci->getArgOperand(arg_no)->getType();
-	log.info() << "Argument type is: " << *arg_type << "\n";
+	LOG_INFO() << "Argument type is: " << *arg_type << "\n";
 
 	return arg_type;
 }
@@ -51,7 +51,6 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	// funcs with no args
 	addFunc("removeControlDep", no_args);
 	addFunc("linkArgToConst", no_args);
-	addFunc("prepareCall", no_args);
 	addFunc("setupUnwindPoint", no_args);
 	addFunc("logFuncReturnConst", no_args);
 	addFunc("logLoopIteration", no_args);
@@ -117,6 +116,13 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 	args.clear();
 
+    // functions taking 64-bit ints
+	args.push_back(types.i64()); 
+	args.push_back(types.i64()); 
+	FunctionType* uint64_uint64 = FunctionType::get(types.voidTy(), args, false);
+	addFunc("prepareCall", uint64_uint64);
+    args.clear();
+
 	// funcs with args other than just Int32Ty
 	args.push_back(types.i32()); 
 	args.push_back(types.pi8()); // void*
@@ -133,7 +139,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	// Look before declaration of free before adding logFree (if it doesn't exist, we shouldn't bother with it)
 	if(Function* f = module.getFunction("free")) 
 	{
-		log.debug() << "adding free because we located this function: " << *f;
+		LOG_DEBUG() << "adding free because we located this function: " << *f;
 		addFunc("logFree", pvoid);
 	}
 
@@ -151,14 +157,14 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	if((malloc_func = module.getFunction("malloc")) || (malloc_func = module.getFunction("calloc")))
 	{
 
-		log.debug() << "adding malloc/calloc func because we found: " << *malloc_func;
+		LOG_DEBUG() << "adding malloc/calloc func because we found: " << *malloc_func;
 
 		args.push_back(types.pi8()); // void*
 
 		// need to make sure malloc is actually defined. It's surprisingly common for people to not include stdlib.h when using malloc
 		const FunctionType* malloc_ft = malloc_func->getFunctionType();
 		if(malloc_ft->getNumParams() == 0) {
-			log.warn() << "malloc not fully defined. Did you forget to include stdlib.h?\n";
+			LOG_WARN() << "malloc not fully defined. Did you forget to include stdlib.h?\n";
 
 			// let's be safe and find the type used by first user (should be same type for all users)
 			const Type* size_arg_type = getArgTypeFromFirstUser(malloc_func,0);
@@ -179,7 +185,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	// Again, we look for realloc's declaration to see if it's 32 or 64 bit
 	if(Function* realloc_func = module.getFunction("realloc")) 
 	{
-		log.debug() << "adding realloc because we found: " << *realloc_func;
+		LOG_DEBUG() << "adding realloc because we found: " << *realloc_func;
 
 		args.push_back(types.pi8()); // void*
 		args.push_back(types.pi8()); // void*
@@ -187,7 +193,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 		// see above note about people forgetting to include stdlib.h when using malloc/realloc
 		const FunctionType* realloc_ft = realloc_func->getFunctionType();
 		if(realloc_ft->getNumParams() == 0) {
-			log.warn() << "realloc not fully defined. Did you forget to include stdlib.h?\n";
+			LOG_WARN() << "realloc not fully defined. Did you forget to include stdlib.h?\n";
 
 			// let's be safe and find the type used by first user (should be same type for all users)
 			const Type* size_arg_type = getArgTypeFromFirstUser(realloc_func,1);

@@ -29,6 +29,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/name_generator.hpp>
 #include <boost/uuid/nil_generator.hpp>
+#include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 #include "PassLog.h"
@@ -36,6 +37,7 @@
 #include "UnaryFunctionConst.h"
 #include "InstrumentationFuncManager.h"
 #include "LLVMTypes.h"
+#include "UuidToIntAdapter.h"
 
 using namespace llvm;
 
@@ -294,7 +296,7 @@ namespace {
 			if((it = basicBlockIdMap.find(blk)) != basicBlockIdMap.end())
 				return it->second;
 			unsigned int insertedId = basicBlockCount++;
-			log.debug() << "found basic block " << blk->getName() << ". assigning id " << insertedId << "\n";
+			LOG_DEBUG() << "found basic block " << blk->getName() << ". assigning id " << insertedId << "\n";
 			basicBlockIdMap.insert(std::pair<BasicBlock*, unsigned int>(blk, insertedId));
 			return insertedId;
 		}
@@ -500,38 +502,38 @@ namespace {
 		 */
 		BasicBlock* getControllingBlock(BasicBlock* blk, bool consider_self)
 		{
-			log.debug() << "Controlling block search of " << blk->getName() << "\n";
+			LOG_DEBUG() << "Controlling block search of " << blk->getName() << "\n";
 
 			BasicBlock* ret_val = NULL;
 
 			PostDominanceFrontier &PDF = getAnalysis<PostDominanceFrontier>(*blk->getParent());
 			DominatorTree &DT = getAnalysis<DominatorTree>(*blk->getParent());
 
-			//log.debug() << blk->getName() << "\n";
+			//LOG_DEBUG() << blk->getName() << "\n";
 
 
 			DominanceFrontierBase::iterator dsmt_it = PDF.find(blk);
 			if(dsmt_it == PDF.end())
 			{
-				log.debug() << "ERROR: Could not find blk " << blk->getName() << 
+				LOG_DEBUG() << "ERROR: Could not find blk " << blk->getName() << 
 					" in post dominance frontier of function " << blk->getParent()->getName() <<
 					"! Contents of the pdf:"<< "\n";
 
 				for(PostDominanceFrontier::iterator it = PDF.begin(), end = PDF.end(); it != end; it++)
 				{
 					if(it->first)
-						log.debug() << it->first->getName();
+						LOG_DEBUG() << it->first->getName();
 					else
-						log.debug() << "null? [" << it->first << "]";
+						LOG_DEBUG() << "null? [" << it->first << "]";
 
-					log.debug() << " {";
+					LOG_DEBUG() << " {";
 					for(std::set<BasicBlock*>::iterator it2 = it->second.begin(), it2_end = it->second.end(); 
 						it2 != it2_end; 
 						it2++)
 					{
-						log.debug() << (*it2)->getName() << ", ";
+						LOG_DEBUG() << (*it2)->getName() << ", ";
 					}
-					log.debug() << "}" << "\n";
+					LOG_DEBUG() << "}" << "\n";
 				}
 				return NULL;
 			}
@@ -539,10 +541,10 @@ namespace {
 			for(DominanceFrontierBase::DomSetType::iterator dst_it = dsmt_it->second.begin(), dst_end = dsmt_it->second.end(); dst_it != dst_end; ++dst_it) {
 				BasicBlock* candidate = *dst_it;
 
-				log.debug() << "looking at " << candidate->getName() << "\n";
+				LOG_DEBUG() << "looking at " << candidate->getName() << "\n";
 
 				if((consider_self || candidate != blk) && DT.dominates(candidate,blk)) { // not itself so we found the controlling blk
-					//log.debug() << "found controlling blk: " << candidate->getName() << "\n";
+					//LOG_DEBUG() << "found controlling blk: " << candidate->getName() << "\n";
 					ret_val = candidate;
 					break;
 				}
@@ -579,7 +581,7 @@ namespace {
 
 			Value* op0 = ci->getCalledValue(); // TODO: rename this to called_val
 			if(!isa<User>(op0)) {
-				log.debug() << "skipping op0 of callinst because it isn't a User: " << *op0 << "\n";
+				LOG_DEBUG() << "skipping op0 of callinst because it isn't a User: " << *op0 << "\n";
 
 				return NULL;
 			}
@@ -591,7 +593,7 @@ namespace {
 			// check if the user is a constant bitcast expr with a function as the first operand
 			if(isa<ConstantExpr>(user)) { 
 				if(isa<Function>(user->getOperand(0))) {
-					//log.debug() << "untangled function ref from bitcast expr\n";
+					//LOG_DEBUG() << "untangled function ref from bitcast expr\n";
 					called_func = cast<Function>(user->getOperand(0));
 				}
 			}
@@ -610,7 +612,7 @@ namespace {
 
 			Value* op0 = ci->getOperand(0);
 			if(!isa<User>(op0)) {
-				log.debug() << "skipping op0 of callinst because it isn't a User: " << *op0 << "\n";
+				LOG_DEBUG() << "skipping op0 of callinst because it isn't a User: " << *op0 << "\n";
 
 				return NULL;
 			}
@@ -622,7 +624,7 @@ namespace {
 			// check if the user is a constant bitcast expr with a function as the first operand
 			if(isa<ConstantExpr>(user)) { 
 				if(isa<Function>(user->getOperand(0))) {
-					//log.debug() << "untangled function ref from bitcast expr\n";
+					//LOG_DEBUG() << "untangled function ref from bitcast expr\n";
 					called_func = cast<Function>(user->getOperand(0));
 				}
 			}
@@ -677,11 +679,11 @@ namespace {
 					}
 				}
 
-//				log.debug() << "contiugous blocks of " << target_blk->getName() << "\n";
+//				LOG_DEBUG() << "contiugous blocks of " << target_blk->getName() << "\n";
 				foreach(BasicBlock* blk, contiguous_blks) {
 					remaining.erase(blk);                   // these should no longer be considered
 					result[blk] = highest_dominator;        // make them all point to the same block because they are now equivelent.
-//					log.debug() << blk->getName() << "\n";
+//					LOG_DEBUG() << blk->getName() << "\n";
 				}
 			}
 			return result;
@@ -694,9 +696,9 @@ namespace {
 			std::map<BasicBlock*, BasicBlock*> joined_blocks;
 			getJoinedBasicBlocks(func, joined_blocks);
 /*
-			log.debug() << "joined blocks found for getInvokeLandingPads:" << "\n";
+			LOG_DEBUG() << "joined blocks found for getInvokeLandingPads:" << "\n";
 			for(std::map<BasicBlock*, BasicBlock*>::iterator it = joined_blocks.begin(), end = joined_blocks.end(); it != end; it++)
-				log.debug() << it->first->getName() << " -> " << it->second->getName() << "\n";
+				LOG_DEBUG() << it->first->getName() << " -> " << it->second->getName() << "\n";
 */
 
 			foreach(BasicBlock& blk, *func)
@@ -749,7 +751,7 @@ namespace {
 
 		void instrumentInvokeInsts(Function* func, InstrumentationCalls& front, InstrumentationCalls& back) {
 
-			log.debug() << "instrumenting invoke and landing pads for " << func->getName() << "\n";
+			LOG_DEBUG() << "instrumenting invoke and landing pads for " << func->getName() << "\n";
 
 			std::vector<Value*> args;
 			std::set<BasicBlock*> landing_pads;
@@ -758,9 +760,9 @@ namespace {
 			getInvokeLandingPads(func, landing_pads);
 			getInvokeDestinations(func, destinations);
 
-			log.debug() << "found landing pads: " << "\n";
+			LOG_DEBUG() << "found landing pads: " << "\n";
 			foreach(BasicBlock* blk, landing_pads)
-				log.debug() << blk->getName() << "\n";
+				LOG_DEBUG() << blk->getName() << "\n";
 
 			foreach(BasicBlock* blk, landing_pads) {
 				//The exception value is pushed on to the stack, so we are not allowed to call any other function until the
@@ -771,10 +773,10 @@ namespace {
 				std::vector<Instruction*> joined_blks;
 				joinBasicBlocks(blk, joined_blks);
 
-				log.debug() << "joined blocks contents of " << blk->getName() << ":" << "\n";
+				LOG_DEBUG() << "joined blocks contents of " << blk->getName() << ":" << "\n";
 				foreach(Instruction* inst, joined_blks)
-					log.debug() << *inst;
-				log.debug() << "\n";
+					LOG_DEBUG() << *inst;
+				LOG_DEBUG() << "\n";
 
 				//TODO: Need to handle if we put something in the front. If we do this, ours needs to go into the front instead of the back.
 				Instruction* insert_before = joined_blks.back();
@@ -783,10 +785,10 @@ namespace {
 					std::vector<CallInst*> instrumentation_calls;
 					back.getInstCallsForInst(inst, instrumentation_calls);
 /*
-					log.debug() << "instrumentation calls found for " << *inst;
+					LOG_DEBUG() << "instrumentation calls found for " << *inst;
 					foreach(Instruction* inst, instrumentation_calls)
-						log.debug() << *inst;
-					log.debug() << "\n";
+						LOG_DEBUG() << *inst;
+					LOG_DEBUG() << "\n";
 */
 
 					if(instrumentation_calls.size() != 0) {
@@ -795,7 +797,7 @@ namespace {
 					}
 				}
 
-				log.debug() << "inserting invokeThrew before " << *insert_before;
+				LOG_DEBUG() << "inserting invokeThrew before " << *insert_before;
 
 				back.addCallInstBefore(insert_before, "invokeThrew", args);
 			}
@@ -816,12 +818,16 @@ namespace {
 				Function* called_func = untangleCall(ci);
 
 				if(called_func) // not a func ptr
-					log.debug() << "got a call to function " << called_func->getName() << "\n";
+					LOG_DEBUG() << "got a call to function " << called_func->getName() << "\n";
 				else
-					log.debug() << "got a call to function via function pointer: " << *ci;
+					LOG_DEBUG() << "got a call to function via function pointer: " << *ci;
 
 				// insert call to prepareCall to setup the structures needed to pass arg and return info efficiently
+                boost::uuids::random_generator gen;
+                args.push_back(ConstantInt::get(types.i64(),UuidToIntAdapter<uint64_t>::get(gen()))); // Call site ID
+                args.push_back(ConstantInt::get(types.i64(),0));                                      // ID of region being called. TODO: Implement
 				front.addCallInst(ci, "prepareCall", args);
+                args.clear();
 
 				// if this call returns a value, we need to call addReturnValueLink
 				if(returnsRealValue(ci)) {
@@ -835,7 +841,7 @@ namespace {
 
 				for(CallSite::arg_iterator arg_it = cs.arg_begin(), arg_end = cs.arg_end(); arg_it != arg_end; ++arg_it) {
 					Value* the_arg = *arg_it;
-					log.debug() << "checking arg: " << *the_arg << "\n";
+					LOG_DEBUG() << "checking arg: " << *the_arg << "\n";
 
 					if(!isa<PointerType>(the_arg->getType())) {
 						if(!isa<Constant>(*arg_it)) { // not a constant so we need to call linkArgToAddr
@@ -852,7 +858,7 @@ namespace {
 				} // end for(arg_it)
 			}
 			else {
-				log.debug() << "ignoring call to LLVM intrinsic function: " << ci->getCalledFunction()->getName() << "\n";
+				LOG_DEBUG() << "ignoring call to LLVM intrinsic function: " << ci->getCalledFunction()->getName() << "\n";
 			}
 		}
 		
@@ -877,7 +883,7 @@ namespace {
 
 			// need to check to make sure it has one
 			if(civ_inc != NULL) {
-				//log.debug() << "found canon ind var increment: " << civi->getName() << "\n";
+				//LOG_DEBUG() << "found canon ind var increment: " << civi->getName() << "\n";
 				canon_indvs.insert(civ);
 				canon_incs.insert(civ_inc);
 			}
@@ -889,13 +895,13 @@ namespace {
 			std::vector<Instruction*> uses;
 
 			for(Value::use_iterator ui = val->use_begin(), ue = val->use_end(); ui != ue; ++ui) {
-				//log.debug() << "\tchecking use: " << **ui;
+				//LOG_DEBUG() << "\tchecking use: " << **ui;
 
 				if(isa<Instruction>(*ui)) {
 					Instruction* i = cast<Instruction>(*ui);
 					//Loop* user_loop = LI.getLoopFor(i->getParent());
 
-					//log.debug() << "\t\tparent loop for use has header " << user_loop->getHeader()->getName() << "\n";
+					//LOG_DEBUG() << "\t\tparent loop for use has header " << user_loop->getHeader()->getName() << "\n";
 
 					if(!isa<PHINode>(i) && loop == LI.getLoopFor(i->getParent())) {
 						uses.push_back(i);
@@ -909,7 +915,7 @@ namespace {
 		Instruction* getReductionVarOp(LoopInfo& LI, Loop* loop, GlobalVariable *gv) {
 			std::vector<Instruction*> uses_in_loop = getUsesInLoop(LI,loop,gv);
 
-			//log.debug() << "\tnum uses in loop: " << uses_in_loop.size() << "\n";
+			//LOG_DEBUG() << "\tnum uses in loop: " << uses_in_loop.size() << "\n";
 
 			// should have two uses: load then store
 			if(uses_in_loop.size() == 2
@@ -917,9 +923,9 @@ namespace {
 			 && isa<StoreInst>(uses_in_loop[0])
 			 && uses_in_loop[1]->hasOneUse()
 			 ) {
-				//log.debug() << "\tlooking good so far for: " << *gv;
+				//LOG_DEBUG() << "\tlooking good so far for: " << *gv;
 				Instruction* load_user = cast<Instruction>(*uses_in_loop[1]->use_begin());
-				//log.debug() << "\tuser of load: " << *load_user;
+				//LOG_DEBUG() << "\tuser of load: " << *load_user;
 
 				if( load_user->hasOneUse()
 				  && uses_in_loop[0] == *load_user->use_begin()
@@ -927,7 +933,7 @@ namespace {
 				  || load_user->getOpcode() == Instruction::Sub
 				  || load_user->getOpcode() == Instruction::Mul)
 				  ) {
-					//log.debug() << "\t\thot diggity dawg, that is it!\n";
+					//LOG_DEBUG() << "\t\thot diggity dawg, that is it!\n";
 					return load_user;
 				}
 			}
@@ -938,7 +944,7 @@ namespace {
 
 		void getReductionVars(LoopInfo& LI, Loop* loop, std::set<Instruction*>& red_var_ops) {
 			BasicBlock* header = loop->getHeader();
-			log.debug() << "checking for red vars in loop headed by " << header->getName() << " (func = " << header->getParent()->getName() << ")\n";
+			LOG_DEBUG() << "checking for red vars in loop headed by " << header->getName() << " (func = " << header->getParent()->getName() << ")\n";
 
 			std::vector<Loop*> sub_loops = loop->getSubLoops();
 
@@ -957,17 +963,17 @@ namespace {
 					// XXX hack to only look at rho variable now (confirmed as reduction)
 					//if(gi->getName().find("rho") == std::string::npos) continue;
 
-					//log.debug() << "checking for red var: " << *gi;
+					//LOG_DEBUG() << "checking for red var: " << *gi;
 
 					if(Instruction* red_var_op = getReductionVarOp(LI,loop,gi)) {
-						log.debug() << "identified reduction variable increment (global, used in function: " << red_var_op->getParent()->getParent()->getName() << "): " << *red_var_op;
-						log.debug() << "\treduction var: " << *gi;
+						LOG_DEBUG() << "identified reduction variable increment (global, used in function: " << red_var_op->getParent()->getParent()->getName() << "): " << *red_var_op;
+						LOG_DEBUG() << "\treduction var: " << *gi;
 						red_var_ops.insert(red_var_op);
 					}
 				}
 			}
 
-			//log.debug() << "checking for red vars in loop with header " << header->getName() << "\n";
+			//LOG_DEBUG() << "checking for red vars in loop with header " << header->getName() << "\n";
 
 			PHINode* civ = loop->getCanonicalInductionVariable();
 
@@ -978,12 +984,12 @@ namespace {
 				// we don't want induction vars to be considered
 				if(cast<Instruction>(phi_it) == civ) { continue; }
 
-				//log.debug() << "checking for red var: " << *phi_it;
+				//LOG_DEBUG() << "checking for red var: " << *phi_it;
 
 				// get uses that are in the loop and make sure there is only 1
 				std::vector<Instruction*> uses_in_loop = getUsesInLoop(LI,loop,phi_it);
 
-				//log.debug() << "\t... has " << uses_in_loop.size() << " uses\n";
+				//LOG_DEBUG() << "\t... has " << uses_in_loop.size() << " uses\n";
 
 				if(uses_in_loop.size() == 1) {
 					Instruction* user = uses_in_loop[0];
@@ -993,8 +999,8 @@ namespace {
 					  || user->getOpcode() == Instruction::Sub
 					  || user->getOpcode() == Instruction::Mul
 					  ) {
-						log.debug() << "identified reduction variable increment (phi, function: " << user->getParent()->getParent()->getName() << "): " << *user;
-						log.debug() << "\treduction var: " << *phi_it;
+						LOG_DEBUG() << "identified reduction variable increment (phi, function: " << user->getParent()->getParent()->getName() << "): " << *user;
+						LOG_DEBUG() << "\treduction var: " << *phi_it;
 						red_var_ops.insert(user);
 					}
 				}
@@ -1021,7 +1027,7 @@ namespace {
 				costs.parseFromFile(opCostFile);
 			}
 
-			log.debug() << costs;
+			LOG_DEBUG() << costs;
 
 			unsigned int op_id = 1; // use this for a unique function
 
@@ -1140,7 +1146,7 @@ namespace {
 		bool isNBitIntPointer(Value* val, unsigned n) {
 			const Type* val_type = val->getType();
 
-			log.info() << *val;
+			LOG_INFO() << *val;
 
 			assert(isa<PointerType>(val_type) && "value is not even a pointer");
 
@@ -1151,7 +1157,7 @@ namespace {
 
 		void instrumentModule(Module &m, unsigned int &op_id, const OpCosts& costs) {
 			std::string mod_name = m.getModuleIdentifier();
-			log.debug() << "instrumenting module: " << mod_name << "\n";
+			LOG_DEBUG() << "instrumenting module: " << mod_name << "\n";
 
 			std::map< PHINode*,std::set<unsigned int> > phinode_completions;
 
@@ -1188,12 +1194,12 @@ namespace {
 				  || func->getLinkage() == GlobalValue::AvailableExternallyLinkage // LLVM 2.6 allows outside funcs to temporarily be visible. ignore them.
 				  || func->isVarArg()                                         // no support for vararg funcs now (TODO?)
 				  ) {
-					//log.debug() << "ignoring function " << func->getName() << "\n";
+					//LOG_DEBUG() << "ignoring function " << func->getName() << "\n";
 					continue;
 				}
 
-				log.debug() << "instrumenting function " << func->getName() << "\n";
-				log.debug() << "bb count" << func->getBasicBlockList().size() << "\n";
+				LOG_DEBUG() << "instrumenting function " << func->getName() << "\n";
+				LOG_DEBUG() << "bb count" << func->getBasicBlockList().size() << "\n";
 
 				// map between instructions and a unique id
 				std::map<Value*,unsigned int> inst_to_id;
@@ -1231,7 +1237,7 @@ namespace {
 					addCIVIToSet(*loop,canon_indvs,canon_incs);
 					getReductionVars(LI,*loop,red_var_ops);
 				}
-				//log.debug() << "number of CIVIs found in " << func->getName() << ": " << canon_incs.size() << "\n";
+				//LOG_DEBUG() << "number of CIVIs found in " << func->getName() << ": " << canon_incs.size() << "\n";
 				
 
 				// Set up the arguments to this function. They will either be initialized to constants (if this is main) or the values will be
@@ -1246,13 +1252,13 @@ namespace {
 					InvokeInst* ii;
 
 					if(LI.isLoopHeader(blk)) {
-						log.debug() << blk->getName() << " is a loop header. Adding call to logLoopIteration.\n";
+						LOG_DEBUG() << blk->getName() << " is a loop header. Adding call to logLoopIteration.\n";
 						inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"logLoopIteration",args);
 					}
 
 					for (BasicBlock::iterator i = blk->getFirstNonPHI(), inst_end = blk->end(); i != inst_end; ++i) {
 
-						log.debug() << "processing inst: " << *i << "\n";
+						LOG_DEBUG() << "processing inst: " << *i << "\n";
 
 						if(isa<BinaryOperator>(i) || isa<CmpInst>(i) || isa<SelectInst>(i)) {
 
@@ -1296,19 +1302,19 @@ namespace {
                                         break;
                                     case Instruction::ICmp:
                                         args.push_back(ConstantInt::get(types.i32(),costs.int_cmp));
-                                        log.debug() << "got an icmp: " << *i;
+                                        LOG_DEBUG() << "got an icmp: " << *i;
                                         break;
                                     case Instruction::FCmp:
                                         args.push_back(ConstantInt::get(types.i32(),costs.fp_cmp));
-                                        log.debug() << "got an fcmp: " << *i;
+                                        LOG_DEBUG() << "got an fcmp: " << *i;
                                         break;
                                     case Instruction::Select:
                                         args.push_back(ConstantInt::get(types.i32(),0));
-                                        log.debug() << "got a select: " << *i;
+                                        LOG_DEBUG() << "got a select: " << *i;
                                         break;
                                     default:
 										//args.push_back(ConstantInt::get(types.i32(),0));
-										//log.debug() << "unknown opcode (" << i->getOpcode() << ") for binop/icmp: " << *i;
+										//LOG_DEBUG() << "unknown opcode (" << i->getOpcode() << ") for binop/icmp: " << *i;
 										log.close();
 										assert(0 && "unknown opcode for binop/icmp");
 										break;
@@ -1356,7 +1362,7 @@ namespace {
 									else if(isa<Constant>(op0) && isa<Constant>(op1)) {
 										args.clear();
 
-										log.debug() << "NOTE: both operands are constant... did you forget to run constant propagation before this?\n";
+										LOG_DEBUG() << "NOTE: both operands are constant... did you forget to run constant propagation before this?\n";
 
 										func_to_use = "logAssignmentConst";
 									}
@@ -1374,7 +1380,7 @@ namespace {
 									inst_calls_end.addCallInst(i,func_to_use,args);
 								}
 								else { // going to use logBinaryOp() function
-									log.debug() << "inserting call to logBinaryOp\n";
+									LOG_DEBUG() << "inserting call to logBinaryOp\n";
 
 									args.push_back(ConstantInt::get(types.i32(),inst_to_id[op0])); // src0 ID
 									args.push_back(ConstantInt::get(types.i32(),inst_to_id[op1])); // src1 ID
@@ -1397,7 +1403,7 @@ namespace {
 
 							// if this is a cast of a constant, we create a logAssignmentConst for this cast instruction
 							if(isa<Constant>(op)) {
-								log.debug() << "got a cast of a constant: " << *i << "\n";
+								LOG_DEBUG() << "got a cast of a constant: " << *i << "\n";
 
 								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
@@ -1409,7 +1415,7 @@ namespace {
 
 						// TODO: combine this with cast inst?
 						else if(isa<AllocaInst>(i)) {
-							log.debug() << "got an alloca: " << *i << "\n";
+							LOG_DEBUG() << "got an alloca: " << *i << "\n";
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
 							inst_calls_end.addCallInst(i,"logAssignmentConst",args);
@@ -1424,7 +1430,7 @@ namespace {
 						// time.
 						// TODO: track the individual parts of the struct that are changing rather than the whole struct
 						else if(isa<InsertValueInst>(i)) {
-							log.debug() << "got an insertvalue: " << *i;
+							LOG_DEBUG() << "got an insertvalue: " << *i;
 
 							if(!isa<Constant>(i->getOperand(1))) {
 								// get ID of value that we will be updating the struct with
@@ -1453,7 +1459,7 @@ namespace {
 						// extractvalue just returns the specified index of a specified struct
 						// currently we just use logAssignment; in the future we should have a new function which takes into account the index being extracted
 						else if(isa<ExtractValueInst>(i)) {
-							log.debug() << "got an extractvalue: " << *i;
+							LOG_DEBUG() << "got an extractvalue: " << *i;
 
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i->getOperand(0)])); // src ID
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
@@ -1483,25 +1489,25 @@ namespace {
 							if(called_func 
 							  && (called_func->getName() == "malloc" || called_func->getName() == "calloc")
 							  ) {
-								log.debug() << "found call to malloc/calloc: " << *ci << "\n";
+								LOG_DEBUG() << "found call to malloc/calloc: " << *ci << "\n";
 
 								// insert address (return value of callinst)
-								log.debug() << "pushing arg: " << *ci << "\n";
+								LOG_DEBUG() << "pushing arg: " << *ci << "\n";
 								args.push_back(ci);
 
 								// insert size (op 0 of callinst)
 								Value* sizeOperand = ci->getArgOperand(0);
-								log.debug() << "pushing arg: " << *sizeOperand << "\n";
+								LOG_DEBUG() << "pushing arg: " << *sizeOperand << "\n";
 								args.push_back(sizeOperand);
 								
 								inst_calls_end.addCallInst(i,"logMalloc",args);
-								log.debug() << "Successfully added logMalloc\n";
+								LOG_DEBUG() << "Successfully added logMalloc\n";
 								args.clear();
 							}
 
 							// calls to free get logFree(addr) call
 							else if(called_func && called_func->getName() == "free") {
-								log.debug() << "found call to free\n";
+								LOG_DEBUG() << "found call to free\n";
 
 								// Insert address (first arg of call ist)
 								// If op1 isn't pointing to an 8-bit int then we need to cast it to one for use.
@@ -1519,7 +1525,7 @@ namespace {
 
 							// handle calls to realloc
 							else if(called_func && called_func->getName() == "realloc") {
-								log.debug() << "found call to realloc\n";
+								LOG_DEBUG() << "found call to realloc\n";
 
 								// Insert old addr (op1 of callinst).
 								// Just like for free, we need to make sure this has type i8*
@@ -1541,7 +1547,7 @@ namespace {
 							}
 
 							else if(called_func && called_func->getName() == "fscanf") {
-								log.debug() << "found call to fscanf\n";
+								LOG_DEBUG() << "found call to fscanf\n";
 
 								// for each of the values we are writing to, we'll use logStoreInstConst since it will be an address being passed to fscanf
 								for(unsigned idx = 2; idx < ci->getNumArgOperands(); ++idx) {
@@ -1559,7 +1565,7 @@ namespace {
 							}
 
 							else if(called_func && uninstrumented_func_cost_map.find(called_func->getName()) != uninstrumented_func_cost_map.end()) {
-								log.debug() << "got call to a library function: " << called_func->getName() << "\n";
+								LOG_DEBUG() << "got call to a library function: " << called_func->getName() << "\n";
 
 								// cost of the lib function
 								args.push_back(ConstantInt::get(types.i32(),uninstrumented_func_cost_map[called_func->getName()]));
@@ -1584,13 +1590,13 @@ namespace {
 								for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
 									Value* operand = ci->getArgOperand(q);
 
-									log.debug() << "lib op " << q << ": " << *operand << "\n";
+									LOG_DEBUG() << "lib op " << q << ": " << *operand << "\n";
 
 									if(!isa<ConstantInt>(operand) && !isa<ConstantFP>(operand)) {
 										args.push_back(ConstantInt::get(types.i32(),inst_to_id[ci->getArgOperand(q)])); // dest ID
 									}
 									else {
-										log.debug() << "skipping constant operand\n";
+										LOG_DEBUG() << "skipping constant operand\n";
 									}
 								}
 
@@ -1617,10 +1623,10 @@ namespace {
 								std::vector<Instruction*> joined_blks;
 								joinBasicBlocks(blk, joined_blks);
 
-								log.debug() << "joined blocks contents of " << blk->getName() << ":" << "\n";
+								LOG_DEBUG() << "joined blocks contents of " << blk->getName() << ":" << "\n";
 								foreach(Instruction* inst, joined_blks)
-									log.debug() << *inst;
-								log.debug() << "\n";
+									LOG_DEBUG() << *inst;
+								LOG_DEBUG() << "\n";
 
 								//TODO: Need to handle if we put something in the front. If we do this, ours needs to go into the front instead of the back.
 								Instruction* insert_before = joined_blks.back();
@@ -1632,7 +1638,7 @@ namespace {
 									}
 								}
 
-								log.debug() << "inserting invokeThrew before " << *insert_before;
+								LOG_DEBUG() << "inserting invokeThrew before " << *insert_before;
 
 								inst_calls_end.addCallInstBefore(insert_before, "invokeThrew", args);
 							}
@@ -1650,7 +1656,7 @@ namespace {
 
 						// store is either logStoreInst or logStoreInstConst (if storing a constant)
 						else if(isa<StoreInst>(i)) {
-							log.debug() << "got a store inst: " << *i << "\n";
+							LOG_DEBUG() << "got a store inst: " << *i << "\n";
 
 							StoreInst* si = cast<StoreInst>(i);
 
@@ -1686,7 +1692,7 @@ namespace {
 								// find all non-constant ops and add them to a list for later use
 								for(User::op_iterator gepi_op = gepi->idx_begin(), gepi_ops_end = gepi->idx_end(); gepi_op != gepi_ops_end; ++gepi_op) {
 									if(!isa<Constant>(gepi_op)) {
-										//log.debug() << "getelementptr " << gepi->getName() << " depends on " << gepi_op->get()->getName() << "\n";
+										//LOG_DEBUG() << "getelementptr " << gepi->getName() << " depends on " << gepi_op->get()->getName() << "\n";
 										ptr_deps.push_back(inst_to_id[*gepi_op]);
 									}
 								}
@@ -1698,17 +1704,17 @@ namespace {
 
 								// if this is used in a phi node, we need to insert the call to logAssignment now so the correct ordering of logInductVarDep() THEN logAssignment() is maintained
 								if(PHINode* phi = dyn_cast<PHINode>(li_use)) {
-									log.debug() << "load used by phi node " << phi->getName() << "\n";
+									LOG_DEBUG() << "load used by phi node " << phi->getName() << "\n";
 
 									BasicBlock* ld_bb = i->getParent();
-									log.debug() << "looking for incoming edge from " << ld_bb->getName() << "...\n";
+									LOG_DEBUG() << "looking for incoming edge from " << ld_bb->getName() << "...\n";
 
 									bool found_incoming_block = false;
 									unsigned int phi_location = 0;
 									for(unsigned int n = 0; n < phi->getNumIncomingValues(); ++n) {
 										// if this value comes from the same block as our load, then we are good to go
 										if(phi->getIncomingValue(n) == i) {
-											log.debug() << "... found incoming edge. Inserting calls to logInductionVariable() and logAssignment() in this block\n";
+											LOG_DEBUG() << "... found incoming edge. Inserting calls to logInductionVariable() and logAssignment() in this block\n";
 											phinode_completions[phi].insert(n); // mark this so when we process the phinode later, we don't insert another call to logAssignment
 											phi_location = n;
 											found_incoming_block = true;
@@ -1718,8 +1724,8 @@ namespace {
 
 									// big problem is we have a phi node without an incoming edge from the blk that has this load... why would this happen?
 									if(!found_incoming_block) {
-										log.debug() << "ERROR: could not find edge to that phinode from this block!\n";
-										log.debug().close();
+										LOG_DEBUG() << "ERROR: could not find edge to that phinode from this block!\n";
+										LOG_DEBUG().close();
 										assert(0);
 										return;
 									}
@@ -1776,7 +1782,7 @@ namespace {
 
 							if(returnsRealValue(func) // make sure this returns a non-pointer
 							  && ri->getNumOperands() != 0) { // and that it isn't returning void
-								log.debug() << "return value will return: " << *ri->getReturnValue(0) << "\n";
+								LOG_DEBUG() << "return value will return: " << *ri->getReturnValue(0) << "\n";
 
 								if(isa<Constant>(ri->getReturnValue(0)))
 									inst_calls_end.addCallInst(i,"logFuncReturnConst",args);
@@ -1787,7 +1793,7 @@ namespace {
 								}
 							}
 							else {
-								log.debug() << "returning void\n";
+								LOG_DEBUG() << "returning void\n";
 							}
 
 							args.clear();
@@ -1802,10 +1808,10 @@ namespace {
 						assert(phi && "expected phi node but didn't get one!");
 
 						if(canon_indvs.find(phi) == canon_indvs.end()) {
-							log.debug() << "processing phi node: " << *i << "\n";
+							LOG_DEBUG() << "processing phi node: " << *i << "\n";
 
 							PHINode* phi = cast<PHINode>(i);
-							//log.debug() << "phi node with number of incoming edges of " << phi->getNumIncomingValues() << "\n";
+							//LOG_DEBUG() << "phi node with number of incoming edges of " << phi->getNumIncomingValues() << "\n";
 
 							unsigned int dest_id = inst_to_id[i];                    // used later
 							args.push_back(ConstantInt::get(types.i32(),dest_id)); // dest ID
@@ -1847,7 +1853,7 @@ namespace {
 							std::vector<Value*> control_deps;
 
 							for(std::set<BasicBlock*>::iterator it = controllers.begin(), end = controllers.end(); it != end; it++) {
-								log.debug() << "controller to " << blk->getName() << ": " << (*it)->getName() << "\n";
+								LOG_DEBUG() << "controller to " << blk->getName() << ": " << (*it)->getName() << "\n";
 								
 								PHINode* incoming_condition_addr = PHINode::Create(types.i32(),"phi-incoming-condition",phi);
 
@@ -1862,14 +1868,14 @@ namespace {
 
 									// If this "closest pred" dominates incoming block, get the id of condition at end of pred
 									if(dt.dominates(*it, incoming_block)) {
-										log.debug() << (*it)->getName() << " dominates " << incoming_block->getName() << "\n";
+										LOG_DEBUG() << (*it)->getName() << " dominates " << incoming_block->getName() << "\n";
 
 										incoming_id = getConditionIdOfBlock(*it, inst_to_id);
 
 									} 
 									// doesn't dominate so condition key is 0
 									else {
-										log.debug() << (*it)->getName() << " does NOT dominate " << incoming_block->getName() << "\n";
+										LOG_DEBUG() << (*it)->getName() << " does NOT dominate " << incoming_block->getName() << "\n";
 										incoming_id = 0;
 									}
 
@@ -1880,7 +1886,7 @@ namespace {
 								
 								if(all_zeros) {
 									incoming_condition_addr->eraseFromParent();
-									log.debug() << "predecessor has all 0 IDs. Erasing...\n";
+									LOG_DEBUG() << "predecessor has all 0 IDs. Erasing...\n";
 								}
 								else {
 									control_deps.push_back(incoming_condition_addr);
@@ -2021,7 +2027,7 @@ namespace {
 						// caught in a dependency cycle. For example, the induction var inc would get the time of t_init for the first iter,
 						// which would then force the next iter's t_init to be one higher and so on and so forth...
 						if(canon_indvs.find(cast<PHINode>(i)) != canon_indvs.end()) {
-							log.debug() << "processing canonical induction var (function: " << i->getParent()->getParent()->getName() << "): " << *i << "\n";
+							LOG_DEBUG() << "processing canonical induction var (function: " << i->getParent()->getParent()->getName() << "): " << *i << "\n";
 
 							PHINode* phi = cast<PHINode>(i);
 
@@ -2035,14 +2041,14 @@ namespace {
 									const_idx = n;
 								}
 								else if(isa<ConstantInt>(phi->getIncomingValue(n))) {
-									log.debug() << "ERROR: found multiple incoming constants to induction var phi node\n";
+									LOG_DEBUG() << "ERROR: found multiple incoming constants to induction var phi node\n";
 									log.close();
 									assert(0);
 								}
 							}
 
 							if(const_idx == -1) {
-								log.debug() << "ERROR: could not find constant incoming value to induction variable phi node\n";
+								LOG_DEBUG() << "ERROR: could not find constant incoming value to induction variable phi node\n";
 								log.close();
 								assert(0);
 							}
@@ -2075,7 +2081,7 @@ namespace {
 
 					// move on to next blk if this one doesn't have a controller
 					if(controller != NULL) {
-						//log.debug() << blk->getName() << " is controlled by " << controller->getName() << ". inserting call to linkinit...\n";
+						//LOG_DEBUG() << blk->getName() << " is controlled by " << controller->getName() << ". inserting call to linkinit...\n";
 
 
 						unsigned int cond_id = 0;
@@ -2093,7 +2099,7 @@ namespace {
 							continue;
 						}
 						else {
-							log.debug() << "controlling terminator (" << controller->getTerminator()->getName() << ": " << *controller->getTerminator() << ") is not a branch or switch. what is it???\n";
+							LOG_DEBUG() << "controlling terminator (" << controller->getTerminator()->getName() << ": " << *controller->getTerminator() << ") is not a branch or switch. what is it???\n";
 							log.close();
 							assert(0);
 						}
@@ -2123,7 +2129,7 @@ namespace {
 				inst_calls_end.appendInstCallsToFunc(func);
 			}
 
-			//log.debug() << "num of instrumentation calls in module " << m.getModuleIdentifier() << ": " << instrumentation_calls.size() << "\n";
+			//LOG_DEBUG() << "num of instrumentation calls in module " << m.getModuleIdentifier() << ": " << instrumentation_calls.size() << "\n";
 		}
 
 		void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -2148,7 +2154,7 @@ namespace {
 
 					// we expect this to be a function with the noreturn attribute so issue a warning if it isn't
 					if(!isa<CallInst>(noreturn_call))
-						log.warn() << "something other than a function call came before unreachable instruction.\n";
+						LOG_WARN() << "something other than a function call came before unreachable instruction.\n";
 
 					end_pts.insert(noreturn_call);
 				}

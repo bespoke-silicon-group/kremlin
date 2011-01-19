@@ -26,7 +26,7 @@ SOURCES_C_NO_EXTENSION = $(basename $(SOURCES_C))
 # Passes required as a chained rule. The code to instrument must go through
 # all these passes.
 #PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.splitbbatfunccall.uniquify.criticalpath.regioninstrument
-PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.splitbbatfunccall.criticalpath.uniquify.regioninstrument
+PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.splitbbatfunccall.criticalpath.regioninstrument
 
 # Instrumented byte code
 INSTRUMENTED_ASM = $(addsuffix $(PASS_CHAIN).bc.s, $(SOURCES_C_NO_EXTENSION))

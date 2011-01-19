@@ -41,8 +41,9 @@ link: $(EXECUTABLE_OUTPUT_NAME) $(DEBUG_INFO_FILE)
 $(EXECUTABLE_OUTPUT_NAME): $(SOURCES_OBJ) $(KREMLIN_LIB)
 	$(CC) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(SOURCES_OBJ) $(KREMLIN_LIB) -o $@
 
+# TODO: This only magically works because the names line up.
 $(DEBUG_INFO_FILE): $(EXECUTABLE_OUTPUT_NAME)
-	objdump $< -t | grep "_krem_" | sed 's/^.*krem_region//g' | sed 's/_krem_/\t/g' > $@
+	objdump $< -t | grep "_krem_" | sed 's/^.*krem_region//g; s/_krem_/\t/g' > $@
 
 clean::
 	$(RM) $(EXECUTABLE_OUTPUT_NAME)

@@ -1,6 +1,9 @@
 #ifndef INSTRUMENTATION_FUNC_MANAGER_H
 #define INSTRUMENTATION_FUNC_MANAGER_H
 
+// TODO: Rename to InstrumentationFuncs.{h,cpp}
+// TODO: Make this a struct of all the Function const* we can add
+
 #include <llvm/Function.h>
 #include <llvm/Module.h>
 #include <map>

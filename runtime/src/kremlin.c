@@ -46,6 +46,7 @@ typedef struct _FuncContext {
 } FuncContext;
 
 typedef struct _region_t {
+    UInt64 callSiteId;
     UInt64 start;
     UInt64 did;
     UInt64 cp;
@@ -80,6 +81,9 @@ UInt64              storeCnt = 0llu;
 File*               fp = NULL;
 deque*              argTimestamps;
 hash_map_sid_did*   sidToDid;
+UInt64              lastCallSiteId;
+UInt64              calledRegionId;
+
 
 #ifdef __cplusplus
 int instrument = 0;
@@ -142,7 +146,7 @@ void freeDummyTEntry() {
     dummyEntry = NULL;
 }
 
-void prepareCall() {
+void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
     // Clear off any argument timestamps that have been left here before the
     // call. These are left on the deque because library calls never take
     // theirs off. 
@@ -544,8 +548,8 @@ void invokeThrew(UInt id)
 }
 #endif
 
-void logRegionEntry(UInt64 region_id, UInt region_type) {
-    if (region_type == 0)
+void logRegionEntry(UInt64 regionId, UInt regionType) {
+    if (regionType == 0)
         _regionFuncCnt++;
 
     if (!isPyrprofOn()) {
@@ -557,7 +561,7 @@ void logRegionEntry(UInt64 region_id, UInt region_type) {
         return;
 #endif
 
-    if(region_type == RegionFunc)
+    if(regionType == RegionFunc)
     {
         pushFuncContext();
         _requireSetupTable = 1;
@@ -570,24 +574,25 @@ void logRegionEntry(UInt64 region_id, UInt region_type) {
 //    if (region < _minRegionToLog || region > _maxRegionToLog)
 //        return;
 
-    incDynamicRegionId(region_id);
+    incDynamicRegionId(regionId);
     versions[region]++;
     UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
     UInt64 parentDid = (region > 0) ? regionInfo[region-1].did : 0;
-    if (region_type < 2)
+    if (regionType < 2)
         MSG(0, "[+++] region [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
-            region_type, region, region_id, getDynamicRegionId(region_id), 
+            regionType, region, regionId, getDynamicRegionId(regionId), 
             parentSid, parentDid, timestamp);
 
     // for now, recursive call is not allowed
     int i;
     for (i=0; i<region; i++) {
-        assert(regionInfo[i].regionId != region_id && "For now, no recursive calls!");
+        assert(regionInfo[i].regionId != regionId && "For now, no recursive calls!");
     }
 
-    regionInfo[region].regionId = region_id;
+    regionInfo[region].regionId = regionId;
+    regionInfo[region].callSiteId = lastCallSiteId;
     regionInfo[region].start = timestamp;
-    regionInfo[region].did = *getDynamicRegionId(region_id);
+    regionInfo[region].did = *getDynamicRegionId(regionId);
     regionInfo[region].cp = 0;
     regionInfo[region].readCnt = 0;
     regionInfo[region].writeCnt = 0;
@@ -610,9 +615,9 @@ UInt64 _lastCnt;
 UInt64 _lastParentSid;
 UInt64 _lastParentDid;
 
-void logRegionExit(UInt64 region_id, UInt region_type) {
+void logRegionExit(UInt64 regionId, UInt regionType) {
     if (!isPyrprofOn()) {
-        if (region_type == RegionFunc) { 
+        if (regionId == RegionFunc) { 
             popFuncContext();
 
 
@@ -631,35 +636,35 @@ void logRegionExit(UInt64 region_id, UInt region_type) {
 #endif
     int region = getCurrentRegion();
 
-    UInt64 sid = region_id;
+    UInt64 sid = regionId;
     UInt64 did = regionInfo[region].did;
-    assert(regionInfo[region].regionId == region_id);
+    assert(regionInfo[region].regionId == regionId);
     UInt64 startTime = regionInfo[region].start;
     UInt64 endTime = timestamp;
     UInt64 work = endTime - regionInfo[region].start;
     UInt64 cp = regionInfo[region].cp;
 
-    if(region_id != regionInfo[region].regionId) {
-        fprintf(stderr,"ERROR: unexpected region exit: %llu (expected region %llu)\n",region_id,regionInfo[region].regionId);
+    if(regionId != regionInfo[region].regionId) {
+        fprintf(stderr,"ERROR: unexpected region exit: %llu (expected region %llu)\n",regionId,regionInfo[region].regionId);
         assert(0);
     }
     UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
     UInt64 parentDid = (region > 0) ? regionInfo[region-1].did : 0;
 
     if(work < cp) {
-        fprintf(stderr,"ERROR: cp (%llu) > work (%llu) [region_id=%llu]",cp,work,region_id);
+        fprintf(stderr,"ERROR: cp (%llu) > work (%llu) [regionId=%llu]",cp,work,regionId);
         assert(0);
     }
 
     decIndentTab();
-    if (region_type < 2)
+    if (regionType < 2)
         MSG(0, "[---] region [%u, %u, %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
-                region_type, region, region_id, did, parentSid, parentDid, 
+                regionType, region, regionId, did, parentSid, parentDid, 
                 regionInfo[region].cp, work);
     if (isPyrprofOn() && work > 0 && cp == 0 && isCurrentRegionInstrumentable()) {
         fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
         fprintf(stderr, "region [type: %u, level: %u, id: %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
-            region_type, region, region_id, did, parentSid, parentDid, 
+            regionType, region, regionId, did, parentSid, parentDid, 
             regionInfo[region].cp, work);
         assert(0);
     }
@@ -698,7 +703,7 @@ void logRegionExit(UInt64 region_id, UInt region_type) {
 #endif
         
 #ifndef WORK_ONLY
-    if (region_type == RegionFunc) { 
+    if (regionType == RegionFunc) { 
         popFuncContext();
         if (funcHead == NULL) {
             assert(getCurrentRegion() == 0);
@@ -1708,7 +1713,7 @@ int pyrprofInit() {
 #endif
 
 #ifdef USE_UREGION
-	initializeUdr();
+    initializeUdr();
 #endif
 
     regionNum = 0;
@@ -1717,8 +1722,8 @@ int pyrprofInit() {
     MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
         _minRegionToLog, _maxRegionToLog, storageSize);
 
-	// Allocate a memory allocator.
-	MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
+    // Allocate a memory allocator.
+    MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
 
     initDataStructure(storageSize);
 
@@ -1736,7 +1741,7 @@ int pyrprofInit() {
 
     allocDummyTEntry();
 
-    prepareCall();
+    prepareCall(0, 0);
     cdtHead = allocCDT();
     
     fp = log_open("cpInfo.bin");
