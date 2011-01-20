@@ -1995,13 +1995,22 @@ namespace {
 
 									//while loops need the condition appended as soon as the header executes
 									else {
-										args.push_back(ConstantInt::get(types.i32(), dest_id));                                            // dest ID
-										args.push_back(ConstantInt::get(types.i32(), getConditionIdOfBlock(blk, inst_to_id)));             // condition ID
+										// Check to see if this is a constant value (i.e. while true)
+										// TODO: check to see if this occurs
+										if(!isa<ConstantInt>(branch_inst->getCondition())) { 
 
-										Instruction* condition = dyn_cast<Instruction>(branch_inst->getCondition());
-										assert(condition);
-										inst_calls_end.addCallInstAfter(condition,"logPhiNodeAddCondition",args);
-										args.clear();
+											args.push_back(ConstantInt::get(types.i32(), dest_id));                                            // dest ID
+											args.push_back(ConstantInt::get(types.i32(), getConditionIdOfBlock(blk, inst_to_id)));             // condition ID
+
+											Instruction* condition = dyn_cast<Instruction>(branch_inst->getCondition());
+											if(!condition) {
+												log.error() << "branch condition isn't an instruction: " << *branch_inst->getCondition() << "\n";
+												assert(0);
+											}
+											assert(condition);
+											inst_calls_end.addCallInstAfter(condition,"logPhiNodeAddCondition",args);
+											args.clear();
+										}
 									}
 								}
 							} //end handling phi's in loops
