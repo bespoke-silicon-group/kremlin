@@ -127,14 +127,14 @@ namespace {
 							// Function pointers aren't really supported so we'll warn the user when this is the case.
 							if(isa<StoreInst>(*ui)
 							  || isa<CmpInst>(*ui)
+							  || isa<GlobalValue>(*ui)
 							  ) {
-								log.warn() << "use store or compare suggests function pointer usage. Function pointers are not uniquified.\n";
+								log.warn() << "use suggests function pointer usage. Function pointers are not uniquified.\n";
 								continue;
 							}
-							else if(!isa<CallInst>(*ui)) {
-								log.error() << "use is not a callinst (user: " << **ui << ")\n";
-								assert(0);
-							}
+							else if(isa<ConstantStruct>(*ui)) { log.warn() << "ah HA!\n"; }
+
+							assert(isa<CallInst>(*ui) && "unsupported type of user");
 
 							CallInst* ci = cast<CallInst>(*ui);
 							call_insts.push_back(cast<CallInst>(*ui));
