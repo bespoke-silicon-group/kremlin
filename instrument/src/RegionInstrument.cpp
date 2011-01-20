@@ -319,46 +319,54 @@ namespace {
 				BasicBlock* exiting_bb = exiting_bbs[i];
 
 				// find which BB we are going to exit to
-				BasicBlock* target_bb = NULL;
+				std::set<BasicBlock*> target_bbs;
 
 				for(succ_iterator SI = succ_begin(exiting_bb), SE = succ_end(exiting_bb); SI != SE; ++SI) {
 					BasicBlock* succ = *SI;
 
 					if(!loop->contains(succ) 
 					  ) {
-						log.debug() << "found target_bb outside of loop: " << (*SI)->getName() << "\n";
-						assert(target_bb == NULL && "loop has multiple targets outside of loop");
-						target_bb = *SI;
+						//log.debug() << "found target_bb outside of loop: " << succ->getName() << "\n";
+						target_bbs.insert(succ);
 					}
 				}
 
-				assert(target_bb && "no target bb outside of loop found");
+				assert(!target_bbs.empty() && "no target bb outside of loop found");
 
-				// We now create a basic block that will act as the "pre-exit" for the loop and contain a call to logRegionExit().
-				BasicBlock* pre_exit = BasicBlock::Create(loop_header->getContext(), exiting_bb->getName() + ".pre_exit", loop_header->getParent(), exiting_bb);
+				log.debug() << exiting_bb->getName() << " has " << target_bbs.size() << " possible loop exit points\n";
 
-				// jump to target_bb from pre_exit
-				BranchInst::Create(target_bb,pre_exit);
+				int tar_no = 0;
+				for(std::set<BasicBlock*>::iterator tar_it = target_bbs.begin(), tar_end = target_bbs.end(); tar_it != tar_end; ++tar_it, ++tar_no) {
+					BasicBlock* target = *tar_it;
 
-				// If we are instrumenting loop bodies, we need a call to logRegionExit for the loop body region before exiting the loop region.
-				// We don't want to insert the call if the exiting_bb is the loop header because this implies the header isn't part of the
-				// loop body. If we did insert logRegionExit here there is a path that will go through logRegionExit for the loop body but
-				// not logRegionEntry
-				if(loopBodyRegions && exiting_bb != loop_header) {
-					CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), "", pre_exit->getTerminator());
+					log.debug() << "\ttarget " << tar_no << ": " << target->getName() << "\n";
+
+					// We now create a basic block that will act as the "pre-exit" for the loop and contain a call to logRegionExit().
+					BasicBlock* pre_exit = BasicBlock::Create(loop_header->getContext(), exiting_bb->getName() + ".pre_exit." + target->getName(), loop_header->getParent(), target);
+
+					// jump to target from pre_exit
+					BranchInst::Create(target,pre_exit);
+
+					// If we are instrumenting loop bodies, we need a call to logRegionExit for the loop body region before exiting the loop region.
+					// We don't want to insert the call if the exiting_bb is the loop header because this implies the header isn't part of the
+					// loop body. If we did insert logRegionExit here there is a path that will go through logRegionExit for the loop body but
+					// not logRegionEntry
+					if(loopBodyRegions && exiting_bb != loop_header) {
+						CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), "", pre_exit->getTerminator());
+					}
+
+					// insert call to logRegionExit() right before we leave pre_exit
+					CallInst::Create(logRegionExit_func, op_args.begin(), op_args.end(), "", pre_exit->getTerminator());
+
+					// in the target BB, replace all references to exiting_bb with a reference to pre_exit (this will be phi nodes only)
+					for(BasicBlock::iterator phi = target->begin(), phi_end = target->getFirstNonPHI(); phi != phi_end; ++phi) {
+						phi->replaceUsesOfWith(exiting_bb, pre_exit);
+					}
+
+					// In the exiting block, replace references to target with a reference to pre_exit.
+					// This should only occur in the terminator inst.
+					exiting_bb->getTerminator()->replaceUsesOfWith(target,pre_exit);
 				}
-
-				// insert call to logRegionExit() right before we leave pre_exit
-				CallInst::Create(logRegionExit_func, op_args.begin(), op_args.end(), "", pre_exit->getTerminator());
-
-				// in the target BB, replace all references to exiting_bb with a reference to pre_exit (this will be phi nodes only)
-				for(BasicBlock::iterator phi = target_bb->begin(), phi_end = target_bb->getFirstNonPHI(); phi != phi_end; ++phi) {
-					phi->replaceUsesOfWith(exiting_bb, pre_exit);
-				}
-
-				// In the exiting block, replace references to target_bb with a reference to pre_exit.
-				// This should only occur in the terminator inst.
-				exiting_bb->getTerminator()->replaceUsesOfWith(target_bb,pre_exit);
 			}
 
 			// Instrument loop body regions
