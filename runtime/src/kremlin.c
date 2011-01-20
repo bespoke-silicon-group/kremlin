@@ -13,7 +13,7 @@
 #include "deque.h"
 #include "hash_map.h"
 
-#define ALLOCATOR_SIZE (2ll * 1024 * 1024 * 1024)
+#define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024)
 
 #define _MAX_REGION_LEVEL   100     // used for static data structures
 
@@ -673,6 +673,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     URegionField field;
     field.work = work;
     field.cp = cp;
+	field.callSite = regionInfo[region].callSiteId;
     field.readCnt = regionInfo[region].readCnt;
     field.writeCnt = regionInfo[region].writeCnt;
     field.readLineCnt = regionInfo[region].readLineCnt;

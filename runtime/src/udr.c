@@ -15,6 +15,8 @@ int isEquivalent(URegionField field0, URegionField field1) {
 		return 0;
 	if (field0.cp != field1.cp)
 		return 0;
+	if (field0.callSite != field1.callSite)
+		return 0;
 	if (field0.readCnt != field1.readCnt)
 		return 0;
 	if (field0.writeCnt != field1.writeCnt)

@@ -14,7 +14,7 @@
 
 // unless specified, we assume no debugging
 #ifndef PYRPROF_DEBUG
-#define PYRPROF_DEBUG	1
+#define PYRPROF_DEBUG	0
 #endif
 
 #ifndef DEBUGLEVEL
