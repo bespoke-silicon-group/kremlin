@@ -1,5 +1,3 @@
 REGRESSION_TEST_ROOT = ..
 
-CFLAGS += -DPYRPROF_DEBUG=0
-
 include $(REGRESSION_TEST_ROOT)/defaultTest.mk

@@ -16,3 +16,4 @@ region.graph
 region_id-to-func_name.txt
 regions.info
 testResults.txt
+sregions.txt
