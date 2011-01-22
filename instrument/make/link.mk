@@ -10,6 +10,7 @@ LINK_MK = 1
 # ---------------------------------------------------------------------------
 include $(dir $(lastword $(MAKEFILE_LIST)))/../../common/make/paths.mk
 include $(KREMLIN_INSTRUMENT_MAKE_DIR)/assemble.mk
+include $(KREMLIN_INSTRUMENT_MAKE_DIR)/useTemp.mk
 include $(KREMLIN_INSTRUMENT_MAKE_DIR)/kremlinLib.mk
 
 # ---------------------------------------------------------------------------
@@ -24,28 +25,30 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/kremlinLib.mk
 # extensions to the linker.
 #
 # We also add the objects that we've assembled.
-SOURCES_OBJ = $(filter-out $(SOURCES_ASM) $(SOURCES_C), $(SOURCES)) $(SOURCES_OBJ_FROM_ASM)
+OBJ_SOURCES += $(filter %.o, $(SOURCES))
 
 # The name of the executable to produce.
-EXECUTABLE_OUTPUT_NAME = a.out
+LINK_OUTPUT_FILE ?= a.out
 DEBUG_INFO_FILE = sregions.txt
 
 # ---------------------------------------------------------------------------
 # Rules (alpha order)
 # ---------------------------------------------------------------------------
+#
 
 # Creates all the instrumented assembly
-link: $(EXECUTABLE_OUTPUT_NAME) $(DEBUG_INFO_FILE)
+link: $(LINK_OUTPUT_FILE)
 
 # Compiles and links the source with the kremlin library
-$(EXECUTABLE_OUTPUT_NAME): $(SOURCES_OBJ) $(KREMLIN_LIB)
-	$(CC) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(SOURCES_OBJ) $(KREMLIN_LIB) -o $@
+$(LINK_OUTPUT_FILE): $(OBJ_SOURCES) $(KREMLIN_LIB)
+	$(CC) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(OBJ_SOURCES) $(KREMLIN_LIB) -o $@
 
-# TODO: This only magically works because the names line up.
-$(DEBUG_INFO_FILE): $(EXECUTABLE_OUTPUT_NAME)
+	# XXX: Side effect of making the executable!
+	# TODO: This only magically works because the names line up. Fix the
+	# robustness!
 	objdump $< -t | grep "_krem_" | sed 's/^.*krem_region//g; s/_krem_/\t/g' > $@
 
 clean::
-	$(RM) $(EXECUTABLE_OUTPUT_NAME)
+	$(RM) $(LINK_OUTPUT_FILE)
 
 endif # LINK_MK

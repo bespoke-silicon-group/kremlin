@@ -9,7 +9,7 @@
 # Debug mode.
 export DEBUG = 1
 
-# Source files.
+# Source files with types to be determined.
 SOURCES ?= 
 
 # Flags to pass to all C compilers.
@@ -27,7 +27,6 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/spaceAndEmpty.mk
 include $(KREMLIN_INSTRUMENT_MAKE_DIR)/compile.mk
 include $(KREMLIN_INSTRUMENT_MAKE_DIR)/assemble.mk
 include $(KREMLIN_INSTRUMENT_MAKE_DIR)/link.mk
-include $(KREMLIN_INSTRUMENT_MAKE_DIR)/outputName.mk
 
 
 # ---------------------------------------------------------------------------
