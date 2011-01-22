@@ -1,3 +1,5 @@
+REGRESSION_TEST_ROOT = $(dir $(lastword $(MAKEFILE_LIST)))
+
 include $(REGRESSION_TEST_ROOT)/buildTasks.mk
 
 CC = kremlin-gcc

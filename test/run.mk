@@ -1,4 +1,6 @@
-include buildTasks.mk
+RUN_MK := $(lastword $(MAKEFILE_LIST))
+
+include $(dir $(RUN_MK))/buildTasks.mk
 
 # How many concurrent make targets can be done at once.
 PARALLEL_MAKE = 4
@@ -29,12 +31,12 @@ CLEAN_RESULTS = $(addsuffix clean, $(TEST_DIRECTORIES))
 .PHONY: testResults.txt $(MAKE_RESULTS) $(CLEAN_RESULTS)
 
 parallel:
-	make -j $(PARALLEL_MAKE) $(TEST_RESULTS)
+	make -f $(RUN_MK) -j $(PARALLEL_MAKE) $(TEST_RESULTS)
 
 # Summarizes all the test results into one.
 $(TEST_RESULTS): $(MAKE_RESULTS)
 	grep 'TEST_RESULT: FAILED' $(MAKE_RESULTS) > $@
-	echo 'ran $(words $(MAKE_RESULTS)) tests' >> $@
+	echo "`sed -n '$$=' $@` of $(words $(MAKE_RESULTS)) tests failed" >> $@
 	clear
 	@cat $@
 

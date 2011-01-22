@@ -3,6 +3,7 @@
 *.o
 *.s
 *.swp
+*.bc
 Makefile.kremlin
 a.out
 bb.info
