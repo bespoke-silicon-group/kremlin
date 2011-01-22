@@ -748,10 +748,6 @@ namespace {
 				add_logRegionExit_func = true;
 			}
 
-			std::ofstream region_id_to_func_name_map_file;
-
-			region_id_to_func_name_map_file.open(functionNamesFile.c_str());
-
 			// open file we will write region and nesting graphs too
 			// TODO: make sure we incorporate loop body regions now
 			nesting_graph.open("nesting.dot");
@@ -797,8 +793,6 @@ namespace {
 					log.debug() << "adding " << func.getName() << " (in module: " << m.getModuleIdentifier() << ") to list of defined functions (region_id: " << region_id << ")\n";
 					definedFunctions.insert(func.getName());
 
-					region_id_to_func_name_map_file << region_id << " " << func.getName().str() << "\n";
-
 					// we give region_ids to all functions now so we can build the nesting graph as we go along
 
 					func_name_to_region_id[func.getName()] = region_id;
@@ -810,8 +804,6 @@ namespace {
 			}
 
 			log.debug() << "found " << regions.size() << " func regions\n";
-
-			region_id_to_func_name_map_file.close();
 
 			// XXX: probably a better way to do this...
 			// add instrumentation functions to list of defined functions so callsNonInlinableFunc() doesn't get mixed up
