@@ -3,8 +3,9 @@
 
 #include "Pool.h"
 
-#ifndef MALLOC_TABLE_SIZE
-#define MALLOC_TABLE_SIZE   10000
+#ifndef MALLOC_TABLE_CHUNK_SIZE
+//#define MALLOC_TABLE_CHUNK_SIZE   8192
+#define MALLOC_TABLE_CHUNK_SIZE   16384
 #endif
 
 #define CACHE_LINE_POWER_2  4
@@ -56,7 +57,8 @@ typedef struct _MTableEntry {
 */
 typedef struct _MallocTable {
     int size;
-    MEntry* array[MALLOC_TABLE_SIZE];
+	int capacity;
+    MEntry** array;
 } MTable;
 
 

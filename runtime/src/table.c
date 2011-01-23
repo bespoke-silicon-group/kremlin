@@ -28,6 +28,8 @@ MTable* allocMallocTable() {
 	MTable* ret = (MTable*) calloc(1,sizeof(MTable));
 
 	ret->size = -1;
+	ret->array = calloc(MALLOC_TABLE_CHUNK_SIZE,sizeof(MEntry*));
+	ret->capacity = MALLOC_TABLE_CHUNK_SIZE;
 	return ret;
 }
 
@@ -40,6 +42,9 @@ void freeMallocTable(MTable* table) {
 	for(i = 0; i < table->size; ++i) {
 		free(table->array[i]);
 	}
+
+	free(table->array);
+	free(table);
 }
 
 void freeGlobalTable(GTable* table) {
@@ -103,7 +108,22 @@ void createMEntry(Addr start_addr, size_t entry_size) {
 
 	int mtable_size = mTable->size + 1;
 
-	assert(mtable_size < MALLOC_TABLE_SIZE);
+	//assert(mtable_size < MALLOC_TABLE_CHUNK_SIZE);
+
+	// see if we need to create more entries for malloc table
+	if(mtable_size == mTable->capacity) {
+		int new_mtable_capacity = mtable_size + MALLOC_TABLE_CHUNK_SIZE;
+		fprintf(stderr, "Increasing size of malloc table from %d to %d\n",mtable_size,new_mtable_capacity);
+		mTable->array = realloc(mTable->array,mtable_size+MALLOC_TABLE_CHUNK_SIZE);
+		mTable->capacity = new_mtable_capacity;
+		/*
+		int i;
+		for(i = mtable_size; i < new_mtable_capacity; ++i) {
+			mTable->array[i] = NULL;
+		}
+		*/
+	}
+
 	mTable->size = mtable_size;
 
 	mTable->array[mtable_size] = me;

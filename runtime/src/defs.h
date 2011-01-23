@@ -43,10 +43,6 @@
 #define LOAD_COST			4
 #define STORE_COST			1
 
-#ifndef MALLOC_TABLE_SIZE
-#define MALLOC_TABLE_SIZE	10000
-#endif
-
 #define CACHE_LINE_POWER_2	4
 #define CACHE_LINE_SIZE		(1 << CACHE_LINE_POWER_2)
 
