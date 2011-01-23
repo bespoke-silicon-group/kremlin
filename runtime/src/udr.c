@@ -195,9 +195,11 @@ hash_map_oid_nid*	old_id_to_new_id;
 unsigned max_mapped_val;
 
 #define MAPSIZE	4096
-#define ENTRYSIZE (1024 * 16)
-URegion* _uregionMap[MAPSIZE][ENTRYSIZE];
-int _uregionMapPtr[MAPSIZE];
+#define ENTRYSIZE (1024 * 8)
+//URegion* _uregionMap[MAPSIZE][ENTRYSIZE];
+//int _uregionMapPtr[MAPSIZE];
+int* _uregionMapPtr;
+URegion*** _uregionMap;
 int _uidPtr;
 long long _uregionCnt = 0;
 
@@ -260,7 +262,13 @@ URegion* updateURegion(DRegion* region, ChildInfo* head) {
 	
 	URegion* ret = createURegion(_uidPtr++, region->sid, region->field,
 					region->pSid, head);
-	assert(_uregionMapPtr[mapped_sid] <= ENTRYSIZE);
+
+	// if we have used up all that we have allocated, then realloc and ENTRYSIZE more entries
+	if(_uregionMapPtr[mapped_sid] % ENTRYSIZE == 0) {
+		_uregionMap[mapped_sid] = realloc(_uregionMap[mapped_sid],(_uregionMapPtr[mapped_sid]+ENTRYSIZE)*sizeof(URegion*));
+	}
+
+	//assert(_uregionMapPtr[mapped_sid] <= ENTRYSIZE);
 
 	_uregionMap[mapped_sid][_uregionMapPtr[mapped_sid]++] = ret;
 
@@ -300,6 +308,14 @@ void processUdr(UInt64 sid, UInt64 did, UInt64 pSid,
 void initializeUdr() {
 	max_mapped_val = 0;
     hash_map_oid_nid_create(&old_id_to_new_id, idHash, idCompare, NULL, NULL);
+
+	_uregionMapPtr = malloc(sizeof(int)*MAPSIZE);
+
+	_uregionMap = malloc(sizeof(URegion**)*MAPSIZE);
+	int i;
+	for(i = 0; i < MAPSIZE; ++i) {
+		_uregionMap[i] = malloc(sizeof(URegion*)*ENTRYSIZE);
+	}
 }
 
 void finalizeUdr() {
@@ -316,5 +332,13 @@ void finalizeUdr() {
 	fprintf(stderr, "%d entries emitted to cpURegion.bin\n", _uidPtr);
 
     hash_map_oid_nid_delete(&old_id_to_new_id);
+
+	free(_uregionMapPtr);
+
+	for(i = 0; i < MAPSIZE; ++i) {
+		free(_uregionMap[i]);
+	}
+
+	free(_uregionMap[i]);
 }
 
