@@ -54,7 +54,7 @@ public class NestedPlanner extends Planner {
 		int nCore = (int)Math.ceil(speedup);
 		RegionRecord unit = new RegionRecord(info, nCore, speedup);
 		assert(unit.getSpeedup() >= 1.0);
-		long expectedTime = timeStatus.peekParallelTime(unit);
+		long expectedTime = timeStatus.peekParallelTime(unit.getRegionInfo(), unit.getSpeedup());
 		unit.setExpectedExecTime(expectedTime);
 		double timeSave = info.getTotalWork() - info.getTotalWork() / speedup;
 		//return info.getTotalWork() - info.getTotalWork() / speedup;
@@ -189,7 +189,7 @@ public class NestedPlanner extends Planner {
 			if (unit == null)
 				break;
 			//assert(false);
-			timeStatus.parallelize(unit);
+			timeStatus.parallelize(unit.getRegionInfo(), unit.getSpeedup());
 			updateStatus(unit, readySet, coreMap);
 			readySet.remove(unit.getRegionInfo());
 			lastTime = unit.getExpectedExecTime();

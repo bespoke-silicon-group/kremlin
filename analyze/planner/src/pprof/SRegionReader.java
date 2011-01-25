@@ -55,8 +55,11 @@ public class SRegionReader {
 			return RegionType.FUNC;
 		else if (src.equals("loop"))
 			return RegionType.LOOP;
+		else if (src.equals("loop-body"))
+			return RegionType.BODY;
 		else if (src.equals("loop_body"))
 			return RegionType.BODY;
+		
 		else {
 			assert(false);
 			return null;

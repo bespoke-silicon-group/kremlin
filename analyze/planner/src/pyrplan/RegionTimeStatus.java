@@ -1,4 +1,4 @@
-package pyrplan.nested;
+package pyrplan;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,7 +13,8 @@ import pyrplan.*;
 public class RegionTimeStatus {
 	SRegionInfoAnalyzer analyzer;
 	Map<URegion, Long> timeMap;
-	Map<SRegion, RegionRecord> recordMap;
+	//Map<SRegion, RegionRecord> recordMap;
+	Map<SRegion, Double> recordMap;
 	EntryManager dManager;
 	SRegionManager sManager;
 	Set<SRegion> parallelSet;
@@ -22,7 +23,7 @@ public class RegionTimeStatus {
 	public RegionTimeStatus(SRegionInfoAnalyzer analyzer) {
 		this.analyzer = analyzer;
 		this.timeMap = new HashMap<URegion, Long>();
-		this.recordMap = new HashMap<SRegion, RegionRecord>();
+		this.recordMap = new HashMap<SRegion, Double>();
 		this.dManager = analyzer.getDManager();
 		this.sManager = analyzer.getSManager();
 		this.root = dManager.getRoot();
@@ -34,12 +35,12 @@ public class RegionTimeStatus {
 		this.parallelSet = new HashSet<SRegion>();
 	}
 	
-	public long peekParallelTime(RegionRecord target) {
-		return calculateTimeAfterParallelization(target, false);
+	public long peekParallelTime(SRegionInfo info, double speedup) {
+		return calculateTimeAfterParallelization(info, speedup, false);
 	}
 	
-	public void parallelize(RegionRecord target) {
-		calculateTimeAfterParallelization(target, true);	
+	public void parallelize(SRegionInfo info, double speedup) {
+		calculateTimeAfterParallelization(info, speedup, true);	
 	}
 	
 	long getExecTime(URegion region) {
@@ -47,17 +48,17 @@ public class RegionTimeStatus {
 	}
 
 	
-	long getExecTime() {
+	public long getExecTime() {
 		return getExecTime(this.root);
 	}
 	
-	private long calculateTimeAfterParallelization(RegionRecord record, boolean update) {
-		SRegion target = record.getRegionInfo().getSRegion();	
+	private long calculateTimeAfterParallelization(SRegionInfo info, double inSpeedup, boolean update) {
+		SRegion target = info.getSRegion();	
 		Map<URegion, Long> tempTimeMap = null;
-		Map<SRegion, RegionRecord> tempRecordMap = null;
+		Map<SRegion, Double> tempRecordMap = null;
 		Set<SRegion> newParallelSet = null;
 		
-		assert(record.getSpeedup() >= 1.0);
+		assert(inSpeedup >= 1.0);
 		
 		if (update) {
 			tempTimeMap = this.timeMap;
@@ -66,12 +67,12 @@ public class RegionTimeStatus {
 			
 		} else {
 			tempTimeMap = new HashMap<URegion, Long>(this.timeMap);
-			tempRecordMap = new HashMap<SRegion, RegionRecord>(this.recordMap);
+			tempRecordMap = new HashMap<SRegion, Double>(this.recordMap);
 			newParallelSet = new HashSet<SRegion>(parallelSet);			
 		}
 		
 		newParallelSet.add(target);
-		tempRecordMap.put(record.getRegionInfo().getSRegion(), record);
+		tempRecordMap.put(target, inSpeedup);
 		Set<URegion> entrySet = dManager.getDEntrySet(target);		
 		List<URegion> workList = new LinkedList<URegion>();
 		workList.addAll(entrySet);
@@ -87,7 +88,7 @@ public class RegionTimeStatus {
 			
 			double speedup = 1.0;
 			if (!isSerial)
-				speedup = tempRecordMap.get(current.getSRegion()).getSpeedup();
+				speedup = tempRecordMap.get(current.getSRegion());
 			
 			long updatedTime = estimateUEntryTime(current, speedup, tempTimeMap, isSerial);
 			tempTimeMap.put(current, updatedTime);		

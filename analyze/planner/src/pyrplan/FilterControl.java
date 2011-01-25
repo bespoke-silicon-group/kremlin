@@ -40,19 +40,19 @@ public class FilterControl {
 		Set<SRegionInfo> ret = new HashSet<SRegionInfo>();
 		
 		Set<SRegionInfo> set = analyzer.getSRegionInfoSet();
-		
+		/*
 		for (RegionType each : forbiddenTypes) {
 			System.out.println("Filter Type: " + each);			
-		}
+		}*/
 		//System.out.println("minSP = " + minSP + " minDOALL = " + minDOALL + " minDOACROSS = " + minDOACROSS);
 		
 		for (SRegionInfo each : set) {
 			RegionType type = each.getSRegion().getType();
 			double sp = each.getSelfParallelism();
 			double speedup = each.getSelfSpeedup();
-			System.out.println(each);
+			//System.out.println(each);
 			int startLine = each.getSRegion().getStartLine();			
-			System.out.println("sp = " + sp +  " speedup = " + speedup);			
+			//System.out.println("sp = " + sp +  " speedup = " + speedup);			
 			//System.out.println("work = " + each.getAvgWork() + " sp = " + each.getSelfParallelism() + 
 			//	" speedup = " + speedup + " coverage = " + each.getCoverage());
 			

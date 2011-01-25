@@ -10,9 +10,11 @@ import pyrplan.Recommender;
 public class URegionManager extends EntryManager {
 	Map<Long, URegion> dMap = new HashMap<Long, URegion>();
 	SRegionInfoAnalyzer analyzer;
+	boolean isNeo = false;
 	
-	public URegionManager(SRegionManager sManager, File file) {		
+	public URegionManager(SRegionManager sManager, File file, boolean isNeo) {		
 		super(sManager);
+		this.isNeo = isNeo;
 		try {					
 			buildDEntryMap(file);
 			//System.err.println("build done");
@@ -23,6 +25,7 @@ public class URegionManager extends EntryManager {
 				assert(false);
 			}
 		}
+		
 		analyzer = new SRegionInfoAnalyzer(this);
 	}
 	
@@ -70,10 +73,12 @@ public class URegionManager extends EntryManager {
 				long sid = Long.reverseBytes(input.readLong());
 				long work = Long.reverseBytes(input.readLong());
 				long cp = Long.reverseBytes(input.readLong());
+				long callSite = isNeo ? Long.reverseBytes(input.readLong()) : 0;
 				long readCnt = Long.reverseBytes(input.readLong());
 				long writeCnt = Long.reverseBytes(input.readLong());
 				long readLineCnt = Long.reverseBytes(input.readLong());
-				long writeLineCnt = Long.reverseBytes(input.readLong());				
+				long writeLineCnt = Long.reverseBytes(input.readLong());
+				
 				long cnt = Long.reverseBytes(input.readLong());				
 				long nChildren = Long.reverseBytes(input.readLong());
 				
@@ -84,10 +89,10 @@ public class URegionManager extends EntryManager {
 					long childCnt = Long.reverseBytes(input.readLong());
 					childrenMap.put(childUid, childCnt);
 				}			
-				/*
-				System.out.printf("%d %d %d %d %d %d (%d %d) (%d %d)\n",
-						uid, sid, work, cp, cnt, nChildren, readCnt, writeCnt, readLineCnt, writeLineCnt);
-				System.out.println("\t" + childrenMap);*/			
+				
+				System.out.printf("%d %d %d %d %d %d %d (%d %d) (%d %d)\n",
+						uid, sid, work, cp, cnt, nChildren, callSite, readCnt, writeCnt, readLineCnt, writeLineCnt);
+				System.out.println("\t" + childrenMap);			
 				
 				uMap.put(uid, new Entry(uid, sid, work, cp, readCnt, writeCnt, readLineCnt, writeLineCnt, cnt, childrenMap));
 				
@@ -205,7 +210,7 @@ public class URegionManager extends EntryManager {
 		long start = System.currentTimeMillis();
 		SRegionManager sManager = new SRegionManager(new File(sFile), false);
 		//sregion.dump();
-		URegionManager dManager = new URegionManager(sManager, new File(dFile));
+		URegionManager dManager = new URegionManager(sManager, new File(dFile), false);
 		long end = System.currentTimeMillis();
 		System.out.println("Total Entry Cnt = " + dManager.getTotalEntryCnt());
 		System.out.printf("Time = %d us\n", end - start);
