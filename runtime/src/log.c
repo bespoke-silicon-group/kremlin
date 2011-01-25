@@ -110,6 +110,7 @@ void writeURegion(File* fp, URegion* region) {
 	fwrite(&region->field.readLineCnt, sizeof(Int64), 1, fp);
 	fwrite(&region->field.writeLineCnt, sizeof(Int64), 1, fp);
 	assert(region->cnt != 0);
+	//fprintf(stderr, "callSite: 0x%llx\n", region->field.callSite);
 	fwrite(&region->cnt, sizeof(Int64), 1, fp);
 	//fwrite(&region->pSid, sizeof(Int64), 1, fp);
 	fwrite(&region->childrenSize, sizeof(Int64), 1, fp);

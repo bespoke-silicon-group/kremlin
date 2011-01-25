@@ -151,6 +151,7 @@ void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
     // call. These are left on the deque because library calls never take
     // theirs off. 
     deque_clear(argTimestamps);
+	lastCallSiteId = callSiteId;
 }
 
 void linkArgToLocal(UInt src) {
