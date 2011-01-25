@@ -104,6 +104,7 @@ void writeURegion(File* fp, URegion* region) {
 	fwrite(&region->sid, sizeof(Int64), 1, fp);
 	fwrite(&region->field.work, sizeof(Int64), 1, fp);
 	fwrite(&region->field.cp, sizeof(Int64), 1, fp);
+	fwrite(&region->field.callSite, sizeof(Int64), 1, fp);
 	fwrite(&region->field.readCnt, sizeof(Int64), 1, fp);
 	fwrite(&region->field.writeCnt, sizeof(Int64), 1, fp);
 	fwrite(&region->field.readLineCnt, sizeof(Int64), 1, fp);
