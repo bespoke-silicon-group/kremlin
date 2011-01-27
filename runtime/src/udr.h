@@ -6,10 +6,12 @@
 typedef struct _URegionField_t {
 	UInt64 work;
 	UInt64 cp;
+#ifdef EXTRA_STATS
 	UInt64 readCnt;
 	UInt64 writeCnt;
 	UInt64 readLineCnt;
 	UInt64 writeLineCnt;
+#endif
 	UInt64 callSite;
 } URegionField;
 

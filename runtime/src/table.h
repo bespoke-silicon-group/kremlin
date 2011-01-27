@@ -13,9 +13,11 @@
 
 typedef struct _DataEntry {
     UInt32* version;
-    UInt32* readVersion;
     UInt64* time;
+#ifdef EXTRA_STATS
+    UInt32* readVersion;
     UInt64* readTime;
+#endif
 
 } TEntry;
 

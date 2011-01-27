@@ -105,10 +105,21 @@ void writeURegion(File* fp, URegion* region) {
 	fwrite(&region->field.work, sizeof(Int64), 1, fp);
 	fwrite(&region->field.cp, sizeof(Int64), 1, fp);
 	fwrite(&region->field.callSite, sizeof(Int64), 1, fp);
+
+#ifdef EXTRA_STATS
 	fwrite(&region->field.readCnt, sizeof(Int64), 1, fp);
 	fwrite(&region->field.writeCnt, sizeof(Int64), 1, fp);
 	fwrite(&region->field.readLineCnt, sizeof(Int64), 1, fp);
 	fwrite(&region->field.writeLineCnt, sizeof(Int64), 1, fp);
+#else
+	UInt64 tmp = 0;
+
+	fwrite(&tmp, sizeof(Int64), 1, fp);
+	fwrite(&tmp, sizeof(Int64), 1, fp);
+	fwrite(&tmp, sizeof(Int64), 1, fp);
+	fwrite(&tmp, sizeof(Int64), 1, fp);
+#endif
+
 	assert(region->cnt != 0);
 	//fprintf(stderr, "callSite: 0x%llx\n", region->field.callSite);
 	fwrite(&region->cnt, sizeof(Int64), 1, fp);

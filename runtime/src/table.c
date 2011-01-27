@@ -71,10 +71,14 @@ long long _tEntryGlobalCnt = 0;
 TEntry* allocTEntry(int size) {
     TEntry* entry;
     size_t versionSize = sizeof(UInt32) * size;
-    size_t readVersionSize = sizeof(UInt32) * size;
     size_t timeSize = sizeof(UInt64) * size;
+    size_t spaceToAlloc = sizeof(TEntry) + versionSize + timeSize;
+
+#ifdef EXTRA_STATS
+    size_t readVersionSize = sizeof(UInt32) * size;
     size_t readTimeSize = sizeof(UInt64) * size;
-    size_t spaceToAlloc = sizeof(TEntry) + versionSize + readVersionSize + timeSize + readTimeSize;
+    spaceToAlloc += readVersionSize + readTimeSize;
+#endif
     
     //if(!(entry = (TEntry*) malloc(spaceToAlloc)))
     if(!(entry = (TEntry*) PoolMalloc(tEntryPool)))
@@ -89,9 +93,12 @@ TEntry* allocTEntry(int size) {
     //fprintf(stderr, "bzero2 addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
 
     entry->version = (UInt32*)((unsigned char*)entry + sizeof(TEntry));
-    entry->readVersion = (UInt32*)((unsigned char*)entry->version + versionSize);
-    entry->time = (UInt64*)((unsigned char*)entry->readVersion + readVersionSize);
-    entry->readTime = (UInt64*)((unsigned char*)entry->time + timeSize);
+    entry->time = (UInt64*)((unsigned char*)entry->version + versionSize);
+
+#ifdef EXTRA_STATS
+    entry->readVersion = (UInt32*)((unsigned char*)entry->time + timeSize);
+    entry->readTime = (UInt64*)((unsigned char*)entry->readVersion + readVersionSize);
+#endif
     return entry;
 }
 
@@ -238,10 +245,14 @@ void initDataStructure(int regionLevel) {
 
 	// Set TEntry Size
     size_t versionSize = sizeof(UInt32) * maxRegionLevel;
-    size_t readVersionSize = sizeof(UInt32) * maxRegionLevel;
     size_t timeSize = sizeof(UInt64) * maxRegionLevel;
+    size_t spaceToAlloc = sizeof(TEntry) + versionSize + timeSize;
+
+#ifdef EXTRA_STATS
+    size_t readVersionSize = sizeof(UInt32) * maxRegionLevel;
     size_t readTimeSize = sizeof(UInt64) * maxRegionLevel;
-    size_t spaceToAlloc = sizeof(TEntry) + versionSize + readVersionSize + timeSize + readTimeSize;
+    spaceToAlloc += readVersionSize + readTimeSize;
+#endif
 	PoolCreate(&tEntryPool, spaceToAlloc, memPool, (void*(*)(void*, size_t))MemMapAllocatorMalloc);
 }
 

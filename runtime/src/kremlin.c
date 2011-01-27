@@ -51,10 +51,12 @@ typedef struct _region_t {
     UInt64 did;
     UInt64 cp;
     UInt64 regionId;
+#ifdef EXTRA_STATS
     UInt64 readCnt;
     UInt64 writeCnt;
     UInt64 readLineCnt;
     UInt64 writeLineCnt;
+#endif
 } Region;
 
 typedef struct _InvokeRecord {
@@ -411,15 +413,6 @@ UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
     return ret;
 }
 
-UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
-    int level = inLevel - _minRegionToLog;
-    assert(entry != NULL);
-    assert(level >= 0 && level < getTEntrySize());
-    UInt64 ret = (entry->readVersion[level] == version) ?
-                    entry->readTime[level] : 0;
-    return ret;
-}
-
 void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
     int level = inLevel - _minRegionToLog;
     assert(entry != NULL);
@@ -428,6 +421,15 @@ void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 times
     entry->time[level] = timestamp;
 }
 
+#ifdef EXTRA_STATS
+UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
+    int level = inLevel - _minRegionToLog;
+    assert(entry != NULL);
+    assert(level >= 0 && level < getTEntrySize());
+    UInt64 ret = (entry->readVersion[level] == version) ?
+                    entry->readTime[level] : 0;
+    return ret;
+}
 
 void updateReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
     int level = inLevel - _minRegionToLog;
@@ -485,6 +487,7 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
     }
     updateTimestamp(entry, inLevel, version, timestamp);
 }
+#endif
 
 
 #ifdef __cplusplus
@@ -585,20 +588,26 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
             parentSid, parentDid, timestamp);
 
     // for now, recursive call is not allowed
+	/*
     int i;
     for (i=0; i<region; i++) {
         assert(regionInfo[i].regionId != regionId && "For now, no recursive calls!");
     }
+	*/
 
     regionInfo[region].regionId = regionId;
     regionInfo[region].callSiteId = lastCallSiteId;
     regionInfo[region].start = timestamp;
     regionInfo[region].did = *getDynamicRegionId(regionId);
     regionInfo[region].cp = 0;
+
+#ifdef EXTRA_STATS
     regionInfo[region].readCnt = 0;
     regionInfo[region].writeCnt = 0;
     regionInfo[region].readLineCnt = 0;
     regionInfo[region].writeLineCnt = 0;
+#endif
+
 #ifndef WORK_ONLY
     if (region >= _minRegionToLog && region <= _maxRegionToLog)
         setCdt(region, versions[region], 0);
@@ -675,12 +684,15 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     field.work = work;
     field.cp = cp;
 	field.callSite = regionInfo[region].callSiteId;
+#ifdef EXTRA_STATS
     field.readCnt = regionInfo[region].readCnt;
     field.writeCnt = regionInfo[region].writeCnt;
     field.readLineCnt = regionInfo[region].readLineCnt;
     field.writeLineCnt = regionInfo[region].writeLineCnt;
 
     assert(work >= field.readCnt && work >= field.writeCnt);
+#endif
+
     processUdr(sid, did, parentSid, parentDid, field);
 #else
     if (_lastWork == work &&
@@ -892,8 +904,10 @@ void* logLoadInst(Addr src_addr, UInt dest) {
         UInt64 ts0 = getTimestamp(entry0, i, version);
         UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
         UInt64 value = greater1 + LOAD_COST;
+#ifdef EXTRA_STATS
         updateReadMemoryAccess(entry0, i, version, value);
         updateReadMemoryLineAccess(entry0Line, i, version, value);
+#endif
         updateTimestamp(entryDest, i, version, value);
         updateCP(value, i);
     }
@@ -933,8 +947,10 @@ void* logStoreInst(UInt src, Addr dest_addr) {
         UInt64 ts0 = getTimestamp(entry0, i, version);
         UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
         UInt64 value = greater1 + STORE_COST;
+#ifdef EXTRA_STATS
         updateWriteMemoryAccess(entryDest, i, version, value);
         updateWriteMemoryLineAccess(entryLine, i, version, value);
+#endif
         updateTimestamp(entryDest, i, version, value);
         updateCP(value, i);
     }
@@ -970,8 +986,10 @@ void* logStoreInstConst(Addr dest_addr) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
         UInt64 value = cdt + STORE_COST;
+#ifdef EXTRA_STATS
         updateWriteMemoryAccess(entryDest, i, version, value);
         updateWriteMemoryLineAccess(entryLine, i, version, value);
+#endif
         updateTimestamp(entryDest, i, version, value);
         updateCP(value, i);
     }

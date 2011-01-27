@@ -17,6 +17,8 @@ int isEquivalent(URegionField field0, URegionField field1) {
 		return 0;
 	if (field0.callSite != field1.callSite)
 		return 0;
+
+#ifdef EXTRA_STATS
 	if (field0.readCnt != field1.readCnt)
 		return 0;
 	if (field0.writeCnt != field1.writeCnt)
@@ -28,6 +30,7 @@ int isEquivalent(URegionField field0, URegionField field1) {
 	if (field0.writeLineCnt != field1.writeLineCnt) {
 		return 0;
 	}
+#endif
 
 	return 1;
 }
