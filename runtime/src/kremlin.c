@@ -680,7 +680,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     }
 
 #ifdef USE_UREGION
-    URegionField field;
+    RegionField field;
     field.work = work;
     field.cp = cp;
 	field.callSite = regionInfo[region].callSiteId;

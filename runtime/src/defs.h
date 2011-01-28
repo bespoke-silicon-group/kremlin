@@ -58,6 +58,19 @@ typedef FILE                File;
 enum RegionType {RegionFunc, RegionLoop};
 MemMapAllocator* memPool;
 
+typedef struct _RegionField_t {
+	UInt64 work;
+	UInt64 cp;
+	UInt64 callSite;
+
+#ifdef EXTRA_STATS
+	UInt64 readCnt;
+	UInt64 writeCnt;
+	UInt64 readLineCnt;
+	UInt64 readLineCnt;
+#endif
+} RegionField;
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */

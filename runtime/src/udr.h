@@ -3,23 +3,11 @@
 
 #include "defs.h"
 
-typedef struct _URegionField_t {
-	UInt64 work;
-	UInt64 cp;
-#ifdef EXTRA_STATS
-	UInt64 readCnt;
-	UInt64 writeCnt;
-	UInt64 readLineCnt;
-	UInt64 writeLineCnt;
-#endif
-	UInt64 callSite;
-} URegionField;
-
 typedef struct _URegion_t {
 	UInt64 uid;
 	UInt64 sid;
 	UInt64 cnt;
-	URegionField field;
+	RegionField field;
 	UInt64 childrenSize;
 	struct _ChildInfo_* cHeader;	
 	struct _URegion_t* next;
@@ -31,7 +19,7 @@ typedef struct _DRegion_t {
 	UInt64 did;
 	UInt64 pSid;
 	UInt64 pDid;
-	URegionField field;
+	RegionField field;
 	URegion* uregion;
 	struct _DRegion_t* next; // for stack
 	
@@ -47,7 +35,7 @@ typedef struct _ChildInfo_ {
 
 
 void processUdr(UInt64 sid, UInt64 did, UInt64 pSid, UInt64 pDid, 
-	URegionField field);
+	RegionField field);
 
 void initializeUdr();
 void finalizeUdr();

@@ -10,7 +10,7 @@ HASH_MAP_DEFINE_FUNCTIONS(oid_nid, UInt64, UInt32);
 UInt64 idHash(UInt64 id) { return id; }
 UInt64 idCompare(UInt64 id1, UInt64 id2) { return id1 == id2; }
 
-int isEquivalent(URegionField field0, URegionField field1) {
+int isEquivalent(RegionField field0, RegionField field1) {
 	if (field0.work != field1.work)
 		return 0;
 	if (field0.cp != field1.cp)
@@ -36,7 +36,7 @@ int isEquivalent(URegionField field0, URegionField field1) {
 }
 
 DRegion* allocateDRegion(UInt64 sid, UInt64 did, UInt64 pSid,
-	UInt64 pDid, URegionField field) {
+	UInt64 pDid, RegionField field) {
 	DRegion* ret = (DRegion*)malloc(sizeof(DRegion));
 	ret->sid = sid;
 	ret->did = did;
@@ -206,7 +206,7 @@ URegion*** _uregionMap;
 int _uidPtr;
 long long _uregionCnt = 0;
 
-URegion* createURegion(UInt64 uid, UInt64 sid, URegionField field, UInt64 pSid, ChildInfo* head) {
+URegion* createURegion(UInt64 uid, UInt64 sid, RegionField field, UInt64 pSid, ChildInfo* head) {
 	URegion* ret = (URegion*)malloc(sizeof(URegion));
 	ret->uid = uid;
 	ret->sid = sid;
@@ -279,7 +279,7 @@ URegion* updateURegion(DRegion* region, ChildInfo* head) {
 }
 
 void processUdr(UInt64 sid, UInt64 did, UInt64 pSid, 
-	UInt64 pDid, URegionField field) {
+	UInt64 pDid, RegionField field) {
 	
 	DRegion* region = allocateDRegion(sid, did, pSid, pDid, field);
 	
