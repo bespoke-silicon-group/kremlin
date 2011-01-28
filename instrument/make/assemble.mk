@@ -19,7 +19,7 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/useTemp.mk
 ASM_SOURCES += $(filter %.s, $(SOURCES))
 
 # All the object files that have been instrumented or not.
-ASM_SOURCES_AS_OBJ = $(ASM_SOURCES:.s=.o)
+ASM_SOURCES_AS_OBJ = $(addsuffix .o, $(notdir $(basename $(ASM_SOURCES))))
 
 # ---------------------------------------------------------------------------
 # Functions
