@@ -11,9 +11,10 @@ import pprof.*;
 import pyrplan.*;
 
 public class TopDownPredictor {
-	SRegionInfoAnalyzer analyzer;
-	Map<SRegionInfo, InfoStatus> infoMap = new HashMap<SRegionInfo, InfoStatus>();
-	RegionTimeStatus timeStatus;
+	//SRegionInfoAnalyzer analyzer;
+	CRegionManager analyzer;
+	Map<CRegion, InfoStatus> infoMap = new HashMap<CRegion, InfoStatus>();
+	CRegionTimeStatus timeStatus;
 	boolean uniquified;
 	boolean useIntegerCore;
 	
@@ -26,14 +27,14 @@ public class TopDownPredictor {
 		}
 	}
 	
-	public TopDownPredictor(SRegionInfoAnalyzer analyzer, boolean useIntCore) {
+	public TopDownPredictor(CRegionManager analyzer, boolean useIntCore) {
 		this.analyzer = analyzer;
 		this.uniquified = true;
 		this.useIntegerCore = useIntCore;
 		
 	}
 	
-	double getMaxAvailableCore(SRegionInfo info) {
+	double getMaxAvailableCore(CRegion info) {
 		return infoMap.get(info).maxCore;
 	}
 	
@@ -62,7 +63,8 @@ public class TopDownPredictor {
 		
 	}
 	
-	boolean isLeafFuncOrLoop(SRegionInfo info) {
+	boolean isLeafFuncOrLoop(CRegion info) {
+		/*
 		RegionType type = info.getSRegion().getType();
 		if (type == RegionType.BODY)
 			return info.isLeaf();
@@ -72,11 +74,11 @@ public class TopDownPredictor {
 			
 			SRegionInfo bodyInfo = analyzer.getSRegionInfo(info.getChildren().iterator().next());
 			return bodyInfo.isLeaf();
-		} else
+		} else*/
 			return false;			
 	}
 	
-	Unit getBestUnit(SRegionInfo info, double maxCore, double overhead, boolean intCore) {
+	Unit getBestUnit(CRegion info, double maxCore, double overhead, boolean intCore) {
 		if (info.getAvgWork() == 0)
 			return new Unit(1.0, 1);
 		
@@ -116,18 +118,19 @@ public class TopDownPredictor {
 	}
 	
 	
-	void parallelize(SRegionInfo info, double overhead) {		
+	void parallelize(CRegion info, double overhead) {		
 		double maxCore = getMaxAvailableCore(info);
 		
-		Unit unit = getBestUnit(info, maxCore, overhead, this.useIntegerCore);		
+		Unit unit = getBestUnit(info, maxCore, overhead, this.useIntegerCore);	
+
 		InfoStatus status = infoMap.get(info);
 		status.speedup = unit.speedup;
 		status.allocatedCore = unit.core;	
-				
-		if (status.speedup > 1.000001) {
-			/*
-			System.out.printf("[%5.2f @ %5.2f sp=%5.2f] %s\n", 
-					status.speedup, status.allocatedCore, info.getSelfParallelism(), info.getSRegion());*/			
+		/*	
+		System.out.printf("[%5.2f @ %5.2f sp=%5.2f] %s\n", 
+				status.speedup, status.allocatedCore, info.getSelfParallelism(), info.getSRegion());*/
+		
+		if (status.speedup > 1.000001) {						
 			timeStatus.parallelize(info, status.speedup);
 		} else {
 			assert(status.speedup > 0.999);
@@ -137,19 +140,19 @@ public class TopDownPredictor {
 	}
 	
 	void init(int maxCore) {
-		this.timeStatus = new RegionTimeStatus(analyzer);
-		for (SRegionInfo each : analyzer.getSRegionInfoSet()) {
+		this.timeStatus = new CRegionTimeStatus(analyzer);
+		for (CRegion each : analyzer.getCRegionSet()) { 
 			infoMap.put(each, new InfoStatus(maxCore));
 		}
 	}
 	
-	void setMaxCore(SRegionInfo info, double core) {
+	void setMaxCore(CRegion info, double core) {
 		InfoStatus status = infoMap.get(info);
 		assert(core >= 1.0);
 		status.maxCore = core;
 	}
 	
-	double getChildMaxCore(SRegionInfo info) {
+	double getChildMaxCore(CRegion info) {
 		InfoStatus status = infoMap.get(info);
 		double childMaxCore = status.maxCore / status.allocatedCore;
 		if (childMaxCore < 0.99999) {
@@ -159,47 +162,38 @@ public class TopDownPredictor {
 		return childMaxCore + 0.0000001;
 	}
 	
-	public double predict(int maxCore, Set<SRegionInfo> toExclude, double overhead) {
+	public double predict(int maxCore, Set<CRegion> toExclude, double overhead) {
 		init(maxCore);
-		List<SRegionInfo> readyList = new ArrayList<SRegionInfo>();
-		Set<SRegionInfo> retired = new HashSet<SRegionInfo>();
+		List<CRegion> readyList = new ArrayList<CRegion>();
+		Set<CRegion> retired = new HashSet<CRegion>();
 		
-		readyList.add(analyzer.getRootInfo());
+		readyList.add(analyzer.getRoot());
 		while(!readyList.isEmpty()) {
-			SRegionInfo current = readyList.get(0);
-			if (!toExclude.contains(current))
-				parallelize(current, overhead);		
+			CRegion current = readyList.get(0);
+			
+			if (!toExclude.contains(current)) {
+				//System.out.println("Current = " + current);
+				parallelize(current, overhead);
+			}
 			retired.add(current);
 			readyList.remove(current);						
 			double childMaxCore = getChildMaxCore(current);			
 			
-			Set<SRegion> children = current.getChildren();
-			for (SRegion child : children) {
-				SRegionInfo childInfo = analyzer.getSRegionInfo(child);
-				if (childInfo.getParents().size() > 1) {
-					System.err.println("[Parent > 1] " + childInfo.getSRegion());
-					this.uniquified = false;
-				}
-				 
-				setMaxCore(childInfo, childMaxCore);
+			Set<CRegion> children = current.getChildrenSet();
+			for (CRegion child : children) {				 
+				setMaxCore(child, childMaxCore);
 				/*
 				if (retired.contains(childInfo)) {
 					assert(childInfo.getParents().size() > 1);
 				}*/
-				if (this.uniquified) {
-					assert(!retired.contains(childInfo));
-					assert(!readyList.contains(childInfo));
-					readyList.add(childInfo);
-					
-				} else {
-					if (!readyList.contains(childInfo) && 
-							!retired.contains(childInfo))
-						readyList.add(childInfo);
-				}				
+				
+				assert(!retired.contains(child));
+				assert(!readyList.contains(child));
+				readyList.add(child);								
 			}						
 		}
 		double parallelTime = timeStatus.getExecTime();
-		double serialTime = analyzer.getRootInfo().getTotalWork();
+		double serialTime = analyzer.getRoot().getTotalWork();
 		return serialTime / parallelTime;
 	}	
 	

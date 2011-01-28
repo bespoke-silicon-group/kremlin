@@ -18,6 +18,7 @@ public class RunnerNest {
 		//String dir = "/h/g3/dhjeon/research/spaa2011/spec2k";
 		//String projectList[] = {"bt", "cg", "ep", "ft", "is", "mg", "sp"};
 		//String projectList[] = {"cg", "is", "sp"};
+		//String projectList[] = {"twolf"};
 		String projectList[] = {"loop"};
 		//String projectList[] = {"BT", "CG", "FT", "IS", "EP", "LU", "SP"};
 		//String projectList[] = {"164.gzip"};

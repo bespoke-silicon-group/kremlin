@@ -181,7 +181,7 @@ public class DPPlanner extends Planner {
 
 		
 		SRegionManager sManager = new SRegionManager(new File(sFile), false);		
-		URegionManager dManager = new URegionManager(sManager, new File(dFile));	
+		URegionManager dManager = new URegionManager(sManager, new File(dFile), true);	
 		
 		OMPGrepReader reader = new OMPGrepReader();		
 		SRegionProfileAnalyzer profileAnalyzer = new SRegionProfileAnalyzer(dManager, reader);

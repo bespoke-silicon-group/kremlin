@@ -4,13 +4,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
+import java.util.*;
 
 
 public class URegion {
 	static long num = 0;
 	static final long SYNC_COST = 30000; 
-	URegion(SRegion sregion, long uid, long work, long cp, 
+	URegion(SRegion sregion, long uid, long work, long cp, long callSite, 
 			long readCnt, long writeCnt, long readLineCnt, long writeLineCnt, 
 			long cnt, Map<URegion, Long> map) {
 		assert(sregion != null);
@@ -19,6 +19,7 @@ public class URegion {
 		this.sregion = sregion;
 		this.work = work;
 		this.cnt = cnt;
+		this.callSite = callSite;
 		this.readCnt = readCnt;
 		this.writeCnt = writeCnt;
 		this.readLineCnt = readLineCnt;
@@ -59,6 +60,7 @@ public class URegion {
 	SRegion sregion;
 	long work;
 	long cp;
+	long callSite;
 	long readCnt;
 	long writeCnt;
 	long readLineCnt;
@@ -69,10 +71,34 @@ public class URegion {
 	double pFactor;
 	Map<URegion, Long> children;
 	Set<URegion> parentSet;
+	//List<Long> callStack = new ArrayList<Long>();
 	//DEntry parent;
 	//Set<DEntry> childrenSet;
 	//Map<DEntry, Long> childrenCntMap;
 	//Map<Long, List<Long>> 
+	
+	public List<Long> getCallStack() {
+		List<Long> ret = new ArrayList<Long>();
+		URegion current = this;
+		while (current != null) {
+			long callSite = current.callSite;
+			ret.add(callSite);
+			if (current.getParentSet().size() == 0)
+				current = null;
+			else {
+				current = current.getParentSet().iterator().next();
+				if (current.getParentSet().size() != 1) {					
+					for (URegion parent : current.getParentSet()) {
+						assert(parent.callSite == current.callSite);
+					}
+					//System.out.println(current);
+				}
+				//assert(current.getParentSet().size() == 1);
+				
+			}				
+		}
+		return ret;
+	}
 	
 	public long getId() {
 		return id;
@@ -124,6 +150,9 @@ public class URegion {
 	
 	boolean isCompatible(URegion target) {
 		long nChildren = target.children.keySet().size();
+		if (target.callSite != this.callSite)
+			return false;
+		
 		if (target.readCnt != this.readCnt)
 			return false;
 		

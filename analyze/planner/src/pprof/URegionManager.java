@@ -17,7 +17,7 @@ public class URegionManager extends EntryManager {
 		this.isNeo = isNeo;
 		try {					
 			buildDEntryMap(file);
-			//System.err.println("build done");
+			System.err.println("build done -clone count: " + (Long.MAX_VALUE - this.idStack));
 			
 		} catch(Exception e) {
 			if (e instanceof java.io.EOFException == false) {
@@ -30,13 +30,14 @@ public class URegionManager extends EntryManager {
 	}
 	
 	class Entry {
-		Entry(long uid, long sid, long work, long cp, 
+		Entry(long uid, long sid, long work, long cp, long callSite, 
 				long readCnt, long writeCnt, long readLineCnt, long writeLineCnt,  
 				long cnt, Map<Long, Long> children) {
 			this.uid = uid;
 			this.sid = sid;
 			this.work = work;
 			this.cp = cp;
+			this.callSite = callSite;
 			this.readCnt = readCnt;
 			this.writeCnt = writeCnt;
 			this.readLineCnt = readLineCnt;
@@ -46,7 +47,7 @@ public class URegionManager extends EntryManager {
 			//this.pSid = pSid;
 			this.children = children;
 		}
-		long uid, sid, work, cp, cnt, pSid;
+		long uid, sid, work, cp, cnt, pSid, callSite;
 		long readLineCnt, writeLineCnt, readCnt, writeCnt;
 		Map<Long, Long> children;
 		
@@ -58,6 +59,38 @@ public class URegionManager extends EntryManager {
 	
 	public SRegionInfoAnalyzer getSRegionAnalyzer() {
 		return this.analyzer;
+	}
+	
+	long idStack = Long.MAX_VALUE;
+	long allocateUid() {
+		idStack--;
+		return idStack;
+	}
+	
+	URegion clone(URegion region) {
+		long uid = allocateUid();
+				
+		Map<URegion, Long> childrenMap = new HashMap<URegion, Long>();
+		URegion entry = new URegion(region.sregion, uid, region.work, region.cp, region.callSite,
+				region.readCnt, region.writeCnt, 
+				region.readLineCnt, region.writeLineCnt,  
+				region.cnt, childrenMap);
+		
+		
+		if (region.children.keySet().size() > 0) {
+			//for (URegion each : region.children.keySet()) {
+			//	System.out.println("\t!!" + each.getSRegion());
+			//}
+			
+			//assert(false);
+			if (region.work > 10000) {
+				System.out.println("work > 100000 " + region);
+				//assert(false);
+			}
+		}
+		dMap.put(uid, entry);
+		//addDEntry(entry);
+		return entry;
 	}
 	
 	void buildDEntryMap(File file) {
@@ -89,12 +122,13 @@ public class URegionManager extends EntryManager {
 					long childCnt = Long.reverseBytes(input.readLong());
 					childrenMap.put(childUid, childCnt);
 				}			
-				
+				/*
 				System.out.printf("%d %d %d %d %d %d %d (%d %d) (%d %d)\n",
 						uid, sid, work, cp, cnt, nChildren, callSite, readCnt, writeCnt, readLineCnt, writeLineCnt);
-				System.out.println("\t" + childrenMap);			
+				System.out.println("\t" + childrenMap);*/
+							
 				
-				uMap.put(uid, new Entry(uid, sid, work, cp, readCnt, writeCnt, readLineCnt, writeLineCnt, cnt, childrenMap));
+				uMap.put(uid, new Entry(uid, sid, work, cp, callSite, readCnt, writeCnt, readLineCnt, writeLineCnt, cnt, childrenMap));
 				
 				if (nChildren == 0) {
 					workList.add(0, uMap.get(uid));				
@@ -127,17 +161,23 @@ public class URegionManager extends EntryManager {
 				retired.add(toRemove);
 				//System.out.println(toRemove);
 				//SRegion sregion, long work, long cp, Map<DEntry, Long> map
-				SRegion sregion = sManager.getSRegion(toRemove.sid);				
+				SRegion sregion = sManager.getSRegion(toRemove.sid);
+				if (sregion.getType() == RegionType.BODY) {
+					assert(false);
+				}
 				assert(sregion != null);
 				Map<URegion, Long> children = new HashMap<URegion, Long>();
 				for (long uid : toRemove.children.keySet()) {
 					assert(dMap.containsKey(uid));
 					URegion child = dMap.get(uid);
-					assert(child.id == uid);
+					if (child.getParentSet().size() > 0) {
+						child = clone(child);
+					}
+					//assert(child.id == uid);
 					long cnt = toRemove.children.get(uid);
 					children.put(child, cnt);
 				}
-				URegion entry = new URegion(sregion, toRemove.uid, toRemove.work, toRemove.cp, 
+				URegion entry = new URegion(sregion, toRemove.uid, toRemove.work, toRemove.cp, toRemove.callSite,
 						toRemove.readCnt, toRemove.writeCnt, 
 						toRemove.readLineCnt, toRemove.writeLineCnt,  
 						toRemove.cnt, children);
@@ -172,7 +212,7 @@ public class URegionManager extends EntryManager {
 				//System.out.println("Root: " + each);
 				this.root = each;
 				cnt++;
-			}
+			}			
 		}
 		
 		if (cnt != 1) {

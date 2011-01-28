@@ -29,6 +29,10 @@ public class SRegionManager {
 	}
 	
 	public SRegion getSRegion(long id) {		
+		if (!sMap.containsKey(id)) {
+			System.out.println("invalid sid: " + id);
+			assert(false);
+		}
 		assert(sMap.containsKey(id));
 		return sMap.get(id);
 	}
