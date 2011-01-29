@@ -87,11 +87,6 @@ hash_map_sid_did*   sidToDid;
 UInt64              lastCallSiteId;
 UInt64              calledRegionId;
 
-
-#ifdef __cplusplus
-int instrument = 0;
-#endif
-
 #ifdef MANAGE_BB_INFO
 UInt    __prevBB;
 UInt    __currentBB;
@@ -160,10 +155,6 @@ void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
 void linkArgToLocal(UInt src) {
     if (!isPyrprofOn())
         return;
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(1, "linkArgToLocal to ts[%u]\n", src);
 
 #ifndef WORK_ONLY
@@ -175,10 +166,6 @@ void linkArgToLocal(UInt src) {
 void linkArgToConst() {
     if (!isPyrprofOn())
         return;
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(1, "linkArgToConst\n");
 
 #ifndef WORK_ONLY
@@ -191,10 +178,6 @@ void linkArgToConst() {
 void transferAndUnlinkArg(UInt dest) {
     if (!isPyrprofOn())
         return;
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(1, "getArgInfo to ts[%u]\n", dest);
 
 #ifndef WORK_ONLY
@@ -223,10 +206,6 @@ void freeCDT(CDT* cdt) {
 }
 
 void setupLocalTable(UInt maxVregNum) {
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(1, "setupLocalTable size %u\n", maxVregNum);
 
 #ifndef WORK_ONLY
@@ -298,9 +277,6 @@ void fillCDT(CDT* cdt, TEntry* entry) {
 }
 
 void pushFuncContext() {
-#ifdef __cplusplus
-    instrument++;
-#endif
     FuncContext* prevHead = funcHead;
     FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
     toAdd->table = NULL;
@@ -380,9 +356,6 @@ void addStore() {
 }
 
 void popFuncContext() {
-#ifdef __cplusplus
-    instrument--;
-#endif
     FuncContext* ret = funcHead;
     assert(ret != NULL);
     //assert(ret->table != NULL);
@@ -561,11 +534,6 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
         return;
     }
 
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
-
     if(regionType == RegionFunc)
     {
         pushFuncContext();
@@ -642,10 +610,6 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
         }
         return;
     }
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     int region = getCurrentRegion();
 
     UInt64 sid = regionId;
@@ -729,10 +693,6 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
     if (!isPyrprofOn())
         return NULL;
 
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
     addWork(opCost);
 
@@ -776,10 +736,6 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
     if (!isPyrprofOn())
         return NULL;
 
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
     addWork(opCost);
 
@@ -820,18 +776,10 @@ void* logAssignment(UInt src, UInt dest) {
     if (!isPyrprofOn())
         return NULL;
     
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     return logBinaryOpConst(0, src, dest);
 }
 
 void* logAssignmentConst(UInt dest) {
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "logAssignmentConst ts[%u]\n", dest);
 
 #ifndef WORK_ONLY
@@ -860,10 +808,6 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     if (!isPyrprofOn())
         return NULL;
 
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
     addWork(LOAD_COST);
     addLoad();
@@ -904,10 +848,6 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 void* logStoreInst(UInt src, Addr dest_addr) {
     if (!isPyrprofOn())
         return NULL;
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
     addWork(STORE_COST);
     addStore();
@@ -949,10 +889,6 @@ void* logStoreInstConst(Addr dest_addr) {
     if (!isPyrprofOn())
         return NULL;
 
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
     addWork(STORE_COST);
 
@@ -1239,10 +1175,6 @@ void* logInsertValueConst(UInt dest) {
 
 
 void addControlDep(UInt cond) {
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(2, "push ControlDep ts[%u]\n", cond);
 
 #ifndef WORK_ONLY
@@ -1257,10 +1189,6 @@ void addControlDep(UInt cond) {
 }
 
 void removeControlDep() {
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(2, "pop  ControlDep\n");
 
 #ifndef WORK_ONLY
@@ -1275,10 +1203,6 @@ void removeControlDep() {
 void addReturnValueLink(UInt dest) {
     if (!isPyrprofOn())
         return;
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(1, "prepare return storage ts[%u]\n", dest);
 #ifndef WORK_ONLY
     funcHead->ret = getLTEntry(dest);
@@ -1289,10 +1213,6 @@ void addReturnValueLink(UInt dest) {
 void logFuncReturn(UInt src) {
     if (!isPyrprofOn())
         return;
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(1, "write return value ts[%u]\n", src);
 
 #ifndef WORK_ONLY
@@ -1308,10 +1228,6 @@ void logFuncReturn(UInt src) {
 void logFuncReturnConst(void) {
     if (!isPyrprofOn())
         return;
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(1, "logFuncReturnConst\n");
 
 #ifndef WORK_ONLY
@@ -1333,10 +1249,6 @@ void logFuncReturnConst(void) {
 void logBBVisit(UInt bb_id) {
     if (!isPyrprofOn())
         return;
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
 #ifdef MANAGE_BB_INFO
     MSG(1, "logBBVisit(%u)\n", bb_id);
     __prevBB = __currentBB;
@@ -1347,10 +1259,6 @@ void logBBVisit(UInt bb_id) {
 void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
     if (!isPyrprofOn())
         return NULL;
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
 
 #ifndef WORK_ONLY
@@ -1389,11 +1297,6 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
     if (!isPyrprofOn())
         return NULL;
-
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
 
     MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
 
@@ -1437,10 +1340,6 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     if (!isPyrprofOn())
         return NULL;
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "logPhiNode3CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
 
 #ifndef WORK_ONLY
@@ -1490,10 +1389,6 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
     if (!isPyrprofOn())
         return NULL;
 
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3, cd4);
 
 #ifndef WORK_ONLY
@@ -1548,10 +1443,6 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     if (!isPyrprofOn())
         return NULL;
 
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "log4CDToPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, dest, cd1, cd2, cd3, cd4);
 
 #ifndef WORK_ONLY
@@ -1604,10 +1495,6 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 void logPhiNodeAddCondition(UInt dest, UInt src) {
     if (!isPyrprofOn())
         return;
-#ifdef __cplusplus
-    if(!instrument)
-        return;
-#endif
     MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
 
 #ifndef WORK_ONLY
@@ -1644,10 +1531,6 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
     if (!isPyrprofOn())
         return NULL;
 
-#ifdef __cplusplus
-    if(!instrument)
-        return NULL;
-#endif
     MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
     addWork(cost);
 
@@ -1710,10 +1593,6 @@ int pyrprofInit() {
     pyrprofOn = TRUE;
 
     fprintf(stderr,"DEBUGLEVEL = %d\n", DEBUGLEVEL);
-
-#ifdef __cplusplus
-    instrument++;
-#endif
 
 #ifdef USE_UREGION
     initializeUdr();
@@ -1786,11 +1665,6 @@ int pyrprofDeinit() {
 
     freeCDT(cdtHead);
     cdtHead = NULL;
-
-#ifdef __cplusplus
-    instrument--;
-#endif
-
 
     fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
         _minRegionToLog, _maxRegionToLog);
