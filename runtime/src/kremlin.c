@@ -12,6 +12,7 @@
 #include "table.h"
 #include "deque.h"
 #include "hash_map.h"
+#include "cregion.h"
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024)
 
@@ -608,6 +609,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     regionInfo[region].writeLineCnt = 0;
 #endif
 
+	cregionPutContext(regionId, lastCallSiteId);
 #ifndef WORK_ONLY
     if (region >= _minRegionToLog && region <= _maxRegionToLog)
         setCdt(region, versions[region], 0);
@@ -679,7 +681,6 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
         assert(0);
     }
 
-#ifdef USE_UREGION
     RegionField field;
     field.work = work;
     field.cp = cp;
@@ -689,31 +690,13 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     field.writeCnt = regionInfo[region].writeCnt;
     field.readLineCnt = regionInfo[region].readLineCnt;
     field.writeLineCnt = regionInfo[region].writeLineCnt;
-
     assert(work >= field.readCnt && work >= field.writeCnt);
 #endif
 
+#ifdef USE_UREGION
     processUdr(sid, did, parentSid, parentDid, field);
 #else
-    if (_lastWork == work &&
-        _lastCP == cp &&
-        _lastCnt > 0 &&
-        _lastSid == sid ) {
-        _lastCnt++;
-
-    } else {
-        if (_lastCnt > 0)
-            log_write(fp, _lastSid, _lastDid, _lastStart, _lastEnd, _lastCP, _lastParentSid, _lastParentDid, _lastCnt);
-        _lastSid = sid;
-        _lastDid = did;
-        _lastWork = work;
-        _lastCP = cp;
-        _lastCnt = 1;       
-        _lastStart = startTime;
-        _lastEnd = endTime;
-        _lastParentSid = parentSid;
-        _lastParentDid = parentDid;
-    }
+	cregionRemoveContext(&field);
 #endif
         
 #ifndef WORK_ONLY
@@ -1734,8 +1717,9 @@ int pyrprofInit() {
 
 #ifdef USE_UREGION
     initializeUdr();
+#else
+	cregionInit();
 #endif
-
     regionNum = 0;
     invokeStackTop = invokeStack;
     int storageSize = _maxRegionToLog - _minRegionToLog + 1;
@@ -1764,8 +1748,6 @@ int pyrprofInit() {
     prepareCall(0, 0);
     cdtHead = allocCDT();
     
-    fp = log_open("cpInfo.bin");
-    assert(fp != NULL);
 
     return TRUE;
 }
@@ -1780,8 +1762,7 @@ int pyrprofDeinit() {
 #ifdef USE_UREGION
     finalizeUdr();
 #else
-    //assert(_lastCnt == 1 && _lastParentSid == 0);
-    log_write(fp, _lastSid, _lastDid, _lastStart, _lastEnd, _lastCP, _lastParentSid, _lastParentDid, _lastCnt);
+	cregionFinish("kremlin.bin");
 #endif
 
     finalizeDataStructure();
@@ -1807,7 +1788,6 @@ int pyrprofDeinit() {
     instrument--;
 #endif
 
-    log_close(fp);
 
     fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
         _minRegionToLog, _maxRegionToLog);
