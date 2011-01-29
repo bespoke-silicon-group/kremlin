@@ -57,11 +57,13 @@ int PoolCreate(Pool** p, size_t pageSize, void* allocator, void* (*mallocFunc)(v
     return TRUE;
 }
 
-// XXX: IMPLEMENT PROPERLY
 int PoolDelete(Pool** p)
 {
     if(!p || !*p)
         return FALSE;
+
+    // XXX: The memory pointed to in the free list is never free'd!
+    vector_delete(&(*p)->freeList);
 
     free(*p);
     *p = NULL;
@@ -71,8 +73,6 @@ int PoolDelete(Pool** p)
 
 void PoolFree(Pool* p, void* ptr)
 {
-    //assert(ptr >= *p->data && (unsigned char*)ptr < (unsigned char*)p->data + p->pageCount * p->pageSize);
-
     PoolFreeListPush(p, ptr);
 }
 

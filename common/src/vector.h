@@ -46,7 +46,23 @@ int vector_delete(vector** v);
  * @return              TRUE on success.
  */
 int vector_push(vector* v, void* element);
+
+/**
+ * Removes an element from the end of the vector.
+ *
+ * @memeberof           vector
+ * @param v             The vector.
+ * @return              The popped element.
+ */
 void* vector_pop(vector* v);
+
+/**
+ * Returns the last element in the vector.
+ *
+ * @memeberof           vector
+ * @param v             The vector.
+ * @return              The last element.
+ */
 void* vector_top(vector* v);
 
 int vector_size(vector* v);

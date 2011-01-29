@@ -80,8 +80,8 @@ TEntry* allocTEntry(int size) {
     spaceToAlloc += readVersionSize + readTimeSize;
 #endif
     
-    //if(!(entry = (TEntry*) malloc(spaceToAlloc)))
-    if(!(entry = (TEntry*) PoolMalloc(tEntryPool)))
+    if(!(entry = (TEntry*) malloc(spaceToAlloc)))
+    //if(!(entry = (TEntry*) PoolMalloc(tEntryPool)))
     {
         fprintf(stderr, "Failed to alloc TEntry\n");
         assert(0);
@@ -103,8 +103,8 @@ TEntry* allocTEntry(int size) {
 }
 
 void freeTEntry(TEntry* entry) {
-	//free(entry);
-	PoolFree(tEntryPool, entry);
+	free(entry);
+	//PoolFree(tEntryPool, entry);
 }
 
 void createMEntry(Addr start_addr, size_t entry_size) {
@@ -257,6 +257,7 @@ void initDataStructure(int regionLevel) {
 }
 
 void finalizeDataStructure() {
+    PoolDelete(&tEntryPool);
 	freeGlobalTable(gTable);
 	freeMallocTable(mTable);
 }

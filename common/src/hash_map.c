@@ -300,7 +300,7 @@ void* hash_map_remove(hash_map* map, hash_map_key key)
 	return found_value;
 }
 
-int hash_map_reserve(hash_map* map, hash_map_index size)
+int hash_map_reserve(hash_map* map, size_t size)
 {
 	hash_map_node** new_map;
 	hash_map_node** root_node;
@@ -309,7 +309,7 @@ int hash_map_reserve(hash_map* map, hash_map_index size)
 	hash_map_node* next_node;
 
 	if(debug >= DEBUG_LEVEL_INFO)
-		fprintf(stderr, "hash_map %p - reserving %llu elements\n", map, size);
+		fprintf(stderr, "hash_map %p - reserving %llu elements\n", map, (unsigned long long)size);
 
 	if(!(new_map = (hash_map_node**)calloc(size, sizeof(hash_map_node*))))
 	{

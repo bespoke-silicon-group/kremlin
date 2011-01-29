@@ -14,7 +14,7 @@
 #include "hash_map.h"
 #include "cregion.h"
 
-#define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024)
+#define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 
 #define _MAX_REGION_LEVEL   100     // used for static data structures
 
@@ -1767,10 +1767,10 @@ int pyrprofDeinit() {
 
     finalizeDataStructure();
 
-    // Deallocate the arg timestamp deque
+    // Deallocate the arg timestamp deque.
     deque_delete(&argTimestamps);
 
-    // Deallocate the static id to dynamic id map
+    // Deallocate the static id to dynamic id map.
     hash_map_sid_did_delete(&sidToDid);
 
     freeDummyTEntry();
@@ -1780,6 +1780,9 @@ int pyrprofDeinit() {
 
     free(versions);
     versions = NULL;
+
+    // Deallocate the memory allocator.
+    MemMapAllocatorDelete(&memPool);
 
     freeCDT(cdtHead);
     cdtHead = NULL;

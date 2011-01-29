@@ -83,10 +83,26 @@ hash_map_key hash_map_it_init(hash_map_iterator* it, hash_map* map);
  * @return              The next key in the hash map.
  */
 hash_map_key hash_map_it_next(hash_map_iterator* it);
+
+/**
+ * Returns the value associated with this key. This does not advance the
+ * iterator.
+ *
+ * @param it            The iterator.
+ * @return              The next value in the hash map.
+ */
 hash_map_value* hash_map_it_value(hash_map_iterator* it);
 hash_map_value hash_map_put(hash_map* map, hash_map_key key, hash_map_value value, int force);
 hash_map_value hash_map_remove(hash_map* map, hash_map_key key);
-int hash_map_reserve(hash_map* map, hash_map_index size);
+
+/**
+ * Reserves at least size entries in the hash map.
+ *
+ * @param map           The map.
+ * @param size          The number of elements to make room for.
+ * @return              TRUE on success.
+ */
+int hash_map_reserve(hash_map* map, size_t size);
 int hash_map_set_load(hash_map* map, float load);
 hash_map_index hash_map_size(hash_map* map);
 
@@ -164,7 +180,7 @@ struct hash_map_iterator
     value_type* hash_map_##base_name##_get(hash_map* map, key_type key) { return (value_type*)hash_map_get(map, (hash_map_key)key); } \
     key_type hash_map_##base_name##_it_init(hash_map_iterator* it, hash_map* map) { return (key_type)hash_map_it_init(it, map); } \
     key_type hash_map_##base_name##_it_next(hash_map_iterator* it) { return (key_type)hash_map_it_next(it); } \
-    value_type hash_map_##base_name##_it_value(hash_map_iterator* it) { return (value_type)hash_map_it_value(it); } \
+    value_type* hash_map_##base_name##_it_value(hash_map_iterator* it) { return (value_type*)hash_map_it_value(it); } \
     value_type hash_map_##base_name##_put(hash_map* map, key_type key, value_type value, int force) { return (value_type)hash_map_put(map, (hash_map_key)key, (hash_map_value)value, force); } \
     value_type hash_map_##base_name##_remove(hash_map* map, key_type key) { return (value_type)hash_map_remove(map, (hash_map_key)key); } \
     int hash_map_##base_name##_reserve(hash_map* map, hash_map_index size) { return hash_map_reserve(map, size); } \
