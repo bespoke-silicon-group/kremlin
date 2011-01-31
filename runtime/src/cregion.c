@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include "cregion.h"
 
@@ -8,7 +9,7 @@ static CNode* current;
 
 /***  local functions ***/
 static void updateCRegion(CRegion* region, RegionField* info);
-static CNode* findChildNode(CNode* node, UInt64 sid, UInt callSite); 
+static CNode* findChildNode(CNode* node, UInt64 sid, UInt64 callSite); 
 static CNode* createCNode(CNode* parent, CRegion* region);
 static void deleteCNode(); 
 static CRegion* createCRegion(UInt64 sid, UInt64 callSite);
@@ -31,9 +32,7 @@ void cregionInit() {
 }
 
 void cregionFinish(char* file) {
-	fprintf(stderr, "start emit..");
 	emit(file);
-	fprintf(stderr, "done!..\n");
 }
 
 // move the pointer to the right place 
@@ -58,16 +57,20 @@ void cregionRemoveContext(RegionField* info) {
 }
 
 /*** Local Functions */
+static int numEntries = 0;
+static int numEntriesLeaf = 0;
 
 static void emit(char* file) {
 	FILE* fp = fopen(file, "w");
 	emitRegion(fp, root);
 	fclose(fp);
+	fprintf(stderr, "[Emit] total = %d, leaves = %d\n", numEntries, numEntriesLeaf);
 }
 
 // recursive call
 static void emitRegion(FILE* fp, CNode* node) {
 	CRegion* region = node->region;
+	numEntries++;
 	//fprintf(stderr, "emitting region 0x%llx\n", node->region->id);
     assert(fp != NULL);
     assert(node != NULL);
@@ -93,6 +96,8 @@ static void emitRegion(FILE* fp, CNode* node) {
 #endif
 
 	UInt64 size = node->childrenSize;
+	if (size == 0)
+		numEntriesLeaf++;
 	int i;
     fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
     CNode* current = node->firstChild;
@@ -122,10 +127,12 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	region->numInstance++;
 	
 }
-static CNode* findChildNode(CNode* node, UInt64 sid, UInt callSite) {
+static CNode* findChildNode(CNode* node, UInt64 sid, UInt64 callSite) {
 	CNode* child = node->firstChild;
+	//fprintf(stderr, "looking for sid : 0x%llx, callSite: 0x%llx\n", sid, callSite);
 	while (child != NULL) {
 		CRegion* region = child->region;
+		//fprintf(stderr, "\tcandidate sid : 0x%llx, callSite: 0x%llx\n", region->sid, region->callSite);
 		if (region->sid == sid && region->callSite == callSite) {
 			return child;
 		} else {

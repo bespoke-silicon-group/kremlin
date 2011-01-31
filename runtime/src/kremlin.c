@@ -38,6 +38,7 @@ typedef struct _CDT_T {
 typedef struct _FuncContext {
     LTable* table;
     TEntry* ret;
+	UInt64 callSiteId;
 #ifdef MANAGE_BB_INFO
     UInt    retBB;
     UInt    retPrevBB;
@@ -47,7 +48,6 @@ typedef struct _FuncContext {
 } FuncContext;
 
 typedef struct _region_t {
-    UInt64 callSiteId;
     UInt64 start;
     UInt64 did;
     UInt64 cp;
@@ -280,6 +280,7 @@ void pushFuncContext() {
     FuncContext* prevHead = funcHead;
     FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
     toAdd->table = NULL;
+	toAdd->callSiteId = lastCallSiteId;
     toAdd->next = prevHead;
 #ifdef MANAGE_BB_INFO
     toAdd->retBB = __currentBB;
@@ -565,7 +566,6 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 	*/
 
     regionInfo[region].regionId = regionId;
-    regionInfo[region].callSiteId = lastCallSiteId;
     regionInfo[region].start = timestamp;
     regionInfo[region].did = *getDynamicRegionId(regionId);
     regionInfo[region].cp = 0;
@@ -577,7 +577,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     regionInfo[region].writeLineCnt = 0;
 #endif
 
-	cregionPutContext(regionId, lastCallSiteId);
+	cregionPutContext(regionId, funcHead->callSiteId);
 #ifndef WORK_ONLY
     if (region >= _minRegionToLog && region <= _maxRegionToLog)
         setCdt(region, versions[region], 0);
@@ -648,7 +648,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     RegionField field;
     field.work = work;
     field.cp = cp;
-	field.callSite = regionInfo[region].callSiteId;
+	field.callSite = funcHead->callSiteId;
 #ifdef EXTRA_STATS
     field.readCnt = regionInfo[region].readCnt;
     field.writeCnt = regionInfo[region].writeCnt;
