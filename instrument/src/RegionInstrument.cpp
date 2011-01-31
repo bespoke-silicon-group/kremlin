@@ -50,7 +50,7 @@ namespace {
 	static cl::opt<std::string> regionGraphFile("region-graph",cl::desc("File to put the region graph into"),cl::value_desc("filename"),cl::init("region.graph"));
 	static cl::opt<bool> noMultiExitLoops("no-multi-exit-loop",cl::desc("Disallows profiling of multi-exit loops"),cl::Hidden,cl::init(false));
 	static cl::opt<bool> noRecursiveFuncs("no-recursive-funcs",cl::desc("Disallows profiling of recursive functions"),cl::Hidden,cl::init(false));
-	static cl::opt<bool> loopBodyRegions("loop-body-regions",cl::desc("Specify that loop body should have its own region ID."),cl::Hidden,cl::init(false));
+	static cl::opt<bool> loopBodyRegions("loop-body-regions",cl::desc("Specify that loop body should have its own region ID."),cl::Hidden,cl::init(true));
 
 	struct ModuleLess : public std::less<Module*> {
 		bool operator()(Module* m1, Module* m2) {
