@@ -239,7 +239,7 @@ namespace {
 			}
 		}
 
-		void instrumentLoop(Loop* loop, LoopInfo& LI, RegionId region_id, Function* logRegionEntry_func, Function* logRegionExit_func) {
+		void instrumentLoop(Loop* loop, LoopInfo& LI, RegionId region_id, RegionId body_region_id, Function* logRegionEntry_func, Function* logRegionExit_func) {
 			BasicBlock *loop_header = loop->getHeader();
 			LLVMTypes types(loop_header->getContext());
 
@@ -291,7 +291,6 @@ namespace {
 			}
 
 			std::vector<Value*> op_args;
-			std::vector<Value*> op_args_loop_body;
 
 			// set up args for call to logRegionEntry(region_id,region_type) in the preheader
 			op_args.push_back(ConstantInt::get(types.i64(),region_id));
@@ -300,15 +299,19 @@ namespace {
 			// insert call right before we jump to the actual header
 			CallInst::Create(logRegionEntry_func, op_args.begin(), op_args.end(), "", preheader->getTerminator());
 
+			/*
 			op_args.clear();
 
 			// set up args for call to logRegionEntry/Exit(region_id,region_type) for loop region
 			op_args.push_back(ConstantInt::get(types.i64(),region_id));
 			op_args.push_back(ConstantInt::get(types.i32(),1));
+			*/
+
+			std::vector<Value*> op_args_loop_body;
 
 			// set up args for call to logRegionEntry/Exit(region_id,region_type) for loop body regions
-			std::string loop_body_name = loop->getHeader()->getName().str() + "_body";
-			op_args_loop_body.push_back(ConstantInt::get(types.i64(),(*region_id_generator)(loop_body_name)));
+			//std::string loop_body_name = loop->getHeader()->getName().str() + "_body";
+			op_args_loop_body.push_back(ConstantInt::get(types.i64(),body_region_id));
 			op_args_loop_body.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_LOOP_BODY)); // loop body regions have type ID = 2
 
 			SmallVector<BasicBlock*,16> exiting_bbs;
@@ -951,6 +954,7 @@ namespace {
 
 				// assign all the loops a region id
 				std::map<std::string,RegionId> loop_header_name_to_region_id;
+				std::vector<RegionId> loop_body_region_ids;
 
 				std::set<BasicBlock*> loop_headers;
 
@@ -965,10 +969,11 @@ namespace {
 
 					std::string loop_name = func.getName().str() + "_" + loop_header->getName().str();
 					std::string loop_header_name = loop_name + "_header";
-					std::string loop_body_name = loop_name + "_body";
+
 					RegionId region_id = (*region_id_generator)(loop_header_name);
 					loop_header_name_to_region_id[loop_header->getName()] = region_id;
 					regions.insert(new LoopRegion(region_id, loop));
+
 					log.debug() << "assigning id = " << region_id << " to loop with the following BBs:\n\t";
 					
 					for(std::vector<BasicBlock*>::const_iterator block = function_loops[i]->getBlocks().begin(), block_end = function_loops[i]->getBlocks().end(); block != block_end; block++)
@@ -977,7 +982,10 @@ namespace {
 					}
 					log.plain() << "\n";
 
+					std::string loop_body_name = loop_name + "_body";
 					region_id = (*region_id_generator)(loop_body_name);
+
+					loop_body_region_ids.push_back(region_id);
 					regions.insert(new LoopBodyRegion(region_id, loop));
 					log.debug() << "assigning id = " << region_id << " to body of loop\n";
 				}
@@ -1123,7 +1131,7 @@ namespace {
 					region_graph << parent_id << " " << loop_id << "\n";
 
 					if(add_logRegionEntry_func) {
-						instrumentLoop(function_loops[i],LI,loop_header_name_to_region_id[function_loops[i]->getHeader()->getName()],logRegionEntry_func,logRegionExit_func);
+						instrumentLoop(function_loops[i],LI,loop_header_name_to_region_id[function_loops[i]->getHeader()->getName()],loop_body_region_ids[i],logRegionEntry_func,logRegionExit_func);
 					}
 				}
 
