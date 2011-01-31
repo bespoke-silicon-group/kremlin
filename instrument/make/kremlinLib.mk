@@ -36,7 +36,6 @@ ALL_KREMLIN_OBJECTS_IN_LIB = $(patsubst %, $(KREMLIN_LIB)(%), $(ALL_KREMLIN_OBJE
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): CFLAGS += -I$(KREMLIN_COMMON_SRC) $(KREMLIB_EXTRA_FLAGS)
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): CC = gcc
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): %.o: %.c
-	@echo "YAY!"
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Archives the kremlin objects into a static library
