@@ -115,8 +115,10 @@ int _requireSetupTable;
  * most instrumentation functions do nothing.
  */ 
 void turnOnProfiler() {
+	fprintf(stderr, "turnOnProfiler...");
     pyrprofOn = 1;
     logRegionEntry(0, 1);
+	fprintf(stderr, "done\n");
 }
 
 /*
@@ -127,6 +129,7 @@ void turnOnProfiler() {
 void turnOffProfiler() {
     logRegionExit(0, 1);
     pyrprofOn = 0;
+	fprintf(stderr, "turnOffProfiler\n");
 }
 
 int _maxRegionNum = 0;
@@ -370,7 +373,7 @@ void popFuncContext() {
     funcHead = ret->next;
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
-    assert(ret->table != NULL);
+    //assert(ret->table != NULL);
     if (ret->table != NULL)
         freeLocalTable(ret->table);
     free(ret);  
@@ -583,7 +586,11 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     regionInfo[region].writeLineCnt = 0LL;
 #endif
 
-	cregionPutContext(regionId, funcHead->callSiteId);
+#ifndef USE_UREGION
+	UInt64 callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
+	cregionPutContext(regionId, callSiteId);
+#endif
+
 #ifndef WORK_ONLY
     if (region >= _minRegionToLog && region <= _maxRegionToLog)
         setCdt(region, versions[region], 0);
@@ -1660,8 +1667,9 @@ int pyrprofInit() {
 
     prepareCall(0, 0);
     cdtHead = allocCDT();
+	pushFuncContext();
     
-
+	turnOnProfiler();
     return TRUE;
 }
 
@@ -1693,6 +1701,7 @@ int pyrprofDeinit() {
 
     free(versions);
     versions = NULL;
+	popFuncContext();
 
     // Deallocate the memory allocator.
     MemMapAllocatorDelete(&memPool);
@@ -1723,6 +1732,7 @@ void cppExit() {
 }
 
 void deinitProfiler() {
+	turnOffProfiler();
     pyrprofDeinit();
 }
 

@@ -24,10 +24,10 @@ static void emitRegion(FILE* fp, CNode* node);
 // initialize CRegion system
 void cregionInit() {
 	fprintf(stderr, "cregionInit..");
-	CRegion* region = createCRegion(0, 0);
-	root = createCNode(NULL, region);
+	//CRegion* region = createCRegion(0, 0);
+	//root = createCNode(NULL, region);
 
-	current = root;
+	//current = root;
 	fprintf(stderr, "done!..\n");
 }
 
@@ -37,12 +37,16 @@ void cregionFinish(char* file) {
 
 // move the pointer to the right place 
 void cregionPutContext(UInt64 sid, UInt64 callSite) {
-	CNode* child = findChildNode(current, sid, callSite);
+	CNode* child = NULL;
+	if (current != NULL)
+		child = findChildNode(current, sid, callSite);
 	if (child == NULL) {
 		CRegion* region = createCRegion(sid, callSite);
 		child = createCNode(current, region);
 	}
 	current = child;
+	if (root == NULL)
+		root = child;
 	//fprintf(stderr, "put context sid: 0x%llx, callSite: 0x%llx\n", sid, callSite);
 }
 
@@ -71,10 +75,11 @@ static void emit(char* file) {
 static void emitRegion(FILE* fp, CNode* node) {
 	CRegion* region = node->region;
 	numEntries++;
-	//fprintf(stderr, "emitting region 0x%llx\n", node->region->id);
+//	fprintf(stderr, "emitting region 0x%llx\n", node->region->id);
     assert(fp != NULL);
     assert(node != NULL);
     assert(region != NULL);
+	//assert(region->numInstance > 0);
     fwrite(&region->id, sizeof(Int64), 1, fp);
     fwrite(&region->sid, sizeof(Int64), 1, fp);
     fwrite(&region->callSite, sizeof(Int64), 1, fp);
@@ -118,8 +123,8 @@ static void emitRegion(FILE* fp, CNode* node) {
 }
 
 static void updateCRegion(CRegion* region, RegionField* info) {
-	//fprintf(stderr, "update current region with info: callSite(0x%llx), work(0x%llx), CP(0x%llx)\n", 
-	//		info->callSite, info->work, info->cp);
+//	fprintf(stderr, "update current region with info: csid(0x%llx), allSite(0x%llx), work(0x%llx), CP(0x%llx)\n", 
+//			region->sid, info->callSite, info->work, info->spWork);
 	//fprintf(stderr, "current region: id(0x%llx), sid(0x%llx), callSite(0x%llx)\n", 
 	//		region->id, region->sid, region->callSite);
 	assert(region->callSite == info->callSite);
@@ -127,6 +132,7 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	region->totalCP += info->cp;
 	region->tpWork += info->tpWork;
 	region->spWork += info->spWork;
+	assert(region->numInstance >= 0);
 	region->numInstance++;
 	
 }
