@@ -9,6 +9,8 @@ typedef struct _cregion_t {
 	UInt64 callSite;
 	UInt64 totalWork;
 	UInt64 totalCP;
+	UInt64 tpWork;
+	UInt64 spWork;
 	UInt64 numInstance;
 	UInt64 childNum;
 	double avgSP;

@@ -80,7 +80,8 @@ static void emitRegion(FILE* fp, CNode* node) {
     fwrite(&region->callSite, sizeof(Int64), 1, fp);
     fwrite(&region->numInstance, sizeof(Int64), 1, fp);
     fwrite(&region->totalWork, sizeof(Int64), 1, fp);
-    fwrite(&region->totalCP, sizeof(Int64), 1, fp);
+    fwrite(&region->tpWork, sizeof(Int64), 1, fp);
+    fwrite(&region->spWork, sizeof(Int64), 1, fp);
 
 #ifdef EXTRA_STATS
     fwrite(&region->field.readCnt, sizeof(Int64), 1, fp);
@@ -124,6 +125,8 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	assert(region->callSite == info->callSite);
 	region->totalWork += info->work;
 	region->totalCP += info->cp;
+	region->tpWork += info->tpWork;
+	region->spWork += info->spWork;
 	region->numInstance++;
 	
 }
@@ -177,6 +180,8 @@ static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
 	ret->sid = sid;
 	ret->callSite = callSite;
 	ret->totalWork = 0;
+	ret->tpWork = 0;
+	ret->spWork = 0;
 	ret->numInstance = 0;
 	return ret;
 }

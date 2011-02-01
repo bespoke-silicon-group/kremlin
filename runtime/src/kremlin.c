@@ -52,6 +52,8 @@ typedef struct _region_t {
     UInt64 did;
     UInt64 cp;
     UInt64 regionId;
+	UInt64 childrenWork;
+	UInt64 childrenCP;
 #ifdef EXTRA_STATS
     UInt64 readCnt;
     UInt64 writeCnt;
@@ -550,8 +552,10 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 
     incDynamicRegionId(regionId);
     versions[region]++;
-    UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
+/*   
+	UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
     UInt64 parentDid = (region > 0) ? regionInfo[region-1].did : 0;
+*/
     if (regionType < 2)
         MSG(0, "[+++] region [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
             regionType, region, regionId, getDynamicRegionId(regionId), 
@@ -568,13 +572,15 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     regionInfo[region].regionId = regionId;
     regionInfo[region].start = timestamp;
     regionInfo[region].did = *getDynamicRegionId(regionId);
-    regionInfo[region].cp = 0;
+    regionInfo[region].cp = 0LL;
+    regionInfo[region].childrenWork = 0LL;
+    regionInfo[region].childrenCP = 0LL;
 
 #ifdef EXTRA_STATS
-    regionInfo[region].readCnt = 0;
-    regionInfo[region].writeCnt = 0;
-    regionInfo[region].readLineCnt = 0;
-    regionInfo[region].writeLineCnt = 0;
+    regionInfo[region].readCnt = 0LL;
+    regionInfo[region].writeCnt = 0LL;
+    regionInfo[region].readLineCnt = 0LL;
+    regionInfo[region].writeLineCnt = 0LL;
 #endif
 
 	cregionPutContext(regionId, funcHead->callSiteId);
@@ -619,13 +625,28 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     UInt64 endTime = timestamp;
     UInt64 work = endTime - regionInfo[region].start;
     UInt64 cp = regionInfo[region].cp;
+	double sp = (work - regionInfo[region].childrenWork + regionInfo[region].childrenCP) / (double)cp;
+	if (sp < 1.0) {
+		fprintf(stderr, "sid=0x%x work=%d childrenWork = %d\n", sid, work, regionInfo[region].childrenWork);
+	}
+	assert(sp >= 1.0);
+	assert(cp >= 1.0);
+	UInt64 spWork = (UInt64)((double)work / sp);
+	UInt64 tpWork = (UInt64)((double)work / (double)cp);
 
     if(regionId != regionInfo[region].regionId) {
         fprintf(stderr,"ERROR: unexpected region exit: %llu (expected region %llu)\n",regionId,regionInfo[region].regionId);
         assert(0);
     }
-    UInt64 parentSid = (region > 0) ? regionInfo[region-1].regionId : 0;
-    UInt64 parentDid = (region > 0) ? regionInfo[region-1].did : 0;
+	UInt64 parentSid = 0;
+	UInt64 parentDid = 0;
+
+	if (region > 0) {
+    	parentSid = regionInfo[region-1].regionId;
+		parentDid = regionInfo[region-1].did;
+		regionInfo[region-1].childrenWork += work;
+		regionInfo[region-1].childrenCP += cp;
+	} 
 
     if(work < cp) {
         fprintf(stderr,"ERROR: cp (%llu) > work (%llu) [regionId=%llu]",cp,work,regionId);
@@ -649,6 +670,10 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     field.work = work;
     field.cp = cp;
 	field.callSite = funcHead->callSiteId;
+	field.spWork = spWork;
+	field.tpWork = tpWork;
+	assert(work >= spWork);
+	assert(work >= tpWork);
 #ifdef EXTRA_STATS
     field.readCnt = regionInfo[region].readCnt;
     field.writeCnt = regionInfo[region].writeCnt;
@@ -720,11 +745,20 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
         UInt64 value = greater1 + opCost;
         assert(entryDest != NULL);
         updateTimestamp(entryDest, i, version, value);
+		UInt64 oldcp = regionInfo[i].cp;
         updateCP(value, i);
+    	UInt64 work = timestamp - regionInfo[i].start;
+	    UInt64 cp = regionInfo[i].cp;
+		
+		if (cp - oldcp > work) {
+			fprintf(stderr, "oldCP = 0x%llx, cp = 0x%llx, work = 0x%llx\n", oldcp, cp, work);
+		}
+		assert(work >= cp);
         MSG(2, "binOp[%u] level %u version %u \n", opCost, i, version);
         MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
         MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
     }
+
 
     return entryDest;
 #else

@@ -62,6 +62,8 @@ typedef struct _RegionField_t {
 	UInt64 work;
 	UInt64 cp;
 	UInt64 callSite;
+	UInt64 spWork;
+	UInt64 tpWork;
 
 #ifdef EXTRA_STATS
 	UInt64 readCnt;
