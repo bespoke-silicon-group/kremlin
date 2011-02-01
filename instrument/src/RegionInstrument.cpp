@@ -216,6 +216,14 @@ namespace {
 					}
 				}
 
+				// if there wasn't anything to promote, erase the new phi and don't do anything else
+				if(promoted_phi->getNumIncomingValues() == 0) {
+					promoted_phi->eraseFromParent();
+
+					log.debug() << "No values to promote from " << src_bb->getName() << " to " << dest_bb->getName() << "\n";
+					return;
+				}
+
 				// now remove those incoming values we noted
 				for(unsigned i = 0; i < to_remove_from_orig.size(); ++i) {
 					orig_phi->removeIncomingValue(to_remove_from_orig[i],false);
@@ -362,13 +370,18 @@ namespace {
 					CallInst::Create(logRegionExit_func, op_args.begin(), op_args.end(), "", pre_exit->getTerminator());
 
 					// in the target BB, replace all references to exiting_bb with a reference to pre_exit (this will be phi nodes only)
+					/*
 					for(BasicBlock::iterator phi = target->begin(), phi_end = target->getFirstNonPHI(); phi != phi_end; ++phi) {
 						phi->replaceUsesOfWith(exiting_bb, pre_exit);
 					}
+					*/
 
 					// In the exiting block, replace references to target with a reference to pre_exit.
 					// This should only occur in the terminator inst.
 					exiting_bb->getTerminator()->replaceUsesOfWith(target,pre_exit);
+
+					promotePHIsToOtherBlock(target, pre_exit);
+
 				}
 			}
 
