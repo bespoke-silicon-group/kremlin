@@ -269,13 +269,13 @@ void printTEntry(TEntry* entry) {
 	}
 }
 
+// preconditions: lTable != NULL
 TEntry* getLTEntry(UInt32 vreg) {
 #ifndef WORK_ONLY
-	assert(lTable != NULL);
 	if (vreg >= lTable->size) {
 		fprintf(stderr,"ERROR: vreg = %lu, lTable size = %d\n", vreg, lTable->size);
+		assert(0);
 	}
-	assert(vreg < lTable->size);
 	
 	return lTable->array[vreg];	
 #else
