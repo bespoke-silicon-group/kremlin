@@ -632,17 +632,13 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu cp=%lld\n", sid, work, regionInfo[level].childrenWork, cp);
 	}
 
-	assert(work > 0);
-	assert(cp > 0);
 	assert(work >= cp);
 	assert(work >= regionInfo[level].childrenWork);
-	double sp = (work - regionInfo[level].childrenWork + regionInfo[level].childrenCP) / (double)cp;
-
+	double sp = (work > 0) ? (work - regionInfo[level].childrenWork + regionInfo[level].childrenCP) / (double)cp : 1.0;
 	assert(sp >= 1.0);
-	assert(cp >= 1.0);
 
 	UInt64 spWork = (UInt64)((double)work / sp);
-	UInt64 tpWork = (UInt64)((double)work / (double)cp);
+	UInt64 tpWork = (cp > 0) ? (UInt64)((double)work / (double)cp) : tpWork;
 
 	// due to floating point variables,
 	// spWork or tpWork can be larger than work
