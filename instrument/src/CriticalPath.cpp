@@ -1495,10 +1495,12 @@ namespace {
 								LOG_DEBUG() << "pushing arg: " << *ci << "\n";
 								args.push_back(ci);
 
-								// insert size (op 0 of callinst)
+								// insert size (arg 0 of func)
 								Value* sizeOperand = ci->getArgOperand(0);
 								LOG_DEBUG() << "pushing arg: " << *sizeOperand << "\n";
 								args.push_back(sizeOperand);
+
+								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 								
 								inst_calls_end.addCallInst(i,"logMalloc",args);
 								LOG_DEBUG() << "Successfully added logMalloc\n";
@@ -1527,7 +1529,7 @@ namespace {
 							else if(called_func && called_func->getName() == "realloc") {
 								LOG_DEBUG() << "found call to realloc\n";
 
-								// Insert old addr (op1 of callinst).
+								// Insert old addr (arg 0 of func).
 								// Just like for free, we need to make sure this has type i8*
 								if(isNBitIntPointer(ci->getArgOperand(0),8)) {
 									args.push_back(ci->getArgOperand(0));
@@ -1539,8 +1541,10 @@ namespace {
 								// insert new addr (return val of callinst)
 								args.push_back(ci);
 
-								// insert size (op 2 of callinst)
+								// insert size (arg 1 of function)
 								args.push_back(ci->getArgOperand(1));
+
+								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
 								inst_calls_end.addCallInst(i,"logRealloc",args);
 								args.clear();

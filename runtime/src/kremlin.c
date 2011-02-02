@@ -625,18 +625,18 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     assert(regionInfo[level].regionId == regionId);
     UInt64 startTime = regionInfo[level].start;
     UInt64 endTime = timestamp;
-    UInt64 work = endTime - regionInfo[region].start;
-    UInt64 cp = regionInfo[region].cp;
+    UInt64 work = endTime - startTime;
+    UInt64 cp = regionInfo[level].cp;
 
 	if (work == 0 || cp == 0) {
-		fprintf(stderr, "sid=%lld work=%d childrenWork = %d cp=%lld\n", sid, work, regionInfo[region].childrenWork, cp);
+		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu cp=%lld\n", sid, work, regionInfo[level].childrenWork, cp);
 	}
 
 	assert(work > 0);
 	assert(cp > 0);
 	assert(work >= cp);
-	assert(work >= regionInfo[region].childrenWork);
-	double sp = (work - regionInfo[region].childrenWork + regionInfo[region].childrenCP) / (double)cp;
+	assert(work >= regionInfo[level].childrenWork);
+	double sp = (work - regionInfo[level].childrenWork + regionInfo[level].childrenCP) / (double)cp;
 
 	assert(sp >= 1.0);
 	assert(cp >= 1.0);
@@ -651,8 +651,8 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 	if (tpWork > work)
 		tpWork = work;
 
-    if(regionId != regionInfo[region].regionId) {
-        fprintf(stderr,"ERROR: unexpected region exit: %llu (expected region %llu)\n",regionId,regionInfo[region].regionId);
+    if(regionId != regionInfo[level].regionId) {
+        fprintf(stderr,"ERROR: unexpected region exit: %llu (expected region %llu)\n",regionId,regionInfo[level].regionId);
         assert(0);
     }
 	UInt64 parentSid = 0;
@@ -761,7 +761,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
         updateTimestamp(entryDest, i, version, value);
 
 		// update cp
-		UInt64 oldcp = regionInfo[i].cp;
+		//UInt64 oldcp = regionInfo[i].cp;
         UInt64 cp = updateCP(value, i);
 
     	UInt64 work = timestamp - regionInfo[i].start;
@@ -965,8 +965,11 @@ void* logStoreInstConst(Addr dest_addr) {
 
 #ifndef WORK_ONLY
     TEntry* entryDest = getGTEntry(dest_addr);
-    TEntry* entryLine = getGTEntryCacheLine(dest_addr);
     assert(entryDest != NULL);
+
+#ifdef EXTRA_STATS
+    TEntry* entryLine = getGTEntryCacheLine(dest_addr);
+#endif
     
     //fprintf(stderr, "\nstoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
     int minLevel = _minRegionToLog;
@@ -992,7 +995,7 @@ void* logStoreInstConst(Addr dest_addr) {
 }
 
 // TODO: 64 bit?
-void logMalloc(Addr addr, size_t size) {
+void logMalloc(Addr addr, size_t size, UInt dest) {
     if (!isPyrprofOn())
         return;
     
@@ -1101,6 +1104,23 @@ void logMalloc(Addr addr, size_t size) {
     }
 
     createMEntry(addr,size);
+
+	addWork(MALLOC_COST);
+
+	// update timestamp and CP
+    TEntry* entryDest = getLTEntry(dest);
+    
+    int minLevel = _minRegionToLog;
+    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+
+    int i;
+    for (i = minLevel; i < maxLevel; i++) {
+        UInt version = getVersion(i);
+        UInt64 value = getCdt(i,version) + MALLOC_COST;
+
+        updateTimestamp(entryDest, i, version, value);
+        updateCP(value, i);
+    }
 #endif
 }
 
@@ -1222,17 +1242,31 @@ void logFree(Addr addr) {
     }
 
     freeMEntry(addr);
+
+	addWork(FREE_COST);
+
+	// make sure CP is at least the time needed to complete the free
+    int minLevel = _minRegionToLog;
+    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+
+    int i;
+    for (i = minLevel; i < maxLevel; i++) {
+        UInt version = getVersion(i);
+        UInt64 value = getCdt(i,version) + FREE_COST;
+
+        updateCP(value, i);
+    }
 #endif
 }
 
 // TODO: more efficient implementation (if old_addr = new_addr)
-void logRealloc(Addr old_addr, Addr new_addr, size_t size) {
+void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
     if (!isPyrprofOn())
         return;
 
     MSG(1, "logRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (UInt64)size);
     logFree(old_addr);
-    logMalloc(new_addr,size);
+    logMalloc(new_addr,size,dest);
 }
 
 void* logInsertValue(UInt src, UInt dest) {
@@ -1625,7 +1659,10 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
                 max = ts;
         }   
         
-        updateTimestamp(destEntry, i, version, max + cost);
+		UInt64 value = max + cost;
+
+        updateTimestamp(destEntry, i, version, value);
+		updateCP(value, i);
     }
     return destEntry;
 #else

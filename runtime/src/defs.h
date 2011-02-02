@@ -42,6 +42,8 @@
 
 #define LOAD_COST			4
 #define STORE_COST			1
+#define MALLOC_COST			100
+#define FREE_COST			10
 
 #define CACHE_LINE_POWER_2	4
 #define CACHE_LINE_SIZE		(1 << CACHE_LINE_POWER_2)
@@ -91,8 +93,8 @@ void* logLoadInst(Addr src_addr, UInt dest);
 void* logStoreInst(UInt src, Addr dest_addr); 
 void* logStoreInstConst(Addr dest_addr); 
 
-void logMalloc(Addr addr, size_t size);
-void logRealloc(Addr old_addr, Addr new_addr, size_t size);
+void logMalloc(Addr addr, size_t size, UInt dest);
+void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest);
 void logFree(Addr addr);
 
 void* logPhiNode1CD(UInt dest, UInt src, UInt cd); 

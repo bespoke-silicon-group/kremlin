@@ -172,8 +172,10 @@ void InstrumentationFuncManager::initializeDefaultValues()
 			args.push_back(size_arg_type);
 		}
 		else {
-			args.push_back(malloc_ft->getParamType(0)); // size if first and only param for malloc/calloc
+			args.push_back(malloc_ft->getParamType(0)); // size is first and only param for malloc/calloc
 		}
+
+		args.push_back(types.i32()); // destination reg for malloc/calloc
 
 		FunctionType* pvoid_sizet = FunctionType::get(types.voidTy(), args, false);
 
@@ -203,6 +205,8 @@ void InstrumentationFuncManager::initializeDefaultValues()
 		else {
 			args.push_back(realloc_ft->getParamType(1)); // size will be 2nd param for realloc
 		}
+
+		args.push_back(types.i32()); // destination reg for malloc/calloc
 
 		FunctionType* pvoid_pvoid_sizet = FunctionType::get(types.voidTy(), args, false);
 
