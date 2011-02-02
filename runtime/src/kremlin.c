@@ -542,8 +542,12 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     }
 
     incrementRegionLevel();
-    _regionEntryCnt++;
+    _regionEntryCnt++; // XXX this doesn't seem to be used anywhere. is this deprecated?
+
     int level = getCurrentLevel();
+
+	// If we exceed the maximum depth, we act like this region doesn't exist
+	if(level > _maxRegionToLog) { return; }
 
 //    if (level < _minRegionToLog || level > _maxRegionToLog)
 //        return;
@@ -620,6 +624,10 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     }
     int level = getCurrentLevel();
 
+	if(level > _maxRegionToLog) {
+    	decrementRegionLevel();
+	}
+
     UInt64 sid = regionId;
     UInt64 did = regionInfo[level].did;
     assert(regionInfo[level].regionId == regionId);
@@ -629,13 +637,20 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     UInt64 cp = regionInfo[level].cp;
 
 	if (work == 0 || cp == 0) {
-		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu cp=%lld\n", sid, work, regionInfo[level].childrenWork, cp);
+		fprintf(stderr, "sid=%llu work=%llu childrenWork = %llu cp=%llu\n", sid, work, regionInfo[level].childrenWork, cp);
 	}
 
+	assert(work == 0 || cp > 0);
 	assert(work >= cp);
 	assert(work >= regionInfo[level].childrenWork);
+
 	double sp = (work > 0) ? (work - regionInfo[level].childrenWork + regionInfo[level].childrenCP) / (double)cp : 1.0;
-	assert(sp >= 1.0);
+	if(sp < 1.0) {
+		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu childrenCP=%lld\n", sid, work, regionInfo[level].childrenWork, regionInfo[level].childrenCP);
+		assert(0);
+	}
+	//assert(sp >= 1.0);
+	//assert(cp >= 1.0);
 
 	UInt64 spWork = (UInt64)((double)work / sp);
 	UInt64 tpWork = (cp > 0) ? (UInt64)((double)work / (double)cp) : tpWork;
