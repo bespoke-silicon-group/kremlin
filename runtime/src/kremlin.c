@@ -632,14 +632,28 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     UInt64 endTime = timestamp;
     UInt64 work = endTime - regionInfo[region].start;
     UInt64 cp = regionInfo[region].cp;
-	double sp = (work - regionInfo[region].childrenWork + regionInfo[region].childrenCP) / (double)cp;
-	if (sp < 1.0) {
-		fprintf(stderr, "sid=0x%x work=%d childrenWork = %d\n", sid, work, regionInfo[region].childrenWork);
+
+	if (work == 0 || cp == 0) {
+		fprintf(stderr, "sid=%lld work=%d childrenWork = %d cp=%lld\n", sid, work, regionInfo[region].childrenWork, cp);
 	}
+
+	assert(work > 0);
+	assert(cp > 0);
+	assert(work >= cp);
+	assert(work >= regionInfo[region].childrenWork);
+	double sp = (work - regionInfo[region].childrenWork + regionInfo[region].childrenCP) / (double)cp;
 	assert(sp >= 1.0);
 	assert(cp >= 1.0);
+
 	UInt64 spWork = (UInt64)((double)work / sp);
 	UInt64 tpWork = (UInt64)((double)work / (double)cp);
+
+	// due to floating point variables,
+	// spWork or tpWork can be larger than work
+	if (spWork > work)
+		spWork = work;
+	if (tpWork > work)
+		tpWork = work;
 
     if(regionId != regionInfo[region].regionId) {
         fprintf(stderr,"ERROR: unexpected region exit: %llu (expected region %llu)\n",regionId,regionInfo[region].regionId);
