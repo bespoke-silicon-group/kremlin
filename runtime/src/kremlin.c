@@ -626,11 +626,17 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 
 	if(level > _maxRegionToLog) {
     	decrementRegionLevel();
+		return;
 	}
 
     UInt64 sid = regionId;
     UInt64 did = regionInfo[level].did;
-    assert(regionInfo[level].regionId == regionId);
+
+    if(regionInfo[level].regionId != regionId) {
+		fprintf(stderr, "mismatch in regionID. expected %llu, got %llu. level = %d\n",regionInfo[level].regionId,regionId,level);
+		assert(0);
+	}
+
     UInt64 startTime = regionInfo[level].start;
     UInt64 endTime = timestamp;
     UInt64 work = endTime - startTime;
