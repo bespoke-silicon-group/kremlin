@@ -97,9 +97,9 @@ UInt    __currentBB;
 #define isPyrprofOn()       (pyrprofOn == 1)
 #define getLevelNum()      (levelNum)
 #define getCurrentLevel()  (levelNum-1)
-#define isCurrentLevelInstrumentable() (((levelNum-1) >= _minRegionToLog) && ((levelNum-1) <= _maxRegionToLog))
+#define isCurrentLevelInstrumentable() (((levelNum-1) >= MIN_REGION_LEVEL) && ((levelNum-1) <= MAX_REGION_LEVEL))
 
-UInt64 _regionEntryCnt;
+//UInt64 _regionEntryCnt;
 UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
 int _requireSetupTable;
@@ -215,9 +215,12 @@ void setupLocalTable(UInt maxVregNum) {
 
 #ifndef WORK_ONLY
     assert(_requireSetupTable == 1);
+
     LTable* table = allocLocalTable(maxVregNum);
+
     assert(funcHead->table == NULL);
     assert(table != NULL);
+
     funcHead->table = table;    
     setLocalTable(funcHead->table);
     _setupTableCnt++;
@@ -264,37 +267,40 @@ UInt64* getDynamicRegionId(UInt64 sid) {
 UInt64 getCdt(int level, UInt32 version) {
     //assert(cdtHead != NULL);
     //assert(level >= 0);
-    return (cdtHead->version[level - _minRegionToLog] == version) ?
-        cdtHead->time[level - _minRegionToLog] : 0;
+    return (cdtHead->version[level - MIN_REGION_LEVEL] == version) ?
+        cdtHead->time[level - MIN_REGION_LEVEL] : 0;
 }
 
 void setCdt(int level, UInt32 version, UInt64 time) {
-    assert(level >= _minRegionToLog);
-    cdtHead->time[level - _minRegionToLog] = time;
-    cdtHead->version[level - _minRegionToLog] = version;
+    assert(level >= MIN_REGION_LEVEL);
+    cdtHead->time[level - MIN_REGION_LEVEL] = time;
+    cdtHead->version[level - MIN_REGION_LEVEL] = version;
 }
 
 void fillCDT(CDT* cdt, TEntry* entry) {
     int i;
-    for (i = _minRegionToLog; i <= _maxRegionToLog; i++) {
-        cdt->time[i - _minRegionToLog] = entry->time[i - _minRegionToLog];
-        cdt->version[i - _minRegionToLog] = entry->version[i - _minRegionToLog];
+    for (i = MIN_REGION_LEVEL; i < MAX_REGION_LEVEL; i++) {
+        cdt->time[i - MIN_REGION_LEVEL] = entry->time[i - MIN_REGION_LEVEL];
+        cdt->version[i - MIN_REGION_LEVEL] = entry->version[i - MIN_REGION_LEVEL];
     }
 }
 
 void pushFuncContext() {
     FuncContext* prevHead = funcHead;
+
     FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
     toAdd->table = NULL;
 	toAdd->callSiteId = lastCallSiteId;
     toAdd->next = prevHead;
+
 #ifdef MANAGE_BB_INFO
     toAdd->retBB = __currentBB;
     toAdd->retPrevBB = __prevBB;
     MSG(1, "[push] current = %u last = %u\n", __currentBB, __prevBB);
 #endif
+
     funcHead = toAdd;
-//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
+	//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 
 }
 
@@ -358,6 +364,7 @@ void addStore() {
 
 void popFuncContext() {
     FuncContext* ret = funcHead;
+
     assert(ret != NULL);
     //assert(ret->table != NULL);
     // restore currentBB and prevBB
@@ -365,12 +372,16 @@ void popFuncContext() {
     __currentBB = ret->retBB;
     __prevBB = ret->retPrevBB;
 #endif
+
     funcHead = ret->next;
+
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
     //assert(ret->table != NULL);
+
     if (ret->table != NULL)
         freeLocalTable(ret->table);
+
     free(ret);  
 }
 
@@ -379,9 +390,9 @@ UInt getVersion(int level) {
     return versions[level];
 }
 
-// precondition: inLevel >= _minRegionToLog && inLevel < maxRegionSize
+// precondition: inLevel >= MIN_REGION_LEVEL && inLevel < maxRegionSize
 UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
-    int level = inLevel - _minRegionToLog;
+    int level = inLevel - MIN_REGION_LEVEL;
 
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
@@ -390,7 +401,7 @@ UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
 
 // precondition: entry != NULL
 void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int level = inLevel - _minRegionToLog;
+    int level = inLevel - MIN_REGION_LEVEL;
 
     entry->version[level] = version;
     entry->time[level] = timestamp;
@@ -398,7 +409,7 @@ void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 times
 
 #ifdef EXTRA_STATS
 UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
-    int level = inLevel - _minRegionToLog;
+    int level = inLevel - MIN_REGION_LEVEL;
     assert(entry != NULL);
     assert(level >= 0 && level < getTEntrySize());
     UInt64 ret = (entry->readVersion[level] == version) ?
@@ -407,7 +418,7 @@ UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
 }
 
 void updateReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int level = inLevel - _minRegionToLog;
+    int level = inLevel - MIN_REGION_LEVEL;
     assert(entry != NULL);
 
     entry->readVersion[level] = version;
@@ -531,25 +542,31 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     if (regionType == 0)
         _regionFuncCnt++;
 
-    if (!isPyrprofOn()) {
-        return;
-    }
-
     if(regionType == RegionFunc)
     {
+		/*
+		if(getCurrentLevel() >= MAX_REGION_LEVEL-1) {
+			fprintf(stderr,"entering region too deep to log. level = %d, lastCallSiteId = %llu\n",getCurrentLevel(),lastCallSiteId);
+		}
+		*/
         pushFuncContext();
         _requireSetupTable = 1;
     }
 
+    if (!isPyrprofOn()) {
+        return;
+    }
+
     incrementRegionLevel();
-    _regionEntryCnt++; // XXX this doesn't seem to be used anywhere. is this deprecated?
+    //_regionEntryCnt++; // XXX this doesn't seem to be used anywhere. is this deprecated?
 
     int level = getCurrentLevel();
 
 	// If we exceed the maximum depth, we act like this region doesn't exist
-	if(level > _maxRegionToLog) { return; }
+	if(level >= MAX_REGION_LEVEL) { return; }
 
-//    if (level < _minRegionToLog || level > _maxRegionToLog)
+
+//    if (level < MIN_REGION_LEVEL || level >= MAX_REGION_LEVEL)
 //        return;
 
     incDynamicRegionId(regionId);
@@ -571,6 +588,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     }
 	*/
 
+	//fprintf(stderr,"entering region with ID = %llu\n. level = %d",regionId,level);
     regionInfo[level].regionId = regionId;
     regionInfo[level].start = timestamp;
     regionInfo[level].did = *getDynamicRegionId(regionId);
@@ -591,7 +609,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 #endif
 
 #ifndef WORK_ONLY
-    if (level >= _minRegionToLog && level <= _maxRegionToLog)
+    if (level >= MIN_REGION_LEVEL && level < MAX_REGION_LEVEL)
         setCdt(level, versions[level], 0);
 #endif
     incIndentTab();
@@ -609,9 +627,8 @@ UInt64 _lastParentDid;
 
 void logRegionExit(UInt64 regionId, UInt regionType) {
     if (!isPyrprofOn()) {
-        if (regionId == RegionFunc) { 
+        if (regionType == RegionFunc) { 
             popFuncContext();
-
 
             if (funcHead == NULL) {
                 assert(getCurrentLevel() <= 0);
@@ -624,7 +641,22 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     }
     int level = getCurrentLevel();
 
-	if(level > _maxRegionToLog) {
+	if(level >= MAX_REGION_LEVEL) {
+#ifndef WORK_ONLY
+		if (regionType == RegionFunc) { 
+			popFuncContext();
+			if (funcHead == NULL) {
+				assert(getCurrentLevel() == 0);
+
+			} else {
+				setLocalTable(funcHead->table);
+			}
+#if MANAGE_BB_INFO
+			MSG(1, "    currentBB: %u   lastBB: %u\n",
+				__currentBB, __prevBB);
+#endif
+		}
+#endif
     	decrementRegionLevel();
 		return;
 	}
@@ -760,8 +792,8 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
     TEntry* entry1 = getLTEntry(src1);
     TEntry* entryDest = getLTEntry(dest);
 
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; ++i) {
@@ -818,8 +850,8 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
     //assert(entry0 != NULL);
     //assert(entryDest != NULL);
 
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -860,8 +892,8 @@ void* logAssignmentConst(UInt dest) {
     
     //assert(entryDest != NULL);
 
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -899,8 +931,8 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     
     //fprintf(stderr, "\n\nload ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
     //fprintf(stderr, "load addr = 0x%x, entryLine = 0x%x\n", src_addr, entry0Line);
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -946,8 +978,8 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     assert(entry0 != NULL);
 
     //fprintf(stderr, "\n\nstore ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -989,8 +1021,8 @@ void* logStoreInstConst(Addr dest_addr) {
 #endif
     
     //fprintf(stderr, "\nstoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; ++i) {
@@ -1127,8 +1159,8 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
 	// update timestamp and CP
     TEntry* entryDest = getLTEntry(dest);
     
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -1263,8 +1295,8 @@ void logFree(Addr addr) {
 	addWork(FREE_COST);
 
 	// make sure CP is at least the time needed to complete the free
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -1355,8 +1387,8 @@ void logFuncReturnConst(void) {
 
 #ifndef WORK_ONLY
     int i;
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
     for (i = minLevel; i < maxLevel; i++) {
         int version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -1393,8 +1425,8 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
     assert(entryCD != NULL);
     assert(entryDest != NULL);
     
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -1431,8 +1463,8 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
     assert(entryCD2 != NULL);
     assert(entryDest != NULL);
     
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -1474,8 +1506,8 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     assert(entryDest != NULL);
     
     int i = 0;
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
@@ -1526,8 +1558,8 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
     assert(entryDest != NULL);
     
     int i = 0;
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
@@ -1577,8 +1609,8 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     assert(entryDest != NULL);
     
     int i = 0;
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
@@ -1611,8 +1643,8 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
     MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
 
 #ifndef WORK_ONLY
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
     int i = 0;
     assert(funcHead->table != NULL);
     assert(funcHead->table->size > src);
@@ -1662,8 +1694,8 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
     }   
     va_end(ap);
 
-    int minLevel = _minRegionToLog;
-    int maxLevel = MIN(_maxRegionToLog+1, getLevelNum());
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
@@ -1717,7 +1749,7 @@ int pyrprofInit() {
 #endif
     levelNum = 0;
     invokeStackTop = invokeStack;
-    int storageSize = _maxRegionToLog - _minRegionToLog + 1;
+    int storageSize = MAX_REGION_LEVEL - MIN_REGION_LEVEL;
     MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
         _minRegionToLog, _maxRegionToLog, storageSize);
 
