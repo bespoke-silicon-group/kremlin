@@ -346,7 +346,16 @@ UInt64 getDynamicRegionId(UInt64 sid) {
 
 
 UInt64 updateCP(UInt64 value, int level) {
+		/*
+	UInt64 work = timestamp - regionInfo[level].start;
+	assert(work >= 0);
+	//fprintf(stderr, "level = %d, region = %llu, work = %llu, cp = %llu timestamp = %llu start=%llu\n", 
+	//	level, regionInfo[level].regionId, work, regionInfo[level].cp, timestamp, regionInfo[level].start);
+	assert(timestamp >= regionInfo[level].start);
+	assert(work >= regionInfo[level].cp);
+	*/
 	regionInfo[level].cp = (value > regionInfo[level].cp) ? value : regionInfo[level].cp;
+	//assert(work >= regionInfo[level].cp);
 	return regionInfo[level].cp;
 
     //MSG(1,"CP[%d] = %llu\n",level,regionInfo[level].cp);
@@ -674,7 +683,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     UInt64 work = endTime - startTime;
     UInt64 cp = regionInfo[level].cp;
 
-	if (work == 0 || cp == 0) {
+	if (work == 0 || cp == 0 || work < cp) {
 		fprintf(stderr, "sid=%llu work=%llu childrenWork = %llu cp=%llu\n", sid, work, regionInfo[level].childrenWork, cp);
 	}
 
@@ -810,18 +819,21 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
         updateTimestamp(entryDest, i, version, value);
 
 		// update cp
-		//UInt64 oldcp = regionInfo[i].cp;
+		UInt64 oldcp = regionInfo[i].cp;
         UInt64 cp = updateCP(value, i);
 
     	UInt64 work = timestamp - regionInfo[i].start;
+		assert(work >= 0);
+		
 		
 		/*
-		if (cp - oldcp > work) {
-			fprintf(stderr, "oldCP = 0x%llx, cp = 0x%llx, work = 0x%llx\n", oldcp, cp, work);
+		if (cp  > work) {
+			fprintf(stderr, "region = %lld, level = %d, cp = 0x%llx -> 0x%llx, work = 0x%llx\n", 
+				regionInfo[i].regionId, getLevelNum(), oldcp, cp, work);
 		}
-		*/
+		
 
-		assert(work >= cp);
+		assert(work >= cp);*/
 
         MSG(2, "binOp[%u] level %u version %u \n", opCost, i, version);
         MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
@@ -1049,19 +1061,14 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
         return;
     
     MSG(1, "logMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
+	assert(regionInfo[0].start == 0ULL);
 
 #ifndef WORK_ONLY
     assert(size != 0);
-
     UInt32 start_index, end_index;
-
     start_index = ((UInt64) addr >> 16) & 0xffff;
-
     UInt64 end_addr = (UInt64)addr + (size-1);
-
     end_index = (end_addr >> 16) & 0xffff;
-
-    assert(start_index < 0x10000 && end_index < 0x10000);
 
     //MSG(1,"start_index = %lu, end_index = %lu\n",start_index,end_index);
 
@@ -1094,6 +1101,7 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
         for(i = start_index2; i <= end_index2; ++i) {
             entry->array[i] = allocTEntry(maxRegionLevel);
         }
+
     }
     else {
         // handle start_index
@@ -1153,7 +1161,10 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
     }
 
     createMEntry(addr,size);
-
+	if (regionInfo[0].start != 0ULL) {
+		fprintf(stderr, "add regionInfo[0] = 0x%x\n", &regionInfo[0]);
+	}
+/*
 	addWork(MALLOC_COST);
 
 	// update timestamp and CP
@@ -1170,6 +1181,7 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
         updateTimestamp(entryDest, i, version, value);
         updateCP(value, i);
     }
+	*/
 #endif
 }
 

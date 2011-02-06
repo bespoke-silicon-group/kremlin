@@ -121,7 +121,9 @@ void createMEntry(Addr start_addr, size_t entry_size) {
 	if(mtable_size == mTable->capacity) {
 		int new_mtable_capacity = mtable_size + MALLOC_TABLE_CHUNK_SIZE;
 		fprintf(stderr, "Increasing size of malloc table from %d to %d\n",mtable_size,new_mtable_capacity);
-		mTable->array = realloc(mTable->array,mtable_size+MALLOC_TABLE_CHUNK_SIZE);
+		void* old = mTable->array;
+		mTable->array = realloc(mTable->array,(mtable_size+MALLOC_TABLE_CHUNK_SIZE) * sizeof(MEntry*));
+		fprintf(stderr, "mTable from 0x%x to 0x%x\n", old, mTable->array);
 		mTable->capacity = new_mtable_capacity;
 		/*
 		int i;
@@ -132,7 +134,6 @@ void createMEntry(Addr start_addr, size_t entry_size) {
 	}
 
 	mTable->size = mtable_size;
-
 	mTable->array[mtable_size] = me;
 }
 
