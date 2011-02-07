@@ -43,7 +43,7 @@ make install
 # Configure and make llvm-gcc
 cd ../$LLVM_GCC_OBJ
 ../$LLVM_GCC_SRC/configure --prefix=$PREFIX \
---enable-languages=c,c++ --program-prefix=llvm- \
+--enable-languages=c,c++,fortran --program-prefix=llvm- \
 --enable-llvm=$PWD/../$LLVM_OBJ --disable-multilib \
 --disable-bootstrap --enable-checking
 
