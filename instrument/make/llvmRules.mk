@@ -18,6 +18,7 @@ LLVM_RULES_MK = 1
 $(call OPT_PASS_RULE,  ,                            -mem2reg,               EMPTY)
 $(call OPT_PASS_RULE,  ,                            -indvars,               EMPTY)
 $(call OPT_PASS_RULE,  ,                            -simplifycfg,           EMPTY)
+$(call OPT_PASS_RULE,  ,                            -O2,               		EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -elimsinglephis,        EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -splitbbatfunccall,     EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -uniquify,              EMPTY)
