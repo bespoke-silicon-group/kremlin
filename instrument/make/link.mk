@@ -17,6 +17,9 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/kremlinLib.mk
 # Source files
 # ---------------------------------------------------------------------------
 
+# name of linker to use (should be set by kremlin-gcc for languages like C++ and fortran)
+KREMLIN_LD ?= llvm-gcc
+
 # All the files to link.
 #
 # We filter out all the C sources and the assembly sources since we've run
@@ -41,7 +44,7 @@ link: $(LINK_OUTPUT_FILE)
 
 # Compiles and links the source with the kremlin library
 $(LINK_OUTPUT_FILE): $(OBJ_SOURCES) $(KREMLIN_LIB)
-	$(CC) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(OBJ_SOURCES) $(KREMLIN_LIB) -o $@
+	$(KREMLIN_LD) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(OBJ_SOURCES) $(KREMLIN_LIB) -o $@
 
 	# XXX: Side effect of making the executable!
 	# TODO: This only magically works because the names line up. Fix the

@@ -32,6 +32,10 @@ LLVM_CFLAGS ?= $(CFLAGS)
 LLVM_CXX ?= $(LLVM_BIN_DIR)/llvm-g++
 LLVM_CXXFLAGS ?= $(CXXFLAGS)
 
+# THe LLVM fortran compiler
+LLVM_FORTRAN ?= $(LLVM_BIN_DIR)/llvm-gfortran
+LLVM_FORTRANFLAGS ?= $(FORTRANFLAGS)
+
 # The LLVM dissassembler. Converts LLVM byte code to LLVM assembly.
 LLVM_DIS ?= $(LLVM_BIN_DIR)/llvm-dis
 
@@ -176,6 +180,10 @@ OPT_PASS_SHARED_OBJ = $(if $(strip $(1)), $(LLVM_LIB_DIR)/$(strip $(1)))
 # Converts c to LLVM byte code
 %.bc: %.c
 	$(LLVM_CC) $(LLVM_CFLAGS) --emit-llvm -c -o $@ $<
+
+# Converts f95 to LLVM byte code
+%.bc: %.f95
+	$(LLVM_FORTRAN) $(LLVM_FORTRANFLAGS) --emit-llvm -c -o $@ $<
 
 # Converts LLVM byte code to assembly.
 %.bc.s: %.bc

@@ -18,14 +18,16 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/useTemp.mk
 # ---------------------------------------------------------------------------
 
 # Anything we must instrument.
-C_SOURCES += $(filter %.c, $(SOURCES))
+# Unprocessed sources are files with source code (as opposed to e.g. object files)
+UNPROCESSED_SOURCES += $(filter %.c, $(SOURCES))
+UNPROCESSED_SOURCES += $(filter %.f95, $(SOURCES))
 
-# All the C sources without the .c
-C_SOURCES_NO_EXTENSION = $(basename $(C_SOURCES))
+# All the unprocessed sources without the .c
+UNPROCESSED_SOURCES_NO_EXTENSION = $(basename $(UNPROCESSED_SOURCES))
 
 # Instrumented byte code
-ASM_INSTRUMENTED = $(addsuffix $(PASS_CHAIN).bc.s, $(C_SOURCES_NO_EXTENSION))
-ASM_INSTRUMENTED_WITH_GCC_NAME = $(addsuffix .s, $(C_SOURCES_NO_EXTENSION))
+ASM_INSTRUMENTED = $(addsuffix $(PASS_CHAIN).bc.s, $(UNPROCESSED_SOURCES_NO_EXTENSION))
+ASM_INSTRUMENTED_WITH_GCC_NAME = $(addsuffix .s, $(UNPROCESSED_SOURCES_NO_EXTENSION))
 
 # Passes required as a chained rule. The code to instrument must go through
 # all these passes.
@@ -95,12 +97,12 @@ endef # C_TO_ASM
 
 .PHONY: compile
 
-$(call MAKE_ALL_USING_TMP,$(C_SOURCES),.s,C_TO_ASM)
+$(call MAKE_ALL_USING_TMP,$(UNPROCESSED_SOURCES),.s,C_TO_ASM)
 
 # Creates all the instrumented assembly
 compile: $(ASM_INSTRUMENTED_WITH_GCC_NAME)
 	@echo "sources: $(SOURCES)"
-	@echo "sources_c: $(C_SOURCES)"
+	@echo "sources_c: $(UNPROCESSED_SOURCES)"
 	@echo "instrumented asm: $(ASM_INSTRUMENTED)"
 	@echo "desired asm: $(ASM_INSTRUMENTED_WITH_GCC_NAME)"
 

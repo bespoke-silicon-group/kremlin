@@ -143,9 +143,17 @@ if __name__ == "__main__":
 
     check_options(parser, options, args)
 
+    lang_ext = ""
+
     print "args: "
     for arg in args:
         print arg
+        arg_ext = arg.split(".")[1]
+
+        if lang_ext == "": lang_ext = arg_ext
+        elif lang_ext != arg_ext: 
+            sys.stderr.write("ERROR: mixed input languages detected.")
+            sys.exit(1)
 
     make_target, make_defines = get_make_target(options)
 
@@ -162,6 +170,7 @@ if __name__ == "__main__":
         write("SOURCES = " + " ".join(args))
         write(make_defines)
         write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]))
+        if lang_ext == "f95": write("KREMLIN_LD = llvm-gfortran")
         write("include " + sys.path[0] + "/../instrument/make/kremlin.mk")
 
     # Write the makefile to disk
