@@ -1113,7 +1113,7 @@ namespace {
 						}
 
 						// if this is "main" we insert call to printProfileData() then deinitProfiler
-						if(func.getName() == "main" || is_exit_point) {
+						if(func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0 || is_exit_point) {
 							if(add_printProfileData_func) {
 								CallInst::Create(printProfileData_func, op_args.begin(), op_args.end(), "", insert_before);
 							}
@@ -1157,7 +1157,7 @@ namespace {
 				}
 
 				// if this happens to be main, we also need to call initProfiler()
-				if(add_initProfiler_func && func.getName() == "main") {
+				if(add_initProfiler_func && (func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0)) {
 					CallInst::Create(initProfiler_func, op_args.begin(), op_args.end(), "", func.getEntryBlock().getFirstNonPHI());
 
 					//add a call to deinitProfiler_func before each call to exit

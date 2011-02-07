@@ -1192,7 +1192,7 @@ namespace {
 				// skip unsupported funcs
 				if(func->isDeclaration()                                      // can't instrument if this is only a declaration (i.e. has no body)
 				  || func->getLinkage() == GlobalValue::AvailableExternallyLinkage // LLVM 2.6 allows outside funcs to temporarily be visible. ignore them.
-				  || func->isVarArg()                                         // no support for vararg funcs now (TODO?)
+				  || (func->isVarArg() && func->getName() != "MAIN__")                                         // no support for vararg funcs now (TODO?)
 				  ) {
 					//LOG_DEBUG() << "ignoring function " << func->getName() << "\n";
 					continue;
@@ -1220,7 +1220,7 @@ namespace {
 
 				bool isMain = false;
 
-				if(func->getName() == "main") { isMain = true; }
+				if(func->getName().compare("main") == 0 || func->getName().compare("MAIN__") == 0) { isMain = true; }
 					
 				// Create ID's for all the instructions that will get their own virtual register number.
 				// We do this here so that we don't have races based on which BB is instrumented first (most likely with PHI nodes)
@@ -1242,7 +1242,11 @@ namespace {
 
 				// Set up the arguments to this function. They will either be initialized to constants (if this is main) or the values will be
 				// transferred from the caller function using transferAndUnlinkArg
-				setupFuncArgs(func,inst_to_id, curr_id, inst_calls_begin, isMain);
+				// Note that fortran's main is a vararg function with no formal args. The only way we will have a vararg function here
+				// is if this is a fortran main, in which case we don't want to try setting up the function arguments.
+				if(!func->isVarArg()) {
+					setupFuncArgs(func,inst_to_id, curr_id, inst_calls_begin, isMain);
+				}
 
 
 				// begin instrumenting ops phase
