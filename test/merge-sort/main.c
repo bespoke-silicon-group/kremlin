@@ -10,7 +10,7 @@ int main(int argc, char* argv[])
 	int i;
 
 	// Print the usage message
-	printf("usage: %s <count>\n\nwhere count is the number of elements to sort and print\n");
+	printf("usage: %s <count>\n\nwhere count is the number of elements to sort and print\n", argv[0]);
 
 	// The number of elements to sort
 	int count = 10;
@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
 		array[i] = rand();
 
 	// Sort the array.
-	merge_sort(array, temp_array, 0, count);
+	merge_sort(array, temp_array, 0, count - 1);
 
 	// Print the sorted data
 	for(i = 0; i < count; i++)

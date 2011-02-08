@@ -1,45 +1,27 @@
 #include "MergeSort.h"
 
-void merge(int numbers[], int temp[], int left, int mid, int right)
+void merge(int numbers[], int temp[], const int left, const int mid, const int right)
 {
-	int i, left_end, num_elements, tmp_pos;
+    int* next_left;
+    int* next_right;
+    int* next_tmp;
 
-	left_end = mid - 1;
-	tmp_pos = left;
-	num_elements = right - left + 1;
-
-	while ((left <= left_end) && (mid <= right))
+	for(next_left = numbers + left, next_right = numbers + mid + 1, next_tmp = temp + left; 
+        next_left <= numbers + mid && next_right <= numbers + right; 
+        next_tmp++)
 	{
-		if (numbers[left] <= numbers[mid])
-		{
-			temp[tmp_pos] = numbers[left];
-			tmp_pos = tmp_pos + 1;
-			left = left +1;
-		}
+		if(*next_left < *next_right)
+			*next_tmp = *next_left++;
 		else
-		{
-			temp[tmp_pos] = numbers[mid];
-			tmp_pos = tmp_pos + 1;
-			mid = mid + 1;
-		}
+			*next_tmp = *next_right++;
 	}
+    
+	while(next_right <= numbers + right)
+        *next_tmp++ = *next_right++;
 
-	while (left <= left_end)
-	{
-		temp[tmp_pos] = numbers[left];
-		left = left + 1;
-		tmp_pos = tmp_pos + 1;
-	}
-	while (mid <= right)
-	{
-		temp[tmp_pos] = numbers[mid];
-		mid = mid + 1;
-		tmp_pos = tmp_pos + 1;
-	}
+	while(next_left <= numbers + mid)
+        *next_tmp++ = *next_left++;
 
-	for (i=0; i <= num_elements; i++)
-	{
-		numbers[right] = temp[right];
-		right = right - 1;
-	}
+    for(next_left = numbers + left, next_tmp = temp + left; next_tmp <= temp + right; next_left++, next_tmp++)
+        *next_left = *next_tmp;
 }
