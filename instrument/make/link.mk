@@ -18,7 +18,14 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/kremlinLib.mk
 # ---------------------------------------------------------------------------
 
 # name of linker to use (should be set by kremlin-gcc for languages like C++ and fortran)
-KREMLIN_LD ?= llvm-gcc
+ifeq ($(SOURCE_LANG),fortran)
+#	KREMLIN_LD = $(LLVM_FORTRAN)
+	KREMLIN_LD = gfortran
+else ifeq ($(SOURCE_LANG),cpp)
+	KREMLIN_LD = $(LLVM_CXX)
+else
+	KREMLIN_LD = $(LLVM_CC)
+endif
 
 # All the files to link.
 #

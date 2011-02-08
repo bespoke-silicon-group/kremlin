@@ -170,7 +170,8 @@ if __name__ == "__main__":
         write("SOURCES = " + " ".join(args))
         write(make_defines)
         write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]))
-        if lang_ext == "f95": write("KREMLIN_LD = llvm-gfortran")
+        if lang_ext == "f95": write("SOURCE_LANG = fortran")
+        if lang_ext == "cpp": write("SOURCE_LANG = cpp")
         write("include " + sys.path[0] + "/../instrument/make/kremlin.mk")
 
     # Write the makefile to disk
