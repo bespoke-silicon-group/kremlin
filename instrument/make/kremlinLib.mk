@@ -33,7 +33,7 @@ ALL_KREMLIN_OBJECTS_IN_LIB = $(patsubst %, $(KREMLIN_LIB)(%), $(ALL_KREMLIN_OBJE
 # ---------------------------------------------------------------------------
 
 # Compiles the kremlin runtime
-$(ALL_KREMLIN_OBJECTS_WITH_PATH): CFLAGS += -I$(KREMLIN_COMMON_SRC) -O3 $(KREMLIB_EXTRA_FLAGS)
+$(ALL_KREMLIN_OBJECTS_WITH_PATH): CFLAGS += -I$(KREMLIN_COMMON_SRC) $(KREMLIB_EXTRA_FLAGS)
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): CC = gcc
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<

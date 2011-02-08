@@ -177,7 +177,10 @@ OPT_PASS_SHARED_OBJ = $(if $(strip $(1)), $(LLVM_LIB_DIR)/$(strip $(1)))
 # Rules (alpha order)
 # ---------------------------------------------------------------------------
 
-# Converts c to LLVM byte code
+# Mark everything as phony since GCC remakes everything every time.
+.PHONY: %.bc
+
+# Converts c to LLVM byte code.
 %.bc: %.c
 	$(LLVM_CC) $(LLVM_CFLAGS) --emit-llvm -c -o $@ $<
 
@@ -189,7 +192,7 @@ OPT_PASS_SHARED_OBJ = $(if $(strip $(1)), $(LLVM_LIB_DIR)/$(strip $(1)))
 %.bc.s: %.bc
 	$(LLC) $(LLC_FLAGS) -march=$(LLC_MARCH) -o $@ $<
 
-# Converts LLVM byte code to human readable LLVM assembly
+# Converts LLVM byte code to human readable LLVM assembly.
 %.ll: %.bc
 	$(LLVM_DIS) -o $@ $<
 
