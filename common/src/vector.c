@@ -82,6 +82,14 @@ void* vector_top(vector* s)
 	return *(s->top - 1);
 }
 
+void vector_map(vector* v, void (*func)(void*))
+{
+    void** it;
+    void** end;
+    for(it = vector_begin(v), end = vector_end(v); it < end; it++)
+        (*func)(*it);
+}
+
 int vector_size(vector* s)
 {
 	return s->top - s->vector;

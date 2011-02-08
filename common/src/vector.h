@@ -72,4 +72,13 @@ int vector_reserve(vector* v, int amount);
 void* vector_begin(vector* v);
 void* vector_end(vector* v);
 
+/**
+ * Applies func to all elements in the vector.
+ *
+ * @memeberof           vector
+ * @param v             The vector.
+ * @param func          The function to apply to all elements of the vector.
+ */
+void vector_map(vector* v, void (*func)(void*));
+
 #endif /* VECTOR_H */
