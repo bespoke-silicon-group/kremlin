@@ -3,4 +3,4 @@
 if __name__ == "__main__":
 	from kremlin_common import createKremlinMk
 
-	createKremlinMk("c")
+	createKremlinMk("cpp")
