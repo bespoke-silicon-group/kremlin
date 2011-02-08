@@ -1,12 +1,13 @@
+*.bc
 *.bin
 *.log
 *.o
 *.s
 *.swp
-*.bc
 Makefile.kremlin
 a.out
 bb.info
+gmon.out
 kremlin.a
 kremlin.mk
 loop-source_line.txt
@@ -16,5 +17,5 @@ region.graph
 region.graph
 region_id-to-func_name.txt
 regions.info
-testResults.txt
 sregions.txt
+testResults.txt

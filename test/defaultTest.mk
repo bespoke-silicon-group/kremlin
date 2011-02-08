@@ -3,7 +3,7 @@ REGRESSION_TEST_ROOT = $(dir $(lastword $(MAKEFILE_LIST)))
 include $(REGRESSION_TEST_ROOT)/buildTasks.mk
 
 CC = kremlin-gcc
-EXPECTED_BIN = cpURegion.bin
+EXPECTED_BIN = kremlin.bin
 export CFLAGS += -Wall
 TARGET ?= a.out
 SOURCES ?= $(shell ls *.c)
