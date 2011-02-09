@@ -195,19 +195,6 @@ void transferAndUnlinkArg(UInt dest) {
 #endif
 }
 
-CDT* allocCDT() {
-    CDT* ret = (CDT*) malloc(sizeof(CDT));
-    ret->time = (UInt64*) calloc(sizeof(UInt64), getTEntrySize());
-    ret->version = (UInt32*) calloc(sizeof(UInt32), getTEntrySize());
-    ret->next = NULL;
-    return ret;
-}
-
-void freeCDT(CDT* cdt) {
-    free(cdt->time);
-    free(cdt->version);
-    free(cdt);  
-}
 
 void setupLocalTable(UInt maxVregNum) {
     MSG(1, "setupLocalTable size %u\n", maxVregNum);
@@ -343,19 +330,9 @@ UInt64 getDynamicRegionId(UInt64 sid) {
 
 
 UInt64 updateCP(UInt64 value, int level) {
-		/*
-	UInt64 work = timestamp - regionInfo[level].start;
-	assert(work >= 0);
-	//fprintf(stderr, "level = %d, region = %llu, work = %llu, cp = %llu timestamp = %llu start=%llu\n", 
-	//	level, regionInfo[level].regionId, work, regionInfo[level].cp, timestamp, regionInfo[level].start);
-	assert(timestamp >= regionInfo[level].start);
-	assert(work >= regionInfo[level].cp);
-	*/
 	regionInfo[level].cp = (value > regionInfo[level].cp) ? value : regionInfo[level].cp;
-	//assert(work >= regionInfo[level].cp);
 	return regionInfo[level].cp;
 
-    //MSG(1,"CP[%d] = %llu\n",level,regionInfo[level].cp);
 }
 
 #define addWork(work) timestamp += work;
@@ -394,21 +371,25 @@ UInt getVersion(int level) {
 }
 
 // precondition: inLevel >= MIN_REGION_LEVEL && inLevel < maxRegionSize
-UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
+inline UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
     int level = inLevel - MIN_REGION_LEVEL;
 
     UInt64 ret = (entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
 }
+/*#define getTimestamp(entry, inLevel, version) ((entry->version[inLevel-MIN_REGION_LEVEL] == version)? entry->time[inLevel-MIN_REGION_LEVEL] : 0) */
+
 
 // precondition: entry != NULL
-void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
+inline void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
     int level = inLevel - MIN_REGION_LEVEL;
-
     entry->version[level] = version;
     entry->time[level] = timestamp;
 }
+/*
+#define updateTimestamp(entry, inLevel, version, timestamp) (entry->version[inLevel-MIN_REGION_LEVEL]=version, entry->time[inLevel-MIN_REGION_LEVEL]=timestamp)
+*/
 
 #ifdef EXTRA_STATS
 UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
@@ -621,9 +602,9 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 #endif
     incIndentTab();
 
-    printf("logRegionEntry:\n");
-    printRegionStack();
-    printf("\n");
+    //printf("logRegionEntry:\n");
+    //printRegionStack();
+    //printf("\n");
 
 }
 
@@ -638,9 +619,9 @@ UInt64 _lastParentSid;
 UInt64 _lastParentDid;
 
 void logRegionExit(UInt64 regionId, UInt regionType) {
-    printf("logRegionEntry:\n");
-    printRegionStack();
-    printf("\n");
+    //printf("logRegionEntry:\n");
+    //printRegionStack();
+    //printf("\n");
     if (!isPyrprofOn()) {
         if (regionType == RegionFunc) { 
             popFuncContext();
@@ -1359,6 +1340,37 @@ void* logInsertValueConst(UInt dest) {
     return logAssignmentConst(dest);
 }
 
+#define CDTSIZE	256
+CDT cdtPool[CDTSIZE];
+int cdtIndex;
+
+void initCDT() {
+	int i=0;
+	for (i=0; i<CDTSIZE; i++) {
+    	cdtPool[i].time = (UInt64*) malloc(sizeof(UInt64) * getTEntrySize());
+	    cdtPool[i].version = (UInt32*) malloc(sizeof(UInt32) * getTEntrySize());
+   	 	bzero(cdtPool[i].time, sizeof(UInt64) * getTEntrySize());
+    	bzero(cdtPool[i].version, sizeof(UInt32) * getTEntrySize());
+	}
+}
+
+void deinitCDT() {
+	int i=0;
+	for (i=1; i<CDTSIZE; i++) {
+		free(cdtPool[i].time);
+		free(cdtPool[i].version);
+	}
+}
+
+CDT* allocCDT() {
+	CDT* ret = &cdtPool[cdtIndex++];
+	assert(cdtIndex < CDTSIZE);
+	return ret;
+}
+
+void freeCDT(CDT* cdt) {
+	cdtIndex--;
+}
 
 void addControlDep(UInt cond) {
     MSG(2, "push ControlDep ts[%u]\n", cond);
@@ -1371,6 +1383,7 @@ void addControlDep(UInt cond) {
     }
     toAdd->next = cdtHead;
     cdtHead = toAdd;
+	
 #endif
 }
 
@@ -1826,6 +1839,7 @@ int pyrprofInit() {
 
     allocDummyTEntry();
 
+	initCDT();
     initMainFuncContext();
     
 	turnOnProfiler();
@@ -1864,7 +1878,6 @@ int pyrprofDeinit() {
 #else
 	cregionFinish("kremlin.bin");
 #endif
-
     finalizeDataStructure();
 
     // Deallocate the arg timestamp deque.
@@ -1888,6 +1901,7 @@ int pyrprofDeinit() {
 
     // Emulates the call stack.
     vector_delete(&funcContexts);
+	deinitCDT();
 
 
     fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
