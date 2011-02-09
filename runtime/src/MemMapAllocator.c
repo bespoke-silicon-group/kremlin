@@ -4,8 +4,8 @@
  */
 
 #define _GNU_SOURCE
+#include "defs.h"
 #include "MemMapAllocator.h"
-#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/mman.h>

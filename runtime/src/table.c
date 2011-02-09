@@ -1,4 +1,3 @@
-#include <assert.h>
 #include "defs.h"
 #include "table.h"
 #include "MemMapAllocator.h"

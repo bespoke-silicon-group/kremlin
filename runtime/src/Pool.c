@@ -1,5 +1,5 @@
+#include "defs.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 #include "Pool.h"
 #include "vector.h"
