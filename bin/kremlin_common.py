@@ -100,9 +100,12 @@ def create_kremlin_mk(src_lang):
         print arg
         arg_ext = arg.split(".")[1]
 
-        if arg_ext == "o": lang_ext = lang_ext
+        if arg_ext == "o": pass
         elif lang_ext == "": lang_ext = arg_ext
         elif lang_ext != arg_ext: 
+
+            # This is not an error. kremlin-gcc -c foo.c bar.s baz.f should
+            # work because gcc handles this properly. --chris
             raise "ERROR: mixed input languages detected."
 
     make_target, make_defines = get_make_target(options)
@@ -123,6 +126,11 @@ def create_kremlin_mk(src_lang):
         write("DEBUG = " + str(options.krem_debug))
 
         # set LD according to source language
+        #
+        # Setting language specific options is not common. It sounds like they
+        # should go in kremlin-gcc/kremlin-g++/kremlin-gfortran frontends
+        # Also, 
+        #    --chris
         if src_lang == "fortran":
             if lang_ext in ["f95","f90","f",""]: write("LD = gfortran")
             else: sys.exit("specified fortran with non-fortran extension: %s" % lang_ext)
