@@ -98,7 +98,6 @@ UInt    __currentBB;
 #define getCurrentLevel()  (levelNum-1)
 #define isCurrentLevelInstrumentable() (((levelNum-1) >= MIN_REGION_LEVEL) && ((levelNum-1) <= MAX_REGION_LEVEL))
 
-void printRegionStack();
 void initMainFuncContext();
 
 UInt64 _regionFuncCnt;
@@ -602,10 +601,6 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 #endif
     incIndentTab();
 
-    //printf("logRegionEntry:\n");
-    //printRegionStack();
-    //printf("\n");
-
 }
 
 UInt64 _lastSid;
@@ -619,9 +614,6 @@ UInt64 _lastParentSid;
 UInt64 _lastParentDid;
 
 void logRegionExit(UInt64 regionId, UInt regionType) {
-    //printf("logRegionEntry:\n");
-    //printRegionStack();
-    //printf("\n");
     if (!isPyrprofOn()) {
         if (regionType == RegionFunc) { 
             popFuncContext();
@@ -661,10 +653,6 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 
     UInt64 sid = regionId;
     UInt64 did = regionInfo[level].did;
-    if (regionType < 2)
-        MSG(0, "[---] region [%u, %u, %llu:%llu]\n",
-                regionType, level, regionId, did);
-
     if(regionInfo[level].regionId != regionId) {
 		fprintf(stderr, "mismatch in regionID. expected %llu, got %llu. level = %d\n",regionInfo[level].regionId,regionId,level);
 		assert(0);
@@ -1936,13 +1924,6 @@ UInt64 sidHash(UInt64 sid) {
 
 int sidCompare(UInt64 s1, UInt64 s2) {
     return s1 == s2;
-}
-
-void printRegionStack()
-{
-    int i;
-    for(i = 0; i <= getCurrentLevel(); i++)
-        printf("region: %llu:%llu\n", regionInfo[i].regionId, regionInfo[i].did);
 }
 
 void printProfileData() {}
