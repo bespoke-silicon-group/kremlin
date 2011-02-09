@@ -21,6 +21,7 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/useTemp.mk
 # Unprocessed sources are files with source code (as opposed to e.g. object files)
 UNPROCESSED_SOURCES += $(filter %.c, $(SOURCES))
 UNPROCESSED_SOURCES += $(filter %.f95, $(SOURCES))
+UNPROCESSED_SOURCES += $(filter %.f, $(SOURCES))
 
 # All the unprocessed sources without the .c
 UNPROCESSED_SOURCES_NO_EXTENSION = $(basename $(UNPROCESSED_SOURCES))
@@ -31,7 +32,7 @@ ASM_INSTRUMENTED_WITH_GCC_NAME = $(addsuffix .s, $(UNPROCESSED_SOURCES_NO_EXTENS
 
 # Passes required as a chained rule. The code to instrument must go through
 # all these passes.
-PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.splitbbatfunccall.criticalpath.regioninstrument
+PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.splitbbatfunccall.O2.criticalpath.regioninstrument
 
 # ---------------------------------------------------------------------------
 # Functions (alpha order)
