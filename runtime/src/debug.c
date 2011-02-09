@@ -6,23 +6,6 @@
 static char tabString[2000];
 static int tabLevel = 0;
 
-extern int regionNum;
-char* toStringTEntry(TEntry* entry) {
-    int level = regionNum;
-    int i;
-    char temp[50];
-
-    // XXX: Causes memory leak?
-    char* ret = (char*)malloc(300);
-    ret[0] = 0;
-
-    for (i = 0; i < level; i++) {
-        sprintf(temp, " %llu (%u)", entry->time[i], entry->version[i]);
-        strcat(ret, temp);
-    }
-    return ret;
-}
-
 void MSG(int level, char* format, ...) {
     if (level > DEBUGLEVEL) {
         return;

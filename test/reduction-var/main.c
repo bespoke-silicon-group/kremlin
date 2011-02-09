@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#define MAX_ELEMENTS 3
+
 int sneaky_sum;
 
 int sumArray(int* a, int num_elems) {
@@ -29,10 +31,10 @@ int main() {
 	turnOnProfiler();
 #endif /* PYRPROF */
 
-	int a[3];
+	int a[MAX_ELEMENTS];
 
 	int i;
-	for(i = 0; i < 3; ++i) {
+	for(i = 0; i < MAX_ELEMENTS; ++i) {
 		printf("enter an integer for a[%d]: ",i);
 		scanf("%d",&a[i]);
 	}

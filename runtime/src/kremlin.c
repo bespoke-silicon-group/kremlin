@@ -13,6 +13,7 @@
 #include "deque.h"
 #include "hash_map.h"
 #include "cregion.h"
+#include "vector.h"
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 
@@ -43,8 +44,6 @@ typedef struct _FuncContext {
     UInt    retBB;
     UInt    retPrevBB;
 #endif
-    struct _FuncContext* next;
-    
 } FuncContext;
 
 typedef struct _region_t {
@@ -77,7 +76,7 @@ int                 levelNum = 0;
 int*                versions = NULL;
 Region*             regionInfo = NULL;
 CDT*                cdtHead = NULL;
-FuncContext*        funcHead = NULL;
+vector*             funcContexts;
 InvokeRecord        invokeStack[_MAX_REGION_LEVEL];
 InvokeRecord*       invokeStackTop;
 UInt64              timestamp = 0llu;
@@ -99,7 +98,9 @@ UInt    __currentBB;
 #define getCurrentLevel()  (levelNum-1)
 #define isCurrentLevelInstrumentable() (((levelNum-1) >= MIN_REGION_LEVEL) && ((levelNum-1) <= MAX_REGION_LEVEL))
 
-//UInt64 _regionEntryCnt;
+void printRegionStack();
+void initMainFuncContext();
+
 UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
 int _requireSetupTable;
@@ -196,10 +197,8 @@ void transferAndUnlinkArg(UInt dest) {
 
 CDT* allocCDT() {
     CDT* ret = (CDT*) malloc(sizeof(CDT));
-    ret->time = (UInt64*) malloc(sizeof(UInt64) * getTEntrySize());
-    ret->version = (UInt32*) malloc(sizeof(UInt32) * getTEntrySize());
-    bzero(ret->time, sizeof(UInt64) * getTEntrySize());
-    bzero(ret->version, sizeof(UInt32) * getTEntrySize());
+    ret->time = (UInt64*) calloc(sizeof(UInt64), getTEntrySize());
+    ret->version = (UInt32*) calloc(sizeof(UInt32), getTEntrySize());
     ret->next = NULL;
     return ret;
 }
@@ -217,7 +216,7 @@ void setupLocalTable(UInt maxVregNum) {
     assert(_requireSetupTable == 1);
 
     LTable* table = allocLocalTable(maxVregNum);
-
+    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
     assert(funcHead->table == NULL);
     assert(table != NULL);
 
@@ -286,20 +285,18 @@ void fillCDT(CDT* cdt, TEntry* entry) {
 }
 
 void pushFuncContext() {
-    FuncContext* prevHead = funcHead;
 
     FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
+    assert(toAdd);
+    vector_push(funcContexts, toAdd);
     toAdd->table = NULL;
 	toAdd->callSiteId = lastCallSiteId;
-    toAdd->next = prevHead;
 
 #ifdef MANAGE_BB_INFO
     toAdd->retBB = __currentBB;
     toAdd->retPrevBB = __prevBB;
     MSG(1, "[push] current = %u last = %u\n", __currentBB, __prevBB);
 #endif
-
-    funcHead = toAdd;
 	//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 
 }
@@ -372,17 +369,14 @@ void addStore() {
 }
 
 void popFuncContext() {
-    FuncContext* ret = funcHead;
-
-    assert(ret != NULL);
+    FuncContext* ret = (FuncContext*)vector_pop(funcContexts);
+    assert(ret);
     //assert(ret->table != NULL);
     // restore currentBB and prevBB
 #ifdef MANAGE_BB_INFO
     __currentBB = ret->retBB;
     __prevBB = ret->retPrevBB;
 #endif
-
-    funcHead = ret->next;
 
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
@@ -562,12 +556,13 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
         _requireSetupTable = 1;
     }
 
+    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+
     if (!isPyrprofOn()) {
         return;
     }
 
     incrementRegionLevel();
-    //_regionEntryCnt++; // XXX this doesn't seem to be used anywhere. is this deprecated?
 
     int level = getCurrentLevel();
 
@@ -583,11 +578,14 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 /*   
 	UInt64 parentSid = (level > 0) ? regionInfo[level-1].regionId : 0;
     UInt64 parentDid = (level > 0) ? regionInfo[level-1].did : 0;
-*/
     if (regionType < 2)
         MSG(0, "[+++] level [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
             regionType, level, regionId, getDynamicRegionId(regionId), 
             parentSid, parentDid, timestamp);
+*/
+    if (regionType < 2)
+        MSG(0, "[+++] level [%u, %d, %llu:%llu] start: %llu\n",
+            regionType, level, regionId, getDynamicRegionId(regionId), timestamp);
 
     // for now, recursive call is not allowed
 	/*
@@ -622,6 +620,11 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
         setCdt(level, versions[level], 0);
 #endif
     incIndentTab();
+
+    printf("logRegionEntry:\n");
+    printRegionStack();
+    printf("\n");
+
 }
 
 UInt64 _lastSid;
@@ -635,9 +638,13 @@ UInt64 _lastParentSid;
 UInt64 _lastParentDid;
 
 void logRegionExit(UInt64 regionId, UInt regionType) {
+    printf("logRegionEntry:\n");
+    printRegionStack();
+    printf("\n");
     if (!isPyrprofOn()) {
         if (regionType == RegionFunc) { 
             popFuncContext();
+            FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
 
             if (funcHead == NULL) {
                 assert(getCurrentLevel() <= 0);
@@ -654,6 +661,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 #ifndef WORK_ONLY
 		if (regionType == RegionFunc) { 
 			popFuncContext();
+            FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
 			if (funcHead == NULL) {
 				assert(getCurrentLevel() == 0);
 
@@ -672,12 +680,14 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 
     UInt64 sid = regionId;
     UInt64 did = regionInfo[level].did;
+    if (regionType < 2)
+        MSG(0, "[---] region [%u, %u, %llu:%llu]\n",
+                regionType, level, regionId, did);
 
     if(regionInfo[level].regionId != regionId) {
 		fprintf(stderr, "mismatch in regionID. expected %llu, got %llu. level = %d\n",regionInfo[level].regionId,regionId,level);
 		assert(0);
 	}
-
     UInt64 startTime = regionInfo[level].start;
     UInt64 endTime = timestamp;
     UInt64 work = endTime - startTime;
@@ -729,10 +739,17 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     }
 
     decIndentTab();
+    /*
     if (regionType < 2)
         MSG(0, "[---] region [%u, %u, %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
                 regionType, level, regionId, did, parentSid, parentDid, 
                 regionInfo[level].cp, work);
+                */
+
+    if (regionType < 2)
+        MSG(0, "[---] region [%u, %u, %llu:%llu] cp %llu work %llu\n",
+                regionType, level, regionId, did, regionInfo[level].cp, work);
+
     if (isPyrprofOn() && work > 0 && cp == 0 && isCurrentLevelInstrumentable()) {
         fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
         fprintf(stderr, "region [type: %u, level: %u, id: %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
@@ -744,7 +761,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     RegionField field;
     field.work = work;
     field.cp = cp;
-	field.callSite = funcHead->callSiteId;
+	field.callSite = ((FuncContext*)vector_top(funcContexts))->callSiteId;
 	field.spWork = spWork;
 	field.tpWork = tpWork;
 	assert(work >= spWork);
@@ -766,6 +783,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 #ifndef WORK_ONLY
     if (regionType == RegionFunc) { 
         popFuncContext();
+        FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
         if (funcHead == NULL) {
             assert(getCurrentLevel() == 0);
 
@@ -854,6 +872,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
     addWork(opCost);
 
 #ifndef WORK_ONLY
+    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
     assert(funcHead->table != NULL); // TODO: is this /really/ necessary here?
 
     TEntry* entry0 = getLTEntry(src);
@@ -1372,6 +1391,7 @@ void addReturnValueLink(UInt dest) {
         return;
     MSG(1, "prepare return storage ts[%u]\n", dest);
 #ifndef WORK_ONLY
+    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
     funcHead->ret = getLTEntry(dest);
 #endif
 }
@@ -1384,11 +1404,19 @@ void logFuncReturn(UInt src) {
 
 #ifndef WORK_ONLY
     TEntry* srcEntry = getLTEntry(src);
-    assert(funcHead->next != NULL);
-    assert(funcHead->next->ret != NULL);
+
+    // Assert there is a function context before the top.
+    assert(vector_begin(funcContexts) < vector_end(funcContexts));
+
+    // Assert that its return value has been set
+    FuncContext** nextHead = (FuncContext**)vector_end(funcContexts);
+    nextHead--;
+    nextHead--;
+    assert(nextHead >= (FuncContext**)vector_begin(funcContexts));
+    assert((*nextHead)->ret);
 
     // Copy the return timestamp into the previous stack's return value.
-    copyTEntry(funcHead->next->ret, srcEntry);
+    copyTEntry((*nextHead)->ret, srcEntry);
 #endif
 }
 
@@ -1401,12 +1429,20 @@ void logFuncReturnConst(void) {
     int i;
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    // Assert there is a function context before the top.
+    assert(vector_begin(funcContexts) < vector_end(funcContexts));
+
+    // Assert that its return value has been set
+    FuncContext** nextHead = (FuncContext**)vector_end(funcContexts);
+    nextHead--;
+    nextHead--;
+    assert(nextHead >= (FuncContext**)vector_begin(funcContexts));
     for (i = minLevel; i < maxLevel; i++) {
         int version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
 
         // Copy the return timestamp into the previous stack's return value.
-        updateTimestamp(funcHead->next->ret, i, version, cdt);
+        updateTimestamp((*nextHead)->ret, i, version, cdt);
 //      funcHead->ret->version[i] = version;
 //      funcHead->ret->time[i] = cdt;
     }
@@ -1556,6 +1592,7 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
     TEntry* entryCD4 = getLTEntry(cd4);
     TEntry* entryDest = getLTEntry(dest);
 
+    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
     assert(funcHead->table->size > src);
     assert(funcHead->table->size > cd1);
     assert(funcHead->table->size > cd2);
@@ -1609,6 +1646,7 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     TEntry* entryCD4 = getLTEntry(cd4);
     TEntry* entryDest = getLTEntry(dest);
 
+    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
     assert(funcHead->table->size > cd1);
     assert(funcHead->table->size > cd2);
     assert(funcHead->table->size > cd3);
@@ -1658,6 +1696,7 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
     int i = 0;
+    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
     assert(funcHead->table != NULL);
     assert(funcHead->table->size > src);
     assert(funcHead->table->size > dest);
@@ -1768,13 +1807,16 @@ int pyrprofInit() {
     // Allocate a memory allocator.
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
 
+    // Emulates the call stack.
+    vector_create(&funcContexts, NULL, NULL);
+
     initDataStructure(storageSize);
 
-    assert(versions = (int*) malloc(sizeof(int) * _MAX_REGION_LEVEL));
-    bzero(versions, sizeof(int) * _MAX_REGION_LEVEL);
+    versions = (int*) calloc(sizeof(int), _MAX_REGION_LEVEL);
+    assert(versions);
 
-    assert(regionInfo = (Region*) malloc(sizeof(Region) * _MAX_REGION_LEVEL));
-    bzero(regionInfo, sizeof(Region) * _MAX_REGION_LEVEL);
+    regionInfo = (Region*) calloc(sizeof(Region), _MAX_REGION_LEVEL);
+    assert(regionInfo);
 
     // Allocate a deque to hold timestamps of args.
     deque_create(&argTimestamps, NULL, NULL);
@@ -1784,13 +1826,29 @@ int pyrprofInit() {
 
     allocDummyTEntry();
 
-    prepareCall(0, 0);
-    cdtHead = allocCDT();
-	pushFuncContext();
+    initMainFuncContext();
     
 	turnOnProfiler();
     return TRUE;
 }
+
+void deinitMainFuncContext()
+{
+	popFuncContext();
+
+    freeCDT(cdtHead);
+    cdtHead = NULL;
+}
+
+void initMainFuncContext()
+{
+    prepareCall(0, 0);
+    cdtHead = allocCDT();
+	pushFuncContext();
+
+    ((FuncContext*)vector_top(funcContexts))->ret = allocTEntry(getTEntrySize());
+}
+
 
 int pyrprofDeinit() {
     if(--hasInitialized) {
@@ -1798,6 +1856,8 @@ int pyrprofDeinit() {
         return FALSE;
     }
     MSG(0, "pyrprofDeinit running\n");
+
+	turnOffProfiler();
 
 #ifdef USE_UREGION
     finalizeUdr();
@@ -1820,13 +1880,15 @@ int pyrprofDeinit() {
 
     free(versions);
     versions = NULL;
-	popFuncContext();
+
+    deinitMainFuncContext();
 
     // Deallocate the memory allocator.
     MemMapAllocatorDelete(&memPool);
 
-    freeCDT(cdtHead);
-    cdtHead = NULL;
+    // Emulates the call stack.
+    vector_delete(&funcContexts);
+
 
     fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
         _minRegionToLog, _maxRegionToLog);
@@ -1851,7 +1913,6 @@ void cppExit() {
 }
 
 void deinitProfiler() {
-	turnOffProfiler();
     pyrprofDeinit();
 }
 
@@ -1861,6 +1922,13 @@ UInt64 sidHash(UInt64 sid) {
 
 int sidCompare(UInt64 s1, UInt64 s2) {
     return s1 == s2;
+}
+
+void printRegionStack()
+{
+    int i;
+    for(i = 0; i <= getCurrentLevel(); i++)
+        printf("region: %llu:%llu\n", regionInfo[i].regionId, regionInfo[i].did);
 }
 
 void printProfileData() {}

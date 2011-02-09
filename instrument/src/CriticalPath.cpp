@@ -824,8 +824,23 @@ namespace {
 
 				// insert call to prepareCall to setup the structures needed to pass arg and return info efficiently
                 boost::uuids::random_generator gen;
-                args.push_back(ConstantInt::get(types.i64(),UuidToIntAdapter<uint64_t>::get(gen()))); // Call site ID
-                args.push_back(ConstantInt::get(types.i64(),0));                                      // ID of region being called. TODO: Implement
+                uint64_t callsite_id = UuidToIntAdapter<uint64_t>::get(gen());
+
+                /*
+                std::string filename;
+                int filename;
+
+                std::ostringstream os;
+                os  << callsite_id << delim
+                    << "callsite" << delim
+                    << filename << delim
+                    << line << delim
+                    << line << delim;
+
+                new GlobalVariable(m, types.i8(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i8(), 0), Twine(os.str()));
+                */
+                args.push_back(ConstantInt::get(types.i64(),callsite_id));  // Call site ID
+                args.push_back(ConstantInt::get(types.i64(),0));            // ID of region being called. TODO: Implement
 				front.addCallInst(ci, "prepareCall", args);
                 args.clear();
 
@@ -1218,9 +1233,9 @@ namespace {
 				foreach(BasicBlock& blk, *func)
 					getBasicBlockId(&blk);
 
-				bool isMain = false;
+				bool isMain = func->getName() == "main";
 
-				if(func->getName().compare("main") == 0 || func->getName().compare("MAIN__") == 0) { isMain = true; }
+				isMain = func->getName().compare("main") == 0 || func->getName().compare("MAIN__") == 0;
 					
 				// Create ID's for all the instructions that will get their own virtual register number.
 				// We do this here so that we don't have races based on which BB is instrumented first (most likely with PHI nodes)
@@ -1785,7 +1800,7 @@ namespace {
 						}
 
 
-						else if(isa<ReturnInst>(i) && !isMain) { // don't do anything for return if this is main
+						else if(isa<ReturnInst>(i)) {
 							ReturnInst* ri = cast<ReturnInst>(i);
 
 							if(returnsRealValue(func) // make sure this returns a non-pointer

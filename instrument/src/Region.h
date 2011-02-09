@@ -3,10 +3,11 @@
 
 #include <stdint.h>
 #include <string>
+#include "FormattableToString.h"
 
 typedef uint64_t RegionId;
 
-class Region
+class Region : public FormattableToString
 {
 	public:
 	typedef enum {

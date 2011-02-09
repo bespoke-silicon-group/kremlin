@@ -19,48 +19,48 @@ typedef std::pair<unsigned, MDNode*> AllMetaType;
 const std::string LoopRegion::REGION_NAME = "loop";
 
 LoopRegion::LoopRegion(RegionId id, llvm::Loop* loop) : 
-	loop(loop),
-	id(id)
+    loop(loop),
+    id(id)
 {
-	Function* func = (*loop->block_begin())->getParent();
-	DebugInfoFinder debugInfoFinder;
-	debugInfoFinder.processModule(*func->getParent());
+    Function* func = (*loop->block_begin())->getParent();
+    DebugInfoFinder debugInfoFinder;
+    debugInfoFinder.processModule(*func->getParent());
 
-	for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
-	{
-		SubprogramDebugInfo debugInfo(*it);
-		if(debugInfo.func == func)
-		{
-			fileName = debugInfo.fileName;
-			funcName = debugInfo.displayName;
-		}
-	}
+    for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
+    {
+        SubprogramDebugInfo debugInfo(*it);
+        if(debugInfo.func == func)
+        {
+            fileName = debugInfo.fileName;
+            funcName = debugInfo.displayName;
+        }
+    }
 
-	// Subprogram information doesn't have file name information?
-	// Consequently, we just fetch it from the compilation information debug
-	// info.
-	if(fileName == "")
-	{
-		CompileUnitDebugInfo compilationDebugInfo(*debugInfoFinder.compile_unit_begin());
-		fileName = compilationDebugInfo.fileName;
-	}
+    // Subprogram information doesn't have file name information?
+    // Consequently, we just fetch it from the compilation information debug
+    // info.
+    if(fileName == "")
+    {
+        CompileUnitDebugInfo compilationDebugInfo(*debugInfoFinder.compile_unit_begin());
+        fileName = compilationDebugInfo.fileName;
+    }
 
-	std::cerr << "Meta data for " << id << std::endl;
+    std::cerr << "Meta data for " << id << std::endl;
 
-	// Get the line numbers from the set of instructions.
-	startLine = UINT_MAX;
-	endLine = 0;
-	foreach(BasicBlock* bb, loop->getBlocks())
-		foreach(Instruction& inst, *bb)
-		{
-			if (MDNode *N = inst.getMetadata("dbg")) {  // grab debug metadata from inst
-				DILocation Loc(N);                      // get location info from metadata
-				unsigned line_no = Loc.getLineNumber();
+    // Get the line numbers from the set of instructions.
+    startLine = UINT_MAX;
+    endLine = 0;
+    foreach(BasicBlock* bb, loop->getBlocks())
+        foreach(Instruction& inst, *bb)
+        {
+            if(MDNode *N = inst.getMetadata("dbg")) {   // grab debug metadata from inst
+                DILocation Loc(N);                      // get location info from metadata
+                unsigned line_no = Loc.getLineNumber();
 
-				startLine = std::min(startLine,line_no);
-				endLine = std::max(endLine,line_no);
-			}
-		}
+                startLine = std::min(startLine,line_no);
+                endLine = std::max(endLine,line_no);
+            }
+        }
 }
 
 LoopRegion::~LoopRegion()
@@ -69,41 +69,41 @@ LoopRegion::~LoopRegion()
 
 RegionId LoopRegion::getId() const
 {
-	return id;
+    return id;
 }
 
 const std::string& LoopRegion::getFileName() const
 {
-	return fileName;
+    return fileName;
 }
 
 const std::string& LoopRegion::getFuncName() const
 {
-	return funcName;
+    return funcName;
 }
 
 const std::string& LoopRegion::getRegionType() const
 {
-	return REGION_NAME;
+    return REGION_NAME;
 }
 
 unsigned int LoopRegion::getStartLine() const
 {
-	return startLine;
+    return startLine;
 }
 
 unsigned int LoopRegion::getEndLine() const
 {
-	return endLine;
+    return endLine;
 }
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const LoopRegion& r)
 {
-	os << "LoopRegion(id: " << r.getId() 
-		<< ", name: " << r.getFuncName()
-		<< ", fileName: " << r.getFileName()
-		<< ", startLine: " << r.getStartLine()
-		<< ", endLine: " << r.getEndLine();
+    os << "LoopRegion(id: " << r.getId() 
+        << ", name: " << r.getFuncName()
+        << ", fileName: " << r.getFileName()
+        << ", startLine: " << r.getStartLine()
+        << ", endLine: " << r.getEndLine();
 
-	return os;
+    return os;
 }

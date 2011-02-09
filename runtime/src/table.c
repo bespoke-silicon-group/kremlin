@@ -19,8 +19,7 @@ UInt32 getTEntrySize() {
 void freeTEntry(TEntry* entry);
 
 GTable* allocGlobalTable(int depth) {
-	GTable* ret = (GTable*) malloc(sizeof(GTable));
-	bzero(ret->array, sizeof(GTable));
+	GTable* ret = (GTable*) calloc(sizeof(GTable), 1);
 	return ret;
 }
 
@@ -80,7 +79,7 @@ TEntry* allocTEntry(int size) {
     spaceToAlloc += readVersionSize + readTimeSize;
 #endif
     
-    if(!(entry = (TEntry*) malloc(spaceToAlloc)))
+    if(!(entry = (TEntry*) calloc(sizeof(unsigned char), spaceToAlloc)))
     //if(!(entry = (TEntry*) PoolMalloc(tEntryPool)))
     {
         fprintf(stderr, "Failed to alloc TEntry\n");
@@ -89,7 +88,6 @@ TEntry* allocTEntry(int size) {
     }
     //fprintf(stderr, "bzero addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
     assert(PoolGetPageSize(tEntryPool) >= spaceToAlloc);
-    bzero(entry, spaceToAlloc); 
     //fprintf(stderr, "bzero2 addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
 
     entry->version = (UInt32*)((unsigned char*)entry + sizeof(TEntry));
@@ -99,10 +97,12 @@ TEntry* allocTEntry(int size) {
     entry->readVersion = (UInt32*)((unsigned char*)entry->time + timeSize);
     entry->readTime = (UInt64*)((unsigned char*)entry->readVersion + readVersionSize);
 #endif
+
     return entry;
 }
 
 void freeTEntry(TEntry* entry) {
+    
 	free(entry);
 	//PoolFree(tEntryPool, entry);
 }
@@ -233,6 +233,8 @@ void freeLocalTable(LTable* table) {
 	free(table);
 }
 
+// Why do we use a global variable to reference the local table? Shouldn't we
+// just use the one in FuncContext? --chris
 void setLocalTable(LTable* table) {
 //	printf("Set LTable to 0x%x\n", table);
 	lTable = table;
@@ -331,6 +333,26 @@ TEntry* getGTEntryCacheLine(Addr addr) {
 #endif
 }
 
+#if 0
+extern int regionNum;
+char* toStringTEntry(TEntry* entry) {
+#if PYRPROF_DEBUG == 1
+    int level = regionNum;
+    int i;
+    char temp[50];
+
+    // XXX: Causes memory leak?
+    char* ret = (char*)malloc(300);
+    ret[0] = 0;
+
+    for (i = 0; i < level; i++) {
+        sprintf(temp, " %llu (%u)", entry->time[i], entry->version[i]);
+        strcat(ret, temp);
+    }
+    return ret;
+#endif
+}
+#endif
 
 void dumpTableMemAlloc() {
 	fprintf(stderr, "local TEntry = %lld\n", _tEntryLocalCnt);

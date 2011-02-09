@@ -497,135 +497,6 @@ namespace {
 			return num_preds;
 		}
 
-		// for now we assume everything is 32 bit
-		// returns a vector with info about the insts in this BB (number of different types of insts, live out, consts, etc);
-		std::vector<unsigned int> getBBInstVector(BasicBlock* bb, bool assume_arsenal) {
-			std::vector<unsigned int> inst_vector;
-
-			unsigned int num_int_adds = 0; // adds and subs
-			unsigned int num_int_muls = 0;
-			unsigned int num_int_divs = 0; // both div and rem
-
-			unsigned int num_fp_adds = 0; // adds and subs
-			unsigned int num_fp_muls = 0;
-			unsigned int num_fp_divs = 0; // both div and rem
-
-			unsigned int num_logic_ops = 0; // AND, OR, XOR, etc.
-			unsigned int num_shifts = 0;
-
-			unsigned int num_int_cmps = 0;
-			unsigned int num_fp_cmps = 0;
-
-			unsigned int num_mem_ops = 0; // loads and stores
-
-			unsigned int num_phi_nodes = 0;
-			unsigned int num_selects = 0;
-
-			unsigned int num_live_out_defs = 0; // num of insts that are defined in this BB and are live-out
-
-			// TODO: constants in arsenal turn into registers (so they are programmable)... need to count them here
-			unsigned int num_consts = 0;
-
-			for(BasicBlock::iterator i = bb->begin(), ie = bb->end(); i != ie; ++i) {
-				bool check_for_live_out = false;
-
-				if(isa<BinaryOperator>(i) || isa<SelectInst>(i) || isa<CmpInst>(i) || isa<PHINode>(i) || isa<LoadInst>(i) || isa<StoreInst>(i)) {
-					switch(i->getOpcode()) {
-						case Instruction::Add:
-						case Instruction::Sub:
-							num_int_adds++;
-							break;
-						case Instruction::FAdd:
-						case Instruction::FSub:
-							num_fp_adds++;
-							break;
-						case Instruction::Mul:
-							num_int_muls++;
-							break;
-						case Instruction::FMul:
-							num_fp_muls++;
-							break;
-						case Instruction::UDiv:
-						case Instruction::SDiv:
-						case Instruction::URem:
-						case Instruction::SRem:
-							num_int_divs++;
-							break;
-						case Instruction::FDiv:
-						case Instruction::FRem:
-							num_fp_divs++;
-							break;
-						case Instruction::Shl:
-						case Instruction::LShr:
-						case Instruction::AShr:
-							num_shifts++;
-							break;
-						case Instruction::And:
-						case Instruction::Or:
-						case Instruction::Xor:
-							num_logic_ops++;
-							break;
-						case Instruction::ICmp:
-							num_int_cmps++;
-							break;
-						case Instruction::FCmp:
-							num_fp_cmps++;
-							break;
-						case Instruction::Select:
-							num_selects++;
-							break;
-						case Instruction::PHI:
-							num_phi_nodes++;
-							if(!assume_arsenal)
-								check_for_live_out = true;
-							break;
-
-						case Instruction::Load:
-						case Instruction::Store:
-							num_mem_ops++;
-
-							if(!assume_arsenal)
-								check_for_live_out = true;
-						break;
-					}
-					check_for_live_out = true;
-				}
-
-				// now check for live-outs that are defined here
-				if(check_for_live_out) {
-					// go through all users of this inst
-					for(Value::use_iterator UI = i->use_begin(), UE = i->use_end(); UI != UE; ++UI) {
-						Instruction* use_inst = cast<Instruction>(*UI);
-
-						// if this user is in a different BB, then it is going to be live out
-						if(use_inst->getParent() != i->getParent()) {
-							num_live_out_defs++;
-							break; // don't forget to break so we don't count a single inst more than once
-						}
-					}
-				}
-			}
-
-			inst_vector.push_back(num_int_adds);
-			inst_vector.push_back(num_int_muls);
-			inst_vector.push_back(num_int_divs);
-			inst_vector.push_back(num_fp_adds);
-			inst_vector.push_back(num_fp_muls);
-			inst_vector.push_back(num_fp_divs);
-			inst_vector.push_back(num_logic_ops);
-			inst_vector.push_back(num_shifts);
-			inst_vector.push_back(num_int_cmps);
-			inst_vector.push_back(num_fp_cmps);
-			inst_vector.push_back(num_mem_ops);
-			inst_vector.push_back(num_phi_nodes);
-			inst_vector.push_back(num_selects);
-			inst_vector.push_back(num_live_out_defs);
-			inst_vector.push_back(num_consts);
-			inst_vector.push_back(getNumPreds(bb));
-
-			return inst_vector;
-		}
-
 		// returns true if CallInst is a call that we can inline. If it is inlinable it implies:
 		// 1) It is not a function pointer
 		// 2) It is either a region instrument function (e.g. logBBVisit) or function whose body we have the bitcode for
@@ -655,22 +526,6 @@ namespace {
 
 			// didn't find any non-inliable calls so we are good to go
 			return false;
-		}
-
-		// returns the number of non-inlinable calls in this basic block
-		unsigned getNumNIC(BasicBlock* bb) {
-			unsigned nic = 0; // number of Non-Inlinable Calls (NIC)
-
-			for(BasicBlock::iterator i = bb->begin(), ie = bb->end(); i != ie; ++i) {
-				if(isa<CallInst>(i)) {
-					CallInst* ci = dyn_cast<CallInst>(i);
-
-					if(!isInlinableCall(ci)) nic++;
-				}
-			}
-
-			// didn't find any non-inliable calls so we are good to go
-			return nic;
 		}
 
 		void printFunctionNesting(BasicBlock* bb, RegionId func_region_id, LoopInfo& LI, std::map<std::string,RegionId>& loop_header_name_to_region_id) {
@@ -886,7 +741,6 @@ namespace {
 
 		void instrumentModule(Module &m, BasicBlockId &bb_id) {
 			LLVMTypes types(m.getContext());
-			std::ofstream bb_info_file; // file to write BB mapping info to
 
 			std::string mod_name = m.getModuleIdentifier();
 
@@ -931,8 +785,6 @@ namespace {
 			args.clear();
 
 			std::vector<Value*> op_args;
-
-			bb_info_file.open("bb.info",std::ios::app);
 
 			foreach(Function& func, m) {
 
@@ -1044,24 +896,6 @@ namespace {
 							region_id_to_contained_bb_ids[loop_header_name_to_region_id[ function_loops[i]->getHeader()->getName() ]].push_back(bb_id);
 						}
 					}
-
-					// find out how many "work" insts are in this BB then print BB stats to bb_info_file
-					//unsigned int num_insts = getNumInsts(bb);
-					std::vector<unsigned int> inst_vector = getBBInstVector(bb,true); // TODO: command line op to specify arsenal or not
-
-					// check if there are any calls to non-inlinable functions in this BB
-					//bool calls_nif = callsNonInlinableFunc(bb);
-					unsigned num_nic = getNumNIC(bb);
-
-					// print out all the info we gathered about this BB
-					//bb_info_file << bb_id << ":" << mod_name << ":" << func.getName() << ":" << bb->getName() << ":" << getNumPreds(bb) << ":" << calls_nif;
-					bb_info_file << bb_id << ":" << mod_name << ":" << func.getName().str() << ":" << bb->getName().str() << ":" << getNumPreds(bb) << ":" << num_nic;
-					
-					for(unsigned i = 0; i < inst_vector.size(); ++i) {
-						bb_info_file << ":" << inst_vector[i];
-					} 
-
-					bb_info_file << "\n";
 
 					// for all func calls from this BB, add in the nesting info between this region and the region of that function
 					printFunctionNesting(bb,func_region_id,LI,loop_header_name_to_region_id);
@@ -1178,9 +1012,8 @@ namespace {
 			} // end for loop
             foreach(Region& r, regions) {
                 std::string encoded_region_str;
-                new GlobalVariable(m, types.i32(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i32(), 0), Twine(r.formatToString(encoded_region_str)));
+                new GlobalVariable(m, types.i8(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i8(), 0), Twine(r.formatToString(encoded_region_str)));
             }
-			bb_info_file.close();
 		} // end instrumentModule(...)
 
 		void getAnalysisUsage(AnalysisUsage &AU) const {

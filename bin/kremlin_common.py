@@ -100,7 +100,7 @@ class GccOption:
 
         raise "Uknown type?: " + value
 
-def createKremlinMk(src_lang):
+def create_kremlin_mk(src_lang):
     usage = "usage: %prog options sources"
     parser = OptionParser(usage = usage)
 

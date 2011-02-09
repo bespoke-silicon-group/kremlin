@@ -16,9 +16,9 @@ std::string& Region::formatToString(std::string& buf) const
     std::string delimiter = "_krem_";
 	std::ostringstream os;
 
-	os  << "krem_region"
-	    << getId() << delimiter
-		<< getRegionType() << delimiter
+	os  << PREFIX
+	    << getId() << DELIMITER
+		<< getRegionType() << DELIMITER
 		<< getFileName() << delimiter
 		<< getFuncName() << delimiter
 		<< getStartLine() << delimiter

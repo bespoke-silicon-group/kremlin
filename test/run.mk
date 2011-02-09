@@ -42,7 +42,6 @@ $(TEST_RESULTS): $(MAKE_RESULTS)
 
 # How to make all tests.
 $(MAKE_RESULTS):
-	@echo "Making: $@ in dir $(dir $@)"
 	(make -C $(dir $@) $(CLEAN_TASK) $(BUILD_TASK) $(RUN_TASK) $(CHECK_TASK) || echo "TEST_RESULT: FAILED") &> $@
 
 $(CLEAN_RESULTS):

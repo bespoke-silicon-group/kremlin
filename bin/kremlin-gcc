@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
 if __name__ == "__main__":
-	from kremlin_common import createKremlinMk
+	from kremlin_common import create_kremlin_mk
 
-	createKremlinMk("c")
+	create_kremlin_mk("c")
