@@ -31,4 +31,4 @@ $(CHECK_TASK):
 
 $(CLEAN_TASK)::
 	-make clean -f kremlin.mk
-	-@rm -rf *.s *.log *.bc *.o $(TARGET) $(EXPECTED_BIN)
+	-@rm -rf *.s *.log *.bc *.o $(TARGET) $(EXPECTED_BIN) gmon.out massif.out.*

@@ -55,8 +55,9 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
 		foreach(Instruction& inst, *bb)
 		{
 			if (MDNode *N = inst.getMetadata("dbg")) {  // grab debug metadata from inst
-				DILocation Loc(N);                      // get location info from metadata
-				unsigned line_no = Loc.getLineNumber();
+				DILocation loc(N);                      // get location info from metadata
+
+				unsigned line_no = loc.getLineNumber();
 
 				startLine = std::min(startLine,line_no);
 				endLine = std::max(endLine,line_no);

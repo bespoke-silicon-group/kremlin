@@ -31,6 +31,7 @@
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/ptr_container/ptr_vector.hpp>
 
 #include "PassLog.h"
 #include "OpCosts.h"
@@ -38,6 +39,8 @@
 #include "InstrumentationFuncManager.h"
 #include "LLVMTypes.h"
 #include "UuidToIntAdapter.h"
+#include "InstrumentationCall.h"
+#include "InstrumentedCall.h"
 
 using namespace llvm;
 
@@ -54,6 +57,7 @@ namespace {
 
 		std::map<BasicBlock*, unsigned int> basicBlockIdMap;
 		std::map<std::string,Module*> definitionModule;
+        boost::ptr_vector<InstrumentationCall> instrumentationCalls;
 
 		CriticalPath() : ModulePass(ID), log(PassLog::get()) {}
 		~CriticalPath() {}
@@ -98,6 +102,7 @@ namespace {
 		};
 
 		// Instrumentation calls are added to this class. It stores them and adds them to a particular location all at once at the end.
+        // TODO: Depreciate
 		class InstrumentationCalls {
 			public:
 			typedef std::map<CallInst*, Instruction*> CallInstToInst;
@@ -574,6 +579,12 @@ namespace {
 			return returnsRealValue(ii->getType());
 		}
 
+		// This function tries to untangle some strangely formed function calls.
+		// If the call inst is a normal call inst then it just returns the function that is returned by
+		// ci->getCalledFunction().
+		// Otherwise, it checks to see if the first op of the call is a constant bitcast op that can
+		// result from LLVM not knowing the function declaration ahead of time. If it detects this
+		// situation, it will grab the function that is being cast and return that.
 		template <typename Callable>
 		Function* untangleCall(Callable* ci)
 		{
@@ -600,38 +611,6 @@ namespace {
 
 			return called_func;
 		}
-		/*
-		// This function tries to untangle some strangely formed function calls.
-		// If the call inst is a normal call inst then it just returns the function that is returned by
-		// ci->getCalledFunction().
-		// Otherwise, it checks to see if the first op of the call is a constant bitcast op that can
-		// result from LLVM not knowing the function declaration ahead of time. If it detects this
-		// situation, it will grab the function that is being cast and return that.
-		Function* untangleCall(CallInst* ci) {
-			if(ci->getCalledFunction()) { return ci->getCalledFunction(); }
-
-			Value* op0 = ci->getOperand(0);
-			if(!isa<User>(op0)) {
-				LOG_DEBUG() << "skipping op0 of callinst because it isn't a User: " << *op0 << "\n";
-
-				return NULL;
-			}
-
-			User* user = cast<User>(ci->getOperand(0));
-
-			Function* called_func = NULL;
-
-			// check if the user is a constant bitcast expr with a function as the first operand
-			if(isa<ConstantExpr>(user)) { 
-				if(isa<Function>(user->getOperand(0))) {
-					//LOG_DEBUG() << "untangled function ref from bitcast expr\n";
-					called_func = cast<Function>(user->getOperand(0));
-				}
-			}
-
-			return called_func;
-		}
-		*/
 
 		// Returns true if these blocks and the blocks between them could have been joined together into a single basic block.
 		bool isSingleInstructionStream(BasicBlock* block1, BasicBlock* block2) {
@@ -823,24 +802,11 @@ namespace {
 					LOG_DEBUG() << "got a call to function via function pointer: " << *ci;
 
 				// insert call to prepareCall to setup the structures needed to pass arg and return info efficiently
-                boost::uuids::random_generator gen;
-                uint64_t callsite_id = UuidToIntAdapter<uint64_t>::get(gen());
+                InstrumentedCall<Callable>* instrumented_call;
+                instrumentationCalls.push_back(instrumented_call = new InstrumentedCall<Callable>(ci));
 
-                /*
-                std::string filename;
-                int filename;
-
-                std::ostringstream os;
-                os  << callsite_id << delim
-                    << "callsite" << delim
-                    << filename << delim
-                    << line << delim
-                    << line << delim;
-
-                new GlobalVariable(m, types.i8(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i8(), 0), Twine(os.str()));
-                */
-                args.push_back(ConstantInt::get(types.i64(),callsite_id));  // Call site ID
-                args.push_back(ConstantInt::get(types.i64(),0));            // ID of region being called. TODO: Implement
+                args.push_back(ConstantInt::get(types.i64(),instrumented_call->getId()));   // Call site ID
+                args.push_back(ConstantInt::get(types.i64(),0));                            // ID of region being called. TODO: Implement
 				front.addCallInst(ci, "prepareCall", args);
                 args.clear();
 
@@ -2160,6 +2126,11 @@ namespace {
 				inst_calls_begin.appendInstCallsToFunc(func);
 				inst_calls_end.appendInstCallsToFunc(func);
 			}
+
+            foreach(InstrumentationCall& c, instrumentationCalls)
+            {
+                c.instrument();
+            }
 
 			//LOG_DEBUG() << "num of instrumentation calls in module " << m.getModuleIdentifier() << ": " << instrumentation_calls.size() << "\n";
 		}

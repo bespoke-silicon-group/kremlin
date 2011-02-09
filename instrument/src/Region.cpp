@@ -13,16 +13,15 @@ bool Region::operator==(const Region& that) const
 
 std::string& Region::formatToString(std::string& buf) const
 {
-    std::string delimiter = "_krem_";
 	std::ostringstream os;
 
 	os  << PREFIX
 	    << getId() << DELIMITER
 		<< getRegionType() << DELIMITER
-		<< getFileName() << delimiter
-		<< getFuncName() << delimiter
-		<< getStartLine() << delimiter
-		<< getEndLine() << delimiter;
+		<< getFileName() << DELIMITER
+		<< getFuncName() << DELIMITER
+		<< getStartLine() << DELIMITER
+		<< getEndLine() << DELIMITER;
 
 	buf = os.str();
 

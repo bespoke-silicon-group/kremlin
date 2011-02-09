@@ -5,6 +5,7 @@ from optparse import OptionParser
 import os
 import subprocess
 import sys
+from GccOption import GccOption
 
 # This is kind of ugly. Refactoring highly welcome!
 def get_make_target(options):
@@ -48,57 +49,6 @@ def get_make_target(options):
         
     return make_target, ""
 
-# Creates an option that should just be passed to GCC through setting CFLAGS
-# in the makefile.
-class GccOption:
-
-    def __init__(self, parser, *flags, **parser_options):
-
-        """Adds the option to the parser. Has the exact same signature as
-        OptionParser.add_option except it takes one as the first argument."""
-
-
-        parser_option_action = "action"
-        parser_option_dest = "dest"
-        parser_option_default = "default"
-
-        self.parser = parser
-        self.flags = flags
-        self.dest = parser_options[parser_option_dest]
-
-        # Default to empty list if no default is specified
-        if not parser_option_default in parser_options:
-            parser_options[parser_option_default] = []
-
-        # Default to append if no action is specified
-        if not parser_option_action in parser_options:
-            parser_options[parser_option_action] = "append"
-
-        parser.add_option(*flags, **parser_options)
-
-    def get_cflags_str(self, options):
-        """Takes the options returned by OptionParser.parse_args() and returns
-        a string of flags to be added to CFLAGS. These flags are the same
-        flags passed to this python script."""
-
-        value = options.__dict__[self.dest]
-
-        # If just a plain flag, add it if it's true
-        if value == True:
-            return self.flags[0]
-
-        # Otherwise, don't add it.
-        if value == False:
-            return ""
-
-        if isinstance(value, str):
-            return self.flags[0] + value
-
-        # If the flag can be specified multiple times, add them all.
-        if isinstance(value, list):
-            return " ".join([self.flags[0] + value for value in value])
-
-        raise "Uknown type?: " + value
 
 def create_kremlin_mk(src_lang):
     usage = "usage: %prog options sources"
@@ -107,11 +57,10 @@ def create_kremlin_mk(src_lang):
     # Output file target
     parser.add_option("-o", dest = "target", default = None)
 
-
     # Partial compilation
-    parser.add_option("-c", action = "store_true", dest = "assemble", default = False)
-    parser.add_option("-S", action = "store_true", dest = "compile", default = False)
-    parser.add_option("-E", action = "store_true", dest = "preprocess", default = False)
+    parser.add_option("-c", action = "store_true", dest = "assemble", default = False, help = "Compile and assemble, but do not link")
+    parser.add_option("-S", action = "store_true", dest = "compile", default = False, help = "Compile only; do not assemble or link")
+    parser.add_option("-E", action = "store_true", dest = "preprocess", default = False, help = "Preprocess only; do not compile, assemble or link")
 
     # These options should just be passed to GCC by adding them to CFLAGS
     gcc_options = [
@@ -132,8 +81,9 @@ def create_kremlin_mk(src_lang):
 
         GccOption(parser, "-W", dest = "wOpts")]
 
-    #pyrprof specific options
-    parser.add_option("--Pno-inline", action = "store_false", dest = "inline", default = True)
+    # kremlin specific options
+    parser.add_option("--krem-inline", action = "store_true", dest = "krem_inline", default = False)
+    parser.add_option("--krem-debug", action = "store_const", const = "1", dest = "krem_debug", default = 0)
 
     (options, args) = parser.parse_args()
 
@@ -153,7 +103,7 @@ def create_kremlin_mk(src_lang):
         if arg_ext == "o": lang_ext = lang_ext
         elif lang_ext == "": lang_ext = arg_ext
         elif lang_ext != arg_ext: 
-            sys.exit("ERROR: mixed input languages detected.")
+            raise "ERROR: mixed input languages detected."
 
     make_target, make_defines = get_make_target(options)
 
@@ -170,6 +120,7 @@ def create_kremlin_mk(src_lang):
         write("SOURCES = " + " ".join(args))
         write(make_defines)
         write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]))
+        write("DEBUG = " + str(options.krem_debug))
 
         # set LD according to source language
         if src_lang == "fortran":

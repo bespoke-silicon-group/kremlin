@@ -305,29 +305,6 @@ void dumpTEntry(TEntry* entry, int size) {
     fprintf(stderr, "\n");
 }
 
-
-/*
-void dumpRegion() {
-#if 0
-    int i;
-    for (i = 0; i < getLevelNum(); i++) {
-        fprintf(stderr, "%d: %lld\t%lld\n", 
-            i, regionInfo[i].start, regionInfo[i].end);
-    }
-#endif
-}
-
-void incDynamicRegionId(UInt64 sid) {
-    dynamicRegionId[sid]++;
-    int i;
-}
-
-UInt64 getDynamicRegionId(UInt64 sid) {
-    return dynamicRegionId[sid];
-}
-*/
-
-
 UInt64 updateCP(UInt64 value, int level) {
 	regionInfo[level].cp = (value > regionInfo[level].cp) ? value : regionInfo[level].cp;
 	return regionInfo[level].cp;
@@ -559,13 +536,13 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 	UInt64 parentSid = (level > 0) ? regionInfo[level-1].regionId : 0;
     UInt64 parentDid = (level > 0) ? regionInfo[level-1].did : 0;
     if (regionType < 2)
-        MSG(0, "[+++] level [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
+        MSG(0, "[+++] region [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
             regionType, level, regionId, getDynamicRegionId(regionId), 
             parentSid, parentDid, timestamp);
 */
     if (regionType < 2)
-        MSG(0, "[+++] level [%u, %d, %llu:%llu] start: %llu\n",
-            regionType, level, regionId, getDynamicRegionId(regionId), timestamp);
+        MSG(0, "[+++] region [%u, %d, %llu:%llu] start: %llu\n",
+            regionType, level, regionId, *getDynamicRegionId(regionId), timestamp);
 
     // for now, recursive call is not allowed
 	/*
