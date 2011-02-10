@@ -1,6 +1,3 @@
-LEVEL=../../
-X86_64=1
-C_SRC=main.cpp cPrintHelloWorld.c
-TARGET=cpp-c
+REGRESSION_TEST_ROOT = ../..
 
-include ../Makefile.pyrprof
+include $(REGRESSION_TEST_ROOT)/defaultTest.mk

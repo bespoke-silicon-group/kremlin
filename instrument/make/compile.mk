@@ -19,9 +19,7 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/useTemp.mk
 
 # Anything we must instrument.
 # Unprocessed sources are files with source code (as opposed to e.g. object files)
-UNPROCESSED_SOURCES += $(filter %.c, $(SOURCES))
-UNPROCESSED_SOURCES += $(filter %.f95, $(SOURCES))
-UNPROCESSED_SOURCES += $(filter %.f, $(SOURCES))
+UNPROCESSED_SOURCES += $(filter %.c %.cc %.cxx %.C %.cpp %.f95 %.f, $(SOURCES))
 
 # All the unprocessed sources without the .c
 UNPROCESSED_SOURCES_NO_EXTENSION = $(basename $(UNPROCESSED_SOURCES))

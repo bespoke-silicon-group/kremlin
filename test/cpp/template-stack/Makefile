@@ -1,5 +1,3 @@
-LEVEL=../../
-C_SRC=main.cpp
-TARGET=cpp-template
+REGRESSION_TEST_ROOT = ../..
 
-include ../Makefile.pyrprof
+include $(REGRESSION_TEST_ROOT)/defaultTest.mk

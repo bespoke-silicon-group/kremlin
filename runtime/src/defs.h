@@ -106,9 +106,9 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4);
 
 void logPhiNodeAddCondition(UInt dest, UInt src);
 
-void prepareInvoke(UInt);
-void invokeThrew(UInt);
-void invokeOkay(UInt);
+void prepareInvoke(UInt64);
+void invokeThrew(UInt64);
+void invokeOkay(UInt64);
 
 void addControlDep(UInt cond);
 void removeControlDep();

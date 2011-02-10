@@ -184,6 +184,13 @@ OPT_PASS_SHARED_OBJ = $(if $(strip $(1)), $(LLVM_LIB_DIR)/$(strip $(1)))
 %.bc: %.c
 	$(LLVM_CC) $(LLVM_CFLAGS) --emit-llvm -c -o $@ $<
 
+# Converts c to LLVM byte code.
+%.bc: %.C
+%.bc: %.cxx
+%.bc: %.cc
+%.bc: %.cpp
+	$(LLVM_CXX) $(LLVM_CXXFLAGS) --emit-llvm -c -o $@ $<
+
 # Converts fortran source code to LLVM byte code
 %.bc: %.f
 %.bc: %.f95

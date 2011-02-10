@@ -3,16 +3,29 @@ REGRESSION_TEST_ROOT = $(dir $(lastword $(MAKEFILE_LIST)))
 include $(REGRESSION_TEST_ROOT)/buildTasks.mk
 
 CC = kremlin-gcc
+CXX = kremlin-g++
+FC = kremlin-gfortran
+LD = $(CC)
 EXPECTED_BIN = kremlin.bin
-export CFLAGS += -Wall
+CFLAGS += -Wall --krem-debug
+CXXFLAGS += $(CFLAGS)
 TARGET ?= a.out
-SOURCES ?= $(shell ls *.c)
-OBJECTS = $(SOURCES:.c=.o)
+SOURCES ?= $(shell ls *.c *.cpp *.f *.f95)
+OBJECTS = $(addsuffix .o, $(basename $(SOURCES)))
+
+ifneq ($(filter %.cpp, $(SOURCES)),)
+LD = $(CXX)
+LDFLAGS += $(CXXFLAGS)
+endif # cpp
+
+ifneq ($(filter %.f %.f95, $(SOURCES)),)
+LD = $(FC)
+endif # cpp
 
 $(BUILD_TASK): $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET) $(OBJECTS)
+	$(LD) $(LDFLAGS) -o $(TARGET) $(OBJECTS)
 
 $(RUN_TASK): $(TARGET)
 	./$(TARGET) $(ARGS)

@@ -2,13 +2,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "Pool.h"
-#include "vector.h"
+#include "Vector.h"
 
 #define TRUE 1
 #define FALSE 0
 
 #define MAX_ALLOC_SIZE  (1024*1024*512)
 #define DEFAULT_PAGE_COUNT  16
+
+VECTOR_DEFINE_PROTOTYPES(FreeList, void*);
+VECTOR_DEFINE_FUNCTIONS(FreeList, void*, VECTOR_COPY, VECTOR_NO_DELETE);
 
 static int PoolFreeListPush(Pool* p, void* ptr);
 static void* PoolFreeListPop(Pool* p);
@@ -28,7 +31,7 @@ struct Pool
     void* (*mallocFunc)(void*, size_t);
 
     /// The list of free pages.
-    vector* freeList;
+    FreeList* freeList;
 };
 
 /* -------------------------------------------------------------------------- 
@@ -48,7 +51,7 @@ int PoolCreate(Pool** p, size_t pageSize, void* allocator, void* (*mallocFunc)(v
     (*p)->pageSize = pageSize;
     (*p)->pageCount = 0; // Field is not used.
 
-    if(!vector_create(&(*p)->freeList, NULL, NULL))
+    if(!FreeListCreate(&(*p)->freeList))
     {
         assert(0 && "Failed to alloc free list.");
         return FALSE;
@@ -63,7 +66,7 @@ int PoolDelete(Pool** p)
         return FALSE;
 
     // XXX: The memory pointed to in the free list is never free'd!
-    vector_delete(&(*p)->freeList);
+    FreeListDelete(&(*p)->freeList);
 
     free(*p);
     *p = NULL;
@@ -78,12 +81,12 @@ void PoolFree(Pool* p, void* ptr)
 
 int PoolFreeListPush(Pool* p, void* ptr)
 {
-    return vector_push(p->freeList, ptr);
+    return FreeListPush(p->freeList, ptr);
 }
 
 void* PoolFreeListPop(Pool* p)
 {
-    return vector_pop(p->freeList);
+    return FreeListPopVal(p->freeList);
 }
 
 size_t PoolGetPageSize(Pool* p)

@@ -13,7 +13,7 @@
 #include "deque.h"
 #include "hash_map.h"
 #include "cregion.h"
-#include "vector.h"
+#include "Vector.h"
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 
@@ -26,9 +26,6 @@ UInt64*     getDynamicRegionId(UInt64 sid);
 void        incDynamicRegionId(UInt64 sid);
 UInt64      sidHash(UInt64 sid);
 int         sidCompare(UInt64 s1, UInt64 s2);
-
-HASH_MAP_DEFINE_PROTOTYPES(sid_did, UInt64, UInt64);
-HASH_MAP_DEFINE_FUNCTIONS(sid_did, UInt64, UInt64);
 
 typedef struct _CDT_T {
     UInt64* time;
@@ -62,9 +59,26 @@ typedef struct _region_t {
 } Region;
 
 typedef struct _InvokeRecord {
-    UInt id;
+    UInt64 id;
     int stackHeight;
 } InvokeRecord;
+
+#define isPyrprofOn()       (pyrprofOn == 1)
+#define getLevelNum()      (levelNum)
+#define getCurrentLevel()  (levelNum-1)
+#define isCurrentLevelInstrumentable() (((levelNum-1) >= MIN_REGION_LEVEL) && ((levelNum-1) <= MAX_REGION_LEVEL))
+
+void initStartFuncContext();
+HASH_MAP_DEFINE_PROTOTYPES(sid_did, UInt64, UInt64);
+HASH_MAP_DEFINE_FUNCTIONS(sid_did, UInt64, UInt64);
+
+// A vector used to represent the call stack.
+VECTOR_DEFINE_PROTOTYPES(FuncContexts, FuncContext*);
+VECTOR_DEFINE_FUNCTIONS(FuncContexts, FuncContext*, VECTOR_COPY, VECTOR_NO_DELETE);
+
+// A vector used to record invoked calls.
+VECTOR_DEFINE_PROTOTYPES(InvokeRecords, InvokeRecord);
+VECTOR_DEFINE_FUNCTIONS(InvokeRecords, InvokeRecord, VECTOR_COPY, VECTOR_NO_DELETE);
 
 #if 1
 const int               _maxRegionToLog = MAX_REGION_LEVEL;
@@ -76,9 +90,8 @@ int                 levelNum = 0;
 int*                versions = NULL;
 Region*             regionInfo = NULL;
 CDT*                cdtHead = NULL;
-vector*             funcContexts;
-InvokeRecord        invokeStack[_MAX_REGION_LEVEL];
-InvokeRecord*       invokeStackTop;
+FuncContexts*       funcContexts;
+InvokeRecords*      invokeRecords;
 UInt64              timestamp = 0llu;
 UInt64              loadCnt = 0llu;
 UInt64              storeCnt = 0llu;
@@ -93,12 +106,6 @@ UInt    __prevBB;
 UInt    __currentBB;
 #endif
 
-#define isPyrprofOn()       (pyrprofOn == 1)
-#define getLevelNum()      (levelNum)
-#define getCurrentLevel()  (levelNum-1)
-#define isCurrentLevelInstrumentable() (((levelNum-1) >= MIN_REGION_LEVEL) && ((levelNum-1) <= MAX_REGION_LEVEL))
-
-void initMainFuncContext();
 
 UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
@@ -150,6 +157,9 @@ void freeDummyTEntry() {
 }
 
 void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
+    if(!isPyrprofOn())
+        return;
+
     // Clear off any argument timestamps that have been left here before the
     // call. These are left on the deque because library calls never take
     // theirs off. 
@@ -196,13 +206,16 @@ void transferAndUnlinkArg(UInt dest) {
 
 
 void setupLocalTable(UInt maxVregNum) {
+    if(!isPyrprofOn())
+        return;
+
     MSG(1, "setupLocalTable size %u\n", maxVregNum);
 
 #ifndef WORK_ONLY
     assert(_requireSetupTable == 1);
 
     LTable* table = allocLocalTable(maxVregNum);
-    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
     assert(funcHead->table == NULL);
     assert(table != NULL);
 
@@ -274,7 +287,7 @@ void pushFuncContext() {
 
     FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
     assert(toAdd);
-    vector_push(funcContexts, toAdd);
+    FuncContextsPush(funcContexts, &toAdd);
     toAdd->table = NULL;
 	toAdd->callSiteId = lastCallSiteId;
 
@@ -322,7 +335,7 @@ void addStore() {
 }
 
 void popFuncContext() {
-    FuncContext* ret = (FuncContext*)vector_pop(funcContexts);
+    FuncContext* ret = FuncContextsPopVal(funcContexts);
     assert(ret);
     //assert(ret->table != NULL);
     // restore currentBB and prevBB
@@ -435,68 +448,48 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
 }
 #endif
 
-
-#ifdef __cplusplus
-void invokeAssert() {
-    assert(invokeStackTop >= invokeStack);
-    assert(invokeStackTop < invokeStack + _MAX_REGION_LEVEL);
-}
-
-void prepareInvoke(UInt id) {
-    if(!instrument)
+void prepareInvoke(UInt64 id) {
+    if(!isPyrprofOn())
         return;
-    MSG(1, "prepareInvoke(%u) - saved at %d\n", id, instrument);
 
-    invokeAssert();
-
-    InvokeRecord* currentRecord = invokeStackTop++;
+    MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (UInt64)getCurrentLevel());
+   
+    InvokeRecord* currentRecord = InvokeRecordsPushNone(invokeRecords);
     currentRecord->id = id;
-    currentRecord->stackHeight = instrument;
-
-    invokeAssert();
+    currentRecord->stackHeight = FuncContextsSize(funcContexts);
 }
 
-void invokeOkay(UInt id) {
-    if(!instrument)
+void invokeOkay(UInt64 id) {
+    if(!isPyrprofOn())
         return;
 
-    invokeAssert();
-    if(invokeStackTop > invokeStack && (invokeStackTop - 1)->id == id) {
+    if(!InvokeRecordsEmpty(invokeRecords) && InvokeRecordsLast(invokeRecords)->id == id) {
         MSG(1, "invokeOkay(%u)\n", id);
-        invokeStackTop--;
-
-        invokeAssert();
+        InvokeRecordsPop(invokeRecords);
     } else
         MSG(1, "invokeOkay(%u) ignored\n", id);
 }
-void invokeThrew(UInt id)
+void invokeThrew(UInt64 id)
 {
-    if(!instrument)
+    if(!isPyrprofOn())
         return;
 
-    invokeAssert();
-
-    if(invokeStackTop > invokeStack && (invokeStackTop - 1)->id == id) {
-        InvokeRecord* currentRecord = invokeStackTop - 1;
+    if(!InvokeRecordsEmpty(invokeRecords) && InvokeRecordsLast(invokeRecords)->id == id) {
+        InvokeRecord* currentRecord = InvokeRecordsLast(invokeRecords);
         MSG(1, "invokeThrew(%u) - Popping to %d\n", currentRecord->id, currentRecord->stackHeight);
 
-        int lastInstrument = instrument;
-        while(instrument > currentRecord->stackHeight)
+        while(getCurrentLevel() > currentRecord->stackHeight)
         {
-            int level = getCurrentLevel();
-            logRegionExit(regionInfo[level].regionId, 0);
-
-            assert(instrument < lastInstrument);
-            lastInstrument = instrument;
+            UInt64 lastLevel = getCurrentLevel();
+            logRegionExit(regionInfo[getCurrentLevel()].regionId, 0);
+            assert(getCurrentLevel() < lastLevel);
+            assert(getCurrentLevel() >= 0);
         }
-        invokeStackTop--;
-        
-        invokeAssert();
+        InvokeRecordsPop(invokeRecords);
     }
     else
         MSG(1, "invokeThrew(%u) ignored\n", id);
 }
-#endif
 
 void logRegionEntry(UInt64 regionId, UInt regionType) {
     if (regionType == 0)
@@ -513,12 +506,11 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
         _requireSetupTable = 1;
     }
 
-    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
-
     if (!isPyrprofOn()) {
         return;
     }
 
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
     incrementRegionLevel();
 
     int level = getCurrentLevel();
@@ -594,7 +586,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     if (!isPyrprofOn()) {
         if (regionType == RegionFunc) { 
             popFuncContext();
-            FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+            FuncContext* funcHead = *FuncContextsLast(funcContexts);
 
             if (funcHead == NULL) {
                 assert(getCurrentLevel() <= 0);
@@ -611,7 +603,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 #ifndef WORK_ONLY
 		if (regionType == RegionFunc) { 
 			popFuncContext();
-            FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+            FuncContext* funcHead = *FuncContextsLast(funcContexts);
 			if (funcHead == NULL) {
 				assert(getCurrentLevel() == 0);
 
@@ -707,7 +699,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     RegionField field;
     field.work = work;
     field.cp = cp;
-	field.callSite = ((FuncContext*)vector_top(funcContexts))->callSiteId;
+	field.callSite = (*FuncContextsLast(funcContexts))->callSiteId;
 	field.spWork = spWork;
 	field.tpWork = tpWork;
 	assert(work >= spWork);
@@ -729,7 +721,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 #ifndef WORK_ONLY
     if (regionType == RegionFunc) { 
         popFuncContext();
-        FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+        FuncContext* funcHead = *FuncContextsLast(funcContexts);
         if (funcHead == NULL) {
             assert(getCurrentLevel() == 0);
 
@@ -818,7 +810,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
     addWork(opCost);
 
 #ifndef WORK_ONLY
-    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
     assert(funcHead->table != NULL); // TODO: is this /really/ necessary here?
 
     TEntry* entry0 = getLTEntry(src);
@@ -1369,7 +1361,7 @@ void addReturnValueLink(UInt dest) {
         return;
     MSG(1, "prepare return storage ts[%u]\n", dest);
 #ifndef WORK_ONLY
-    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
     funcHead->ret = getLTEntry(dest);
 #endif
 }
@@ -1384,13 +1376,10 @@ void logFuncReturn(UInt src) {
     TEntry* srcEntry = getLTEntry(src);
 
     // Assert there is a function context before the top.
-    assert(vector_begin(funcContexts) < vector_end(funcContexts));
+    assert(FuncContextsSize(funcContexts) > 1);
 
     // Assert that its return value has been set
-    FuncContext** nextHead = (FuncContext**)vector_end(funcContexts);
-    nextHead--;
-    nextHead--;
-    assert(nextHead >= (FuncContext**)vector_begin(funcContexts));
+    FuncContext** nextHead = FuncContextsLast(funcContexts) - 1;
     assert((*nextHead)->ret);
 
     // Copy the return timestamp into the previous stack's return value.
@@ -1407,14 +1396,12 @@ void logFuncReturnConst(void) {
     int i;
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
-    // Assert there is a function context before the top.
-    assert(vector_begin(funcContexts) < vector_end(funcContexts));
 
-    // Assert that its return value has been set
-    FuncContext** nextHead = (FuncContext**)vector_end(funcContexts);
-    nextHead--;
-    nextHead--;
-    assert(nextHead >= (FuncContext**)vector_begin(funcContexts));
+    // Assert there is a function context before the top.
+    assert(FuncContextsSize(funcContexts) > 1);
+
+    FuncContext** nextHead = FuncContextsLast(funcContexts) - 1;
+
     for (i = minLevel; i < maxLevel; i++) {
         int version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -1570,7 +1557,7 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
     TEntry* entryCD4 = getLTEntry(cd4);
     TEntry* entryDest = getLTEntry(dest);
 
-    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
     assert(funcHead->table->size > src);
     assert(funcHead->table->size > cd1);
     assert(funcHead->table->size > cd2);
@@ -1624,7 +1611,7 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     TEntry* entryCD4 = getLTEntry(cd4);
     TEntry* entryDest = getLTEntry(dest);
 
-    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
     assert(funcHead->table->size > cd1);
     assert(funcHead->table->size > cd2);
     assert(funcHead->table->size > cd3);
@@ -1674,7 +1661,7 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
     int i = 0;
-    FuncContext* funcHead = (FuncContext*)vector_top(funcContexts);
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
     assert(funcHead->table != NULL);
     assert(funcHead->table->size > src);
     assert(funcHead->table->size > dest);
@@ -1777,7 +1764,7 @@ int pyrprofInit() {
 	cregionInit();
 #endif
     levelNum = 0;
-    invokeStackTop = invokeStack;
+    InvokeRecordsCreate(&invokeRecords);
     int storageSize = MAX_REGION_LEVEL - MIN_REGION_LEVEL;
     MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
         _minRegionToLog, _maxRegionToLog, storageSize);
@@ -1786,7 +1773,9 @@ int pyrprofInit() {
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
 
     // Emulates the call stack.
-    vector_create(&funcContexts, NULL, NULL);
+    FuncContextsCreate(&funcContexts);
+
+    cdtHead = allocCDT();
 
     initDataStructure(storageSize);
 
@@ -1805,27 +1794,23 @@ int pyrprofInit() {
     allocDummyTEntry();
 
 	initCDT();
-    initMainFuncContext();
+    initStartFuncContext();
     
 	turnOnProfiler();
     return TRUE;
 }
 
-void deinitMainFuncContext()
+void deinitStartFuncContext()
 {
 	popFuncContext();
-
-    freeCDT(cdtHead);
-    cdtHead = NULL;
 }
 
-void initMainFuncContext()
+void initStartFuncContext()
 {
     prepareCall(0, 0);
-    cdtHead = allocCDT();
 	pushFuncContext();
 
-    ((FuncContext*)vector_top(funcContexts))->ret = allocTEntry(getTEntrySize());
+    (*FuncContextsLast(funcContexts))->ret = allocTEntry(getTEntrySize());
 }
 
 
@@ -1859,13 +1844,16 @@ int pyrprofDeinit() {
     free(versions);
     versions = NULL;
 
-    deinitMainFuncContext();
+    deinitStartFuncContext();
+
+    freeCDT(cdtHead);
+    cdtHead = NULL;
 
     // Deallocate the memory allocator.
     MemMapAllocatorDelete(&memPool);
 
     // Emulates the call stack.
-    vector_delete(&funcContexts);
+    FuncContextsDelete(&funcContexts);
 	deinitCDT();
 
 
