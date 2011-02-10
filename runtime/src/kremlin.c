@@ -122,6 +122,7 @@ int _requireSetupTable;
  * most instrumentation functions do nothing.
  */ 
 void turnOnProfiler() {
+	fprintf(stderr, "WARNING: turnOn/OffProfiler must be called at the same levels or the profiler will break.\n");
 	fprintf(stderr, "turnOnProfiler...");
     pyrprofOn = 1;
     logRegionEntry(0, 1);
@@ -492,6 +493,10 @@ void invokeThrew(UInt64 id)
 }
 
 void logRegionEntry(UInt64 regionId, UInt regionType) {
+    if (!isPyrprofOn()) {
+        return;
+    }
+
     if (regionType == 0)
         _regionFuncCnt++;
 
@@ -504,10 +509,6 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 		*/
         pushFuncContext();
         _requireSetupTable = 1;
-    }
-
-    if (!isPyrprofOn()) {
-        return;
     }
 
     FuncContext* funcHead = *FuncContextsLast(funcContexts);
@@ -584,19 +585,9 @@ UInt64 _lastParentDid;
 
 void logRegionExit(UInt64 regionId, UInt regionType) {
     if (!isPyrprofOn()) {
-        if (regionType == RegionFunc) { 
-            popFuncContext();
-            FuncContext* funcHead = *FuncContextsLast(funcContexts);
-
-            if (funcHead == NULL) {
-                assert(getCurrentLevel() <= 0);
-    
-            } else {
-                setLocalTable(funcHead->table);
-            }
-        }
         return;
     }
+
     int level = getCurrentLevel();
 
 	if(level >= MAX_REGION_LEVEL) {

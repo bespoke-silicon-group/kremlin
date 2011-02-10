@@ -619,6 +619,7 @@ namespace {
 				add_logRegionExit_func = true;
 			}
 
+            add_logBBVisit_func = false;
 			// open file we will write region and nesting graphs too
 			// TODO: make sure we incorporate loop body regions now
 			nesting_graph.open("nesting.dot");
@@ -923,13 +924,13 @@ namespace {
 							}
 
 							//Find the call that does not return and wrap up before it.
-							//foreach(Instruction& i, *bb) {
-							for(BasicBlock::iterator i = bb->begin(), ie = bb->end(); i != ie; ++i) {
+							foreach(Instruction& i, *bb) {
+							//for(BasicBlock::iterator i = bb->begin(), ie = bb->end(); i != ie; ++i) {
 								CallInst* ci;
-								//if((ci = dyn_cast<CallInst>(&i)) && ci->doesNotReturn()) {
-								//	insert_before = &i;
-								if((ci = dyn_cast<CallInst>(i)) && ci->doesNotReturn()) {
-									insert_before = i;
+								if((ci = dyn_cast<CallInst>(&i)) && ci->doesNotReturn()) {
+									insert_before = &i;
+								//if((ci = dyn_cast<CallInst>(i)) && ci->doesNotReturn()) {
+									//insert_before = i;
 
 									// see if this is a call to exit, in which case we are going to have to deinit the profiler
 									if(ci && ci->getCalledFunction() && ci->getCalledFunction()->getName() == "exit")
@@ -993,21 +994,6 @@ namespace {
 				// if this happens to be main, we also need to call initProfiler()
 				if(add_initProfiler_func && (func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0)) {
 					CallInst::Create(initProfiler_func, op_args.begin(), op_args.end(), "", func.getEntryBlock().getFirstNonPHI());
-
-					//add a call to deinitProfiler_func before each call to exit
-					/*
-					for(Function::iterator bb = func.begin(), bb_end = func.end(); bb != bb_end; bb++) {
-						for(BasicBlock::iterator inst = bb->begin(), inst_end = bb->end(); inst != inst_end; inst++) {
-							if(isa<CallInst>(inst)) {
-								CallInst* call_inst = cast<CallInst>(inst);
-								Function* called_function = call_inst->getCalledFunction();
-								if(called_function && called_function->getName() == "exit") {
-									CallInst::Create(deinitProfiler_func, op_args.begin(), op_args.end(), "", inst);
-								}
-							}
-						}
-					}
-					*/
 				}
 			} // end for loop
             foreach(Region& r, regions) {
