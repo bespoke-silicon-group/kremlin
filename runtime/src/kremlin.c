@@ -30,7 +30,6 @@ int         sidCompare(UInt64 s1, UInt64 s2);
 typedef struct _CDT_T {
     UInt64* time;
     UInt32* version;
-    struct _CDT_T* next;
 } CDT;
 
 typedef struct _FuncContext {
