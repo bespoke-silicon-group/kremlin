@@ -770,27 +770,9 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
         UInt64 greater0 = (ts0 > ts1) ? ts0 : ts1;
         UInt64 greater1 = (cdt > greater0) ? cdt : greater0;
         UInt64 value = greater1 + opCost;
-
-		// update timestamp
         updateTimestamp(entryDest, i, version, value);
-
-		// update cp
-		UInt64 oldcp = regionInfo[i].cp;
         UInt64 cp = updateCP(value, i);
-
-    	UInt64 work = timestamp - regionInfo[i].start;
-		assert(work >= 0);
 		
-		
-		/*
-		if (cp  > work) {
-			fprintf(stderr, "region = %lld, level = %d, cp = 0x%llx -> 0x%llx, work = 0x%llx\n", 
-				regionInfo[i].regionId, getLevelNum(), oldcp, cp, work);
-		}
-		
-
-		assert(work >= cp);*/
-
         MSG(2, "binOp[%u] level %u version %u \n", opCost, i, version);
         MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
         MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
