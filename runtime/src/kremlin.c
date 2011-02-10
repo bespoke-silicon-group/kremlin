@@ -368,7 +368,6 @@ inline UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
                     entry->time[level] : 0;
     return ret;
 }
-/*#define getTimestamp(entry, inLevel, version) ((entry->version[inLevel-MIN_REGION_LEVEL] == version)? entry->time[inLevel-MIN_REGION_LEVEL] : 0) */
 
 
 // precondition: entry != NULL
@@ -377,9 +376,6 @@ inline void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt6
     entry->version[level] = version;
     entry->time[level] = timestamp;
 }
-/*
-#define updateTimestamp(entry, inLevel, version, timestamp) (entry->version[inLevel-MIN_REGION_LEVEL]=version, entry->time[inLevel-MIN_REGION_LEVEL]=timestamp)
-*/
 
 #ifdef EXTRA_STATS
 UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
@@ -1271,59 +1267,65 @@ void* logInsertValueConst(UInt dest) {
 }
 
 #define CDTSIZE	256
-CDT cdtPool[CDTSIZE];
-int cdtIndex;
+static CDT* cdtPool;
+static int cdtSize;
+static int cdtIndex;
+
+CDT* allocCDT() {
+	CDT* ret = &cdtPool[cdtIndex++];
+	if (cdtIndex == cdtSize) {
+		int i;
+		cdtSize += CDTSIZE;
+		cdtPool = realloc(cdtPool, sizeof(CDT) * cdtSize);
+		for (i=cdtSize-CDTSIZE; i<cdtSize; i++) {
+    		cdtPool[i].time = (UInt64*) calloc(getTEntrySize(), sizeof(UInt64));
+		    cdtPool[i].version = (UInt32*) calloc(getTEntrySize(), sizeof(UInt32));
+		}
+	};
+	return ret;
+}
+
+void freeCDT(CDT* toFree) {
+	cdtIndex--;
+}
 
 void initCDT() {
 	int i=0;
+	cdtPool = malloc(sizeof(CDT) * CDTSIZE);
+	cdtSize = CDTSIZE;
+
 	for (i=0; i<CDTSIZE; i++) {
-    	cdtPool[i].time = (UInt64*) malloc(sizeof(UInt64) * getTEntrySize());
-	    cdtPool[i].version = (UInt32*) malloc(sizeof(UInt32) * getTEntrySize());
-   	 	bzero(cdtPool[i].time, sizeof(UInt64) * getTEntrySize());
-    	bzero(cdtPool[i].version, sizeof(UInt32) * getTEntrySize());
+    	cdtPool[i].time = (UInt64*) calloc(getTEntrySize(), sizeof(UInt64));
+	    cdtPool[i].version = (UInt32*) calloc(getTEntrySize(), sizeof(UInt32));
 	}
+	cdtHead = allocCDT();
 }
 
 void deinitCDT() {
 	int i=0;
-	for (i=1; i<CDTSIZE; i++) {
+	for (i=0; i<cdtSize; i++) {
 		free(cdtPool[i].time);
 		free(cdtPool[i].version);
 	}
-}
-
-CDT* allocCDT() {
-	CDT* ret = &cdtPool[cdtIndex++];
-	assert(cdtIndex < CDTSIZE);
-	return ret;
-}
-
-void freeCDT(CDT* cdt) {
-	cdtIndex--;
 }
 
 void addControlDep(UInt cond) {
     MSG(2, "push ControlDep ts[%u]\n", cond);
 
 #ifndef WORK_ONLY
-    CDT* toAdd = allocCDT();
+    cdtHead = allocCDT();
     if (isPyrprofOn()) {
         TEntry* entry = getLTEntry(cond);
-        fillCDT(toAdd, entry);
+        fillCDT(cdtHead, entry);
     }
-    toAdd->next = cdtHead;
-    cdtHead = toAdd;
-	
 #endif
 }
 
 void removeControlDep() {
     MSG(2, "pop  ControlDep\n");
-
 #ifndef WORK_ONLY
-    CDT* toRemove = cdtHead;
-    cdtHead = cdtHead->next;
-    freeCDT(toRemove);
+	freeCDT(cdtHead);
+    cdtHead--;
 #endif
 }
 
@@ -1747,9 +1749,6 @@ int pyrprofInit() {
 
     // Emulates the call stack.
     FuncContextsCreate(&funcContexts);
-
-    cdtHead = allocCDT();
-
     initDataStructure(storageSize);
 
     versions = (int*) calloc(sizeof(int), _MAX_REGION_LEVEL);
@@ -1819,7 +1818,6 @@ int pyrprofDeinit() {
 
     deinitStartFuncContext();
 
-    freeCDT(cdtHead);
     cdtHead = NULL;
 
     // Deallocate the memory allocator.
