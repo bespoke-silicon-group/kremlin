@@ -853,7 +853,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 
     MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
     addWork(LOAD_COST);
-    addLoad();
+    //addLoad();
 
 #ifndef WORK_ONLY
     TEntry* entry0 = getGTEntry(src_addr);
@@ -901,7 +901,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
 
     addWork(STORE_COST);
-    addStore();
+    //addStore();
 
 #ifndef WORK_ONLY
     TEntry* entry0 = getLTEntry(src);
