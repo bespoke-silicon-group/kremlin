@@ -14,23 +14,24 @@
 
 #define VECTOR_DEFINE_PROTOTYPES(prefix,type) \
     typedef struct prefix prefix; \
-    type* prefix##At(prefix* v, size_t i); \
-    type* prefix##Begin(prefix* v); \
-    int prefix##Clear(prefix* v); \
-    int prefix##Create(prefix** v); \
-    int prefix##Delete(prefix** v); \
-    int prefix##Empty(prefix* v); \
-    type* prefix##End(prefix* v); \
-    type* prefix##First(prefix* v); \
-    type* prefix##Last(prefix* v); \
-    void prefix##Map(prefix* v, void(*f)(type*)); \
-    int prefix##Pop(prefix* v); \
-    type prefix##PopVal(prefix* v); \
-    int prefix##Push(prefix* v, type*); \
-    int prefix##PushVal(prefix* v, type); \
-    type* prefix##PushNone(prefix* v); \
-    int prefix##Realloc(prefix* v, size_t size); \
-    size_t prefix##Size(prefix* v); \
+    type*   prefix##AtRef(prefix* v, size_t i); \
+    type    prefix##AtVal(prefix* v, size_t i); \
+    type*   prefix##Begin(prefix* v); \
+    int     prefix##Clear(prefix* v); \
+    int     prefix##Create(prefix** v); \
+    int     prefix##Delete(prefix** v); \
+    int     prefix##Empty(prefix* v); \
+    type*   prefix##End(prefix* v); \
+    type*   prefix##First(prefix* v); \
+    type*   prefix##Last(prefix* v); \
+    void    prefix##Map(prefix* v, void(*f)(type*)); \
+    int     prefix##Pop(prefix* v); \
+    type    prefix##PopVal(prefix* v); \
+    type*   prefix##Push(prefix* v); \
+    int     prefix##PushRef(prefix* v, type*); \
+    int     prefix##PushVal(prefix* v, type); \
+    int     prefix##Realloc(prefix* v, size_t size); \
+    size_t  prefix##Size(prefix* v); \
 
 #define VECTOR_DEFINE_FUNCTIONS(prefix,type,copy,del) \
     struct prefix \
@@ -40,10 +41,15 @@
         type* data; \
     }; \
     \
-    type* prefix##At(prefix* v, size_t i) \
+    type* prefix##AtRef(prefix* v, size_t i) \
     { \
         assert(i < prefix##Size(v)); \
         return v->data + i; \
+    } \
+    \
+    type prefix##AtVal(prefix* v, size_t i) \
+    { \
+        return *prefix##AtRef(v, i); \
     } \
     \
     type* prefix##Begin(prefix* v) \
@@ -130,22 +136,25 @@
         return *--v->end; \
     } \
     \
-    int prefix##Push(prefix* v, type* val) \
-    { \
-        copy(prefix##PushNone(v), val); \
-        return TRUE; \
-    } \
-    int prefix##PushVal(prefix* v, type val) \
-    { \
-        *prefix##PushNone(v) = val; \
-        return TRUE; \
-    } \
-    type* prefix##PushNone(prefix* v) \
+    type* prefix##Push(prefix* v) \
     { \
         if(v->end >= v->data + v->dataSize) \
             prefix##Realloc(v, v->dataSize * 2); \
         \
         return v->end++; \
+    } \
+    \
+    int prefix##PushRef(prefix* v, type* val) \
+    { \
+        type* dest = prefix##Push(v); \
+        copy(dest, val); \
+        return TRUE; \
+    } \
+    \
+    int prefix##PushVal(prefix* v, type val) \
+    { \
+        *prefix##Push(v) = val; \
+        return TRUE; \
     } \
     \
     int prefix##Realloc(prefix* v, size_t size) \

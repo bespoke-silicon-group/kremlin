@@ -81,7 +81,7 @@ void PoolFree(Pool* p, void* ptr)
 
 int PoolFreeListPush(Pool* p, void* ptr)
 {
-    return FreeListPush(p->freeList, ptr);
+    return FreeListPushVal(p->freeList, ptr);
 }
 
 void* PoolFreeListPop(Pool* p)

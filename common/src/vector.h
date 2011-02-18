@@ -8,6 +8,8 @@
 
 typedef struct vector vector;
 
+int vector_create(vector** v, void* (*copy_func)(void*), void (*delete_func)(void*)) __attribute__ ((deprecated));
+
 /**
  * Creates a new vector.
  *

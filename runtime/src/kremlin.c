@@ -287,7 +287,7 @@ void pushFuncContext() {
 
     FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
     assert(toAdd);
-    FuncContextsPush(funcContexts, &toAdd);
+    FuncContextsPushRef(funcContexts, &toAdd);
     toAdd->table = NULL;
 	toAdd->callSiteId = lastCallSiteId;
 
@@ -450,7 +450,7 @@ void prepareInvoke(UInt64 id) {
 
     MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (UInt64)getCurrentLevel());
    
-    InvokeRecord* currentRecord = InvokeRecordsPushNone(invokeRecords);
+    InvokeRecord* currentRecord = InvokeRecordsPush(invokeRecords);
     currentRecord->id = id;
     currentRecord->stackHeight = FuncContextsSize(funcContexts);
 }
