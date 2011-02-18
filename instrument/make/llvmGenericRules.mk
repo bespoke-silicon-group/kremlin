@@ -59,10 +59,10 @@ OPT_FLAGS ?= -f
 DEBUG_MAKE ?= 1
 
 # Options to pass while building the shared object
-ifeq ($(DEBUG), 1)
+ifdef DEBUG
 	SO_BUILD_OPTIONS = DEBUG=1
 else
-	SO_BUILD_OPTIONS = DEBUG=0
+	SO_BUILD_OPTIONS = 
 endif # $(DEBUG) == 1
 
 # ---------------------------------------------------------------------------

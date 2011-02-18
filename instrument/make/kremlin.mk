@@ -7,7 +7,7 @@
 # ---------------------------------------------------------------------------
 
 # Debug mode.
-export DEBUG = 1
+#export DEBUG = 1
 
 # Source files with types to be determined.
 SOURCES ?= 

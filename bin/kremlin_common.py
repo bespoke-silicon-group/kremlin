@@ -83,7 +83,7 @@ def create_kremlin_mk(src_lang):
 
     # kremlin specific options
     parser.add_option("--krem-inline", action = "store_true", dest = "krem_inline", default = False)
-    parser.add_option("--krem-debug", action = "store_const", const = "1", dest = "krem_debug", default = 0)
+    parser.add_option("--krem-debug", action = "store_true", dest = "krem_debug", default = False)
 
     (options, args) = parser.parse_args()
 
@@ -123,7 +123,8 @@ def create_kremlin_mk(src_lang):
         write("SOURCES = " + " ".join(args))
         write(make_defines)
         write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]))
-        write("DEBUG = " + str(options.krem_debug))
+        if options.krem_debug:
+            write("DEBUG = 1")
 
         # set LD according to source language
         #

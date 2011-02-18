@@ -30,11 +30,11 @@ override LLVMToolDir = $(LLVM_INSTALL_BIN_DIR)
 CXX.Flags += -I../../common/include
 LD.Flags += -L$(LLVM_INSTALL_LIB_DIR)
 
-ifndef ($(strip $(DEBUG)),)
-override ENABLE_OPTIMIZED = 0
-else # DEBUG
-override ENABLE_OPTIMIZED = 1
-endif # DEBUG
+ifdef DEBUG
+ENABLE_OPTIMIZED=0
+else
+ENABLE_OPTIMIZED=1
+endif
 
 # If we don't need RTTI or EH, there's no reason to export anything
 # from the hello plugin.
