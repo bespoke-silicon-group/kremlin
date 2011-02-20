@@ -12,7 +12,16 @@ public class CRegion implements Comparable {
 		Set<URegion> parentSet = set.iterator().next().getParentSet();
 		this.parentSRegion = (parentSet.size() > 0) ? parentSet.iterator().next().getSRegion() : null;
 		this.children = new HashSet<CRegion>();
-		build(totalWork);
+		//build(totalWork);
+	}
+	
+	CRegion(SRegion sregion, long uid, long callSite, long cnt, long work, long tpWork, long spWork) {
+		this.region = sregion;
+		this.id = uid;
+		this.totalWork = work;		
+		this.numInstance = cnt;
+		this.children = new HashSet<CRegion>();
+		build(cnt, work, tpWork, spWork);
 	}
 	
 	SRegion getParentSRegion() {
@@ -30,7 +39,7 @@ public class CRegion implements Comparable {
 	}
 	
 	void addChild(CRegion child) {
-		this.children.add(child);
+		this.children.add(child);		
 	}
 	
 	public long getExclusiveWork() {
@@ -75,13 +84,15 @@ public class CRegion implements Comparable {
 	CRegion parent;
 	Set<CRegion> children;
 	
-	void build(long appTotalWork) {		
+	void build(long cnt, long work, long tpWork, long spWork) {		
+		if (cnt == 0)
+			cnt = 1;
 		this.workCoverage = 0;
-		this.numInstance = 0;
-		this.totalWork = 0;
-		this.sumTotalParallelism = 0;
-		this.totalSPWork = 0;
-		this.totalTPWork = 0;
+		this.numInstance = cnt;
+		this.totalWork = work;
+		//this.sumTotalParallelism = 0;
+		this.totalSPWork = spWork;
+		this.totalTPWork = tpWork;
 		this.totalCP = 0;
 		this.maxSP = 0.0;
 		this.totalIter = 0;
@@ -91,7 +102,7 @@ public class CRegion implements Comparable {
 		this.totalWriteLineCnt = 0;
 		
 		
-		
+		/*
 		for (URegion entry : set) {
 			Set<URegion> parentSet = entry.parentSet;			
 			Set<URegion> childrenSet = entry.getChildrenSet();
@@ -136,12 +147,9 @@ public class CRegion implements Comparable {
 			this.totalReadCnt += entry.cnt * entry.readCnt;
 			this.totalWriteCnt += entry.cnt * entry.writeCnt;
 			this.totalReadLineCnt += entry.cnt * entry.readLineCnt;
-			this.totalWriteLineCnt += entry.cnt * entry.writeLineCnt;
-			if (region.getStartLine() == 153 && region.getType() == RegionType.LOOP) {
-				System.out.println(entry);
-			}
+			this.totalWriteLineCnt += entry.cnt * entry.writeLineCnt;			
 			//System.out.println(entry);			
-		}
+		}*/
 		
 		this.avgWork = totalWork / numInstance;		
 		this.selfParallelism = (double)totalWork / (double)totalSPWork;
@@ -154,7 +162,8 @@ public class CRegion implements Comparable {
 		this.avgWriteCnt = (double)this.totalWriteCnt / numInstance;
 		this.avgReadLineCnt = (double)this.totalReadLineCnt / numInstance;
 		this.avgWriteLineCnt = (double)this.totalWriteLineCnt / numInstance;
-		this.workCoverage = ((double)this.totalWork / (double)appTotalWork) * 100.0;
+		//this.workCoverage = ((double)this.totalWork / (double)appTotalWork) * 100.0;
+		this.workCoverage = 0.0;
 		this.selfSpeedup = 100.00 / (100.00 - (this.workCoverage - this.workCoverage / (double)this.selfParallelism));
 		
 		//assert(false);

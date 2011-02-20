@@ -3,7 +3,7 @@ package pyrplan.backward;
 import java.util.*;
 
 import pprof.*;
-import pyrplan.RegionRecord;
+import pyrplan.CRegionRecord;
 
 /**
  * Contains information regarding region exec time
@@ -167,7 +167,7 @@ public class ProgramStatus {
 	}
 	
 	//SRegion getMinImpactRegion(List<SRegion> candidates, Set<URegion> serialSet) {
-	public RegionRecord getMinImpactRegion() {
+	public CRegionRecord getMinImpactRegion() {
 		//List<SRegion> worklist = new ArrayList<SRegion>(candidates);
 		
 		List<SRegion> worklist = createWorkList();
@@ -195,7 +195,7 @@ public class ProgramStatus {
 			return null;
 		
 		SRegionInfo info = anal.getSRegionInfo(minRegion);
-		RegionRecord ret = new RegionRecord(info);
+		CRegionRecord ret = new CRegionRecord(info);
 		ret.setTimeSaving(reducePercent);
 		System.err.println(ret);
 		

@@ -41,7 +41,7 @@ public class NestedPlanner extends Planner {
 		this.allowNesting = allowNesting;
 	}
 
-	RegionRecord getEstimatedExecTime(SRegionInfo info, int maxCore) {
+	CRegionRecord getEstimatedExecTime(SRegionInfo info, int maxCore) {
 		double sp = info.getSelfParallelism();
 		//double speedup = (sp > numCore) ? maxCore : sp;
 		//double overhead = 1000.0;
@@ -52,7 +52,7 @@ public class NestedPlanner extends Planner {
 		if (speedup < 1.0)
 			speedup = 1.0;
 		int nCore = (int)Math.ceil(speedup);
-		RegionRecord unit = new RegionRecord(info, nCore, speedup);
+		CRegionRecord unit = new CRegionRecord(info, nCore, speedup);
 		assert(unit.getSpeedup() >= 1.0);
 		long expectedTime = timeStatus.peekParallelTime(unit.getRegionInfo(), unit.getSpeedup());
 		unit.setExpectedExecTime(expectedTime);
@@ -67,16 +67,16 @@ public class NestedPlanner extends Planner {
 		return nCore;
 	}
 	
-	RegionRecord pickBest(Set<SRegionInfo> set, long prevTime) {
+	CRegionRecord pickBest(Set<SRegionInfo> set, long prevTime) {
 		//double maxTimeSavings = analyzer.getRootInfo().getTotalWork() * 0.01;
 		long threshold = (long)(prevTime * 0.03);
 		long minExpectedExecTime = prevTime;
-		RegionRecord best = null;
+		CRegionRecord best = null;
 		int useCore = 1;
 		
 		for (SRegionInfo each : set) {
 			int nCore = getMaxAvailableCore(each);			
-			RegionRecord unit = getEstimatedExecTime(each, nCore);				
+			CRegionRecord unit = getEstimatedExecTime(each, nCore);				
 			//System.out.println("\t[peek] " + unit);
 			
 			if (minExpectedExecTime > unit.getExpectedExecTime()) {
@@ -104,7 +104,7 @@ public class NestedPlanner extends Planner {
 		coreMap.put(info, updatedCore);
 	}
 	
-	void updateStatus(RegionRecord unit, Set<SRegionInfo> readySet, Map<SRegionInfo, Integer> coreMap) {		
+	void updateStatus(CRegionRecord unit, Set<SRegionInfo> readySet, Map<SRegionInfo, Integer> coreMap) {		
 		Set<SRegionInfo> retiredSet = new HashSet<SRegionInfo>();
 		
 		List<SRegionInfo> updateListUp = new ArrayList<SRegionInfo>();
@@ -161,10 +161,10 @@ public class NestedPlanner extends Planner {
 		return ret;
 	}
 	
-	public List<RegionRecord> plan(Set<SRegionInfo> toBeFiltered) {
+	public List<CRegionRecord> plan(Set<SRegionInfo> toBeFiltered) {
 		//System.out.printf("DP Planner Out MIN_SPEEDUP=%.3f MIN_SP=%.3f OUTER_INCENTIVE=%.2f\n", minSpeedup, minSP, outerIncentive);
 		//Set<SRegionInfo> excludeSet = getExcludeSet(analyzer, filter);
-		List<RegionRecord> ret = new ArrayList<RegionRecord>();		
+		List<CRegionRecord> ret = new ArrayList<CRegionRecord>();		
 		//ProgramStatus status = new ProgramStatus(analyzer, excludeSet);
 		Set<SRegionInfo> readySet = new HashSet<SRegionInfo>();
 		
@@ -184,7 +184,7 @@ public class NestedPlanner extends Planner {
 		long lastTime = analyzer.getRootInfo().getTotalWork();
 
 		while (!readySet.isEmpty()) {
-			RegionRecord unit = pickBest(readySet, lastTime);
+			CRegionRecord unit = pickBest(readySet, lastTime);
 			//System.out.println("!!!" + unit);
 			if (unit == null)
 				break;

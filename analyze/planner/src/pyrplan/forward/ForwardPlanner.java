@@ -8,7 +8,7 @@ import java.util.Set;
 import pprof.*;
 import pyrplan.FilterControl;
 import pyrplan.Planner;
-import pyrplan.RegionRecord;
+import pyrplan.CRegionRecord;
 import pyrplan.SRegionInfoFilter;
 import pyrplan.backward.ProgramStatus;
 
@@ -43,15 +43,15 @@ public class ForwardPlanner extends Planner {
 	 * a weight value is used to give favor for outer regions
 	 **/
 	    
-	public List<RegionRecord> plan(FilterControl filter) {		
+	public List<CRegionRecord> plan(FilterControl filter) {		
 		//System.out.printf("DP Planner Out MIN_SPEEDUP=%.3f MIN_SP=%.3f OUTER_INCENTIVE=%.2f\n", minSpeedup, minSP, outerIncentive);
 		Set<SRegion> excludeSet = getExcludeSet(analyzer, filter);
 		ProgramStatus status = new ProgramStatus(analyzer, excludeSet);		
 		
 		//List<SRegion> ret = new ArrayList<SRegion>();
-		List<RegionRecord> ret = new ArrayList<RegionRecord>(); 
+		List<CRegionRecord> ret = new ArrayList<CRegionRecord>(); 
 		while(true) {
-			RegionRecord record = status.getMinImpactRegion();
+			CRegionRecord record = status.getMinImpactRegion();
 			System.err.print("~");
 			
 			if (record == null)

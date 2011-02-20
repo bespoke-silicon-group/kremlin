@@ -1,7 +1,7 @@
 package pprof;
 
 public enum RegionType {
-	FUNC(0), LOOP(1), BODY(2);
+	FUNC(0), LOOP(1), BODY(2), CALLSITE(3);
 	
 	private int code;
 	

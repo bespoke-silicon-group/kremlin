@@ -9,7 +9,7 @@ import pprof.SRegionManager;
 import pprof.URegionManager;
 import pyrplan.FilterControl;
 import pyrplan.ParameterSet;
-import pyrplan.RegionRecord;
+import pyrplan.CRegionRecord;
 import pyrplan.omp.DPPlanner;
 
 public class KremlinNeo {
@@ -58,7 +58,7 @@ public class KremlinNeo {
 		SRegionProfileAnalyzer profileAnalyzer = new SRegionProfileAnalyzer(dManager, new OMPGrepReader());		
 		profileAnalyzer.dump(rawDir + "/analysis.txt");
 		DPPlanner planner = new DPPlanner(analyzer);
-		List<RegionRecord> plan = planner.plan(filter);		
+		List<CRegionRecord> plan = planner.plan(filter);		
 		planner.emitParallelRegions(rawDir + "/plan.dp");
 	}
 }

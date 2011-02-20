@@ -5,10 +5,12 @@ import java.util.*;
 
 public class SRegionManager {
 	Map<Long, SRegion> sMap;
+	Map<Long, CallSite> callSiteMap;
 	boolean isNeo = false;
 	public SRegionManager(File file, boolean newVersion) {
 		this.isNeo = newVersion;
 		sMap = new HashMap<Long, SRegion>();
+		callSiteMap = new HashMap<Long, CallSite>();
 		SRegion rootRegion = new SRegion(0, "root", "root", "root", 0, 0, RegionType.LOOP);
 		sMap.put(0L, rootRegion);
 		
@@ -37,6 +39,11 @@ public class SRegionManager {
 		return sMap.get(id);
 	}
 	
+	CallSite getCallSite(long id) {
+		assert(callSiteMap.keySet().contains(id));
+		return callSiteMap.get(id);
+	}
+	
 	//void parseSRegionFile(String file) {
 	void parseSRegionFile(File file) {
 		try {
@@ -47,9 +54,14 @@ public class SRegionManager {
 				if (line == null)
 					break;
 				SRegion entity = SRegionReader.createSRegion(line, this.isNeo);
+				if (entity == null)
+					continue;
 				
-				if (entity != null)
+				if (entity.getType() == RegionType.CALLSITE) {
+					callSiteMap.put(entity.id, (CallSite)entity);
+				} else {
 					sMap.put(entity.id, entity);
+				}
 			}
 			
 		} catch(Exception e) {

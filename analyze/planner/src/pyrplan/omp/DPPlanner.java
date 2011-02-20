@@ -52,7 +52,7 @@ public class DPPlanner extends Planner {
 	 * a weight value is used to give favor for outer regions
 	 **/
 	    
-	public List<RegionRecord> plan(Set<SRegionInfo> toExclude) {		
+	public List<CRegionRecord> plan(Set<SRegionInfo> toExclude) {		
 		//System.out.printf("DP Planner Out MIN_SPEEDUP=%.3f MIN_SP=%.3f OUTER_INCENTIVE=%.2f\n", minSpeedup, minSP, outerIncentive);
 		
 		//Set<SRegion> excludeSet = PyrProfRunner.createExcludeSet(analyzer.getSManager(), analyzer, filter, filterFile);		
@@ -148,10 +148,10 @@ public class DPPlanner extends Planner {
 		List<SRegion> ret = new ArrayList<SRegion>(set);
 		List<SRegionInfo> infoList = SRegionInfoFilter.toSRegionInfoList(analyzer, ret);
 		
-		List<RegionRecord> retList = new ArrayList<RegionRecord>();
+		List<CRegionRecord> retList = new ArrayList<CRegionRecord>();
 		SRegionInfoSorter.sortBySpeedup(infoList);
 		for (SRegionInfo each : infoList) {
-			RegionRecord toAdd = new RegionRecord(each, 1, 1.0);
+			CRegionRecord toAdd = new CRegionRecord(each, 1, 1.0);
 			double timeSave = (double)(pointMap.get(each.getSRegion()));
 			toAdd.setExpectedExecTime((long)timeSave);
 			retList.add(toAdd);

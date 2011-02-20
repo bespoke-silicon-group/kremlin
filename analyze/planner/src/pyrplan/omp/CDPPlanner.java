@@ -28,11 +28,13 @@ public class CDPPlanner {
 		Set<CRegion> retired = new HashSet<CRegion>();
 		
 		for (CRegion each : analyzer.getCRegionSet()) {
+			System.out.println(each);
 			if (each.getChildrenSet().size() == 0) {
 				list.add(each);
 			}
 		}
 		CRegion root = analyzer.getRoot();
+		assert(root != null);
 		/*
 		for (SRegionInfo each : postFilterSet) {
 			System.out.println("! " + each);
@@ -90,7 +92,7 @@ public class CDPPlanner {
 			}
 
 			setMap.put(current, bestSet);
-			//System.out.println("Current: " + current.getSRegion());
+			System.out.println("Current: " + current.getSRegion());
 			
 			// add parent if its children are all examined
 			CRegion parent = current.getParent();
@@ -105,23 +107,32 @@ public class CDPPlanner {
 									
 		}		
 			
-		
+		//System.out.println(root);
 		assert(setMap.containsKey(root));
-		Set<CRegion> set = setMap.get(root);		
-		List<CRegion> ret = new ArrayList<CRegion>(set);
-		//List<CRegion> infoList = SRegionInfoFilter.toSRegionInfoList(analyzer, ret);
+		Set<CRegion> set = setMap.get(root);
+		List<CRegionRecord> ret = new ArrayList<CRegionRecord>();
+		for (CRegion each : set) {
+			CRegionRecord toAdd = new CRegionRecord(each, maxCore, pointMap.get(each));
+			ret.add(toAdd);			
+		}
 		
+		//List<CRegion> infoList = SRegionInfoFilter.toSRegionInfoList(analyzer, ret);
+		Collections.sort(ret);		
 		double sum = 0.0;
 		
+		for (CRegionRecord each : ret) {
+			System.out.println(each);
+		}
 		//System.out.println("\n\n\n");
+		/*
 		for (CRegion each : ret) {
 			//RegionRecord toAdd = new RegionRecord(each, 1, 1.0);
 			double timeSave = (double)(pointMap.get(each));
 			sum += timeSave;
 			//toAdd.setExpectedExecTime((long)timeSave);
 			//retList.add(toAdd);
-			//System.out.printf("%.2f: %s\n", timeSave, each);
-		}
+			System.out.printf("%.2f: %s\n", timeSave, each);
+		}*/
 		
 		
 		

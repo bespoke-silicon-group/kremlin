@@ -160,7 +160,7 @@ public class RunnerNest {
 		return ret;
 	}
 	
-	static double getSpeedup(List<RegionRecord> plan, SRegionInfo root) {
+	static double getSpeedup(List<CRegionRecord> plan, SRegionInfo root) {
 		if (plan.size() == 0)
 			return 1.0;
 		double sum = plan.get(plan.size() - 1).getExpectedExecTime();
@@ -169,10 +169,10 @@ public class RunnerNest {
 		
 	}
 	
-	static void dumpPlan(List<RegionRecord> plan, SRegionInfo root) {
+	static void dumpPlan(List<CRegionRecord> plan, SRegionInfo root) {
 		//double sum = 0;
 		double last = root.getTotalWork();			
-		for (RegionRecord each : plan) {
+		for (CRegionRecord each : plan) {
 			SRegionInfo info = each.getRegionInfo();
 			double diff = last - each.getExpectedExecTime();
 			double reducePercent = ((double)diff / root.getTotalWork()) * 100.0;

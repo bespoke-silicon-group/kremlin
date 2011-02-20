@@ -1,7 +1,7 @@
 package pprof;
 import java.util.*;
-
 import pyrplan.Util;
+import java.math.BigDecimal;
 
 public class SRegionReader {
 	public static SRegion createSRegion(String line, boolean newFormat) {
@@ -13,14 +13,23 @@ public class SRegionReader {
 	
 	private static SRegion createSRegionNew(String line) {
 		String splitted[] = line.split("\t");
-		long id = Long.parseLong(splitted[0].trim());
+		BigDecimal idBig = new BigDecimal(splitted[0].trim());
+		//long id = Long.parseLong(splitted[0].trim());
+		long id = idBig.longValue();
 		String type = splitted[1].trim();
 		String module = splitted[2].trim();
 		String func = splitted[3].trim();
 		String name = "N/A";
+		//System.out.printf("%d %s %s\n", id, type, module);
 		int start = Integer.parseInt(splitted[4].trim());
 		int end = Integer.parseInt(splitted[5].trim());
-		SRegion ret = new SRegion(id, name, module, func, start, end, getType(type));
+		RegionType regionType = getType(type);
+		SRegion ret = null;
+		if (regionType == RegionType.CALLSITE)
+			ret = new CallSite(id, name, module, func, start, end, regionType);
+		else
+			ret = new SRegion(id, name, module, func, start, end, regionType);
+		
 		return ret;
 	}
 	
@@ -59,6 +68,8 @@ public class SRegionReader {
 			return RegionType.BODY;
 		else if (src.equals("loop_body"))
 			return RegionType.BODY;
+		else if (src.equals("callsiteId"))
+			return RegionType.CALLSITE;
 		
 		else {
 			assert(false);

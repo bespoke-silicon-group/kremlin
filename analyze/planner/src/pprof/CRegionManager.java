@@ -1,8 +1,12 @@
 package pprof;
 
+import java.io.*;
 import java.util.*;
 
+import pprof.URegionManager.Entry;
+
 public class CRegionManager {
+	SRegionManager sManager;
 	URegionManager uManager;
 	CRegion root;
 	Map<SRegion, Set<URegionSet>> map;
@@ -25,7 +29,10 @@ public class CRegionManager {
 		}		
 	}
 	
-	
+	public CRegionManager(SRegionManager sManager, String binFile) {
+		this.sManager = sManager;
+		readBinaryFile(binFile);
+	}
 	
 	public CRegionManager(URegionManager uManager) {		
 		this.map = new HashMap<SRegion, Set<URegionSet>>();
@@ -37,6 +44,92 @@ public class CRegionManager {
 		System.err.println("start connecting");
 		connect();
 		System.err.println("done");
+	}
+	
+	void readBinaryFile(String file) {
+		Map<Long, Set<Long>> childrenMap = new HashMap<Long, Set<Long>>();
+		Map<Long, CRegion> regionMap = new HashMap<Long, CRegion>();
+		
+		try {
+			DataInputStream input =  new DataInputStream(new FileInputStream(file));			
+		
+			while(true) {
+				Set<Long> childrenSet = new HashSet<Long>();
+				//Map<Long, Long> childrenMap = new HashMap<Long, Long>();
+				long uid = Long.reverseBytes(input.readLong());
+				long sid = Long.reverseBytes(input.readLong());
+				long callSite = Long.reverseBytes(input.readLong());
+				long cnt = Long.reverseBytes(input.readLong());
+				long work = Long.reverseBytes(input.readLong());				
+				long tpWork = Long.reverseBytes(input.readLong());
+				long spWork = Long.reverseBytes(input.readLong());
+				
+				long readCnt = Long.reverseBytes(input.readLong());
+				long writeCnt = Long.reverseBytes(input.readLong());
+				long readLineCnt = Long.reverseBytes(input.readLong());
+				long writeLineCnt = Long.reverseBytes(input.readLong());
+				
+								
+				long nChildren = Long.reverseBytes(input.readLong());
+				//assert(cp != 0);
+
+				for (int i=0; i<nChildren; i++) {
+					long childUid = Long.reverseBytes(input.readLong());
+					childrenSet.add(childUid);
+				}
+				SRegion sregion = sManager.getSRegion(sid);
+				System.out.printf("[%d 0x%x]*%d\t %d %d %d children: %d %s\n",
+						uid, callSite, cnt, work, tpWork, spWork, nChildren, sregion);
+				System.out.println("\t" + childrenSet);
+				
+				CRegion region = new CRegion(sregion, uid, callSite, cnt, work, tpWork, spWork);
+				regionMap.put(uid, region);
+				childrenMap.put(uid, childrenSet);
+				//uMap.put(uid, new Entry(uid, sid, work, cp, callSite, readCnt, writeCnt, readLineCnt, writeLineCnt, cnt, childrenMap));
+				/*
+				if (nChildren == 0) {
+					workList.add(0, uMap.get(uid));				
+				} else {
+					workList.add(uMap.get(uid));
+				}*/
+			}			
+			
+		} catch(Exception e) {
+			//System.out.println(e);
+			if (e instanceof java.io.EOFException == false) {
+				e.printStackTrace();
+				assert(false);
+			}
+		}
+		
+		// connect parent with children
+		for (long uid : regionMap.keySet()) {
+			CRegion region = regionMap.get(uid);			
+			assert(region != null);
+			Set<Long> children = childrenMap.get(uid);			
+			for (long child : children) {
+				assert(regionMap.containsKey(child));
+				CRegion childRegion = regionMap.get(child);
+				childRegion.setParent(region);
+				//region.addChild(toAdd);
+				
+			}
+		}
+		
+		for (CRegion region : regionMap.values()) {
+			if (region.getParent() == null) {
+				//System.out.println("no parent: " + region);
+				//assert(this.root == null);
+				this.root = region;
+			}
+			
+			SRegion sregion = region.getSRegion();
+			if (!cRegionMap.keySet().contains(sregion))
+				cRegionMap.put(sregion, new HashSet<CRegion>());
+			
+			Set<CRegion> set = cRegionMap.get(sregion);
+			set.add(region);
+		}
 	}
 	
 	public CRegion getRoot() {
@@ -257,4 +350,13 @@ public class CRegionManager {
 		}
 	}
 	
+	public static void main(String args[]) {
+		System.out.println("CRegionManager");
+		//String dir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/CINT2000/175.vpr/src";
+		String dir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/loop";
+		String sFile = String.format("%s/sregions.txt", dir);
+		String bFile = String.format("%s/kremlin.bin", dir);
+		SRegionManager sManager = new SRegionManager(new File(sFile), true);
+		CRegionManager cManager = new CRegionManager(sManager, bFile);
+	}
 }

@@ -15,10 +15,12 @@ public class RunnerOmp {
 		System.out.println("pyrprof ver 0.1");		
 		
 		if (args.length < 1) {			
-			String project = "bandwidth";
-			//String baseDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/npb-u";
+			String project = "13.aes";
+			String baseDir = "/h/g3/dhjeon/research/pact2011/spatbench/bench-clean";
 			//String baseDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/npb-b";
-			String baseDir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test";
+			//String baseDir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/NPB2.3-omp-C";
+			//String baseDir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test";
+			//String baseDir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/CINT2000/300.twolf";
 			//String baseDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/specOmpSerial";
 			//String baseDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/regression";
 			ParameterSet.rawDir = baseDir + "/" + project;
@@ -47,35 +49,40 @@ public class RunnerOmp {
 		//				10, ParameterSet.outerIncentive);
 		System.err.print("\nPlease Wait: Loading Trace Files...");
 		String sFile = rawDir + "/sregions.txt";
-		String dFile = rawDir + "/cpURegion.bin";
+		String dFile = rawDir + "/kremlin.bin";
 
 		
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
-		URegionManager dManager = new URegionManager(sManager, new File(dFile));		
-		OMPGrepReader reader = new OMPGrepReader(rawDir + "/omp.txt");		
-		SRegionProfileAnalyzer profileAnalyzer = new SRegionProfileAnalyzer(dManager, reader);
-		SRegionInfoAnalyzer analyzer = dManager.getSRegionAnalyzer();
-		profileAnalyzer.dump(rawDir + "/analysis.txt");				
-				
-		Set<SRegionInfo> postFilterSet = filter.getPostFilterSRegionInfoSet(analyzer);
-		int totalSize = analyzer.getSRegionInfoSet().size();
+		//URegionManager dManager = new URegionManager(sManager, new File(dFile));
+		CRegionManager cManager = new CRegionManager(sManager, dFile);
+		//OMPGrepReader reader = new OMPGrepReader(rawDir + "/omp.txt");		
+		//SRegionProfileAnalyzer profileAnalyzer = new SRegionProfileAnalyzer(dManager, reader);
+		//SRegionInfoAnalyzer analyzer = dManager.getSRegionAnalyzer();
+		//profileAnalyzer.dump(rawDir + "/analysis.txt");
+		
+		CDPPlanner planner = new CDPPlanner(cManager, 32, 0);
+		double result = planner.plan(new HashSet<CRegion>());
+		System.out.printf("Result = %.2f\n", result);
+		//Set<SRegionInfo> postFilterSet = filter.getPostFilterSRegionInfoSet(analyzer);
+		//int totalSize = analyzer.getSRegionInfoSet().size();
 		int spSize = 0;
 		int workSize = 0;
+		/*
 		for (SRegionInfo each : analyzer.getSRegionInfoSet()) {
 			if (each.getTotalParallelism() < 5.0)
 				workSize++;
 			if (each.getSelfParallelism() < 5.0)
 				spSize++;				
-		}
+		}*/
 		
-		System.out.printf("total = %d tp = %d sp = %d\n", 
+		/*System.out.printf("total = %d tp = %d sp = %d\n", 
 				totalSize, workSize, spSize);
-		System.out.println(filter);
+		System.out.println(filter);*/
 		//Recommender planner = new Recommender(sManager, dManager);
 		//BackwardPlanner planner = new BackwardPlanner(analyzer);
-		DPPlanner planner = new DPPlanner(analyzer);
+		/*DPPlanner planner = new DPPlanner(analyzer);
 		List<RegionRecord> plan = planner.plan(filter);
-		planner.emitParallelRegions(rawDir + "/plan.dp");
+		planner.emitParallelRegions(rawDir + "/plan.dp");*/
 		//List<RegionRecord> plan = planner.plan(filter);
 		/*
 		SpeedupPredictor predictor = new SpeedupPredictor();
