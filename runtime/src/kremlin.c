@@ -15,7 +15,7 @@
 #include "cregion.h"
 #include "Vector.h"
 
-#define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
+#define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024)
 
 #define _MAX_REGION_LEVEL   100     // used for static data structures
 
@@ -1799,6 +1799,8 @@ int pyrprofDeinit() {
 #else
 	cregionFinish("kremlin.bin");
 #endif
+    freeDummyTEntry();
+
     finalizeDataStructure();
 
     // Deallocate the arg timestamp deque.
@@ -1806,8 +1808,6 @@ int pyrprofDeinit() {
 
     // Deallocate the static id to dynamic id map.
     hash_map_sid_did_delete(&sidToDid);
-
-    freeDummyTEntry();
 
     free(regionInfo);
     regionInfo = NULL;

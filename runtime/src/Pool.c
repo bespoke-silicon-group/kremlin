@@ -86,6 +86,9 @@ int PoolFreeListPush(Pool* p, void* ptr)
 
 void* PoolFreeListPop(Pool* p)
 {
+    if(!FreeListSize(p->freeList))
+        return NULL;
+
     return FreeListPopVal(p->freeList);
 }
 
@@ -103,7 +106,11 @@ void* PoolMalloc(Pool* p)
         return ret;
 
     // Get a new element and add it to this pool.
-    PoolFreeListPush(p, (*p->mallocFunc)(p->allocator, p->pageSize));
+    if(!PoolFreeListPush(p, (*p->mallocFunc)(p->allocator, p->pageSize)))
+    {
+        assert(0 && "Failed to push an additional element to the free list");
+        return NULL;
+    }
     return PoolMalloc(p);
 }
 

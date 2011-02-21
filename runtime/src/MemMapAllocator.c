@@ -41,7 +41,7 @@ struct MemMapAllocator
     size_t size;
 };
 
-int MemMapAllocatorAllocAdditional(MemMapAllocator* p);
+static int MemMapAllocatorAllocAdditional(MemMapAllocator* p);
 
 /* -------------------------------------------------------------------------- 
  * Functions (alpha order).
@@ -55,10 +55,10 @@ int MemMapAllocatorAllocAdditional(MemMapAllocator* p)
 
     // Allocate mmapped data.
 	unsigned char* data;
-    if((data = (unsigned char*)mmap(NULL, p->size, protection, flags, fileId, offset)) == MAP_FAILED)
+    if((data = (unsigned char*)mmap64(NULL, p->size, protection, flags, fileId, offset)) == MAP_FAILED)
     {
         char* errorString;
-        asprintf(&errorString, "MemMapAllocatorCreate - unable to mmap %llu bytes", (unsigned long long)p->size);
+        asprintf(&errorString, "MemMapAllocatorAllocAdditional - unable to mmap %llu bytes", (unsigned long long)p->size);
         perror(errorString);
         free(errorString);
         errorString = NULL;
@@ -123,7 +123,10 @@ void* MemMapAllocatorMalloc(MemMapAllocator* p, size_t size)
     if(p->freeListHead >= (unsigned char*)vector_top(p->data) + p->size)
 	{
 		if(!MemMapAllocatorAllocAdditional(p))
-			return FALSE;
+        {
+            assert(0 && "Failed to alloc additional");
+			return NULL;
+        }
 		return MemMapAllocatorMalloc(p, size);
 	}
     return ret;
