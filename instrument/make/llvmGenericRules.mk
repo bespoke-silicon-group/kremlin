@@ -13,10 +13,12 @@ include $(dir $(lastword $(MAKEFILE_LIST)))/../../common/make/paths.mk
 LLVM_OBJ_DIR = $(KREMLIN_INSTRUMENT_LLVM_DIR)/2.8-obj
 LLVM_BIN_DIR = $(KREMLIN_INSTRUMENT_LLVM_BIN_DIR)
 
-ifeq ($(DEBUG), 1)
-	RELEASE_OR_DEBUG = Debug+Asserts
+ifdef DEBUG
+RELEASE_OR_DEBUG = Debug+Asserts
+$(info setting to debug)
 else
-	RELEASE_OR_DEBUG = Release+Asserts
+$(info setting to release)
+RELEASE_OR_DEBUG = Release+Asserts
 endif # $(DEBUG) == 1
 LLVM_LIB_DIR = $(LLVM_OBJ_DIR)/$(RELEASE_OR_DEBUG)/lib
 
@@ -60,9 +62,9 @@ DEBUG_MAKE ?= 1
 
 # Options to pass while building the shared object
 ifdef DEBUG
-	SO_BUILD_OPTIONS = DEBUG=1
+SO_BUILD_OPTIONS = DEBUG=1
 else
-	SO_BUILD_OPTIONS = 
+SO_BUILD_OPTIONS = 
 endif # $(DEBUG) == 1
 
 # ---------------------------------------------------------------------------

@@ -31,7 +31,7 @@ CXX.Flags += -I../../common/include
 LD.Flags += -L$(LLVM_INSTALL_LIB_DIR)
 
 ifdef DEBUG
-ENABLE_OPTIMIZED=0
+override ENABLE_OPTIMIZED=0
 else
 ENABLE_OPTIMIZED=1
 endif

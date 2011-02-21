@@ -16,9 +16,6 @@ InstrumentedCall<Callable>::InstrumentedCall(Callable* ci) :
     ci(ci),
     id(UuidToIntAdapter<uint64_t>::get(boost::uuids::random_generator()()))
 {
-//    // insert call to prepareCall to setup the structures needed to pass arg and return info efficiently
-//    boost::uuids::random_generator gen;
-//    uint64_t callsite_id = UuidToIntAdapter<uint64_t>::get(gen());
 }
 
 template <typename Callable>
@@ -168,7 +165,7 @@ std::string& InstrumentedCall<Callable>::formatToString(std::string& buf) const
     }
 
 	os  << PREFIX
-	    << getId() << DELIMITER
+	    << std::hex << getId() << std::dec << DELIMITER
 		<< "callsiteId" << DELIMITER
 		<< fileName << DELIMITER
 		<< funcName << DELIMITER

@@ -30,7 +30,7 @@ ASM_INSTRUMENTED_WITH_GCC_NAME = $(addsuffix .s, $(UNPROCESSED_SOURCES_NO_EXTENS
 
 # Passes required as a chained rule. The code to instrument must go through
 # all these passes.
-PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.O2.splitbbatfunccall.criticalpath.regioninstrument
+PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.splitbbatfunccall.criticalpath.regioninstrument
 
 # ---------------------------------------------------------------------------
 # Functions (alpha order)

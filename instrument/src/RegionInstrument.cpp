@@ -925,12 +925,9 @@ namespace {
 
 							//Find the call that does not return and wrap up before it.
 							foreach(Instruction& i, *bb) {
-							//for(BasicBlock::iterator i = bb->begin(), ie = bb->end(); i != ie; ++i) {
 								CallInst* ci;
 								if((ci = dyn_cast<CallInst>(&i)) && ci->doesNotReturn()) {
 									insert_before = &i;
-								//if((ci = dyn_cast<CallInst>(i)) && ci->doesNotReturn()) {
-									//insert_before = i;
 
 									// see if this is a call to exit, in which case we are going to have to deinit the profiler
 									if(ci && ci->getCalledFunction() && ci->getCalledFunction()->getName() == "exit")
