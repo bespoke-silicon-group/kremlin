@@ -3,6 +3,7 @@
 #include <llvm/Analysis/DebugInfo.h>
 #include <llvm/GlobalVariable.h>
 #include <sstream>
+#include <iomanip>
 
 #include "InstrumentedCall.h"
 #include "PassLog.h"
@@ -164,8 +165,10 @@ std::string& InstrumentedCall<Callable>::formatToString(std::string& buf) const
         LOG_DEBUG() << "function: " << n->getFunction() << "\n";
     }
 
+    os.fill('0');
+
 	os  << PREFIX
-	    << std::hex << getId() << std::dec << DELIMITER
+	    << std::setw(16) << std::hex << getId() << std::dec << DELIMITER
 		<< "callsiteId" << DELIMITER
 		<< fileName << DELIMITER
 		<< funcName << DELIMITER

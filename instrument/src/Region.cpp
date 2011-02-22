@@ -1,5 +1,6 @@
 #include "Region.h"
 #include <sstream>
+#include <iomanip>
 
 bool Region::operator<(const Region& that) const
 {
@@ -14,9 +15,10 @@ bool Region::operator==(const Region& that) const
 std::string& Region::formatToString(std::string& buf) const
 {
 	std::ostringstream os;
+    os.fill('0');
 
 	os  << PREFIX
-	    << getId() << DELIMITER
+	    << std::setw(16) << std::hex << getId() << std::dec << DELIMITER
 		<< getRegionType() << DELIMITER
 		<< getFileName() << DELIMITER
 		<< getFuncName() << DELIMITER
