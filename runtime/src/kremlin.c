@@ -62,7 +62,7 @@ typedef struct _InvokeRecord {
     int stackHeight;
 } InvokeRecord;
 
-#define isPyrprofOn()       (pyrprofOn == 1)
+#define isKremlinOn()       (kremlinOn == 1)
 #define getLevelNum()      (levelNum)
 #define getCurrentLevel()  (levelNum-1)
 #define isCurrentLevelInstrumentable() (((levelNum-1) >= MIN_REGION_LEVEL) && ((levelNum-1) <= MAX_REGION_LEVEL))
@@ -84,7 +84,7 @@ const int               _maxRegionToLog = MAX_REGION_LEVEL;
 const int               _minRegionToLog = MIN_REGION_LEVEL;
 #endif
 
-int                 pyrprofOn = 0;
+int                 kremlinOn = 0;
 int                 levelNum = 0;
 int*                versions = NULL;
 Region*             regionInfo = NULL;
@@ -117,13 +117,13 @@ int _requireSetupTable;
  * loop type seems weird, but using functino type as the root region
  * causes several problems regarding local table
  *
- * when pyrprofOn == 0,
+ * when kremlinOn == 0,
  * most instrumentation functions do nothing.
  */ 
 void turnOnProfiler() {
 	fprintf(stderr, "WARNING: turnOn/OffProfiler must be called at the same levels or the profiler will break.\n");
 	fprintf(stderr, "turnOnProfiler...");
-    pyrprofOn = 1;
+    kremlinOn = 1;
     logRegionEntry(0, 1);
 	fprintf(stderr, "done\n");
 }
@@ -135,7 +135,7 @@ void turnOnProfiler() {
  */
 void turnOffProfiler() {
     logRegionExit(0, 1);
-    pyrprofOn = 0;
+    kremlinOn = 0;
 	fprintf(stderr, "turnOffProfiler\n");
 }
 
@@ -157,7 +157,7 @@ void freeDummyTEntry() {
 }
 
 void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
-    if(!isPyrprofOn())
+    if(!isKremlinOn())
         return;
 
     // Clear off any argument timestamps that have been left here before the
@@ -168,7 +168,7 @@ void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
 }
 
 void linkArgToLocal(UInt src) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     MSG(1, "linkArgToLocal to ts[%u]\n", src);
 
@@ -179,7 +179,7 @@ void linkArgToLocal(UInt src) {
 
 // special case for constant arg
 void linkArgToConst() {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     MSG(1, "linkArgToConst\n");
 
@@ -191,7 +191,7 @@ void linkArgToConst() {
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
 void transferAndUnlinkArg(UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     MSG(1, "getArgInfo to ts[%u]\n", dest);
 
@@ -206,7 +206,7 @@ void transferAndUnlinkArg(UInt dest) {
 
 
 void setupLocalTable(UInt maxVregNum) {
-    if(!isPyrprofOn())
+    if(!isKremlinOn())
         return;
 
     MSG(1, "setupLocalTable size %u\n", maxVregNum);
@@ -445,7 +445,7 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
 #endif
 
 void prepareInvoke(UInt64 id) {
-    if(!isPyrprofOn())
+    if(!isKremlinOn())
         return;
 
     MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (UInt64)getCurrentLevel());
@@ -456,7 +456,7 @@ void prepareInvoke(UInt64 id) {
 }
 
 void invokeOkay(UInt64 id) {
-    if(!isPyrprofOn())
+    if(!isKremlinOn())
         return;
 
     if(!InvokeRecordsEmpty(invokeRecords) && InvokeRecordsLast(invokeRecords)->id == id) {
@@ -467,7 +467,7 @@ void invokeOkay(UInt64 id) {
 }
 void invokeThrew(UInt64 id)
 {
-    if(!isPyrprofOn())
+    if(!isKremlinOn())
         return;
 
     if(!InvokeRecordsEmpty(invokeRecords) && InvokeRecordsLast(invokeRecords)->id == id) {
@@ -488,7 +488,7 @@ void invokeThrew(UInt64 id)
 }
 
 void logRegionEntry(UInt64 regionId, UInt regionType) {
-    if (!isPyrprofOn()) {
+    if (!isKremlinOn()) {
         return;
     }
 
@@ -579,7 +579,7 @@ UInt64 _lastParentSid;
 UInt64 _lastParentDid;
 
 void logRegionExit(UInt64 regionId, UInt regionType) {
-    if (!isPyrprofOn()) {
+    if (!isKremlinOn()) {
         return;
     }
 
@@ -676,7 +676,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
         MSG(0, "[---] region [%u, %u, %llu:%llu] cp %llu work %llu\n",
                 regionType, level, regionId, did, regionInfo[level].cp, work);
 
-    if (isPyrprofOn() && work > 0 && cp == 0 && isCurrentLevelInstrumentable()) {
+    if (isKremlinOn() && work > 0 && cp == 0 && isCurrentLevelInstrumentable()) {
         fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
         fprintf(stderr, "region [type: %u, level: %u, id: %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
             regionType, level, regionId, did, parentSid, parentDid, 
@@ -731,7 +731,7 @@ void* logReductionVar(UInt opCost, UInt dest) {
 }
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
@@ -770,7 +770,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 }
 
 void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
@@ -814,7 +814,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 
 
 void* logAssignment(UInt src, UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
     
     return logBinaryOpConst(0, src, dest);
@@ -847,7 +847,7 @@ void* logAssignmentConst(UInt dest) {
 }
 
 void* logLoadInst(Addr src_addr, UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
@@ -894,7 +894,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 }
 
 void* logStoreInst(UInt src, Addr dest_addr) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
@@ -942,7 +942,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 
 
 void* logStoreInstConst(Addr dest_addr) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
@@ -981,7 +981,7 @@ void* logStoreInstConst(Addr dest_addr) {
 
 // TODO: 64 bit?
 void logMalloc(Addr addr, size_t size, UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     
     MSG(1, "logMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
@@ -1110,7 +1110,7 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
 }
 
 void logFree(Addr addr) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     MSG(1, "logFree addr=0x%x\n", addr);
 
@@ -1246,7 +1246,7 @@ void logFree(Addr addr) {
 
 // TODO: more efficient implementation (if old_addr = new_addr)
 void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
 
     MSG(1, "logRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (UInt64)size);
@@ -1312,7 +1312,7 @@ void addControlDep(UInt cond) {
 
 #ifndef WORK_ONLY
     cdtHead = allocCDT();
-    if (isPyrprofOn()) {
+    if (isKremlinOn()) {
         TEntry* entry = getLTEntry(cond);
         fillCDT(cdtHead, entry);
     }
@@ -1330,7 +1330,7 @@ void removeControlDep() {
 
 // prepare timestamp storage for return value
 void addReturnValueLink(UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     MSG(1, "prepare return storage ts[%u]\n", dest);
 #ifndef WORK_ONLY
@@ -1341,7 +1341,7 @@ void addReturnValueLink(UInt dest) {
 
 // write timestamp to the prepared storage
 void logFuncReturn(UInt src) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     MSG(1, "write return value ts[%u]\n", src);
 
@@ -1361,7 +1361,7 @@ void logFuncReturn(UInt src) {
 }
 
 void logFuncReturnConst(void) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     MSG(1, "logFuncReturnConst\n");
 
@@ -1388,7 +1388,7 @@ void logFuncReturnConst(void) {
 }
 
 void logBBVisit(UInt bb_id) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
 #ifdef MANAGE_BB_INFO
     MSG(1, "logBBVisit(%u)\n", bb_id);
@@ -1398,7 +1398,7 @@ void logBBVisit(UInt bb_id) {
 }
 
 void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
     MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
 
@@ -1433,7 +1433,7 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 }
 
 void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
@@ -1474,7 +1474,7 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 #endif
 }
 void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
     MSG(1, "logPhiNode3CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
 
@@ -1517,7 +1517,7 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 }
 
 void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3, cd4);
@@ -1572,7 +1572,7 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 }
 
 void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "log4CDToPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, dest, cd1, cd2, cd3, cd4);
@@ -1626,7 +1626,7 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 #define MAX_ENTRY 10
 
 void logPhiNodeAddCondition(UInt dest, UInt src) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return;
     MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
 
@@ -1662,7 +1662,7 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
 
 // use estimated cost for a callee function we cannot instrument
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) { 
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
 
     MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
@@ -1712,7 +1712,7 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 // this function is the same as logAssignmentConst but helps to quickly
 // identify induction variables in the source code
 void* logInductionVar(UInt dest) {
-    if (!isPyrprofOn())
+    if (!isKremlinOn())
         return NULL;
     return logAssignmentConst(dest);
 }
@@ -1720,14 +1720,14 @@ void* logInductionVar(UInt dest) {
 UInt isCpp = FALSE;
 UInt hasInitialized = 0;
 
-int pyrprofInit() {
+int kremlinInit() {
     if(hasInitialized++) {
-        MSG(0, "pyrprofInit skipped\n");
+        MSG(0, "kremlinInit skipped\n");
         return FALSE;
     }
-    MSG(0, "pyrprofInit running\n");
+    MSG(0, "kremlinInit running\n");
 
-    pyrprofOn = TRUE;
+    kremlinOn = TRUE;
 
     fprintf(stderr,"DEBUGLEVEL = %d\n", DEBUGLEVEL);
 
@@ -1784,12 +1784,12 @@ void initStartFuncContext()
 }
 
 
-int pyrprofDeinit() {
+int kremlinDeinit() {
     if(--hasInitialized) {
-        MSG(0, "pyrprofDeinit skipped\n");
+        MSG(0, "kremlinDeinit skipped\n");
         return FALSE;
     }
-    MSG(0, "pyrprofDeinit running\n");
+    MSG(0, "kremlinDeinit running\n");
 
 	turnOffProfiler();
 
@@ -1826,30 +1826,30 @@ int pyrprofDeinit() {
 	deinitCDT();
 
 
-    fprintf(stderr, "[pyrprof] minRegionLevel = %d maxRegionLevel = %d\n", 
+    fprintf(stderr, "[kremlin] minRegionLevel = %d maxRegionLevel = %d\n", 
         _minRegionToLog, _maxRegionToLog);
-    fprintf(stderr, "[pyrprof] app MaxRegionLevel = %d\n", _maxRegionNum);
+    fprintf(stderr, "[kremlin] app MaxRegionLevel = %d\n", _maxRegionNum);
 
-    pyrprofOn = FALSE;
+    kremlinOn = FALSE;
 
     return TRUE;
 }
 
 void initProfiler() {
-    pyrprofInit();
+    kremlinInit();
 }
 
 void cppEntry() {
     isCpp = TRUE;
-    pyrprofInit();
+    kremlinInit();
 }
 
 void cppExit() {
-    pyrprofDeinit();
+    kremlinDeinit();
 }
 
 void deinitProfiler() {
-    pyrprofDeinit();
+    kremlinDeinit();
 }
 
 UInt64 sidHash(UInt64 sid) {

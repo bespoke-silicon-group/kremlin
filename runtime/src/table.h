@@ -106,7 +106,7 @@ extern MTable* mTable;
 extern UInt32  maxRegionLevel;
 extern Pool* tEntryPool;
 
-#if PYRPROF_DEBUG == 1
+#if KREMLIN_DEBUG == 1
 	char* toStringTEntry(TEntry* entry);
 #else
 #	define toStringTEntry(entry)       ((void)0)

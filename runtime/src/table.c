@@ -336,7 +336,7 @@ TEntry* getGTEntryCacheLine(Addr addr) {
 #if 0
 extern int regionNum;
 char* toStringTEntry(TEntry* entry) {
-#if PYRPROF_DEBUG == 1
+#if KREMLIN_DEBUG == 1
     int level = regionNum;
     int i;
     char temp[50];

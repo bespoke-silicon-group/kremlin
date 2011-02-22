@@ -17,7 +17,7 @@ CFLAGS += -g -DDEBUG
 
 # Debug options
 ifdef DEBUG
-CFLAGS += -DPYRPROF_DEBUG=1
+CFLAGS += -DKREMLIN_DEBUG=1
 endif # DEBUG
 
 # ---------------------------------------------------------------------------

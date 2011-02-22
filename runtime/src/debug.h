@@ -1,7 +1,7 @@
 #ifndef _DEBUG_H
 #define _DEBUG_H
 
-#if PYRPROF_DEBUG == 1
+#if KREMLIN_DEBUG == 1
     void MSG(int level, char* format, ...);
 	void updateTabString();
 	void incIndentTab();

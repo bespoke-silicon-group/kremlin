@@ -1,5 +1,5 @@
-#ifndef PYRPROF_LOG_H
-#define PYRPROF_LOG_H
+#ifndef KREMLIN_LOG_H
+#define KREMLIN_LOG_H
 
 File* log_open(const char* file_name);      /* Opens a log file */
 
@@ -17,4 +17,4 @@ void log_close(File* log);                  /* Closes a log file */
 
 void writeURegion(File* fp, URegion* region);
 
-#endif /* PYRPROF_LOG_H */
+#endif /* KREMLIN_LOG_H */

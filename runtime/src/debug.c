@@ -2,7 +2,7 @@
 #include "debug.h"
 #include "table.h"
 
-#if PYRPROF_DEBUG == 1
+#if KREMLIN_DEBUG == 1
 static char tabString[2000];
 static int tabLevel = 0;
 

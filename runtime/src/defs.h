@@ -9,12 +9,12 @@
 #include "MemMapAllocator.h"
 
 
-#ifndef _PYRPROF_DEF
-#define _PYRPROF_DEF
+#ifndef _KREMLIN_DEF
+#define _KREMLIN_DEF
 
 // unless specified, we assume no debugging
-#ifndef PYRPROF_DEBUG
-#define PYRPROF_DEBUG	0
+#ifndef KREMLIN_DEBUG
+#define KREMLIN_DEBUG	0
 #endif
 
 #ifndef DEBUGLEVEL
