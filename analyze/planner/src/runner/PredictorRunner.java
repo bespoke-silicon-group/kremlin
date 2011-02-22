@@ -3,11 +3,11 @@ package runner;
 import java.io.File;
 import java.util.*;
 
+import planner.*;
 import pprof.*;
 import predictor.*;
 import predictor.predictors.*;
 import trace.*;
-import pyrplan.*;
 
 public class PredictorRunner {
 	public static void main(String args[]) {
@@ -100,7 +100,7 @@ public class PredictorRunner {
 			
 		}
 		
-		pyrplan.Util.writeFile(output, file);
+		planner.Util.writeFile(output, file);
 		//System.out.println("\n== Coverage Speedup ==");
 		//traceAnalyzer.printCoverage();
 		

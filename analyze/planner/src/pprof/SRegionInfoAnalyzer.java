@@ -218,24 +218,5 @@ public class SRegionInfoAnalyzer {
 				
 		buffer.append(numbers);
 		return buffer.toString();
-	}
-	
-	public static void main(String args[]) {
-		//String rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/mpeg_enc";		
-		String rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/loop";
-		System.out.print("\nPlease Wait: Loading Trace Files...");
-		String sFile = rawDir + "/sregions.txt";
-		String dFile = rawDir + "/cpURegion.bin";
-		
-		long start = System.currentTimeMillis();
-		SRegionManager sManager = new SRegionManager(new File(sFile), false);		
-		URegionManager dManager = new URegionManager(sManager, new File(dFile));
-		long end = System.currentTimeMillis();
-		
-		SRegionInfoAnalyzer analyzer = new SRegionInfoAnalyzer(dManager);
-		analyzer.dump();
-		
-	}
-	
-	
+	}	
 }

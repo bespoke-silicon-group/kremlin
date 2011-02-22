@@ -1,7 +1,7 @@
 package trace;
 import java.util.*;
 
-import pyrplan.Util;
+import planner.Util;
 
 public class TraceMapper {
 	List<TraceMapEntry> entryList;

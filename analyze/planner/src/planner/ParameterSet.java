@@ -1,4 +1,4 @@
-package pyrplan;
+package planner;
 
 public class ParameterSet {
 	public static double minSpeedup = 1.001;

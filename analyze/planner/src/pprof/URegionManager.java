@@ -3,9 +3,9 @@ package pprof;
 import java.io.*;
 import java.util.*;
 
+import planner.RecList;
+import planner.Recommender;
 import pprof.EntryManager.MapEntry;
-import pyrplan.RecList;
-import pyrplan.Recommender;
 
 public class URegionManager extends EntryManager {
 	Map<Long, URegion> dMap = new HashMap<Long, URegion>();

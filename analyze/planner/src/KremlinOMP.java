@@ -1,13 +1,12 @@
-package runner;
+
 
 import java.io.File;
-
-import planner.ParameterSet;
-import pprof.*;
 import java.util.*;
 
-public class KremlinProfiler {
+import planner.*;
+import pprof.*;
 
+public class KremlinOMP {
 	/**
 	 * @param args
 	 */
@@ -15,19 +14,13 @@ public class KremlinProfiler {
 		// TODO Auto-generated method stub
 		String baseDir = null;
 		if (args.length < 1) {			
-			System.out.println("Usage: java KremlinProfiler <dir>\n");
-			System.exit(1);
+			baseDir = "f:\\Work\\spatBench\\loop";
+			System.out.println("Usage: java KremlinOMP <dir>\n");
 		} else {
 			baseDir = args[0];
 		}
-		
-		
-		//String baseDir = "/h/g3/dhjeon/research/pact2011/spatbench/bench-clean";			
-		ParameterSet.rawDir = baseDir;
-		//ParameterSet.rawDir = "f:\\Work\\run\\equake";
-		//ParameterSet.rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/npb-u/lu";
-		//ParameterSet.rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/specOmpSerial/ammp";		
-		//ParameterSet.rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/regression/bandwidth";
+					
+		ParameterSet.rawDir = baseDir;		
 		ParameterSet.project = baseDir;		
 		String rawDir = ParameterSet.rawDir;		
 		String sFile = rawDir + "/sregions.txt";
@@ -36,14 +29,24 @@ public class KremlinProfiler {
 		
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
+		CDPPlanner planner = new CDPPlanner(cManager, 32, 0);		
+		List<CRegionRecord> result = planner.plan(new HashSet<CRegion>());
+		List<CRegion> list = new ArrayList<CRegion>();
+		for (CRegionRecord each : result)
+			list.add(each.getCRegion());
+		
+		CRegionPrinter printer = new CRegionPrinter(cManager);
+		printer.printRegionList(list);		
+		//assert(false);
+		//System.out.printf("Result = %.2f\n", result);
+		/*
 		Map<CRegion, Double> map = new HashMap<CRegion, Double>();
 		for (CRegion region : cManager.getCRegionSet()) {
 			map.put(region, cManager.getTimeReduction(region));			
 		}
 		map = getSortedCRegionMap(map);
 		System.out.println("Kremlin Profiler Ver 0.1\n");
-		CRegionPrinter printer = new CRegionPrinter(cManager);
-		printer.printRegionList(new ArrayList<CRegion>(map.keySet()));		
+		printMap(new CRegionPrinter(cManager), map);*/
 	}
 	
 	static void printMap(CRegionPrinter printer, Map<CRegion, Double> map) {
@@ -67,5 +70,4 @@ public class KremlinProfiler {
 		}
 		return ret;
 	}
-
 }

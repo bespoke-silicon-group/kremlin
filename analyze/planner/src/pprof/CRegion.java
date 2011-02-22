@@ -156,7 +156,7 @@ public class CRegion implements Comparable {
 		this.avgWork = totalWork / numInstance;		
 		this.selfParallelism = (double)totalWork / (double)totalSPWork;
 		this.totalParallelism = (double)totalWork / (double)totalTPWork;
-		this.avgCP = (double)totalCP / (double)numInstance;		
+		this.avgCP = (double)totalTPWork / (double)numInstance;		
 		this.avgIter = (double)totalIter / numInstance;		
 		//this.sdWorkPercent = calcSdWork();
 		

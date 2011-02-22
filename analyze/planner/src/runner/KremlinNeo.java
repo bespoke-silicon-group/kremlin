@@ -3,14 +3,14 @@ package runner;
 import java.io.File;
 import java.util.List;
 
+import planner.CRegionRecord;
+import planner.FilterControl;
+import planner.ParameterSet;
 import pprof.RegionType;
 import pprof.SRegionInfoAnalyzer;
 import pprof.SRegionManager;
 import pprof.URegionManager;
-import pyrplan.FilterControl;
-import pyrplan.ParameterSet;
-import pyrplan.CRegionRecord;
-import pyrplan.omp.DPPlanner;
+
 
 public class KremlinNeo {
 	public static void main(String args[]) {
@@ -52,13 +52,13 @@ public class KremlinNeo {
 		String dFile = rawDir + "/cpURegion.bin";
 
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);
-		URegionManager dManager = new URegionManager(sManager, new File(dFile));
+		URegionManager dManager = new URegionManager(sManager, new File(dFile), true);
 		SRegionInfoAnalyzer analyzer = dManager.getSRegionAnalyzer();
 						
 		SRegionProfileAnalyzer profileAnalyzer = new SRegionProfileAnalyzer(dManager, new OMPGrepReader());		
 		profileAnalyzer.dump(rawDir + "/analysis.txt");
-		DPPlanner planner = new DPPlanner(analyzer);
-		List<CRegionRecord> plan = planner.plan(filter);		
-		planner.emitParallelRegions(rawDir + "/plan.dp");
+		//DPPlanner planner = new DPPlanner(analyzer);
+		//List<CRegionRecord> plan = planner.plan(filter);		
+		//planner.emitParallelRegions(rawDir + "/plan.dp");
 	}
 }

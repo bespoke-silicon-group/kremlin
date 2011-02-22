@@ -3,10 +3,10 @@ package runner;
 import java.io.File;
 import java.util.*;
 
+import planner.*;
 import pprof.*;
 import predictor.PredictUnit;
 import predictor.predictors.SpeedupPredictor;
-import pyrplan.*;
 import pyrplan.backward.BackwardPlanner;
 import pyrplan.omp.*;
 

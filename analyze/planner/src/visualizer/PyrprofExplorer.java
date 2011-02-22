@@ -1,10 +1,19 @@
-package pprof;
+package visualizer;
 
 import javax.swing.*;
 import javax.swing.event.*;
 import javax.swing.tree.*;
 
-import pyrplan.Recommender;
+import planner.Recommender;
+import pprof.DrawSetGenerator;
+import pprof.FreqAnalyzer;
+import pprof.SRegion;
+import pprof.SRegionInfo;
+import pprof.SRegionInfoAnalyzer;
+import pprof.SRegionManager;
+import pprof.SelfParallelismAnalyzer;
+import pprof.URegion;
+import pprof.URegionManager;
 
 import java.awt.event.*;
 import visualizer.*;

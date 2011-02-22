@@ -1,6 +1,6 @@
 package predictor;
+import planner.*;
 import pprof.*;
-import pyrplan.*;
 
 public class PElement implements Comparable {
 	SRegionInfo info;

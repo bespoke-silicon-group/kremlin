@@ -1,4 +1,4 @@
-package pyrplan.omp;
+package planner;
 import pprof.*;
 
 import java.util.*;

@@ -1,4 +1,4 @@
-package pyrplan.greedy;
+package planner;
 
 import java.util.*;
 
@@ -10,7 +10,6 @@ import pprof.SRegionInfoGroup;
 import pprof.SRegionManager;
 import pprof.URegion;
 import pprof.URegionManager;
-import pyrplan.RecList;
 
 public class GreedyRecommender {
 	SRegionManager sManager;

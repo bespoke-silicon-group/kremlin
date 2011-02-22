@@ -1,10 +1,11 @@
 package predictor.predictors;
 
 import java.util.*;
+
+import planner.*;
 import pprof.*;
 import predictor.PElement;
 import predictor.PredictUnit;
-import pyrplan.*;
 import predictor.*;
 
 public class SpeedupPredictor {

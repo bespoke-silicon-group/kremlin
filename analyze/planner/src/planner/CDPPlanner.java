@@ -1,10 +1,10 @@
-package pyrplan.omp;
+package planner;
 
 
 import java.util.*;
 
+import planner.*;
 import pprof.*;
-import pyrplan.*;
 
 public class CDPPlanner {
 	CRegionManager analyzer;
@@ -22,7 +22,7 @@ public class CDPPlanner {
 		this.overhead = overhead;
 	}
 	
-	public double plan(Set<CRegion> toExclude) {		
+	public List<CRegionRecord> plan(Set<CRegion> toExclude) {		
 		Set<CRegion> postFilterSet = toExclude;
 		List<CRegion> list = new ArrayList<CRegion>();
 		Set<CRegion> retired = new HashSet<CRegion>();
@@ -120,9 +120,9 @@ public class CDPPlanner {
 		Collections.sort(ret);		
 		double sum = 0.0;
 		
-		for (CRegionRecord each : ret) {
-			System.out.println(each);
-		}
+		//for (CRegionRecord each : ret) {
+		//	System.out.println(each);
+		//}
 		//System.out.println("\n\n\n");
 		/*
 		for (CRegion each : ret) {
@@ -138,7 +138,8 @@ public class CDPPlanner {
 		
 		//System.out.printf("total time save = %.2f root time = %.2f\n", sum, pointMap.get(root));
 				
-		return pointMap.get(root);
+		//return pointMap.get(root);
+		return ret;
 	}
 	
 	

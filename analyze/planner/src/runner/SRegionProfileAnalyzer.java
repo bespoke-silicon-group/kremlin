@@ -7,14 +7,14 @@ import java.util.*;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
+import planner.FilterControl;
+import planner.ParallelFileReader;
+import planner.ParameterSet;
+import planner.RefPlanner;
 import pprof.*;
 import pprof.SRegionSpeedupCalculator.LimitFactor;
 import pprof.SRegionSpeedupCalculator.ScaleMode;
 import predictor.predictors.PerfPredictor;
-import pyrplan.FilterControl;
-import pyrplan.ParallelFileReader;
-import pyrplan.ParameterSet;
-import pyrplan.RefPlanner;
 import visualizer.PloticusChartGenerator;
 
 public class SRegionProfileAnalyzer {

@@ -3,11 +3,11 @@ package runner;
 import java.io.File;
 import java.util.*;
 
+import planner.CDPPlanner;
+import planner.FilterControl;
+import planner.ParameterSet;
 import pprof.*;
 import predictor.topdown.TopDownPredictor;
-import pyrplan.FilterControl;
-import pyrplan.ParameterSet;
-import pyrplan.nested.NestedPlanner;
 import pyrplan.omp.*;
 
 public class CRegionTester {
@@ -110,7 +110,7 @@ public class CRegionTester {
 					core, predict0, dp0));
 			
 		}
-		pyrplan.Util.writeFile(output, outFile);
+		planner.Util.writeFile(output, outFile);
 	}
 	
 	static double getSpeedup(CRegionManager analyzer, int core, int overhead) {

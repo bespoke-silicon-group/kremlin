@@ -1,6 +1,6 @@
 package predictor.topdown;
 
-import pyrplan.*;
+import planner.*;
 public class InfoStatus {
 	double maxCore;
 	double allocatedCore;

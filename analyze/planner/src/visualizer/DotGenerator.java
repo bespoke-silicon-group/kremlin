@@ -1,7 +1,15 @@
-package pprof;
+package visualizer;
 
 import java.io.*;
 import java.util.*;
+
+import pprof.EntryManager;
+import pprof.FreqAnalyzer;
+import pprof.SRegion;
+import pprof.SRegionManager;
+import pprof.SelfParallelismAnalyzer;
+import pprof.URegion;
+import pprof.URegionManager;
 public class DotGenerator {
 	EntryManager manager;
 	SelfParallelismAnalyzer analyzer;

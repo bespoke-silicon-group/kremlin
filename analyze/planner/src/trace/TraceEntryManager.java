@@ -2,7 +2,7 @@ package trace;
 
 import java.util.*;
 
-import pyrplan.Util;
+import planner.Util;
 import pprof.*;
 
 public class TraceEntryManager {

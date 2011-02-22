@@ -1,7 +1,7 @@
 package predictor.predictors;
+import planner.*;
 import pprof.*;
 import predictor.PElement;
-import pyrplan.*;
 
 public interface ISpeedupPredictor {
 	public double predictSpeedup(PElement element);	

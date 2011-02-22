@@ -3,8 +3,8 @@ package runner;
 import java.io.File;
 import java.util.*;
 
+import planner.*;
 import pprof.*;
-import pyrplan.*;
 import pyrplan.backward.BackwardPlanner;
 import pyrplan.nested.*;
 import predictor.topdown.*;
@@ -134,8 +134,8 @@ public class RunnerNest {
 			
 			//assert(false);			
 		}
-		pyrplan.Util.writeFile(output, outFile);
-		pyrplan.Util.writeFile(outputR, outFile + ".R");
+		planner.Util.writeFile(output, outFile);
+		planner.Util.writeFile(outputR, outFile + ".R");
 	}
 	
 	static double getReduction(double speedup) {

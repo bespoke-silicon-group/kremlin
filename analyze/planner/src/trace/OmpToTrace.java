@@ -1,6 +1,7 @@
 package trace;
 
-import pyrplan.Util;
+import planner.Util;
+
 import java.util.*;
 
 public class OmpToTrace {

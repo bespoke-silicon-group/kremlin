@@ -2,7 +2,7 @@ package pprof;
 
 import java.util.*;
 
-import pyrplan.ParameterSet;
+import planner.ParameterSet;
 
 import target.*;
 public class SRegionSpeedupCalculator {

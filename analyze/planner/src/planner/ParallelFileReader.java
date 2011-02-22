@@ -1,4 +1,4 @@
-package pyrplan;
+package planner;
 
 import java.io.BufferedReader;
 import java.io.FileReader;

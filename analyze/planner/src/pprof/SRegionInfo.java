@@ -2,7 +2,7 @@ package pprof;
 
 import java.util.*;
 
-import pyrplan.ParameterSet;
+import planner.ParameterSet;
 public class SRegionInfo implements Comparable {
 	SRegion region;
 	
