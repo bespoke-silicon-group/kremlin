@@ -1238,11 +1238,6 @@ namespace {
 
 					InvokeInst* ii;
 
-					if(LI.isLoopHeader(blk)) {
-						LOG_DEBUG() << blk->getName() << " is a loop header. Adding call to logLoopIteration.\n";
-						inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"logLoopIteration",args);
-					}
-
 					for (BasicBlock::iterator i = blk->getFirstNonPHI(), inst_end = blk->end(); i != inst_end; ++i) {
 
 						LOG_DEBUG() << "processing inst: " << *i << "\n";

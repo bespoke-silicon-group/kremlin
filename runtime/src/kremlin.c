@@ -725,9 +725,6 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     decrementRegionLevel();
 }
 
-// TODO: implement me
-void logLoopIteration() {}
-
 void* logReductionVar(UInt opCost, UInt dest) {
     addWork(opCost);
     return NULL;

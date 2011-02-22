@@ -141,8 +141,6 @@ void turnOffProfiler();
 void logRegionEntry(UInt64 region_id, UInt region_type);
 void logRegionExit(UInt64 region_id, UInt region_type);
 
-void logLoopIteration();
-
 // the following two functions are part of our plans for c++ support
 void cppEntry();
 void cppExit();

@@ -53,7 +53,6 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	addFunc("linkArgToConst", no_args);
 	addFunc("setupUnwindPoint", no_args);
 	addFunc("logFuncReturnConst", no_args);
-	addFunc("logLoopIteration", no_args);
 
 	// funcs with 1 unsigned int arg
 	args.push_back(types.i32()); 
