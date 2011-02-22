@@ -16,6 +16,7 @@
         <mkdir dir="bin"/>
         <copy includeemptydirs="false" todir="bin">
             <fileset dir="src">
+                <exclude name="**/*.launch"/>
                 <exclude name="**/*.java"/>
             </fileset>
         </copy>
@@ -47,9 +48,20 @@
         <property name="build.compiler" value="org.eclipse.jdt.core.JDTCompilerAdapter"/>
         <antcall target="build"/>
     </target>
-    <target name="Test">
-        <java classname="pprof.Test" failonerror="true" fork="yes">
+    <target name="RunnerOmp">
+        <java classname="runner.RunnerOmp" failonerror="true" fork="yes">
             <jvmarg line="-ea"/>
+            <classpath refid="pprof.classpath"/>
+        </java>
+    </target>
+    <target name="CRegionManager">
+        <java classname="pprof.CRegionManager" failonerror="true" fork="yes">
+            <classpath refid="pprof.classpath"/>
+        </java>
+    </target>
+    <target name="KremlinProfiler">
+        <java classname="runner.KremlinProfiler" failonerror="true" fork="yes">
+            <arg line="f:\\Work\\spatBench\\ep"/>
             <classpath refid="pprof.classpath"/>
         </java>
     </target>
