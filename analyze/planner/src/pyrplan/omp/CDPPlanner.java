@@ -28,7 +28,7 @@ public class CDPPlanner {
 		Set<CRegion> retired = new HashSet<CRegion>();
 		
 		for (CRegion each : analyzer.getCRegionSet()) {
-			System.out.println(each);
+			//System.out.println(each);
 			if (each.getChildrenSet().size() == 0) {
 				list.add(each);
 			}
@@ -92,7 +92,7 @@ public class CDPPlanner {
 			}
 
 			setMap.put(current, bestSet);
-			System.out.println("Current: " + current.getSRegion());
+			//System.out.println("Current: " + current.getSRegion());
 			
 			// add parent if its children are all examined
 			CRegion parent = current.getParent();

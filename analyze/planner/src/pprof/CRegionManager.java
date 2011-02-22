@@ -58,7 +58,7 @@ public class CRegionManager {
 				//Map<Long, Long> childrenMap = new HashMap<Long, Long>();
 				long uid = Long.reverseBytes(input.readLong());
 				long sid = Long.reverseBytes(input.readLong());
-				long callSite = Long.reverseBytes(input.readLong());
+				long callSiteValue = Long.reverseBytes(input.readLong());
 				long cnt = Long.reverseBytes(input.readLong());
 				long work = Long.reverseBytes(input.readLong());				
 				long tpWork = Long.reverseBytes(input.readLong());
@@ -78,9 +78,14 @@ public class CRegionManager {
 					childrenSet.add(childUid);
 				}
 				SRegion sregion = sManager.getSRegion(sid);
-				System.out.printf("[%d 0x%x]*%d\t %d %d %d children: %d %s\n",
-						uid, callSite, cnt, work, tpWork, spWork, nChildren, sregion);
-				System.out.println("\t" + childrenSet);
+				
+				//System.out.println("\t" + childrenSet);
+				CallSite callSite = null;
+				if (callSiteValue != 0)
+					callSite = sManager.getCallSite(callSiteValue);
+				
+				//System.out.printf("[%d %d]*%d\t %d %d %d children: %d %s\n",
+				//		uid, callSiteValue, cnt, work, tpWork, spWork, nChildren, sregion);
 				
 				CRegion region = new CRegion(sregion, uid, callSite, cnt, work, tpWork, spWork);
 				regionMap.put(uid, region);
@@ -121,8 +126,7 @@ public class CRegionManager {
 				//System.out.println("no parent: " + region);
 				//assert(this.root == null);
 				this.root = region;
-			}
-			
+			}			
 			SRegion sregion = region.getSRegion();
 			if (!cRegionMap.keySet().contains(sregion))
 				cRegionMap.put(sregion, new HashSet<CRegion>());
@@ -340,14 +344,25 @@ public class CRegionManager {
 		return true;
 	}
 	
-	public void dump() {		
+	public void dump() {
+		CRegionPrinter printer = new CRegionPrinter(this);
 		for (SRegion each : cRegionMap.keySet()) {
-			System.out.println(each);
+			//System.out.println(each);
 			Set<CRegion> set = cRegionMap.get(each);
 			for (CRegion cregion : set) {
-				System.out.println("\t" + cregion);
+				//System.out.println("\t" + cregion);
+				System.out.println(printer.getString(cregion) + "\n");
 			}
 		}
+	}
+	
+	public double getCoverage(CRegion region) {
+		double coverage = ((double)region.getTotalWork() / getRoot().getTotalWork()) * 100.0;
+		return coverage;
+	}
+	
+	public double getTimeReduction(CRegion region) {
+		return getCoverage(region) * (1.0 - 1.0 / region.selfParallelism);
 	}
 	
 	public static void main(String args[]) {

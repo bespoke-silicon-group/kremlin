@@ -15,8 +15,9 @@ public class CRegion implements Comparable {
 		//build(totalWork);
 	}
 	
-	CRegion(SRegion sregion, long uid, long callSite, long cnt, long work, long tpWork, long spWork) {
+	CRegion(SRegion sregion, long uid, CallSite callSite, long cnt, long work, long tpWork, long spWork) {
 		this.region = sregion;
+		this.callSite = callSite;
 		this.id = uid;
 		this.totalWork = work;		
 		this.numInstance = cnt;
@@ -52,6 +53,7 @@ public class CRegion implements Comparable {
 	long id;
 	SRegion region;
 	SRegion parentSRegion;
+	CallSite callSite;
 	List<Long> context;
 	long numInstance;
 	long totalWork;	
@@ -222,8 +224,12 @@ public class CRegion implements Comparable {
 	}
 	
 	public String toString() {
-		String ret = String.format("[%d] %s work = %d, sp = %.2f, coverage = %.2f children = %d", 
-				this.id, this.region, this.avgWork, this.selfParallelism, this.workCoverage, this.children.size());
+		String ret = String.format("[%d] %s work = %d, tp = %.2f, sp = %.2f, coverage = %.2f children = %d", 
+				this.id, this.region, this.avgWork, this.totalParallelism, this.selfParallelism, this.workCoverage, this.children.size());
+		if (callSite != null && region.type == RegionType.FUNC) {
+			ret = ret + "\t" + callSite;				
+		}
+		
 		return ret;
 	}
 }

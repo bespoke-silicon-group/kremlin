@@ -15,14 +15,9 @@ public class RunnerOmp {
 		System.out.println("pyrprof ver 0.1");		
 		
 		if (args.length < 1) {			
-			String project = "13.aes";
-			String baseDir = "/h/g3/dhjeon/research/pact2011/spatbench/bench-clean";
-			//String baseDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/npb-b";
-			//String baseDir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/NPB2.3-omp-C";
-			//String baseDir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test";
-			//String baseDir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/CINT2000/300.twolf";
-			//String baseDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/specOmpSerial";
-			//String baseDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/regression";
+			String project = "loop";
+			String baseDir = "f:\\Work\\spatBench";
+			//String baseDir = "/h/g3/dhjeon/research/pact2011/spatbench/bench-clean";			
 			ParameterSet.rawDir = baseDir + "/" + project;
 			//ParameterSet.rawDir = "f:\\Work\\run\\equake";
 			//ParameterSet.rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/npb-u/lu";
@@ -39,32 +34,28 @@ public class RunnerOmp {
 		String project = ParameterSet.project;
 		
 		String fullExcludeFile = rawDir + "/" + project + ".exclude";		
+		/*
 		FilterControl filter = new FilterControl(ParameterSet.minSP, ParameterSet.minSpeedup, 
 				ParameterSet.minSpeedupDOACROSS, ParameterSet.outerIncentive);
 		filter.setFilterFile(fullExcludeFile);
 		filter.filterByRegionType(RegionType.BODY);
-		filter.filterByRegionType(RegionType.FUNC);
+		filter.filterByRegionType(RegionType.FUNC);*/
 
 		//FilterControl filter = new FilterControl(10, 10.1, 
 		//				10, ParameterSet.outerIncentive);
-		System.err.print("\nPlease Wait: Loading Trace Files...");
+		System.err.print("\nPlease Wait: Loading Trace Files...\n");
 		String sFile = rawDir + "/sregions.txt";
 		String dFile = rawDir + "/kremlin.bin";
 
 		
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
-		//URegionManager dManager = new URegionManager(sManager, new File(dFile));
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
-		//OMPGrepReader reader = new OMPGrepReader(rawDir + "/omp.txt");		
-		//SRegionProfileAnalyzer profileAnalyzer = new SRegionProfileAnalyzer(dManager, reader);
-		//SRegionInfoAnalyzer analyzer = dManager.getSRegionAnalyzer();
-		//profileAnalyzer.dump(rawDir + "/analysis.txt");
+		cManager.dump();
+		//CDPPlanner planner = new CDPPlanner(cManager, 32, 0);		
+		//double result = planner.plan(new HashSet<CRegion>());
+		//assert(false);
+		//System.out.printf("Result = %.2f\n", result);
 		
-		CDPPlanner planner = new CDPPlanner(cManager, 32, 0);
-		double result = planner.plan(new HashSet<CRegion>());
-		System.out.printf("Result = %.2f\n", result);
-		//Set<SRegionInfo> postFilterSet = filter.getPostFilterSRegionInfoSet(analyzer);
-		//int totalSize = analyzer.getSRegionInfoSet().size();
 		int spSize = 0;
 		int workSize = 0;
 		/*
@@ -78,67 +69,5 @@ public class RunnerOmp {
 		/*System.out.printf("total = %d tp = %d sp = %d\n", 
 				totalSize, workSize, spSize);
 		System.out.println(filter);*/
-		//Recommender planner = new Recommender(sManager, dManager);
-		//BackwardPlanner planner = new BackwardPlanner(analyzer);
-		/*DPPlanner planner = new DPPlanner(analyzer);
-		List<RegionRecord> plan = planner.plan(filter);
-		planner.emitParallelRegions(rawDir + "/plan.dp");*/
-		//List<RegionRecord> plan = planner.plan(filter);
-		/*
-		SpeedupPredictor predictor = new SpeedupPredictor();
-		for (RegionRecord each : plan) {
-			PredictUnit unit = predictor.predictSpeedup(each.getRegionInfo());
-			System.out.println(unit);
-		}*/
-		
-		
-		/*
-		int seq = 0;
-		double sum = 0.0;
-		double sumSp = 0.0;
-		double sumBw = 0.0;
-		double sumBwMax = 0.0;	
-		
-		
-		Set<Integer> set = new HashSet<Integer>();
-		for (RegionRecord each : plan) {
-			SRegionInfo info = each.getRegionInfo();
-			sum += each.getTimeSaving();
-			int start = info.getSRegion().getStartLine();
-			if (set.contains(start) == true)
-				continue;
-			set.add(start);
-			int sp = (int)info.getSelfParallelism();
-			if (sp > 32)
-				sp = 32;
-			double bwSpeedup0 = info.getAvgWork() / info.getParallelBwWork(sp);
-			double bwSpeedup1 = info.getAvgWork() / info.getParallelBwWorkMax(sp);
-			//double bwSpeedup1 = info.getParallelBwWork(1) / info.getParallelBwWork(sp);
-			double workRatio = info.getParallelBwWork(1) / info.getAvgWork();
-			sumSp += (info.getAvgWork() - info.getAvgWork() / sp) * info.getInstanceCount();
-			sumBw += (info.getAvgWork() - info.getParallelBwWork(sp)) * info.getInstanceCount();
-			sumBwMax += (info.getAvgWork() - info.getParallelBwWorkMax(sp)) * info.getInstanceCount();
-			System.out.printf("%d %s (%.2f %.2f %.2f) work: %.2f Mem: %.2f MB Cnt: %d workRatio %.1f speedup (%.1f %.1f)\n", 
-					seq++, each, 
-					info.getSelfParallelism(), info.getAvgIteration(), info.getTotalParallelism(), 
-					info.getCoverage(), (info.getAvgMemReadCnt() * 16 * 8) / (1024 * 1024),
-					info.getInstanceCount(), workRatio, bwSpeedup0, bwSpeedup1);
-					
-			
-		}
-		
-		System.out.printf("\nTotal Time Saving = %.2f, Speedup = %.2f\n", 
-				sum, 100.0 / (100 - sum));
-		
-		
-		
-		double rootWork = analyzer.getRootInfo().getAvgWork();
-		double spSpeedup = rootWork / (rootWork - sumSp);
-		double bwSpeedup = rootWork / (rootWork - sumBw);
-		double bwSpeedupMax = rootWork / (rootWork - sumBwMax);
-		
-		System.out.printf("\nsp Speedup = %.2f, bw Speedup = %.2f, bwMax Speedup = %.2f\n", 
-				spSpeedup, bwSpeedup, bwSpeedupMax);
-				*/
-	}
+	}		
 }

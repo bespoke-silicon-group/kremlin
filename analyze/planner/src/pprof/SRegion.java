@@ -35,8 +35,8 @@ public class SRegion implements Comparable {
 	}
 	
 	public String toString() {		
-		return String.format("[%3d] %6s %15s [%4d - %4d]:  %15s", 
-				id, type, module + ".c", startLine, endLine, this.func);
+		return String.format("%6s %10s [%4d - %4d]:  %10s", 
+				type, module, startLine, endLine, this.func);
 	}
 	
 	public RegionType getType() {

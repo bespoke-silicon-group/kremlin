@@ -1,6 +1,8 @@
 package pprof;
 import java.util.*;
 import pyrplan.Util;
+
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 
 public class SRegionReader {
@@ -10,17 +12,36 @@ public class SRegionReader {
 		else
 			return createSRegionOld(line);
 	}
-	
+	public static long hexStringToByteArray(String s) {
+	    int len = s.length();
+	    byte[] data = new byte[len / 2];
+	    for (int i = 0; i < len; i += 2) {
+	        data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+	                             + Character.digit(s.charAt(i+1), 16));
+	    }
+	    long value = 0;
+	    for (int i = 0; i < data.length; i++)
+	    {
+	       value = (value << 8) + (data[i] & 0xff);
+	    }
+
+	    return value;
+	}
+
 	private static SRegion createSRegionNew(String line) {
 		String splitted[] = line.split("\t");
-		BigDecimal idBig = new BigDecimal(splitted[0].trim());
+		//BigDecimal idBig = new BigDecimal(splitted[0].trim());
+		//byte[] bytes = hexStringToByteArray(splitted[0].trim());
+		//long id = Long.parseLong(splitted[0].trim(), 16);
+		long id = hexStringToByteArray(splitted[0].trim());
+		
 		//long id = Long.parseLong(splitted[0].trim());
-		long id = idBig.longValue();
+		//long id = idBig.longValue();
 		String type = splitted[1].trim();
 		String module = splitted[2].trim();
 		String func = splitted[3].trim();
 		String name = "N/A";
-		//System.out.printf("%d %s %s\n", id, type, module);
+		//System.out.printf("%16x %s %s\n", id, type, module);
 		int start = Integer.parseInt(splitted[4].trim());
 		int end = Integer.parseInt(splitted[5].trim());
 		RegionType regionType = getType(type);
