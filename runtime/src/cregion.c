@@ -123,8 +123,8 @@ static void emitRegion(FILE* fp, CNode* node) {
 }
 
 static void updateCRegion(CRegion* region, RegionField* info) {
-//	fprintf(stderr, "update current region with info: csid(0x%llx), allSite(0x%llx), work(0x%llx), CP(0x%llx)\n", 
-//			region->sid, info->callSite, info->work, info->spWork);
+//	fprintf(stderr, "update current region with info: csid(0x%llx), allSite(0x%llx), work(0x%llx), cp(%llx), tpWork(%llx), spWork(%llx)\n", 
+//			region->sid, info->callSite, info->work, info->cp, info->tpWork, info->spWork);
 	//fprintf(stderr, "current region: id(0x%llx), sid(0x%llx), callSite(0x%llx)\n", 
 	//		region->id, region->sid, region->callSite);
 	assert(region->callSite == info->callSite);

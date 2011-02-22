@@ -625,7 +625,8 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 	assert(work >= cp);
 	assert(work >= regionInfo[level].childrenWork);
 
-	double sp = (work > 0) ? (work - regionInfo[level].childrenWork + regionInfo[level].childrenCP) / (double)cp : 1.0;
+	double spTemp = (work - regionInfo[level].childrenWork + regionInfo[level].childrenCP) / (double)cp;
+	double sp = (work > 0) ? spTemp : 1.0;
 	if(sp < 1.0) {
 		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu childrenCP=%lld\n", sid, work, regionInfo[level].childrenWork, regionInfo[level].childrenCP);
 		assert(0);
@@ -634,7 +635,8 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 	//assert(cp >= 1.0);
 
 	UInt64 spWork = (UInt64)((double)work / sp);
-	UInt64 tpWork = (cp > 0) ? (UInt64)((double)work / (double)cp) : tpWork;
+	UInt64 tpWork = cp;
+	//fprintf(stderr, "work=%llu childrenWork = %llu childrenCP=%lld cp=%lld sp=%.2f spTemp=%.2f\n", work, regionInfo[level].childrenWork, regionInfo[level].childrenCP, cp, sp, spTemp);
 
 	// due to floating point variables,
 	// spWork or tpWork can be larger than work
