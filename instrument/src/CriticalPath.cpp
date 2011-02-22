@@ -842,15 +842,17 @@ namespace {
 				LOG_DEBUG() << "ignoring call to LLVM intrinsic function: " << ci->getCalledFunction()->getName() << "\n";
 			}
 		}
+
+		// Gets the induction var increment. This used to be part of LLVM but was removed for reasons
+		// unbeknownst to me :(
+		Instruction *getCanonicalInductionVariableIncrement(PHINode* ind_var, Loop* loop) const {
+			bool P1InLoop = loop->contains(ind_var->getIncomingBlock(1));
+			return cast<Instruction>(ind_var->getIncomingValue(P1InLoop));
+		}
 		
 		// adds all the canon ind. var increments for a loop (including its subloops) to canon_incs set
 		void addCIVIToSet(Loop* loop, std::set<PHINode*>& canon_indvs, std::set<Instruction*>& canon_incs) {
 
-			// TODO: actually implement in llvm 2.8
-			// In particular, getCanonicalInductionVariableIncrement has been
-			// removed.
-			
-			/*
 			std::vector<Loop*> sub_loops = loop->getSubLoops();
 
 			// check all subloops for canon var increments
@@ -860,15 +862,15 @@ namespace {
 			}
 
 			PHINode* civ = loop->getCanonicalInductionVariable();
-			Instruction* civ_inc = loop->getCanonicalInductionVariableIncrement();
 
-			// need to check to make sure it has one
-			if(civ_inc != NULL) {
-				//LOG_DEBUG() << "found canon ind var increment: " << civi->getName() << "\n";
-				canon_indvs.insert(civ);
-				canon_incs.insert(civ_inc);
-			}
-			*/
+			// couldn't find an ind var so there is nothing left to do for this loop
+			if(civ == NULL) { return; }
+
+			Instruction* civ_inc = getCanonicalInductionVariableIncrement(civ,loop);
+
+			//LOG_DEBUG() << "found canon ind var increment: " << civi->getName() << "\n";
+			canon_indvs.insert(civ);
+			canon_incs.insert(civ_inc);
 		}
 
 		// returns vector of instructions that are in loop (but not a subloop of loop) and use the Value val
