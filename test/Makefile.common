@@ -1,0 +1,9 @@
+build:
+	kremlin-gcc -O3 test.c -o $(BENCH)
+
+profile:
+	./$(BENCH)
+	java KremlinProfiler . > profile.txt
+
+clean:
+	-rm *.log kremlin.* *.bc *.dot *.graph sregions.txt profile.txt $(BENCH)
