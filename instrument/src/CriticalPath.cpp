@@ -979,8 +979,11 @@ namespace {
 
 					// TODO: are there other commutative ops we are missing?
 					if(user->getOpcode() == Instruction::Add
+					  || user->getOpcode() == Instruction::FAdd
 					  || user->getOpcode() == Instruction::Sub
+					  || user->getOpcode() == Instruction::FSub
 					  || user->getOpcode() == Instruction::Mul
+					  || user->getOpcode() == Instruction::FMul
 					  ) {
 						LOG_DEBUG() << "identified reduction variable increment (phi, function: " << user->getParent()->getParent()->getName() << "): " << *user;
 						LOG_DEBUG() << "\treduction var: " << *phi_it;
