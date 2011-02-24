@@ -46,6 +46,10 @@ public class CRegionManager {
 		System.err.println("done");
 	}
 	
+	public Set<CRegion> getCRegionSet(SRegion region) {
+		return cRegionMap.get(region); 
+	}
+	
 	void readBinaryFile(String file) {
 		Map<Long, Set<Long>> childrenMap = new HashMap<Long, Set<Long>>();
 		Map<Long, CRegion> regionMap = new HashMap<Long, CRegion>();
@@ -64,10 +68,10 @@ public class CRegionManager {
 				long tpWork = Long.reverseBytes(input.readLong());
 				long spWork = Long.reverseBytes(input.readLong());
 				
+				double minSP = (Long.reverseBytes(input.readLong())) / 100.0;
+				double maxSP = (Long.reverseBytes(input.readLong())) / 100.0;
 				long readCnt = Long.reverseBytes(input.readLong());
 				long writeCnt = Long.reverseBytes(input.readLong());
-				long readLineCnt = Long.reverseBytes(input.readLong());
-				long writeLineCnt = Long.reverseBytes(input.readLong());
 				
 								
 				long nChildren = Long.reverseBytes(input.readLong());
@@ -87,7 +91,7 @@ public class CRegionManager {
 				//System.out.printf("[%d %d]*%d\t %d %d %d children: %d %s\n",
 				//		uid, callSiteValue, cnt, work, tpWork, spWork, nChildren, sregion);
 				
-				CRegion region = new CRegion(sregion, uid, callSite, cnt, work, tpWork, spWork);
+				CRegion region = new CRegion(sregion, uid, callSite, cnt, work, tpWork, spWork, minSP, maxSP);
 				regionMap.put(uid, region);
 				childrenMap.put(uid, childrenSet);
 				//uMap.put(uid, new Entry(uid, sid, work, cp, callSite, readCnt, writeCnt, readLineCnt, writeLineCnt, cnt, childrenMap));

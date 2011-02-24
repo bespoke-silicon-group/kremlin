@@ -15,13 +15,15 @@ public class CRegion implements Comparable {
 		//build(totalWork);
 	}
 	
-	CRegion(SRegion sregion, long uid, CallSite callSite, long cnt, long work, long tpWork, long spWork) {
+	CRegion(SRegion sregion, long uid, CallSite callSite, long cnt, long work, long tpWork, long spWork, double minSP, double maxSP) {
 		this.region = sregion;
 		this.callSite = callSite;
 		this.id = uid;
 		this.totalWork = work;		
 		this.numInstance = cnt;
 		this.children = new HashSet<CRegion>();
+		this.minSP = minSP;
+		this.maxSP = maxSP;
 		build(cnt, work, tpWork, spWork);
 	}
 	
@@ -69,7 +71,7 @@ public class CRegion implements Comparable {
 	double selfParallelism;
 	public double totalParallelism;	
 	double selfSpeedup;	
-	double maxSP;
+	double minSP, maxSP;
 	double avgIter;
 	double sdWorkPercent;	// standard deviation of Work
 	long totalReadCnt;
@@ -95,8 +97,7 @@ public class CRegion implements Comparable {
 		//this.sumTotalParallelism = 0;
 		this.totalSPWork = spWork;
 		this.totalTPWork = tpWork;
-		this.totalCP = 0;
-		this.maxSP = 0.0;
+		this.totalCP = 0;		
 		this.totalIter = 0;
 		this.totalReadCnt = 0;
 		this.totalWriteCnt = 0;

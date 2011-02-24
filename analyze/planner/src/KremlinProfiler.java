@@ -1,7 +1,4 @@
-
-
 import java.io.File;
-
 import planner.ParameterSet;
 import pprof.*;
 import java.util.*;
@@ -15,8 +12,8 @@ public class KremlinProfiler {
 		// TODO Auto-generated method stub
 		String baseDir = null;
 		if (args.length < 1) {			
-			System.out.println("Usage: java KremlinProfiler <dir>\n");
-			System.exit(1);
+			baseDir = ".";
+			
 		} else {
 			baseDir = args[0];
 		}
@@ -37,35 +34,23 @@ public class KremlinProfiler {
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
 		Map<CRegion, Double> map = new HashMap<CRegion, Double>();
+		List<CRegion> list = new ArrayList<CRegion>();
 		for (CRegion region : cManager.getCRegionSet()) {
-			map.put(region, cManager.getTimeReduction(region));			
-		}
-		map = getSortedCRegionMap(map);
+			double myReduction = cManager.getTimeReduction(region);
+			map.put(region, myReduction);
+			int index = 0;
+			for (index=0; index<list.size(); index++) {
+				CRegion each = list.get(index);
+				double yourReduction = map.get(each);
+				if (myReduction > yourReduction) {					
+					break;
+				}
+			}		
+			list.add(index, region);
+		}	
+		
 		System.out.println("Kremlin Profiler Ver 0.1\n");
 		CRegionPrinter printer = new CRegionPrinter(cManager);
-		printer.printRegionList(new ArrayList<CRegion>(map.keySet()));		
-	}
-	
-	static void printMap(CRegionPrinter printer, Map<CRegion, Double> map) {
-		int index = 0;
-		for (CRegion region : map.keySet()) {
-			System.out.printf("[%3d] %s\n%s\n", 
-					index++, printer.getStatString(region), printer.getContextString(region));
-		}
-	}
-	
-	static Map<CRegion, Double> getSortedCRegionMap(Map<CRegion, Double> map) {
-		Map<CRegion, Double> ret = new LinkedHashMap<CRegion, Double>();
-		List<CRegion> mapKeys = new ArrayList<CRegion>(map.keySet());
-		List<Double> mapValues = new ArrayList<Double>(map.values());
-		TreeSet<Double> sortedSet = new TreeSet<Double>(mapValues);
-		Object[] sortedArray = sortedSet.toArray();
-		int size = sortedArray.length;
-		
-		for (int i=size-1; i>=0; i--) {
-			ret.put(mapKeys.get(mapValues.indexOf(sortedArray[i])), (Double)sortedArray[i]);
-		}
-		return ret;
-	}
-
+		printer.printRegionList(list);		
+	}	
 }
