@@ -87,16 +87,16 @@ static void emitRegion(FILE* fp, CNode* node) {
     fwrite(&region->totalWork, sizeof(Int64), 1, fp);
     fwrite(&region->tpWork, sizeof(Int64), 1, fp);
     fwrite(&region->spWork, sizeof(Int64), 1, fp);
+	UInt64 minSPInt = (UInt64)(region->minSP * 100.0);
+	UInt64 maxSPInt = (UInt64)(region->maxSP * 100.0);
+    fwrite(&minSPInt, sizeof(Int64), 1, fp);
+    fwrite(&maxSPInt, sizeof(Int64), 1, fp);
 
 #ifdef EXTRA_STATS
     fwrite(&region->field.readCnt, sizeof(Int64), 1, fp);
     fwrite(&region->field.writeCnt, sizeof(Int64), 1, fp);
-    fwrite(&region->field.readLineCnt, sizeof(Int64), 1, fp);
-    fwrite(&region->field.writeLineCnt, sizeof(Int64), 1, fp);
 #else
     UInt64 tmp = 0;
-    fwrite(&tmp, sizeof(Int64), 1, fp);
-    fwrite(&tmp, sizeof(Int64), 1, fp);
     fwrite(&tmp, sizeof(Int64), 1, fp);
     fwrite(&tmp, sizeof(Int64), 1, fp);
 #endif
@@ -128,6 +128,11 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	//fprintf(stderr, "current region: id(0x%llx), sid(0x%llx), callSite(0x%llx)\n", 
 	//		region->id, region->sid, region->callSite);
 	assert(region->callSite == info->callSite);
+	double sp = (double)info->work / (double)info->spWork;
+	if (region->minSP > sp)
+		region->minSP = sp;
+	if (region->maxSP < sp)
+		region->maxSP = sp;
 	region->totalWork += info->work;
 	region->totalCP += info->cp;
 	region->tpWork += info->tpWork;
@@ -188,6 +193,8 @@ static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
 	ret->totalWork = 0;
 	ret->tpWork = 0;
 	ret->spWork = 0;
+	ret->minSP = 0xFFFFFFFFFFFFFFFFULL;
+	ret->maxSP = 0;
 	ret->numInstance = 0;
 	return ret;
 }
