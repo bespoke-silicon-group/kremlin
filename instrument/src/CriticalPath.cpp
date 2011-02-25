@@ -472,15 +472,25 @@ namespace {
 			TerminatorInst* terminator = blk->getTerminator();
 			BranchInst* br_inst;
 
+			unsigned ret_val = 0;
+
 			// search for condition (if branch or switch inst)
 			if(isa<BranchInst>(terminator) && (br_inst = cast<BranchInst>(terminator))->isConditional()) {
-				return inst_to_id.find(br_inst->getCondition())->second;
+				Value* cond = br_inst->getCondition();
+
+				if(!isa<Constant>(cond)) {
+					ret_val = inst_to_id.find(br_inst->getCondition())->second;
+				}
 			}
 			else if(isa<SwitchInst>(terminator)) { 
 				SwitchInst* sw_inst = cast<SwitchInst>(terminator);
-				return inst_to_id.find(sw_inst->getCondition())->second;
+				Value* cond = sw_inst->getCondition();
+
+				if(!isa<Constant>(cond)) {
+					ret_val = inst_to_id.find(sw_inst->getCondition())->second;
+				}
 			} 
-			return 0; // no conditional branch or switch so there is no ID
+			return ret_val; // no conditional branch or switch so there is no ID
 		}
 
 		/**
