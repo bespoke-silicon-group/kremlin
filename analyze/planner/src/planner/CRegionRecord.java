@@ -19,10 +19,9 @@ public class CRegionRecord implements Comparable {
 	int nCore;		
 	public CRegionRecord(CRegion info, int nCore, double timeSave) {
 		this.info = info;
-		this.nCore = nCore;
-		//this.speedup = speedup;
+		this.nCore = nCore;		
 		this.timeSave = timeSave;
-		System.out.printf("%.2f %s\n", timeSave, info);
+		
 	}
 	
 	public String toString() {

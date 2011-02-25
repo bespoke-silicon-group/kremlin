@@ -12,17 +12,19 @@ public class CDPPlanner {
 	Map<CRegion, Set<CRegion>> setMap = new HashMap<CRegion, Set<CRegion>>();
 	int maxCore;
 	int overhead;
+	Target target;
 	
-	public CDPPlanner(CRegionManager analyzer, int maxCore, int overhead) {		
+	public CDPPlanner(CRegionManager analyzer, Target target) {		
 		this.analyzer = analyzer;
 		this.pointMap = new HashMap<CRegion, Double>();
 		this.setMap = new HashMap<CRegion, Set<CRegion>>();
-		//this.filterFile = file;		
-		this.maxCore = maxCore;
-		this.overhead = overhead;
+		//this.filterFile = file;	
+		this.target = target;
+		this.maxCore = target.numCore;
+		this.overhead = target.overhead;
 	}
 	
-	public List<CRegionRecord> plan(Set<CRegion> toExclude) {		
+	public Plan plan(Set<CRegion> toExclude) {		
 		Set<CRegion> postFilterSet = toExclude;
 		List<CRegion> list = new ArrayList<CRegion>();
 		Set<CRegion> retired = new HashSet<CRegion>();
@@ -59,14 +61,7 @@ public class CDPPlanner {
 			double speedup = current.getAvgWork() / parallelTime;
 			double coverage = ((double)current.getTotalWork() / (double)root.getTotalWork()) * 100.0;
 			double selfPoint = coverage - coverage / speedup;
-			
-			
-			/* 
-
-			if (!postFilterSet.contains(current)) {
-				exclude = true;
-			}*/
-			 
+					 
 			if (toExclude.contains(current))
 				exclude = true;
 			
@@ -107,7 +102,7 @@ public class CDPPlanner {
 									
 		}		
 			
-		//System.out.println(root);
+
 		assert(setMap.containsKey(root));
 		Set<CRegion> set = setMap.get(root);
 		List<CRegionRecord> ret = new ArrayList<CRegionRecord>();
@@ -118,28 +113,9 @@ public class CDPPlanner {
 		
 		//List<CRegion> infoList = SRegionInfoFilter.toSRegionInfoList(analyzer, ret);
 		Collections.sort(ret);		
-		double sum = 0.0;
-		
-		//for (CRegionRecord each : ret) {
-		//	System.out.println(each);
-		//}
-		//System.out.println("\n\n\n");
-		/*
-		for (CRegion each : ret) {
-			//RegionRecord toAdd = new RegionRecord(each, 1, 1.0);
-			double timeSave = (double)(pointMap.get(each));
-			sum += timeSave;
-			//toAdd.setExpectedExecTime((long)timeSave);
-			//retList.add(toAdd);
-			System.out.printf("%.2f: %s\n", timeSave, each);
-		}*/
-		
-		
-		
-		//System.out.printf("total time save = %.2f root time = %.2f\n", sum, pointMap.get(root));
-				
-		//return pointMap.get(root);
-		return ret;
+		double sum = 0.0;				
+		Plan plan = new Plan(ret, this.target, pointMap.get(root));		
+		return plan;
 	}
 	
 	

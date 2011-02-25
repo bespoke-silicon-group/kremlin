@@ -42,7 +42,7 @@ public class CRegionPrinter {
 	public String getStatString(CRegion region) {
 		double coverage = manager.getCoverage(region);
 		double timeReduction = manager.getTimeReduction(region);
-		String stats = String.format("reduction = %5.2f%% coverage = %5.2f%%, sp = %5.2f [%5.2f - %5.2f], tp = %.2f", 
+		String stats = String.format("IdealExecTimeReduction = %5.2f%% coverage = %5.2f%%, sp = %5.2f [%5.2f - %5.2f], tp = %.2f", 
 				timeReduction, coverage, region.selfParallelism, region.minSP, region.maxSP, region.totalParallelism);
 		return stats;
 	}
