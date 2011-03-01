@@ -16,7 +16,7 @@ public class BWPlannerBest extends CDPPlanner {
 		long cacheSize = 1024*1024*8 * 2;
 		long clockRateMhz = 2400; 
 		long dataByte = (long)(region.getAvgReadCnt() + region.getAvgWriteCnt()) * 4 - cacheSize;
-		double cycle = (double)clockRateMhz * dataByte / (double)25000.0; 
+		double cycle = (double)clockRateMhz * dataByte / (double)10000.0; 
 		double parallelBwTime = cycle;
 		
 		return (parallelBwTime > parallelTime) ? parallelBwTime : parallelTime;

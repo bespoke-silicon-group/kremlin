@@ -14,7 +14,7 @@ public class BWPlannerWorst extends CDPPlanner {
 		double parallelTime = region.getAvgWork() / spSpeedup + overhead;
 		
 		long dataByte = (long)(region.getAvgReadCnt() + region.getAvgWriteCnt()) * 4;
-		double cycle = (double)2400.0 * dataByte / (double)25000.0; 
+		double cycle = (double)2400.0 * dataByte / (double)10000.0; 
 		double parallelBwTime = cycle;
 		
 		return (parallelBwTime > parallelTime) ? parallelBwTime : parallelTime;
