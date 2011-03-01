@@ -139,6 +139,15 @@ void turnOffProfiler() {
 	fprintf(stderr, "turnOffProfiler\n");
 }
 
+void pauseProfiler() {
+	kremlinOn = 0;
+	fprintf(stderr, "pauseProfiler\n");
+}
+
+void resumeProfiler() {
+	kremlinOn = 1;
+	fprintf(stderr, "resumeProfiler\n");
+}
 int _maxRegionNum = 0;
 
 
