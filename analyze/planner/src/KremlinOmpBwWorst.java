@@ -1,12 +1,15 @@
-
-
 import java.io.File;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
 
 import planner.*;
-import pprof.*;
+import pprof.CRegion;
+import pprof.CRegionManager;
+import pprof.RegionType;
+import pprof.SRegionManager;
 
-public class KremlinOMP {
+
+public class KremlinOmpBwWorst {
 	/**
 	 * @param args
 	 */
@@ -40,9 +43,8 @@ public class KremlinOMP {
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
 		Target target = new Target(numCore, overhead);
-		CDPPlanner planner = new CDPPlanner(cManager, target);
-		//BWPlannerWorst planner = new BWPlannerWorst(cManager, target);
-		//BWPlannerBest planner = new BWPlannerBest(cManager, target);
+		
+		BWPlannerWorst planner = new BWPlannerWorst(cManager, target);		
 		Plan plan = planner.plan(excludeSet);		
 		PlanPrinter.print(cManager, plan);		
 	}	

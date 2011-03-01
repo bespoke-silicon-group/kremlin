@@ -88,10 +88,10 @@ public class CRegionManager {
 				if (callSiteValue != 0)
 					callSite = sManager.getCallSite(callSiteValue);
 				
-				//System.out.printf("[%d %d]*%d\t %d %d %d children: %d %s\n",
-				//		uid, callSiteValue, cnt, work, tpWork, spWork, nChildren, sregion);
+				//System.out.printf("[%d %d]*%d\t %d %d %d %d %d children: %d %s\n",
+				//		uid, callSiteValue, cnt, work, tpWork, spWork, readCnt, writeCnt, nChildren, sregion);
 				
-				CRegion region = new CRegion(sregion, uid, callSite, cnt, work, tpWork, spWork, minSP, maxSP);
+				CRegion region = new CRegion(sregion, uid, callSite, cnt, work, tpWork, spWork, minSP, maxSP, readCnt, writeCnt);
 				regionMap.put(uid, region);
 				childrenMap.put(uid, childrenSet);
 				//uMap.put(uid, new Entry(uid, sid, work, cp, callSite, readCnt, writeCnt, readLineCnt, writeLineCnt, cnt, childrenMap));

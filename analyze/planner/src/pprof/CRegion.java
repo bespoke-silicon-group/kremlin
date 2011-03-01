@@ -15,7 +15,7 @@ public class CRegion implements Comparable {
 		//build(totalWork);
 	}
 	
-	CRegion(SRegion sregion, long uid, CallSite callSite, long cnt, long work, long tpWork, long spWork, double minSP, double maxSP) {
+	CRegion(SRegion sregion, long uid, CallSite callSite, long cnt, long work, long tpWork, long spWork, double minSP, double maxSP, long readCnt, long writeCnt) {
 		this.region = sregion;
 		this.callSite = callSite;
 		this.id = uid;
@@ -24,6 +24,8 @@ public class CRegion implements Comparable {
 		this.children = new HashSet<CRegion>();
 		this.minSP = minSP;
 		this.maxSP = maxSP;
+		this.totalReadCnt = readCnt;
+		this.totalWriteCnt = writeCnt;
 		build(cnt, work, tpWork, spWork);
 	}
 	
@@ -98,11 +100,8 @@ public class CRegion implements Comparable {
 		this.totalSPWork = spWork;
 		this.totalTPWork = tpWork;
 		this.totalCP = 0;		
-		this.totalIter = 0;
-		this.totalReadCnt = 0;
-		this.totalWriteCnt = 0;
-		this.totalReadLineCnt = 0;
-		this.totalWriteLineCnt = 0;
+		this.totalIter = 0;	
+		
 		
 		
 		/*
@@ -174,7 +173,7 @@ public class CRegion implements Comparable {
 			System.out.println(this);			
 			assert(false);
 		}
-
+		//System.out.printf("total r = %d, %.2f\n", totalReadCnt, avgReadCnt);
 		
 		//double cacheMissRatio = getMemReadLineRatio() + getMemWriteLineRatio();	// out of total work		
 		//this.adjustedAvgWork = (long)(cacheMissRatio * 33.0 + (1.0 - cacheMissRatio)) * this.avgWork;
@@ -214,6 +213,14 @@ public class CRegion implements Comparable {
 	
 	public double getAvgWork() {
 		return this.avgWork;
+	}
+	
+	public double getAvgReadCnt() {
+		return this.avgReadCnt;
+	}
+	
+	public double getAvgWriteCnt() {
+		return this.avgWriteCnt;
 	}
 	
 	@Override

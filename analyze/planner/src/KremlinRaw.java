@@ -7,9 +7,10 @@ import pprof.*;
 public class KremlinRaw {
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-		String baseDir = ".";
-		int numCore = 2;
+		String baseDir = ".";	
+		int numCore = 32;
 		int overhead = (int)(2 * Math.log(numCore));
+		
 		 
 		if (args.length < 1) {			
 			//baseDir = "f:\\Work\\spatBench\\09.sha";			

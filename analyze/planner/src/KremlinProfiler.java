@@ -12,7 +12,8 @@ public class KremlinProfiler {
 		// TODO Auto-generated method stub
 		String baseDir = null;
 		if (args.length < 1) {			
-			baseDir = ".";
+			//baseDir = ".";
+			baseDir="f:\\Work\\pact2011";
 			
 		} else {
 			baseDir = args[0];
