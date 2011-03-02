@@ -8,8 +8,6 @@ int* pointers[NUM_POINTERS];
 
 int main() {
 	int i;
-	turnOnProfiler();
-	//bw_heavy(w_array, r_array0);
 	for (i=0; i<NUM_POINTERS; i++) {
 		pointers[i] = malloc(20);
 	}
@@ -19,9 +17,6 @@ int main() {
 		free(pointers[i]);
 	}
 	
-	//bw_light();
-	turnOffProfiler();
-
 	return 0;
 	
 }
