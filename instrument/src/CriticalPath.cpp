@@ -51,6 +51,13 @@ namespace {
 
 	struct CriticalPath : public ModulePass {
 		static char ID;
+        static const std::string CPP_THROW_FUNC;
+        static const std::string CPP_RETHROW_FUNC;
+        static const std::string CPP_EH_EXCEPTION;
+        static const std::string CPP_EH_TYPE_ID;
+        static const std::string CPP_EH_SELECTOR;
+
+
 		PassLog& log;
 
 		unsigned int basicBlockCount;
@@ -723,7 +730,12 @@ namespace {
 			return result;
 		}
 
-		//returns a vector of instructions of joined basic blocks by branch always and that only have one predecessor
+		/**
+         * returns a vector of instructions of joined basic blocks by branch always and that only have one predecessor.
+         *
+         * @param first_blk The block to start the search.
+         * @param result The vector of instructions making up the joined blocks.
+         */
 		std::vector<Instruction*>& joinBasicBlocks(BasicBlock* first_blk, std::vector<Instruction*>& result) {
 			std::vector<BasicBlock*> blocks;
 
@@ -736,65 +748,6 @@ namespace {
 
 			result.push_back(blocks.back()->getTerminator());
 			return result;
-		}
-
-		void instrumentInvokeInsts(Function* func, InstrumentationCalls& front, InstrumentationCalls& back) {
-
-			LOG_DEBUG() << "instrumenting invoke and landing pads for " << func->getName() << "\n";
-
-			std::vector<Value*> args;
-			std::set<BasicBlock*> landing_pads;
-			std::set<BasicBlock*> destinations;
-
-			getInvokeLandingPads(func, landing_pads);
-			getInvokeDestinations(func, destinations);
-
-			LOG_DEBUG() << "found landing pads: " << "\n";
-			foreach(BasicBlock* blk, landing_pads)
-				LOG_DEBUG() << blk->getName() << "\n";
-
-			foreach(BasicBlock* blk, landing_pads) {
-				//The exception value is pushed on to the stack, so we are not allowed to call any other function until the
-				//value has been grabbed. As a result, we must push the instrumentation call to be after these calls,
-				//but before any other instrumentation calls. The following gets the first instrumentation call found.
-				//We will insert before it. If we don't find one, the terminator will suffice.
-
-				std::vector<Instruction*> joined_blks;
-				joinBasicBlocks(blk, joined_blks);
-
-				LOG_DEBUG() << "joined blocks contents of " << blk->getName() << ":" << "\n";
-				foreach(Instruction* inst, joined_blks)
-					LOG_DEBUG() << *inst;
-				LOG_DEBUG() << "\n";
-
-				//TODO: Need to handle if we put something in the front. If we do this, ours needs to go into the front instead of the back.
-				Instruction* insert_before = joined_blks.back();
-				foreach(Instruction* inst, joined_blks) {
-
-					std::vector<CallInst*> instrumentation_calls;
-					back.getInstCallsForInst(inst, instrumentation_calls);
-/*
-					LOG_DEBUG() << "instrumentation calls found for " << *inst;
-					foreach(Instruction* inst, instrumentation_calls)
-						LOG_DEBUG() << *inst;
-					LOG_DEBUG() << "\n";
-*/
-
-					if(instrumentation_calls.size() != 0) {
-						insert_before = inst;
-						break;
-					}
-				}
-
-				LOG_DEBUG() << "inserting invokeThrew before " << *insert_before;
-
-				back.addCallInstBefore(insert_before, "invokeThrew", args);
-			}
-
-			foreach(BasicBlock* blk, destinations) {
-				Instruction* insert_before = blk->getFirstNonPHI();
-				front.addCallInstBefore(insert_before, "invokeOkay", args);
-			}
 		}
 
 		template <typename Callable>
@@ -1123,13 +1076,25 @@ namespace {
 			}
 		}
 
+        bool isCppThrowFunc(Instruction* i)
+        {
+            CallInst* ci;
+            Function* func;
+            return (ci = dyn_cast<CallInst>(i)) && (func = ci->getCalledFunction()) && (
+                func->getName() == CPP_THROW_FUNC ||
+                func->getName() == CPP_RETHROW_FUNC ||
+                func->getName() == CPP_EH_EXCEPTION ||
+                func->getName() == CPP_EH_TYPE_ID ||
+                func->getName() == CPP_EH_SELECTOR);
+        }
+        
 		bool willInstrument(Instruction* i) {
 			// TODO: fill in the rest?
 			return isa<BinaryOperator>(i) || 
 				isa<CmpInst>(i) || 
 				isa<SelectInst>(i) || 
 				isa<PHINode>(i) || 
-				isa<CallInst>(i);
+				isa<CallInst>(i) && !isCppThrowFunc(i);
 		}
 			
 		bool definitionIsVarArg(Function* func) {
@@ -1466,15 +1431,9 @@ namespace {
 						}
 
 						// need to add in calls to setup the necessary transfer of function arguments
-						else if(isa<CallInst>(i) && isThrowCall(cast<CallInst>(i))) {
-							/*
-							CallInst* ci = cast<CallInst>(i);
-							Value* op0 = ci->getOperand(0);
-							*/
-							
-							// XXX something seems like it is missing here (-sat)
-						}
-						else if(isa<CallInst>(i)) {
+                        // Cannot insert prep call before throwing an exception because it is allocated beyond the stack pointer.
+                        // Making any calls after the value has been allocated will corrupt the value.
+						else if(isa<CallInst>(i) && !isThrowCall(cast<CallInst>(i))) {
 							CallInst* ci = cast<CallInst>(i);
 							instrumentCall(ci, inst_to_id, inst_calls_begin);
 
@@ -1624,7 +1583,7 @@ namespace {
 
 								LOG_DEBUG() << "joined blocks contents of " << blk->getName() << ":" << "\n";
 								foreach(Instruction* inst, joined_blks)
-									LOG_DEBUG() << *inst;
+									LOG_DEBUG() << *inst << "\n";
 								LOG_DEBUG() << "\n";
 
 								//TODO: Need to handle if we put something in the front. If we do this, ours needs to go into the front instead of the back.
@@ -1637,7 +1596,7 @@ namespace {
 									}
 								}
 
-								LOG_DEBUG() << "inserting invokeThrew before " << *insert_before;
+								LOG_DEBUG() << "inserting invokeThrew before " << *insert_before << "\n";
 
 								inst_calls_end.addCallInstBefore(insert_before, "invokeThrew", args);
 							}
@@ -2123,9 +2082,6 @@ namespace {
 					}
 				}
 
-				//add calls for invoke insts
-//				instrumentInvokeInsts(func, inst_calls_begin, inst_calls_end);
-
 				// insert call to setupLocalTable so we know how many spots in the local table to allocate 
 				// (this function will go away when we implement logFunctionEntry)
 				args.push_back(ConstantInt::get(types.i32(),curr_id)); // number of virtual registers
@@ -2178,6 +2134,11 @@ namespace {
 	};  // end of struct CriticalPath
 
 	char CriticalPath::ID = 0;
+    const std::string CriticalPath::CPP_THROW_FUNC = "_cxa_throw";
+    const std::string CriticalPath::CPP_RETHROW_FUNC = "";
+    const std::string CriticalPath::CPP_EH_EXCEPTION = "llvm.eh.exception";
+    const std::string CriticalPath::CPP_EH_TYPE_ID = "llvm.eh.typeid.for";
+    const std::string CriticalPath::CPP_EH_SELECTOR = "llvm.eh.selector";
 
 	RegisterPass<CriticalPath> X("criticalpath", "Critical Path Instrumenter",
 	  false /* Only looks at CFG */,

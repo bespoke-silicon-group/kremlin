@@ -110,11 +110,11 @@ UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
 int _requireSetupTable;
 
-/*
+/**
  * start profiling
  *
  * push the root region (id == 0, type == loop)
- * loop type seems weird, but using functino type as the root region
+ * loop type seems weird, but using function type as the root region
  * causes several problems regarding local table
  *
  * when kremlinOn == 0,
@@ -128,7 +128,7 @@ void turnOnProfiler() {
 	fprintf(stderr, "done\n");
 }
 
-/*
+/**
  * end profiling
  *
  * pop the root region pushed in turnOnProfiler()
@@ -286,23 +286,29 @@ void setCdt(int level, UInt32 version, UInt64 time) {
 
 void fillCDT(CDT* cdt, TEntry* entry) {
     int i;
-    for (i = MIN_REGION_LEVEL; i < MAX_REGION_LEVEL; i++) {
-        cdt->time[i - MIN_REGION_LEVEL] = entry->time[i - MIN_REGION_LEVEL];
-        cdt->version[i - MIN_REGION_LEVEL] = entry->version[i - MIN_REGION_LEVEL];
+    for (i = MIN_REGION_LEVEL; i < MAX_REGION_LEVEL && i < entry->timeArrayLength; i++) {
+        int level = i - MIN_REGION_LEVEL;
+        cdt->time[level] = entry->time[level];
+        cdt->version[level] = entry->version[level];
+    }
+    if(i < MAX_REGION_LEVEL) {
+        bzero(cdt->time + i, sizeof(UInt64) * (MAX_REGION_LEVEL - i));
+        bzero(cdt->version + i, sizeof(UInt32) * (MAX_REGION_LEVEL - i));
     }
 }
 
 void pushFuncContext() {
 
-    FuncContext* toAdd = (FuncContext*) malloc(sizeof(FuncContext));
-    assert(toAdd);
-    FuncContextsPushRef(funcContexts, &toAdd);
-    toAdd->table = NULL;
-	toAdd->callSiteId = lastCallSiteId;
+    FuncContext* funcContext = (FuncContext*) malloc(sizeof(FuncContext));
+    assert(funcContext);
+    FuncContextsPushVal(funcContexts, funcContext);
+    funcContext->table = NULL;
+	funcContext->callSiteId = lastCallSiteId;
+	funcContext->ret = NULL;
 
 #ifdef MANAGE_BB_INFO
-    toAdd->retBB = __currentBB;
-    toAdd->retPrevBB = __prevBB;
+    funcContext->retBB = __currentBB;
+    funcContext->retPrevBB = __prevBB;
     MSG(1, "[push] current = %u last = %u\n", __currentBB, __prevBB);
 #endif
 	//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
@@ -347,15 +353,14 @@ void popFuncContext() {
     FuncContext* ret = FuncContextsPopVal(funcContexts);
     assert(ret);
     //assert(ret->table != NULL);
-    // restore currentBB and prevBB
 #ifdef MANAGE_BB_INFO
+    // restore currentBB and prevBB
     __currentBB = ret->retBB;
     __prevBB = ret->retPrevBB;
 #endif
 
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
-    //assert(ret->table != NULL);
 
     if (ret->table != NULL)
         freeLocalTable(ret->table);
@@ -372,7 +377,7 @@ UInt getVersion(int level) {
 inline UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
     int level = inLevel - MIN_REGION_LEVEL;
 
-    UInt64 ret = (entry->version[level] == version) ?
+    UInt64 ret = (level < entry->timeArrayLength && entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
 }
@@ -755,6 +760,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; ++i) {
 		// calculate availability time
         UInt version = getVersion(i);
@@ -799,6 +805,7 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -830,6 +837,9 @@ void* logAssignment(UInt src, UInt dest) {
 }
 
 void* logAssignmentConst(UInt dest) {
+    if (!isKremlinOn())
+        return NULL;
+
     MSG(1, "logAssignmentConst ts[%u]\n", dest);
 
 #ifndef WORK_ONLY
@@ -841,6 +851,7 @@ void* logAssignmentConst(UInt dest) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -880,6 +891,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -927,6 +939,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -970,6 +983,7 @@ void* logStoreInstConst(Addr dest_addr) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; ++i) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -1097,24 +1111,6 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
 	if (regionInfo[0].start != 0ULL) {
 		fprintf(stderr, "add regionInfo[0] = 0x%x\n", &regionInfo[0]);
 	}
-/*
-	addWork(MALLOC_COST);
-
-	// update timestamp and CP
-    TEntry* entryDest = getLTEntry(dest);
-    
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
-
-    int i;
-    for (i = minLevel; i < maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 value = getCdt(i,version) + MALLOC_COST;
-
-        updateTimestamp(entryDest, i, version, value);
-        updateCP(value, i);
-    }
-	*/
 #endif
 }
 
@@ -1384,14 +1380,13 @@ void logFuncReturnConst(void) {
 
     FuncContext** nextHead = FuncContextsLast(funcContexts) - 1;
 
+    TEntryAllocAtLeastLevel((*nextHead)->ret, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         int version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
 
         // Copy the return timestamp into the previous stack's return value.
         updateTimestamp((*nextHead)->ret, i, version, cdt);
-//      funcHead->ret->version[i] = version;
-//      funcHead->ret->time[i] = cdt;
     }
 #endif
 }
@@ -1424,6 +1419,7 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_src = getTimestamp(entrySrc, i, version);
@@ -1462,6 +1458,7 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_src = getTimestamp(entrySrc, i, version);
@@ -1504,6 +1501,7 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_src = getTimestamp(entrySrc, i, version);
@@ -1557,6 +1555,7 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_src = getTimestamp(entrySrc, i, version);
@@ -1609,6 +1608,7 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_dest = getTimestamp(entryDest, i, version);
@@ -1655,6 +1655,7 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
     assert(entry1 != NULL);
     assert(entryDest != NULL);
 
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts0 = getTimestamp(entry0, i, version);
@@ -1678,8 +1679,8 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
     addWork(cost);
 
 #ifndef WORK_ONLY
-    TEntry* srcEntry[MAX_ENTRY];
-    TEntry* destEntry = getLTEntry(dest);
+    TEntry* entrySrc[MAX_ENTRY];
+    TEntry* entryDest = getLTEntry(dest);
 
     va_list ap;
     va_start(ap, num_in);
@@ -1687,31 +1688,32 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
     int i;
     for (i = 0; i < num_in; i++) {
         UInt src = va_arg(ap, UInt);
-        srcEntry[i] = getLTEntry(src);
-        assert(srcEntry[i] != NULL);
+        entrySrc[i] = getLTEntry(src);
+        assert(entrySrc[i] != NULL);
     }   
     va_end(ap);
 
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 max = 0;
         
         int j;
         for (j = 0; j < num_in; j++) {
-            UInt64 ts = getTimestamp(srcEntry[j], i, version);
+            UInt64 ts = getTimestamp(entrySrc[j], i, version);
             if (ts > max)
                 max = ts;
         }   
         
 		UInt64 value = max + cost;
 
-        updateTimestamp(destEntry, i, version, value);
+        updateTimestamp(entryDest, i, version, value);
 		updateCP(value, i);
     }
-    return destEntry;
+    return entryDest;
 #else
     return NULL;
 #endif
@@ -1779,17 +1781,23 @@ int kremlinInit() {
     return TRUE;
 }
 
+static TEntry* mainReturn;
 void deinitStartFuncContext()
 {
 	popFuncContext();
+
+    assert(FuncContextsEmpty(funcContexts));
+    freeTEntry(mainReturn);
+    mainReturn = NULL;
 }
 
 void initStartFuncContext()
 {
+    assert(FuncContextsEmpty(funcContexts));
+
     prepareCall(0, 0);
 	pushFuncContext();
-
-    (*FuncContextsLast(funcContexts))->ret = allocTEntry(getTEntrySize());
+    (*FuncContextsLast(funcContexts))->ret = mainReturn = allocTEntry(0);
 }
 
 
@@ -1801,6 +1809,8 @@ int kremlinDeinit() {
     MSG(0, "kremlinDeinit running\n");
 
 	turnOffProfiler();
+
+    deinitStartFuncContext();
 
 #ifdef USE_UREGION
     finalizeUdr();
@@ -1823,7 +1833,6 @@ int kremlinDeinit() {
     free(versions);
     versions = NULL;
 
-    deinitStartFuncContext();
 
     cdtHead = NULL;
 
@@ -1840,6 +1849,8 @@ int kremlinDeinit() {
     fprintf(stderr, "[kremlin] app MaxRegionLevel = %d\n", _maxRegionNum);
 
     kremlinOn = FALSE;
+
+    dumpTableMemAlloc();
 
     return TRUE;
 }
@@ -1864,7 +1875,7 @@ void deinitProfiler() {
 UInt64 sidHash(UInt64 sid) {
     return sid;
 }
-
+void logLoopIteration() {}
 int sidCompare(UInt64 s1, UInt64 s2) {
     return s1 == s2;
 }

@@ -62,6 +62,8 @@ namespace {
 		static char ID;
 		static const std::string CPP_ENTRY_FUNC;
 		static const std::string CPP_EXIT_FUNC;
+        static const std::string CPP_THROW_FUNC_NAME;
+        static const std::string CPP_RETHROW_FUNC_NAME;
 		static const std::string REGIONS_INFO_FILENAME;
 
 		PassLog& log;
@@ -740,6 +742,12 @@ namespace {
 			return prefix == CPP_EXIT_FUNC && was_number;
 		}
 
+        bool isCppThrowFunc(Function* func)
+        {
+            return func->getName() == CPP_THROW_FUNC_NAME ||
+                func->getName() == CPP_RETHROW_FUNC_NAME;
+        }
+
 		void instrumentModule(Module &m, BasicBlockId &bb_id) {
 			LLVMTypes types(m.getContext());
 
@@ -904,6 +912,7 @@ namespace {
 					if(succ_begin(bb) == succ_end(bb)) {
 
 						BasicBlock::iterator insert_before = bb->getTerminator();
+                        CallInst* non_returning_call = NULL;
 
 						bool is_exit_point = false;
 
@@ -923,11 +932,12 @@ namespace {
 									insert_before = inst_before_term;
 							}
 
-							//Find the call that does not return and wrap up before it.
+							// Find the call that does not return and wrap up before it.
 							foreach(Instruction& i, *bb) {
 								CallInst* ci;
 								if((ci = dyn_cast<CallInst>(&i)) && ci->doesNotReturn()) {
 									insert_before = &i;
+                                    non_returning_call = ci;
 
 									// see if this is a call to exit, in which case we are going to have to deinit the profiler
 									if(ci && ci->getCalledFunction() && ci->getCalledFunction()->getName() == "exit")
@@ -945,7 +955,9 @@ namespace {
 						}
 
 						// if this is "main" we insert call to printProfileData() then deinitProfiler
-						if(func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0 || is_exit_point) {
+						if(!(non_returning_call && non_returning_call->getCalledFunction() &&  isCppThrowFunc(non_returning_call->getCalledFunction())) && 
+                            (func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0 || is_exit_point)) 
+                        {
 							if(add_printProfileData_func) {
 								CallInst::Create(printProfileData_func, op_args.begin(), op_args.end(), "", insert_before);
 							}
@@ -1009,6 +1021,8 @@ namespace {
 	char RegionInstrument::ID = 0;
 	const std::string RegionInstrument::CPP_ENTRY_FUNC = "_GLOBAL__I_main";
 	const std::string RegionInstrument::CPP_EXIT_FUNC = "__tcf_";
+    const std::string RegionInstrument::CPP_THROW_FUNC_NAME = "__cxa_throw";
+    const std::string RegionInstrument::CPP_RETHROW_FUNC_NAME = "_Unwind_Resume_or_Rethrow";
 	const std::string RegionInstrument::REGIONS_INFO_FILENAME = "sregions.txt";
 
 	RegisterPass<RegionInstrument> X("regioninstrument", "Region Instrumenter",

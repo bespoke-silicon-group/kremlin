@@ -1,3 +1,8 @@
+/**
+ * @file Vector.h
+ * @brief Generic vector data structure.
+ */
+
 #ifndef VECTOR_H
 #define VECTOR_H
 

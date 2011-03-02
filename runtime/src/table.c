@@ -64,33 +64,29 @@ void freeGlobalTable(GTable* table) {
 
 long long _tEntryLocalCnt = 0;
 long long _tEntryGlobalCnt = 0;
-
+extern UInt levelNum;
 // XXX: for PoolMalloc to work, size always must be the same!
 TEntry* allocTEntry(int size) {
     TEntry* entry;
-    size_t versionSize = sizeof(UInt32) * size;
-    size_t timeSize = sizeof(UInt64) * size;
-    size_t spaceToAlloc = sizeof(TEntry) + versionSize + timeSize;
 
 #ifdef EXTRA_STATS
-    size_t readVersionSize = sizeof(UInt32) * size;
-    size_t readTimeSize = sizeof(UInt64) * size;
+    assert(0 && "not supported");
+    size_t readVersionSize = sizeof(UInt32) * levelNum;
+    size_t readTimeSize = sizeof(UInt64) * levelNum;
     spaceToAlloc += readVersionSize + readTimeSize;
 #endif
     
-    //if(!(entry = (TEntry*) calloc(sizeof(unsigned char), spaceToAlloc)))
-    if(!(entry = (TEntry*) PoolMalloc(tEntryPool)))
+    if(!(entry = (TEntry*) malloc(sizeof(TEntry))))
+    //if(!(entry = (TEntry*) PoolMalloc(tEntryPool)))
     {
         fprintf(stderr, "Failed to alloc TEntry\n");
         assert(0);
         return NULL;
     }
-    //fprintf(stderr, "bzero addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
-    assert(PoolGetPageSize(tEntryPool) >= spaceToAlloc);
-    //fprintf(stderr, "bzero2 addr = 0x%llx, size = %lld\n", entry, spaceToAlloc);
 
-    entry->version = (UInt32*)((unsigned char*)entry + sizeof(TEntry));
-    entry->time = (UInt64*)((unsigned char*)entry->version + versionSize);
+    entry->version = (UInt32*)calloc(sizeof(UInt32), levelNum);
+    entry->time = (UInt64*)calloc(sizeof(UInt64), levelNum);
+    entry->timeArrayLength = levelNum;
 
 #ifdef EXTRA_STATS
     entry->readVersion = (UInt32*)((unsigned char*)entry->time + timeSize);
@@ -100,10 +96,24 @@ TEntry* allocTEntry(int size) {
     return entry;
 }
 
+void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
+{
+    if(entry->timeArrayLength < level)
+    {
+        entry->time = (UInt64*)realloc(entry->time, sizeof(UInt64) * level);
+        entry->version = (UInt32*)realloc(entry->version, sizeof(UInt32) * level);
+        entry->timeArrayLength = level;
+    }
+}
+
 void freeTEntry(TEntry* entry) {
-    
-	//free(entry);
-	PoolFree(tEntryPool, entry);
+    if(!entry)
+        return;
+
+    free(entry->version);
+    free(entry->time);
+	free(entry);
+	//PoolFree(tEntryPool, entry);
 }
 
 void createMEntry(Addr start_addr, size_t entry_size) {
@@ -199,10 +209,10 @@ void copyTEntry(TEntry* dest, TEntry* src) {
 	int i;
 	assert(dest != NULL);
 	assert(src != NULL);
-	for (i=0; i<getTEntrySize(); i++) {
-		dest->version[i] = src->version[i];
-		dest->time[i] = src->time[i];
-	}	
+    TEntryAllocAtLeastLevel(dest, src->timeArrayLength);
+    assert(dest->timeArrayLength >= src->timeArrayLength);
+    memcpy(dest->version, src->version, src->timeArrayLength * sizeof(UInt64));
+    memcpy(dest->time, src->time, src->timeArrayLength * sizeof(UInt32));
 }
 
 LTable* allocLocalTable(int size) {
@@ -214,6 +224,7 @@ LTable* allocLocalTable(int size) {
 		ret->array[i] = allocTEntry(getTEntrySize());
 	}
 	_tEntryLocalCnt += size;
+
 //	printf("Alloc LTable to 0x%x\n", ret);
 	return ret;
 }
@@ -355,7 +366,5 @@ char* toStringTEntry(TEntry* entry) {
 #endif
 
 void dumpTableMemAlloc() {
-	fprintf(stderr, "local TEntry = %lld\n", _tEntryLocalCnt);
-	fprintf(stderr, "global TEntry = %lld\n", _tEntryGlobalCnt);
 }
 

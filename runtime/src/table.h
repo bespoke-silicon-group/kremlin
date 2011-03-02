@@ -14,6 +14,7 @@
 typedef struct _DataEntry {
     UInt32* version;
     UInt64* time;
+    UInt timeArrayLength;
 #ifdef EXTRA_STATS
     UInt32* readVersion;
     UInt64* readTime;
@@ -99,6 +100,7 @@ TEntry* getGTEntryCacheLine(Addr addr);
 void initDataStructure(int regionLevel);
 void finalizeDataStructure();
 UInt32 getTEntrySize(void);
+void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level);
 
 extern GTable* gTable;
 extern LTable* lTable;

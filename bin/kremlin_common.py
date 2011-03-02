@@ -74,6 +74,7 @@ def create_kremlin_mk(src_lang):
         GccOption(parser, "-D", dest = "preprocessor_defines"),
         GccOption(parser, "-O", dest = "optimization"),
         GccOption(parser, "-f", dest = "fOpts"),
+        GccOption(parser, "-p", dest = "profiler"),
         GccOption(parser, "-g", action = "store_true", dest = "debug"),
 
         # Load library
