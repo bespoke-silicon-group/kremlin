@@ -13,10 +13,11 @@ public class BWPlannerBest extends CDPPlanner {
 		double spSpeedup = (this.maxCore < region.getSelfParallelism()) ? maxCore : region.getSelfParallelism();
 		double parallelTime = region.getAvgWork() / spSpeedup + overhead;
 		
-		long cacheSize = 1024*1024*8 * 2;
-		long clockRateMhz = 2400; 
+		long cacheSize = target.getCacheMB();
+		long clockRateMhz = target.getClockMHz();
+		long bwMB = target.getBandwidthMB();
 		long dataByte = (long)(region.getAvgReadCnt() + region.getAvgWriteCnt()) * 4 - cacheSize;
-		double cycle = (double)clockRateMhz * dataByte / (double)10000.0; 
+		double cycle = (double)clockRateMhz * dataByte / (double)bwMB; 
 		double parallelBwTime = cycle;
 		
 		return (parallelBwTime > parallelTime) ? parallelBwTime : parallelTime;

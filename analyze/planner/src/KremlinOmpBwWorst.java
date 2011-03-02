@@ -19,7 +19,10 @@ public class KremlinOmpBwWorst {
 		//baseDir="f:\\Work\\pact2011";
 		int numCore = 32;
 		int overhead = 1024;
-		 
+		int clockMHz = 2440;
+		int bwMB = 10000;
+		int totalCacheMB = 16;
+		
 		if (args.length < 1) {			
 			//baseDir = ".";
 			//System.out.println("Usage: java KremlinOMP <dir> <core>\n");
@@ -30,6 +33,10 @@ public class KremlinOmpBwWorst {
 		if (args.length > 2) {
 			numCore = Integer.parseInt(args[1]);
 			overhead = Integer.parseInt(args[2]);
+			clockMHz = Integer.parseInt(args[3]);
+			bwMB = Integer.parseInt(args[4]);
+			totalCacheMB = Integer.parseInt(args[5]);			
+			
 		}
 					
 		ParameterSet.rawDir = baseDir;		
@@ -43,6 +50,9 @@ public class KremlinOmpBwWorst {
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
 		Target target = new Target(numCore, overhead);
+		target.setClock(clockMHz);
+		target.setBandwidth(bwMB);
+		target.setCache(totalCacheMB);
 		
 		BWPlannerWorst planner = new BWPlannerWorst(cManager, target);		
 		Plan plan = planner.plan(excludeSet);		
