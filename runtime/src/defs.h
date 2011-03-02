@@ -57,7 +57,7 @@ typedef signed long long    Int64;
 typedef void*               Addr;
 typedef FILE                File;
 
-enum RegionType {RegionFunc, RegionLoop};
+typedef enum RegionType {RegionFunc, RegionLoop, RegionLoopBody} RegionType;
 MemMapAllocator* memPool;
 
 typedef struct _RegionField_t {

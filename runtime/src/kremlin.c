@@ -49,6 +49,7 @@ typedef struct _region_t {
     UInt64 regionId;
 	UInt64 childrenWork;
 	UInt64 childrenCP;
+    RegionType regionType;
 #ifdef EXTRA_STATS
     UInt64 readCnt;
     UInt64 writeCnt;
@@ -466,7 +467,7 @@ void prepareInvoke(UInt64 id) {
    
     InvokeRecord* currentRecord = InvokeRecordsPush(invokeRecords);
     currentRecord->id = id;
-    currentRecord->stackHeight = FuncContextsSize(funcContexts);
+    currentRecord->stackHeight = getCurrentLevel();
 }
 
 void invokeOkay(UInt64 id) {
@@ -491,7 +492,8 @@ void invokeThrew(UInt64 id)
         while(getCurrentLevel() > currentRecord->stackHeight)
         {
             UInt64 lastLevel = getCurrentLevel();
-            logRegionExit(regionInfo[getCurrentLevel()].regionId, 0);
+            Region* region = regionInfo + getCurrentLevel();
+            logRegionExit(region->regionId, region->regionType);
             assert(getCurrentLevel() < lastLevel);
             assert(getCurrentLevel() >= 0);
         }
@@ -537,12 +539,12 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 /*   
 	UInt64 parentSid = (level > 0) ? regionInfo[level-1].regionId : 0;
     UInt64 parentDid = (level > 0) ? regionInfo[level-1].did : 0;
-    if (regionType < 2)
+    if (regionType < RegionLoopBody)
         MSG(0, "[+++] region [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
             regionType, level, regionId, getDynamicRegionId(regionId), 
             parentSid, parentDid, timestamp);
 */
-    if (regionType < 2)
+    if (regionType < RegionLoopBody)
         MSG(0, "[+++] region [%u, %d, %llu:%llu] start: %llu\n",
             regionType, level, regionId, *getDynamicRegionId(regionId), timestamp);
 
@@ -561,6 +563,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     regionInfo[level].cp = 0LL;
     regionInfo[level].childrenWork = 0LL;
     regionInfo[level].childrenCP = 0LL;
+    regionInfo[level].regionType = regionType;
 
 #ifdef EXTRA_STATS
     regionInfo[level].readCnt = 0LL;
@@ -680,13 +683,13 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 
     decIndentTab();
     /*
-    if (regionType < 2)
+    if (regionType < RegionLoopBody)
         MSG(0, "[---] region [%u, %u, %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
                 regionType, level, regionId, did, parentSid, parentDid, 
                 regionInfo[level].cp, work);
                 */
 
-    if (regionType < 2)
+    if (regionType < RegionLoopBody)
         MSG(0, "[---] region [%u, %u, %llu:%llu] cp %llu work %llu\n",
                 regionType, level, regionId, did, regionInfo[level].cp, work);
 
@@ -771,7 +774,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
         UInt64 greater1 = (cdt > greater0) ? cdt : greater0;
         UInt64 value = greater1 + opCost;
         updateTimestamp(entryDest, i, version, value);
-        UInt64 cp = updateCP(value, i);
+        updateCP(value, i);
 		
         MSG(2, "binOp[%u] level %u version %u \n", opCost, i, version);
         MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
