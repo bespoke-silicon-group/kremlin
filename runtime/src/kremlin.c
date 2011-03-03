@@ -485,10 +485,11 @@ void invokeThrew(UInt64 id)
     if(!isKremlinOn())
         return;
 
+    fprintf(stderr, "invokeRecordOnTop: %u\n", InvokeRecordsLast(invokeRecords)->id);
+
     if(!InvokeRecordsEmpty(invokeRecords) && InvokeRecordsLast(invokeRecords)->id == id) {
         InvokeRecord* currentRecord = InvokeRecordsLast(invokeRecords);
         MSG(1, "invokeThrew(%u) - Popping to %d\n", currentRecord->id, currentRecord->stackHeight);
-
         while(getCurrentLevel() > currentRecord->stackHeight)
         {
             UInt64 lastLevel = getCurrentLevel();

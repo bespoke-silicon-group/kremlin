@@ -35,8 +35,8 @@ parallel:
 
 # Summarizes all the test results into one.
 $(TEST_RESULTS): $(MAKE_RESULTS)
-	grep 'TEST_RESULT: FAILED' $(MAKE_RESULTS) > $@
-	echo "`sed -n '$$=' $@` of $(words $(MAKE_RESULTS)) tests failed" >> $@
+	-grep 'TEST_RESULT: FAILED' $(MAKE_RESULTS) > $@
+	echo "`cat $@ | wc -l` of $(words $(MAKE_RESULTS)) tests failed" >> $@
 	clear
 	@cat $@
 

@@ -959,7 +959,7 @@ namespace {
 		bool isThrowCall(CallInst* ci) {
 			Function* func = ci->getCalledFunction();
 			if(func) {
-				return func->getName() == "__cxa_throw" && ci->doesNotReturn();
+				return func->getName() == CPP_THROW_FUNC && ci->doesNotReturn();
 			}
 			else {
 				return false;
@@ -1084,8 +1084,8 @@ namespace {
                 func->getName() == CPP_THROW_FUNC ||
                 func->getName() == CPP_RETHROW_FUNC ||
                 func->getName() == CPP_EH_EXCEPTION ||
-                func->getName() == CPP_EH_TYPE_ID ||
-                func->getName() == CPP_EH_SELECTOR);
+                func->getName() == CPP_EH_TYPE_ID); // ||
+                // func->getName() == CPP_EH_SELECTOR);
         }
         
 		bool willInstrument(Instruction* i) {
@@ -1564,7 +1564,8 @@ namespace {
 							}
 						} // end callinst
 
-						else if((ii = dyn_cast<InvokeInst>(i)) ) {
+						else if((ii = dyn_cast<InvokeInst>(i)) && ii->getCalledFunction()->getName() != CPP_THROW_FUNC)
+                        {
 							static int invoke_id = 0;
 							ConstantInt* invoke_id_const = ConstantInt::get(types.i32(),invoke_id++);
 							args.push_back(invoke_id_const);
@@ -2134,7 +2135,7 @@ namespace {
 	};  // end of struct CriticalPath
 
 	char CriticalPath::ID = 0;
-    const std::string CriticalPath::CPP_THROW_FUNC = "_cxa_throw";
+    const std::string CriticalPath::CPP_THROW_FUNC = "__cxa_throw";
     const std::string CriticalPath::CPP_RETHROW_FUNC = "";
     const std::string CriticalPath::CPP_EH_EXCEPTION = "llvm.eh.exception";
     const std::string CriticalPath::CPP_EH_TYPE_ID = "llvm.eh.typeid.for";
