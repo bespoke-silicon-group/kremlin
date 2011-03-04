@@ -25,6 +25,13 @@ $(CHECK_TASK):
 		echo "TEST_RESULT: PASSED"; \
 	fi \
 
+$(REFERENCE_CHECK_TASK):
+	@echo "Skipping check."
+
+$(REFERENCE_BUILD_TASK):
+	@echo "Skipping check."
+
+
 $(CLEAN_TASK)::
 	-make clean -f kremlin.mk
 	-@rm -rf *.s *.log *.bc *.o $(TARGET)

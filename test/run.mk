@@ -49,3 +49,5 @@ $(CLEAN_RESULTS):
 
 clean:: $(CLEAN_RESULTS)
 	-$(RM) $(MAKE_RESULTS)
+
+include $(dir $(RUN_MK))/referenceTest.mk

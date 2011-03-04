@@ -7,6 +7,7 @@ CXX = kremlin-g++
 FC = kremlin-gfortran
 LD = $(CC)
 EXPECTED_BIN = kremlin.bin
+REFERENCE_BIN = $(EXPECTED_BIN).reference
 CFLAGS += -Wall --krem-debug
 CXXFLAGS += $(CFLAGS)
 TARGET ?= a.out
@@ -41,6 +42,12 @@ $(CHECK_TASK):
 	else \
 		echo "TEST_RESULT: PASSED"; \
 	fi \
+
+$(REFERENCE_CHECK_TASK): $(EXPECTED_BIN)
+	diff --brief $(REFERENCE_BIN) $(EXPECTED_BIN)
+
+$(REFERENCE_BUILD_TASK): $(EXPECTED_BIN)
+	cp $(EXPECTED_BIN) $(REFERENCE_BIN)
 
 $(CLEAN_TASK)::
 	-make clean -f kremlin.mk
