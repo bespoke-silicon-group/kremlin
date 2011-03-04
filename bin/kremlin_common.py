@@ -80,7 +80,9 @@ def create_kremlin_mk(src_lang):
         # Load library
         GccOption(parser, "-l", dest = "load_library"),
 
-        GccOption(parser, "-W", dest = "wOpts")]
+        GccOption(parser, "-W", dest = "wOpts"),
+
+        GccOption(parser, "-r", dest = "linker_symbols")]
 
     # kremlin specific options
     parser.add_option("--krem-inline", action = "store_true", dest = "krem_inline", default = False)
