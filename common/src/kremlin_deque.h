@@ -1,10 +1,10 @@
 /**
- * @file deque.h
+ * @file kremlin_deque.h
  * @brief Defines a double ended queue.
  */
 
-#ifndef DEQUE_H
-#define DEQUE_H
+#ifndef KREMLIN_DEQUE_H
+#define KREMLIN_DEQUE_H
 
 typedef struct deque deque;
 
@@ -118,4 +118,4 @@ size_t deque_size(deque* d);
 /**
  * @}
  */
-#endif /* DEQUE_H */
+#endif /* KREMLIN_DEQUE_H */

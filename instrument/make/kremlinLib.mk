@@ -15,7 +15,7 @@ include $(dir $(lastword $(MAKEFILE_LIST)))/../../common/make/paths.mk
 # ---------------------------------------------------------------------------
 
 # All the common source files.
-COMMON_SOURCES = deque.c hash_map.c vector.c
+COMMON_SOURCES = kremlin_deque.c hash_map.c vector.c
 COMMON_SOURCES_WITH_PATH = $(addprefix $(KREMLIN_COMMON_SRC)/, $(COMMON_SOURCES))
 
 # All the kremlin runtime source files.
@@ -34,7 +34,7 @@ ALL_KREMLIN_OBJECTS_IN_LIB = $(patsubst %, $(KREMLIN_LIB)(%), $(ALL_KREMLIN_OBJE
 
 # Compiles the kremlin runtime
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): CFLAGS += -I$(KREMLIN_COMMON_SRC) $(KREMLIB_EXTRA_FLAGS)
-$(ALL_KREMLIN_OBJECTS_WITH_PATH): CC = gcc
+$(ALL_KREMLIN_OBJECTS_WITH_PATH): CC = llvm-gcc
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 

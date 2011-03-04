@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
-#include "deque.h"
+#include "kremlin_deque.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -260,6 +260,7 @@ int deque_node_create(deque_node** n, void* data, void* (*copy_func)(void*), deq
     (*n)->data = data;
     (*n)->next = next;
     (*n)->prev = prev;
+
     return TRUE;
 }
 
