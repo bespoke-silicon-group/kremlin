@@ -10,7 +10,7 @@
 #include "log.h"
 #include "debug.h"
 #include "table.h"
-#include "deque.h"
+#include "kremlin_deque.h"
 #include "hash_map.h"
 #include "cregion.h"
 #include "Vector.h"
@@ -122,8 +122,7 @@ int _requireSetupTable;
  * most instrumentation functions do nothing.
  */ 
 void turnOnProfiler() {
-	fprintf(stderr, "WARNING: turnOn/OffProfiler must be called at the same levels or the profiler will break.\n");
-	fprintf(stderr, "turnOnProfiler...");
+	fprintf(stderr, "Starting profiling...");
     kremlinOn = 1;
     logRegionEntry(0, 1);
 	fprintf(stderr, "done\n");
@@ -137,7 +136,7 @@ void turnOnProfiler() {
 void turnOffProfiler() {
     logRegionExit(0, 1);
     kremlinOn = 0;
-	fprintf(stderr, "turnOffProfiler\n");
+	fprintf(stderr, "Stopping profiling...\n");
 }
 
 void pauseProfiler() {
@@ -635,9 +634,11 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     UInt64 work = endTime - startTime;
     UInt64 cp = regionInfo[level].cp;
 
+	/*
 	if (work == 0 || cp == 0 || work < cp) {
 		fprintf(stderr, "sid=%llu work=%llu childrenWork = %llu cp=%llu\n", sid, work, regionInfo[level].childrenWork, cp);
 	}
+	*/
 
 	assert(work == 0 || cp > 0);
 	assert(work >= cp);
@@ -1292,13 +1293,15 @@ CDT* allocCDT() {
 	return ret;
 }
 
-void freeCDT(CDT* toFree) {
-	cdtIndex--;
+CDT* freeCDT(CDT* toFree) {
+	return &cdtPool[--cdtIndex];
 }
 
 void initCDT() {
 	int i=0;
 	cdtPool = malloc(sizeof(CDT) * CDTSIZE);
+
+	cdtIndex = 0;
 	cdtSize = CDTSIZE;
 
 	for (i=0; i<CDTSIZE; i++) {
@@ -1331,8 +1334,7 @@ void addControlDep(UInt cond) {
 void removeControlDep() {
     MSG(2, "pop  ControlDep\n");
 #ifndef WORK_ONLY
-	freeCDT(cdtHead);
-    cdtHead--;
+	cdtHead = freeCDT(cdtHead);
 #endif
 }
 
