@@ -42,6 +42,8 @@
 #include "InstrumentationCall.h"
 #include "InstrumentedCall.h"
 
+#include <time.h>
+
 using namespace llvm;
 
 namespace {
@@ -1116,7 +1118,20 @@ namespace {
 			return isa<IntegerType>(val_ele_type) && (cast<IntegerType>(val_ele_type)->getBitWidth() == n);
 		}
 
+		timespec diff(timespec start, timespec end) {
+			timespec temp;
+			if ((end.tv_nsec-start.tv_nsec)<0) {
+				temp.tv_sec = end.tv_sec-start.tv_sec-1;
+				temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+			} else {
+				temp.tv_sec = end.tv_sec-start.tv_sec;
+				temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+			}
+			return temp;
+		}
+
 		void instrumentModule(Module &m, unsigned int &op_id, const OpCosts& costs) {
+
 			std::string mod_name = m.getModuleIdentifier();
 			LOG_DEBUG() << "instrumenting module: " << mod_name << "\n";
 
@@ -1147,6 +1162,7 @@ namespace {
 			InstrumentationCalls inst_calls_end(inst_funcs, get_terminator);
 			InstrumentationCalls inst_calls_begin(inst_funcs, get_non_phi);
 
+			timespec start_time, end_time;
 
 			for (Module::iterator func = m.begin(), func_end = m.end(); func != func_end; ++func) {
 
@@ -1158,6 +1174,8 @@ namespace {
 					//LOG_DEBUG() << "ignoring function " << func->getName() << "\n";
 					continue;
 				}
+
+				clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&start_time);
 
 				LOG_DEBUG() << "instrumenting function " << func->getName() << "\n";
 				LOG_DEBUG() << "bb count" << func->getBasicBlockList().size() << "\n";
@@ -1212,13 +1230,13 @@ namespace {
 
 				// begin instrumenting ops phase
 				for (Function::iterator blk = func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
-					//cerr << "processing BB: " << *blk;
+					//LOG_DEBUG() << "processing BB: " << PRINT_VALUE(*blk);
 
 					InvokeInst* ii;
 
 					for (BasicBlock::iterator i = blk->getFirstNonPHI(), inst_end = blk->end(); i != inst_end; ++i) {
 
-						LOG_DEBUG() << "processing inst: " << *i << "\n";
+						LOG_DEBUG() << "processing inst: " << PRINT_VALUE(*i) << "\n";
 
 						if(isa<BinaryOperator>(i) || isa<CmpInst>(i) || isa<SelectInst>(i)) {
 
@@ -1262,15 +1280,12 @@ namespace {
                                         break;
                                     case Instruction::ICmp:
                                         args.push_back(ConstantInt::get(types.i32(),costs.int_cmp));
-                                        LOG_DEBUG() << "got an icmp: " << *i;
                                         break;
                                     case Instruction::FCmp:
                                         args.push_back(ConstantInt::get(types.i32(),costs.fp_cmp));
-                                        LOG_DEBUG() << "got an fcmp: " << *i;
                                         break;
                                     case Instruction::Select:
                                         args.push_back(ConstantInt::get(types.i32(),0));
-                                        LOG_DEBUG() << "got a select: " << *i;
                                         break;
                                     default:
 										//args.push_back(ConstantInt::get(types.i32(),0));
@@ -1363,7 +1378,7 @@ namespace {
 
 							// if this is a cast of a constant, we create a logAssignmentConst for this cast instruction
 							if(isa<Constant>(op)) {
-								LOG_DEBUG() << "got a cast of a constant: " << *i << "\n";
+								LOG_DEBUG() << "inst is cast of a constant\n";
 
 								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
@@ -1375,7 +1390,7 @@ namespace {
 
 						// TODO: combine this with cast inst?
 						else if(isa<AllocaInst>(i)) {
-							LOG_DEBUG() << "got an alloca: " << *i << "\n";
+							LOG_DEBUG() << "inst is an alloca\n";
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
 							inst_calls_end.addCallInst(i,"logAssignmentConst",args);
@@ -1390,7 +1405,7 @@ namespace {
 						// time.
 						// TODO: track the individual parts of the struct that are changing rather than the whole struct
 						else if(isa<InsertValueInst>(i)) {
-							LOG_DEBUG() << "got an insertvalue: " << *i;
+							LOG_DEBUG() << "inst is an insertvalue\n";
 
 							if(!isa<Constant>(i->getOperand(1))) {
 								// get ID of value that we will be updating the struct with
@@ -1419,7 +1434,7 @@ namespace {
 						// extractvalue just returns the specified index of a specified struct
 						// currently we just use logAssignment; in the future we should have a new function which takes into account the index being extracted
 						else if(isa<ExtractValueInst>(i)) {
-							LOG_DEBUG() << "got an extractvalue: " << *i;
+							LOG_DEBUG() << "inst is an extractvalue\n";
 
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i->getOperand(0)])); // src ID
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
@@ -1443,27 +1458,26 @@ namespace {
 							if(called_func 
 							  && (called_func->getName() == "malloc" || called_func->getName() == "calloc")
 							  ) {
-								LOG_DEBUG() << "found call to malloc/calloc: " << *ci << "\n";
+								LOG_DEBUG() << "inst is a call to malloc/calloc\n";
 
 								// insert address (return value of callinst)
-								LOG_DEBUG() << "pushing arg: " << *ci << "\n";
+								LOG_DEBUG() << "adding return value of inst as arg to logMalloc\n";
 								args.push_back(ci);
 
 								// insert size (arg 0 of func)
 								Value* sizeOperand = ci->getArgOperand(0);
-								LOG_DEBUG() << "pushing arg: " << *sizeOperand << "\n";
+								LOG_DEBUG() << "pushing arg: " << PRINT_VALUE(*sizeOperand) << "\n";
 								args.push_back(sizeOperand);
 
 								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 								
 								inst_calls_end.addCallInst(i,"logMalloc",args);
-								LOG_DEBUG() << "Successfully added logMalloc\n";
 								args.clear();
 							}
 
 							// calls to free get logFree(addr) call
 							else if(called_func && called_func->getName() == "free") {
-								LOG_DEBUG() << "found call to free\n";
+								LOG_DEBUG() << "inst is a call to free\n";
 
 								// Insert address (first arg of call ist)
 								// If op1 isn't pointing to an 8-bit int then we need to cast it to one for use.
@@ -1481,7 +1495,7 @@ namespace {
 
 							// handle calls to realloc
 							else if(called_func && called_func->getName() == "realloc") {
-								LOG_DEBUG() << "found call to realloc\n";
+								LOG_DEBUG() << "isnt is  call to realloc\n";
 
 								// Insert old addr (arg 0 of func).
 								// Just like for free, we need to make sure this has type i8*
@@ -1505,7 +1519,7 @@ namespace {
 							}
 
 							else if(called_func && called_func->getName() == "fscanf") {
-								LOG_DEBUG() << "found call to fscanf\n";
+								LOG_DEBUG() << "inst is call to fscanf\n";
 
 								// for each of the values we are writing to, we'll use logStoreInstConst since it will be an address being passed to fscanf
 								for(unsigned idx = 2; idx < ci->getNumArgOperands(); ++idx) {
@@ -1523,7 +1537,7 @@ namespace {
 							}
 
 							else if(called_func && uninstrumented_func_cost_map.find(called_func->getName()) != uninstrumented_func_cost_map.end()) {
-								LOG_DEBUG() << "got call to a library function: " << called_func->getName() << "\n";
+								LOG_DEBUG() << "inst is call to ''library'' function: " << called_func->getName() << "\n";
 
 								// cost of the lib function
 								args.push_back(ConstantInt::get(types.i32(),uninstrumented_func_cost_map[called_func->getName()]));
@@ -1548,13 +1562,13 @@ namespace {
 								for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
 									Value* operand = ci->getArgOperand(q);
 
-									LOG_DEBUG() << "lib op " << q << ": " << *operand << "\n";
 
 									if(!isa<ConstantInt>(operand) && !isa<ConstantFP>(operand)) {
+										LOG_DEBUG() << "adding argument: " << q << "\n";
 										args.push_back(ConstantInt::get(types.i32(),inst_to_id[ci->getArgOperand(q)])); // dest ID
 									}
 									else {
-										LOG_DEBUG() << "skipping constant operand\n";
+										LOG_DEBUG() << "skipping cosntant argument: " << q << "\n";
 									}
 								}
 
@@ -1584,7 +1598,7 @@ namespace {
 
 								LOG_DEBUG() << "joined blocks contents of " << blk->getName() << ":" << "\n";
 								foreach(Instruction* inst, joined_blks)
-									LOG_DEBUG() << *inst << "\n";
+									LOG_DEBUG() << PRINT_VALUE(*inst) << "\n";
 								LOG_DEBUG() << "\n";
 
 								//TODO: Need to handle if we put something in the front. If we do this, ours needs to go into the front instead of the back.
@@ -1597,7 +1611,7 @@ namespace {
 									}
 								}
 
-								LOG_DEBUG() << "inserting invokeThrew before " << *insert_before << "\n";
+								LOG_DEBUG() << "inserting invokeThrew before " << PRINT_VALUE(*insert_before) << "\n";
 
 								inst_calls_end.addCallInstBefore(insert_before, "invokeThrew", args);
 							}
@@ -1615,7 +1629,7 @@ namespace {
 
 						// store is either logStoreInst or logStoreInstConst (if storing a constant)
 						else if(isa<StoreInst>(i)) {
-							LOG_DEBUG() << "got a store inst: " << *i << "\n";
+							LOG_DEBUG() << "inst is a store inst\n";
 
 							StoreInst* si = cast<StoreInst>(i);
 
@@ -1738,21 +1752,23 @@ namespace {
 
 						else if(isa<ReturnInst>(i)) {
 							ReturnInst* ri = cast<ReturnInst>(i);
+							LOG_DEBUG() << "inst is a return\n";
 
 							if(returnsRealValue(func) // make sure this returns a non-pointer
 							  && ri->getNumOperands() != 0) { // and that it isn't returning void
-								LOG_DEBUG() << "return value will return: " << *ri->getReturnValue(0) << "\n";
-
-								if(isa<Constant>(ri->getReturnValue(0)))
+								if(isa<Constant>(ri->getReturnValue(0))) {
 									inst_calls_end.addCallInst(i,"logFuncReturnConst",args);
+									LOG_DEBUG() << "returning const value\n";
+								}
 								else {
 									args.push_back(ConstantInt::get(types.i32(),inst_to_id[ri->getReturnValue(0)])); // src ID
 
 									inst_calls_end.addCallInst(i,"logFuncReturn",args);
+									LOG_DEBUG() << "returning non-const value\n";
 								}
 							}
 							else {
-								LOG_DEBUG() << "returning void\n";
+								LOG_DEBUG() << "void or pointer return not logged\n";
 							}
 
 							args.clear();
@@ -1767,7 +1783,7 @@ namespace {
 						assert(phi && "expected phi node but didn't get one!");
 
 						if(canon_indvs.find(phi) == canon_indvs.end()) {
-							LOG_DEBUG() << "processing phi node: " << *i << "\n";
+							LOG_DEBUG() << "processing phi node: " << PRINT_VALUE(*i) << "\n";
 
 							PHINode* phi = cast<PHINode>(i);
 							//LOG_DEBUG() << "phi node with number of incoming edges of " << phi->getNumIncomingValues() << "\n";
@@ -2062,12 +2078,12 @@ namespace {
 						else if(SwitchInst* sw_inst = dyn_cast<SwitchInst>(controller->getTerminator())) {
 							cond_id = inst_to_id[sw_inst->getCondition()];
 						}
-						else if(/*InvokeInst* invoke_inst = */dyn_cast<InvokeInst>(controller->getTerminator())) {
+						else if(dyn_cast<InvokeInst>(controller->getTerminator())) {
 							//TODO: Get the condition of the exception that was thrown
 							continue;
 						}
 						else {
-							LOG_DEBUG() << "controlling terminator (" << controller->getTerminator()->getName() << ": " << *controller->getTerminator() << ") is not a branch or switch. what is it???\n";
+							LOG_ERROR() << "controlling terminator (" << controller->getTerminator()->getName() << ": " << PRINT_VALUE(*controller->getTerminator()) << ") is not a branch or switch. what is it???\n";
 							log.close();
 							assert(0);
 						}
@@ -2092,6 +2108,20 @@ namespace {
 				// add calls to BBs (as needed)
 				inst_calls_begin.appendInstCallsToFunc(func);
 				inst_calls_end.appendInstCallsToFunc(func);
+
+				clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&end_time);
+
+				timespec elapsed_time = diff(start_time,end_time);
+
+				long elapsed_time_ms = elapsed_time.tv_nsec / 1000000;
+
+				std::string padding;
+				if(elapsed_time_ms < 10) padding = "00";
+				else if(elapsed_time_ms < 100) padding = "0";
+				else padding = "";
+
+
+				LOG_DEBUG() << "elapsed time for instrumenting " << func->getName() << ": " << elapsed_time.tv_sec << "." << padding << elapsed_time_ms << " s\n";
 			}
 
             foreach(InstrumentationCall& c, instrumentationCalls)

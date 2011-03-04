@@ -13,7 +13,8 @@ PassLog::PassLog()
 	std::string error_message;
 
 	// Allocate the output stream.
-	os.reset(new ostream(std::cerr));
+	os.reset(new os_ostream(std::cerr));
+	ns = new PassLog::nstream();
 
 	// Logs should be unbuffered.
 	os->SetUnbuffered();
@@ -97,6 +98,7 @@ PassLog& PassLog::get()
 void PassLog::close()
 {
 	os.reset();
+	delete ns;
 	delete singleton;
 	singleton = NULL;
 }

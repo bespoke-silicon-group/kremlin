@@ -361,14 +361,18 @@ namespace {
 					BranchInst::Create(target,pre_exit);
 
 					// If we are instrumenting loop bodies, we need a call to logRegionExit for the loop body region before exiting the loop region.
-					// We don't want to insert the call if the exiting_bb is the loop header because this implies the header isn't part of the
-					// loop body. If we did insert logRegionExit here there is a path that will go through logRegionExit for the loop body but
-					// not logRegionEntry
-					if(loopBodyRegions && exiting_bb != loop_header) {
+					// We don't want to insert the call if the exiting_bb is the loop header because this implies the header is part of the
+					// loop body. If we did insert logRegionExit here and the loop header isn't part of the body, there is a path that will go through 
+					// logRegionExit for the loop body but not logRegionEntry for the body.
+					if(loopBodyRegions 
+					  // XXX: Later we assume switch implies header is part of body so we have to insert logRegionExit even if exiting_bb is a header.
+					  && (exiting_bb != loop_header || isa<SwitchInst>(loop_header->getTerminator())) 
+					  ) {
 						CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), "", pre_exit->getTerminator());
+						//if(loopBodyRegions && exiting_bb != loop_header) {
 					}
 
-					// insert call to logRegionExit() right before we leave pre_exit
+					// insert call to logRegionExit() for loop region right before we leave pre_exit
 					CallInst::Create(logRegionExit_func, op_args.begin(), op_args.end(), "", pre_exit->getTerminator());
 
 					// in the target BB, replace all references to exiting_bb with a reference to pre_exit (this will be phi nodes only)
@@ -778,7 +782,7 @@ namespace {
 			if(add_logBBVisit_func)
 			{
 				Constant* func_as_const = m.getOrInsertFunction("logBBVisit", FunctionType::get(types.voidTy(), args, false));
-				log.info() << "func as const: " << *func_as_const << "\n";
+				log.info() << "func as const: " << *func_as_const << "\n"; // XXX: expensive
 				logBBVisit_func = cast<Function>(func_as_const);
 
 				//logBBVisit_func = cast<Function>(m.getOrInsertFunction("logBBVisit", FunctionType::get(types.voidTy(), args, false)));
