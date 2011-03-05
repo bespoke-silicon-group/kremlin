@@ -23,6 +23,8 @@ LoopRegion::LoopRegion(RegionId id, llvm::Loop* loop) :
     id(id)
 {
     Function* func = (*loop->block_begin())->getParent();
+    uint64_t funcStartLine = ULLONG_MAX;
+    uint64_t funcEndLine = ULLONG_MAX;
     DebugInfoFinder debugInfoFinder;
     debugInfoFinder.processModule(*func->getParent());
 
@@ -33,6 +35,7 @@ LoopRegion::LoopRegion(RegionId id, llvm::Loop* loop) :
         {
             fileName = debugInfo.fileName;
             funcName = debugInfo.displayName;
+            funcStartLine = debugInfo.lineNumber;
         }
     }
 
@@ -43,6 +46,17 @@ LoopRegion::LoopRegion(RegionId id, llvm::Loop* loop) :
     {
         CompileUnitDebugInfo compilationDebugInfo(*debugInfoFinder.compile_unit_begin());
         fileName = compilationDebugInfo.fileName;
+    }
+
+    // Look for the next function's start line number. This will be our
+    // function's end line number.
+    for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
+    {
+        SubprogramDebugInfo debugInfo(*it);
+        if(debugInfo.func != func && debugInfo.lineNumber >= funcStartLine)
+        {
+            funcEndLine = std::min(funcEndLine, (uint64_t)debugInfo.lineNumber);
+        }
     }
 
     std::cerr << "Meta data for " << id << std::endl;
@@ -57,8 +71,12 @@ LoopRegion::LoopRegion(RegionId id, llvm::Loop* loop) :
                 DILocation Loc(N);                      // get location info from metadata
                 unsigned line_no = Loc.getLineNumber();
 
-                startLine = std::min(startLine,line_no);
-                endLine = std::max(endLine,line_no);
+                // Only update if within bounds of our function
+                if(line_no >= funcStartLine && line_no <= funcEndLine)
+                {
+                    startLine = std::min(startLine,line_no);
+                    endLine = std::max(endLine,line_no);
+                }
             }
         }
 }

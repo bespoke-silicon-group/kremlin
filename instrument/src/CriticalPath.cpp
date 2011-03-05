@@ -1578,7 +1578,7 @@ namespace {
 							}
 						} // end callinst
 
-						else if((ii = dyn_cast<InvokeInst>(i)) && ii->getCalledFunction()->getName() != CPP_THROW_FUNC)
+						else if((ii = dyn_cast<InvokeInst>(i)))
                         {
 							static int invoke_id = 0;
 							ConstantInt* invoke_id_const = ConstantInt::get(types.i32(),invoke_id++);
