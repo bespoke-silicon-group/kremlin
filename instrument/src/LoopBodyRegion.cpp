@@ -25,6 +25,8 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
 {
 	Function* func = (*loop->block_begin())->getParent();
 	DebugInfoFinder debugInfoFinder;
+    uint64_t funcStartLine = ULLONG_MAX;
+    uint64_t funcEndLine = ULLONG_MAX;
 	debugInfoFinder.processModule(*func->getParent());
 
 	for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
@@ -34,6 +36,7 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
 		{
 			fileName = debugInfo.fileName;
 			funcName = debugInfo.displayName;
+            funcStartLine = debugInfo.lineNumber;
 		}
 	}
 
@@ -45,6 +48,17 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
 		CompileUnitDebugInfo compilationDebugInfo(*debugInfoFinder.compile_unit_begin());
 		fileName = compilationDebugInfo.fileName;
 	}
+
+    // Look for the next function's start line number. This will be our
+    // function's end line number.
+    for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
+    {
+        SubprogramDebugInfo debugInfo(*it);
+        if(debugInfo.func != func && debugInfo.lineNumber >= funcStartLine)
+        {
+            funcEndLine = std::min(funcEndLine, (uint64_t)debugInfo.lineNumber);
+        }
+    }
 
 	LOG_DEBUG() << "Meta data for " << id << "\n";
 
@@ -59,8 +73,12 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
 
 				unsigned line_no = loc.getLineNumber();
 
-				startLine = std::min(startLine,line_no);
-				endLine = std::max(endLine,line_no);
+                // Only update if within bounds of our function
+                if(line_no >= funcStartLine && line_no <= funcEndLine)
+                {
+                    startLine = std::min(startLine,line_no);
+                    endLine = std::max(endLine,line_no);
+                }
 			}
 		}
 }
