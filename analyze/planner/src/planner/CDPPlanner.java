@@ -24,6 +24,10 @@ public class CDPPlanner {
 		this.overhead = target.overhead;
 	}
 	
+	protected long getTotalTime() {
+		return analyzer.getRoot().getTotalWork();
+	}
+	
 	protected double getParallelTime(CRegion region) {
 		double spSpeedup = (this.maxCore < region.getSelfParallelism()) ? maxCore : region.getSelfParallelism();
 		double parallelTime = region.getAvgWork() / spSpeedup + overhead;
@@ -64,7 +68,7 @@ public class CDPPlanner {
 			
 			double parallelTime = this.getParallelTime(current);
 			double speedup = current.getAvgWork() / parallelTime;
-			double coverage = ((double)current.getTotalWork() / (double)root.getTotalWork()) * 100.0;
+			double coverage = ((double)current.getTotalWork() / (double)getTotalTime()) * 100.0;
 			double selfPoint = coverage - coverage / speedup;
 					 
 			if (toExclude.contains(current))

@@ -13,7 +13,8 @@ public class Target {
 	}
 	
 	public String toString() {
-		return String.format("NumCore = %d, Overhead = %d", numCore, overhead);
+		return String.format("NumCore = %d, Overhead = %d,  Cache = %d MB, BW= %d MB/s", 
+				numCore, overhead, cacheMB, bwMB);
 	}
 	
 	public void setClock(int clock) {

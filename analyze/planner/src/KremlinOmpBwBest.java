@@ -21,7 +21,7 @@ public class KremlinOmpBwBest {
 		int overhead = 1024;
 		int clockMHz = 2440;
 		int bwMB = 10000;
-		int totalCacheMB = 16;
+		int totalCacheMB = 0;
 		 
 		if (args.length < 1) {			
 			//baseDir = ".";
@@ -54,9 +54,12 @@ public class KremlinOmpBwBest {
 		target.setCache(totalCacheMB);
 		
 		
-		BWPlannerBest planner = new BWPlannerBest(cManager, target);
+		BWPlanner planner = new BWPlanner(cManager, target);
 		Plan plan = planner.plan(excludeSet);		
-		PlanPrinter.print(cManager, plan);		
+		PlanPrinter.print(cManager, plan);
+		double bwSpeedup = (double)cManager.getRoot().getTotalWork() / (double)planner.getBwLimitedTime();
+		System.out.printf("bwspeedup = %.2f\n", bwSpeedup);
+		
 	}	
 	
 	public static Set<CRegion> getNonLoopSet(CRegionManager manager) {

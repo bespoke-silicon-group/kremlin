@@ -144,6 +144,17 @@ public class CRegionManager {
 		return this.root;
 	}
 	
+	public Set<CRegion> getLeafSet() {
+		Set<CRegion> ret = new HashSet<CRegion>();
+		for (SRegion key : cRegionMap.keySet()) {
+			for (CRegion each : cRegionMap.get(key)) {
+				if (each.getChildrenSet().size() == 0)
+					ret.add(each);
+			}						
+		}
+		return ret;
+	}
+	
 	public Set<CRegion> getCRegionSet() {
 		Set<CRegion> ret = new HashSet<CRegion>();
 		for (SRegion key : cRegionMap.keySet()) {
