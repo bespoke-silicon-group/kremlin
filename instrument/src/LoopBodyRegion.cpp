@@ -19,6 +19,7 @@ typedef std::pair<unsigned, MDNode*> AllMetaType;
 
 const std::string LoopBodyRegion::REGION_NAME = "loop_body";
 
+// TODO: refactor so there isn't a ton of code duplication between this and LoopRegion.cpp
 LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) : 
 	loop(loop),
 	id(id)
@@ -63,14 +64,13 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
 	LOG_DEBUG() << "Meta data for " << id << "\n";
 
 	// Get the line numbers from the set of instructions.
-	startLine = UINT_MAX;
-	endLine = 0;
+    unsigned int startLine_candidate = startLine = UINT_MAX;
+    unsigned int endLine_candidate = endLine = 0;
 	foreach(BasicBlock* bb, loop->getBlocks())
 		foreach(Instruction& inst, *bb)
 		{
 			if (MDNode *N = inst.getMetadata("dbg")) {  // grab debug metadata from inst
 				DILocation loc(N);                      // get location info from metadata
-
 				unsigned line_no = loc.getLineNumber();
 
                 // Only update if within bounds of our function
@@ -79,8 +79,20 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
                     startLine = std::min(startLine,line_no);
                     endLine = std::max(endLine,line_no);
                 }
+
+                startLine_candidate = std::min(startLine_candidate,line_no);
+                endLine_candidate = std::max(endLine_candidate,line_no);
 			}
 		}
+
+	// If we haven't set the startLine it means we have an inlined loop
+	// whose "true" containing function was not nested inside a loop in
+	// the function it was inlined into. In this case, we just use the
+	// line numbers from the "true" containing function.
+	if(startLine == UINT_MAX) {
+		startLine = startLine_candidate;
+		endLine = endLine_candidate;
+	}
 }
 
 LoopBodyRegion::~LoopBodyRegion()
