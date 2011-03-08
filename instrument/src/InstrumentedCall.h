@@ -17,7 +17,7 @@ class InstrumentedCall : public FormattableToString, public InstrumentationCall
     public:
     static llvm::Function* untangleCall(Callable* ci);
 
-    InstrumentedCall(Callable* ci);
+    InstrumentedCall(Callable* ci, uint64_t bb_call_idx);
     virtual ~InstrumentedCall();
 
     virtual std::string& formatToString(std::string& buf) const;

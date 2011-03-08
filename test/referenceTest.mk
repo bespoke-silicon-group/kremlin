@@ -1,3 +1,14 @@
+# ---------------------------------------------------------------------------
+# Defines tests to build and test reference files. These are the assumed
+# correct output files.
+#
+# The following build rules are added:
+# ------------------------------------
+# make referenceBuild.out 
+# make referenceCheck.out
+#
+# ---------------------------------------------------------------------------
+
 # The name of the build output.
 REFERENCE_BUILD_OUTPUT = referenceBuild.out
 

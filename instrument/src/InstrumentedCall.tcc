@@ -8,14 +8,15 @@
 #include "InstrumentedCall.h"
 #include "PassLog.h"
 #include "LLVMTypes.h"
+#include "ids/CallSiteIdGenerator.h"
 
 using namespace llvm;
 
 template <typename Callable>
-InstrumentedCall<Callable>::InstrumentedCall(Callable* ci) : 
+InstrumentedCall<Callable>::InstrumentedCall(Callable* ci, uint64_t bb_call_idx) :
     InstrumentationCall(NULL, NULL, INSERT_BEFORE, NULL),
     ci(ci),
-    id(UuidToIntAdapter<uint64_t>::get(boost::uuids::random_generator()()))
+    id(CallSiteIdGenerator::generate(ci, bb_call_idx))
 {
 }
 

@@ -7,6 +7,8 @@
 #
 ##===----------------------------------------------------------------------===##
 
+KREMLIN_MAKEFILE := $(lastword $(MAKEFILE_LIST))
+
 LEVEL = ../llvm/2.8-obj/
 LIBRARYNAME = KremlinInstrument
 LOADABLE_MODULE = 1
@@ -19,6 +21,9 @@ REQUIRES_EH = 1
 LLVM_INSTALL_DIR = ../llvm/install
 LLVM_INSTALL_BIN_DIR = $(LLVM_INSTALL_DIR)/bin
 LLVM_INSTALL_LIB_DIR = $(LLVM_INSTALL_DIR)/lib
+
+# Override the sources
+SOURCES = $(shell find . -name '*.cpp')
 
 # Override the project directory to this one.
 override PROJ_SRC_DIR = .
@@ -48,3 +53,11 @@ endif
 
 include $(LEVEL)/Makefile.common
 
+BUILD_DIRS = $(addprefix $(ObjDir)/, $(dir $(SOURCES)))
+BUILD_DIRS_RULE = build-dirs
+$(BUILD_DIRS_RULE): 
+	@echo "kremlin makefile: $(KREMLIN_MAKEFILE)"
+	mkdir -p $(BUILD_DIRS)
+	make -f $(KREMLIN_MAKEFILE) $(LibName.SO)
+
+.DEFAULT_GOAL = build-dirs

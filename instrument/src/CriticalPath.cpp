@@ -38,7 +38,6 @@
 #include "UnaryFunctionConst.h"
 #include "InstrumentationFuncManager.h"
 #include "LLVMTypes.h"
-#include "UuidToIntAdapter.h"
 #include "InstrumentationCall.h"
 #include "InstrumentedCall.h"
 
@@ -753,7 +752,7 @@ namespace {
 		}
 
 		template <typename Callable>
-		void instrumentCall(Callable* ci, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& front) {
+		void instrumentCall(Callable* ci, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& front, uint64_t bb_call_idx) {
 			LLVMTypes types(ci->getContext());
 			std::vector<Value*> args;
 
@@ -768,7 +767,7 @@ namespace {
 
 				// insert call to prepareCall to setup the structures needed to pass arg and return info efficiently
                 InstrumentedCall<Callable>* instrumented_call;
-                instrumentationCalls.push_back(instrumented_call = new InstrumentedCall<Callable>(ci));
+                instrumentationCalls.push_back(instrumented_call = new InstrumentedCall<Callable>(ci, bb_call_idx));
 
                 args.push_back(ConstantInt::get(types.i64(),instrumented_call->getId()));   // Call site ID
                 args.push_back(ConstantInt::get(types.i64(),0));                            // ID of region being called. TODO: Implement
@@ -1187,12 +1186,8 @@ namespace {
 
 				unsigned int curr_id = 1;
 
-				boost::uuids::nil_generator nil_generator;
-				boost::uuids::name_generator uuid_generator(nil_generator());
-				
 				//get the start op_id for this function
 				//unsigned int op_id_start = op_id;
-
 				
 				foreach(BasicBlock& blk, *func)
 					getBasicBlockId(&blk);
@@ -1233,7 +1228,7 @@ namespace {
 					//LOG_DEBUG() << "processing BB: " << PRINT_VALUE(*blk);
 
 					InvokeInst* ii;
-
+                    uint64_t bb_call_idx = 0;
 					for (BasicBlock::iterator i = blk->getFirstNonPHI(), inst_end = blk->end(); i != inst_end; ++i) {
 
 						LOG_DEBUG() << "processing inst: " << PRINT_VALUE(*i) << "\n";
@@ -1450,7 +1445,7 @@ namespace {
                         // Making any calls after the value has been allocated will corrupt the value.
 						else if(isa<CallInst>(i) && !isThrowCall(cast<CallInst>(i))) {
 							CallInst* ci = cast<CallInst>(i);
-							instrumentCall(ci, inst_to_id, inst_calls_begin);
+							instrumentCall(ci, inst_to_id, inst_calls_begin, bb_call_idx++);
 
 							Function* called_func = untangleCall(ci);
 
@@ -1624,7 +1619,7 @@ namespace {
 							}
 
 							args.clear();
-							instrumentCall(ii, inst_to_id, inst_calls_begin);
+							instrumentCall(ii, inst_to_id, inst_calls_begin, bb_call_idx++);
 						} // end invokeinst
 
 						// store is either logStoreInst or logStoreInstConst (if storing a constant)
