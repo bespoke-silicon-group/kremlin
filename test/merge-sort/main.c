@@ -5,6 +5,10 @@
 #define MIN_ARGS 1
 #define ARG_COUNT 1
 
+#ifndef SEED
+#define SEED time(NULL)
+#endif /* SEED */
+
 int main(int argc, char* argv[])
 {
 	int i;
@@ -22,7 +26,7 @@ int main(int argc, char* argv[])
 	int* temp_array = (int*)malloc(sizeof(int) * count);
 
 	// Set the random seed.
-	srand(time(NULL));
+	srand(SEED);
 
 	// Initialize to random numbers
 	for(i = 0; i < count; i++)

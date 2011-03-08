@@ -1,0 +1,19 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction = Infinity% coverage = Infinity%, sp =  1.25 [ 1.25 -  1.25], tp = 1.25
+      avg work = 5.00, cp = 4.00, count =     1
+  FUNC   main.cpp [   4 -    4]:      throws called at file   main.cpp, line   14
+  FUNC   main.cpp [  10 -   10]:  not_catching called at file   main.cpp, line   27
+
+[  1] reduction = Infinity% coverage = Infinity%, sp =  2.80 [ 2.80 -  2.80], tp = 2.80
+      avg work = 14.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  10 -   10]:  not_catching called at file   main.cpp, line   27
+
+[  2] reduction =   NaN% coverage =   NaN%, sp =   NaN [ 0.00 -  0.00], tp = NaN
+      avg work = 0.00, cp = 0.00, count =     1
+  LOOP       root [   0 -    0]:        root
+
+[  3] reduction =   NaN% coverage = Infinity%, sp =  1.00 [ 1.00 -  1.00], tp = 2.80
+      avg work = 14.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  23 -   23]:        main called at file       root, line    0
+

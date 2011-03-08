@@ -1,0 +1,214 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction = 98.04% coverage = 100.00%, sp = 51.00 [51.00 - 51.00], tp = 51.00
+      avg work = 51.00, cp = 1.00, count =     1
+  FUNC     main.c [   9 -    9]:        main called at file       root, line    0
+
+[  1] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   36
+
+[  2] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   35
+
+[  3] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   53
+
+[  4] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   39
+
+[  5] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   17
+
+[  6] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   54
+
+[  7] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   40
+
+[  8] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   50
+
+[  9] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   37
+
+[ 10] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   18
+
+[ 11] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   60
+
+[ 12] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   11
+
+[ 13] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   49
+
+[ 14] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   52
+
+[ 15] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   45
+
+[ 16] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   12
+
+[ 17] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   19
+
+[ 18] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   58
+
+[ 19] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   21
+
+[ 20] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   15
+
+[ 21] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   44
+
+[ 22] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   33
+
+[ 23] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   22
+
+[ 24] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   41
+
+[ 25] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   42
+
+[ 26] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   43
+
+[ 27] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   25
+
+[ 28] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   57
+
+[ 29] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   13
+
+[ 30] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   34
+
+[ 31] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   26
+
+[ 32] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   29
+
+[ 33] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   24
+
+[ 34] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   51
+
+[ 35] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   55
+
+[ 36] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   38
+
+[ 37] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   10
+
+[ 38] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   31
+
+[ 39] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   27
+
+[ 40] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   14
+
+[ 41] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   46
+
+[ 42] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   20
+
+[ 43] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   56
+
+[ 44] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   59
+
+[ 45] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   30
+
+[ 46] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   16
+
+[ 47] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   23
+
+[ 48] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   28
+
+[ 49] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   32
+
+[ 50] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   48
+
+[ 51] reduction =  0.00% coverage =  1.96%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC     main.c [   4 -    4]:   increment called at file     main.c, line   47
+
+[ 52] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 51.00
+      avg work = 51.00, cp = 1.00, count =     1
+  LOOP       root [   0 -    0]:        root
+

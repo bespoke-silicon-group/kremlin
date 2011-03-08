@@ -2,7 +2,7 @@
 REFERENCE_BUILD_OUTPUT = referenceBuild.out
 
 # The name of the check output.
-REFERENCE_CHECK_OUTPUT = referenceCheck.output
+REFERENCE_CHECK_OUTPUT = referenceCheck.out
 
 # The build summary.
 REFERENCE_BUILD_RESULT = referenceBuild.out
@@ -20,7 +20,7 @@ REFERENCE_BUILD_OUTPUTS = $(addsuffix $(REFERENCE_BUILD_OUTPUT), $(TEST_DIRECTOR
 #  Rules (alpha order)
 # ---------------------------------------------------------------------------
 
-.PHONY: $(REFERENCE_BUILD_OUTPUTS) $(REFERENCE_RESULT)
+.PHONY: $(REFERENCE_BUILD_OUTPUTS) $(REFERENCE_CHECK_RESULT) $(REFERENCE_CHECK_OUTPUTS) $(REFERENCE_BUILD_RESULT)
 
 # Checks a run against the reference file.
 $(REFERENCE_CHECK_OUTPUTS):

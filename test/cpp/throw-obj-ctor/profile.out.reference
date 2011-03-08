@@ -1,0 +1,19 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction = 42.86% coverage = 100.00%, sp =  1.75 [ 1.75 -  1.75], tp = 2.33
+      avg work = 14.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  39 -   39]:        main called at file       root, line    0
+
+[  1] reduction = 28.57% coverage = 64.29%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  19 -   19]:         Obj called at file   main.cpp, line   43
+
+[  2] reduction =  0.00% coverage = 28.57%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     1
+  FUNC   main.cpp [   9 -    9]:  ThrowingObj called at file   main.cpp, line   21
+  FUNC   main.cpp [  19 -   19]:         Obj called at file   main.cpp, line   43
+
+[  3] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 2.33
+      avg work = 14.00, cp = 6.00, count =     1
+  LOOP       root [   0 -    0]:        root
+

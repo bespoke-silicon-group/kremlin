@@ -1,0 +1,26 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction = 33.33% coverage = 100.00%, sp =  1.50 [ 1.50 -  1.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC     main.c [   5 -    5]:        main called at file       root, line    0
+
+[  1] reduction = 26.67% coverage = 66.67%, sp =  1.67 [ 1.66 -  1.66], tp = 1.67
+      avg work = 5.00, cp = 3.00, count =     2
+  BODY     main.c [  16 -   24]:        main
+
+[  2] reduction = 26.67% coverage = 66.67%, sp =  1.67 [ 1.66 -  1.66], tp = 2.50
+      avg work = 10.00, cp = 4.00, count =     1
+  LOOP     main.c [  16 -   24]:        main
+
+[  3] reduction =  0.00% coverage = 13.33%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 2.00, cp = 2.00, count =     1
+  FUNC     main.c [   1 -    1]:     multBy2 called at file     main.c, line    8
+
+[  4] reduction =  0.00% coverage = 13.33%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 2.00, cp = 2.00, count =     1
+  FUNC     main.c [   1 -    1]:     multBy2 called at file     main.c, line    9
+
+[  5] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  LOOP       root [   0 -    0]:        root
+

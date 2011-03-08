@@ -4,6 +4,9 @@
 *.o
 *.s
 *.swp
+referenceCheck.out
+referenceBuild.out
+profile.out
 Makefile.kremlin
 a.out
 bb.info
@@ -19,3 +22,7 @@ region_id-to-func_name.txt
 regions.info
 sregions.txt
 testResults.txt
+foobarExecutable
+someAssemblyFile
+someObjectFile
+someExecutable

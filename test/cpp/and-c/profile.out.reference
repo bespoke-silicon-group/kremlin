@@ -1,0 +1,18 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction =   NaN% coverage =   NaN%, sp =   NaN [ 0.00 -  0.00], tp = NaN
+      avg work = 0.00, cp = 0.00, count =     1
+  FUNC cPrintHelloWorld.c [   4 -    4]:  cPrintHelloWorld called at file   main.cpp, line   12
+
+[  1] reduction =   NaN% coverage =   NaN%, sp =   NaN [ 0.00 -  0.00], tp = NaN
+      avg work = 0.00, cp = 0.00, count =     1
+  FUNC   main.cpp [   4 -    4]:  cppPrintHelloWorld called at file   main.cpp, line   11
+
+[  2] reduction =   NaN% coverage =   NaN%, sp =   NaN [ 0.00 -  0.00], tp = NaN
+      avg work = 0.00, cp = 0.00, count =     1
+  LOOP       root [   0 -    0]:        root
+
+[  3] reduction =   NaN% coverage =   NaN%, sp =   NaN [ 0.00 -  0.00], tp = NaN
+      avg work = 0.00, cp = 0.00, count =     1
+  FUNC   main.cpp [   9 -    9]:        main called at file       root, line    0
+

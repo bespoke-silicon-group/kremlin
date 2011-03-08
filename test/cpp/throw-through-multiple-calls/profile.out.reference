@@ -1,0 +1,109 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction = 16.67% coverage = 100.00%, sp =  1.20 [ 1.20 -  1.20], tp = 1.20
+      avg work = 6.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  31 -   31]:        main called at file       root, line    0
+
+[  1] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[  2] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[  3] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [   3 -    3]:      throws called at file   main.cpp, line   29
+  FUNC   main.cpp [  29 -   29]:  callThrows9 called at file   main.cpp, line   28
+  FUNC   main.cpp [  28 -   28]:  callThrows8 called at file   main.cpp, line   27
+  FUNC   main.cpp [  27 -   27]:  callThrows7 called at file   main.cpp, line   26
+  FUNC   main.cpp [  26 -   26]:  callThrows6 called at file   main.cpp, line   25
+  FUNC   main.cpp [  25 -   25]:  callThrows5 called at file   main.cpp, line   24
+  FUNC   main.cpp [  24 -   24]:  callThrows4 called at file   main.cpp, line   23
+  FUNC   main.cpp [  23 -   23]:  callThrows3 called at file   main.cpp, line   22
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[  4] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  25 -   25]:  callThrows5 called at file   main.cpp, line   24
+  FUNC   main.cpp [  24 -   24]:  callThrows4 called at file   main.cpp, line   23
+  FUNC   main.cpp [  23 -   23]:  callThrows3 called at file   main.cpp, line   22
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[  5] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  27 -   27]:  callThrows7 called at file   main.cpp, line   26
+  FUNC   main.cpp [  26 -   26]:  callThrows6 called at file   main.cpp, line   25
+  FUNC   main.cpp [  25 -   25]:  callThrows5 called at file   main.cpp, line   24
+  FUNC   main.cpp [  24 -   24]:  callThrows4 called at file   main.cpp, line   23
+  FUNC   main.cpp [  23 -   23]:  callThrows3 called at file   main.cpp, line   22
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[  6] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  24 -   24]:  callThrows4 called at file   main.cpp, line   23
+  FUNC   main.cpp [  23 -   23]:  callThrows3 called at file   main.cpp, line   22
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[  7] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  28 -   28]:  callThrows8 called at file   main.cpp, line   27
+  FUNC   main.cpp [  27 -   27]:  callThrows7 called at file   main.cpp, line   26
+  FUNC   main.cpp [  26 -   26]:  callThrows6 called at file   main.cpp, line   25
+  FUNC   main.cpp [  25 -   25]:  callThrows5 called at file   main.cpp, line   24
+  FUNC   main.cpp [  24 -   24]:  callThrows4 called at file   main.cpp, line   23
+  FUNC   main.cpp [  23 -   23]:  callThrows3 called at file   main.cpp, line   22
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[  8] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  29 -   29]:  callThrows9 called at file   main.cpp, line   28
+  FUNC   main.cpp [  28 -   28]:  callThrows8 called at file   main.cpp, line   27
+  FUNC   main.cpp [  27 -   27]:  callThrows7 called at file   main.cpp, line   26
+  FUNC   main.cpp [  26 -   26]:  callThrows6 called at file   main.cpp, line   25
+  FUNC   main.cpp [  25 -   25]:  callThrows5 called at file   main.cpp, line   24
+  FUNC   main.cpp [  24 -   24]:  callThrows4 called at file   main.cpp, line   23
+  FUNC   main.cpp [  23 -   23]:  callThrows3 called at file   main.cpp, line   22
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[  9] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[ 10] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  23 -   23]:  callThrows3 called at file   main.cpp, line   22
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[ 11] reduction =  0.00% coverage = 16.67%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  26 -   26]:  callThrows6 called at file   main.cpp, line   25
+  FUNC   main.cpp [  25 -   25]:  callThrows5 called at file   main.cpp, line   24
+  FUNC   main.cpp [  24 -   24]:  callThrows4 called at file   main.cpp, line   23
+  FUNC   main.cpp [  23 -   23]:  callThrows3 called at file   main.cpp, line   22
+  FUNC   main.cpp [  22 -   22]:  callThrows2 called at file   main.cpp, line   21
+  FUNC   main.cpp [  21 -   21]:  callThrows1 called at file   main.cpp, line   20
+  FUNC   main.cpp [  20 -   20]:  callThrows0 called at file   main.cpp, line   36
+
+[ 12] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 1.20
+      avg work = 6.00, cp = 5.00, count =     1
+  LOOP       root [   0 -    0]:        root
+

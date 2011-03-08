@@ -1,0 +1,46 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction = 31.25% coverage = 53.13%, sp =  2.43 [ 2.42 -  2.42], tp = 4.86
+      avg work = 34.00, cp = 7.00, count =     1
+  LOOP     main.c [  20 -   23]:  sneakyReducer
+  FUNC     main.c [  16 -   16]:  sneakyReducer called at file     main.c, line   45
+
+[  1] reduction = 28.13% coverage = 46.88%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 10.00, cp = 4.00, count =     3
+  BODY     main.c [  20 -   23]:  sneakyReducer
+  FUNC     main.c [  16 -   16]:  sneakyReducer called at file     main.c, line   45
+
+[  2] reduction = 25.00% coverage = 100.00%, sp =  1.33 [ 1.33 -  1.33], tp = 4.00
+      avg work = 64.00, cp = 16.00, count =     1
+  FUNC     main.c [  28 -   28]:        main called at file       root, line    0
+
+[  3] reduction = 20.31% coverage = 62.50%, sp =  1.48 [ 1.48 -  1.48], tp = 4.44
+      avg work = 40.00, cp = 9.00, count =     1
+  FUNC     main.c [  16 -   16]:  sneakyReducer called at file     main.c, line   45
+
+[  4] reduction = 17.19% coverage = 29.69%, sp =  2.38 [ 2.37 -  2.37], tp = 2.71
+      avg work = 19.00, cp = 7.00, count =     1
+  LOOP     main.c [  10 -   11]:    sumArray
+  FUNC     main.c [   7 -    7]:    sumArray called at file     main.c, line   42
+
+[  5] reduction =  4.69% coverage = 23.44%, sp =  1.25 [ 1.25 -  1.25], tp = 1.25
+      avg work = 5.00, cp = 4.00, count =     3
+  BODY     main.c [  10 -   11]:    sumArray
+  FUNC     main.c [   7 -    7]:    sumArray called at file     main.c, line   42
+
+[  6] reduction =  0.00% coverage = 31.25%, sp =  1.00 [ 1.00 -  1.00], tp = 2.50
+      avg work = 20.00, cp = 8.00, count =     1
+  FUNC     main.c [   7 -    7]:    sumArray called at file     main.c, line   42
+
+[  7] reduction =  0.00% coverage =  6.25%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     1
+  LOOP     main.c [  37 -   39]:        main
+
+[  8] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 4.00
+      avg work = 64.00, cp = 16.00, count =     1
+  LOOP       root [   0 -    0]:        root
+
+[  9] reduction =   NaN% coverage =  0.00%, sp =   NaN [ 0.00 -  0.00], tp = NaN
+      avg work = 0.00, cp = 0.00, count =     3
+  BODY     main.c [  37 -   39]:        main
+

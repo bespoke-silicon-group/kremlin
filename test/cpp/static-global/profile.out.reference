@@ -1,0 +1,18 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction =  0.00% coverage = 80.00%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     1
+  FUNC   main.cpp [  14 -   14]:        getX called at file   main.cpp, line   22
+
+[  1] reduction =  0.00% coverage = 20.00%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  13 -   13]:        setX called at file   main.cpp, line   20
+
+[  2] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     1
+  LOOP       root [   0 -    0]:        root
+
+[  3] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  18 -   18]:        main called at file       root, line    0
+

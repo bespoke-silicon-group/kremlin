@@ -1,0 +1,138 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction = 47.66% coverage = 100.00%, sp =  1.91 [ 1.91 -  1.91], tp = 3.00
+      avg work = 363.00, cp = 121.00, count =     1
+  FUNC   main.cpp [  64 -   64]:        main called at file       root, line    0
+
+[  1] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   69
+
+[  2] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   81
+
+[  3] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   93
+
+[  4] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   72
+
+[  5] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   96
+
+[  6] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   84
+
+[  7] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   75
+
+[  8] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   78
+
+[  9] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   87
+
+[ 10] reduction =  2.48% coverage =  4.13%, sp =  2.50 [ 2.50 -  2.50], tp = 2.50
+      avg work = 15.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  41 -   41]:        push called at file   main.cpp, line   90
+
+[ 11] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  122
+
+[ 12] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  107
+
+[ 13] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  113
+
+[ 14] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  125
+
+[ 15] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  116
+
+[ 16] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  110
+
+[ 17] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line   98
+
+[ 18] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  119
+
+[ 19] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  101
+
+[ 20] reduction =  1.10% coverage =  2.48%, sp =  1.80 [ 1.80 -  1.80], tp = 1.80
+      avg work = 9.00, cp = 5.00, count =     1
+  FUNC   main.cpp [  47 -   47]:         top called at file   main.cpp, line  104
+
+[ 21] reduction =  0.55% coverage =  0.83%, sp =  3.00 [ 3.00 -  3.00], tp = 3.00
+      avg work = 3.00, cp = 1.00, count =     1
+  FUNC   main.cpp [  28 -   28]:       Stack called at file   main.cpp, line   66
+
+[ 22] reduction =  0.28% coverage =  2.75%, sp =  1.11 [ 1.11 -  1.11], tp = 1.11
+      avg work = 10.00, cp = 9.00, count =     1
+  FUNC   main.cpp [  34 -   34]:   _7E_Stack called at file   main.cpp, line  126
+
+[ 23] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  123
+
+[ 24] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  120
+
+[ 25] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  108
+
+[ 26] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  105
+
+[ 27] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line   99
+
+[ 28] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 3.00
+      avg work = 363.00, cp = 121.00, count =     1
+  LOOP       root [   0 -    0]:        root
+
+[ 29] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  102
+
+[ 30] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  114
+
+[ 31] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  126
+
+[ 32] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  111
+
+[ 33] reduction =  0.00% coverage =  1.65%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 6.00, cp = 6.00, count =     1
+  FUNC   main.cpp [  53 -   53]:         pop called at file   main.cpp, line  117
+

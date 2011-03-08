@@ -1,0 +1,22 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction = 14.29% coverage = 100.00%, sp =  1.17 [ 1.16 -  1.16], tp = 1.17
+      avg work = 7.00, cp = 6.00, count =     1
+  FUNC   main.cpp [   8 -    8]:        main called at file       root, line    0
+
+[  1] reduction =  0.00% coverage = 28.57%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 2.00, cp = 2.00, count =     1
+  LOOP   main.cpp [  12 -   13]:        main
+
+[  2] reduction =  0.00% coverage = 14.29%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  BODY   main.cpp [  12 -   13]:        main
+
+[  3] reduction =  0.00% coverage = 14.29%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 1.00, cp = 1.00, count =     1
+  FUNC   main.cpp [   3 -    3]:         foo called at file   main.cpp, line   13
+
+[  4] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 1.17
+      avg work = 7.00, cp = 6.00, count =     1
+  LOOP       root [   0 -    0]:        root
+

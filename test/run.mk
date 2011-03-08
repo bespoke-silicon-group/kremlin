@@ -17,6 +17,8 @@ TEST_RESULTS = testResults.txt
 # mindepth 2 to ignore the makefile in the current directory
 TEST_DIRECTORIES = $(dir $(shell find . -mindepth 2 -name Makefile))
 
+#TEST_DIRECTORIES = ./loop/
+
 # The output file that contains whether a test is correct for a particular
 # test.
 MAKE_RESULT_FILENAME = make.out

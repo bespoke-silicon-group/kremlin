@@ -1,0 +1,422 @@
+Kremlin Profiler Ver 0.1
+
+[  0] reduction =  8.16% coverage = 59.44%, sp =  1.16 [ 1.15 -  1.15], tp = 4.25
+      avg work = 510.00, cp = 120.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  1] reduction =  8.16% coverage = 70.28%, sp =  1.13 [ 1.13 -  1.13], tp = 4.34
+      avg work = 603.00, cp = 139.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  2] reduction =  8.04% coverage = 46.97%, sp =  1.21 [ 1.20 -  1.20], tp = 4.11
+      avg work = 403.00, cp = 98.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  3] reduction =  7.93% coverage = 79.49%, sp =  1.11 [ 1.11 -  1.11], tp = 4.40
+      avg work = 682.00, cp = 155.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  4] reduction =  7.58% coverage = 87.06%, sp =  1.10 [ 1.09 -  1.09], tp = 4.45
+      avg work = 747.00, cp = 168.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  5] reduction =  7.34% coverage = 32.87%, sp =  1.29 [ 1.28 -  1.28], tp = 3.86
+      avg work = 282.00, cp = 73.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  6] reduction =  7.34% coverage = 93.01%, sp =  1.09 [ 1.08 -  1.08], tp = 4.48
+      avg work = 798.00, cp = 178.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  7] reduction =  6.88% coverage = 10.96%, sp =  2.69 [ 2.68 -  2.68], tp = 2.69
+      avg work = 94.00, cp = 35.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  8] reduction =  6.88% coverage = 97.32%, sp =  1.08 [ 1.07 -  1.07], tp = 4.51
+      avg work = 835.00, cp = 185.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[  9] reduction =  6.53% coverage = 100.00%, sp =  1.07 [ 1.06 -  1.06], tp = 4.54
+      avg work = 858.00, cp = 189.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file       root, line    0
+
+[ 10] reduction =  6.18% coverage =  9.91%, sp =  2.66 [ 2.65 -  2.65], tp = 2.66
+      avg work = 85.00, cp = 32.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 11] reduction =  5.48% coverage =  8.86%, sp =  2.62 [ 2.62 -  2.62], tp = 2.62
+      avg work = 76.00, cp = 29.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 12] reduction =  4.78% coverage =  7.81%, sp =  2.58 [ 2.57 -  2.57], tp = 2.58
+      avg work = 67.00, cp = 26.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 13] reduction =  4.31% coverage =  5.94%, sp =  3.64 [ 3.64 -  3.64], tp = 3.64
+      avg work = 51.00, cp = 14.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 14] reduction =  4.08% coverage =  6.76%, sp =  2.52 [ 2.52 -  2.52], tp = 2.52
+      avg work = 58.00, cp = 23.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 15] reduction =  3.85% coverage =  5.36%, sp =  3.54 [ 3.53 -  3.53], tp = 3.54
+      avg work = 46.00, cp = 13.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 16] reduction =  3.38% coverage =  5.71%, sp =  2.45 [ 2.45 -  2.45], tp = 2.45
+      avg work = 49.00, cp = 20.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 17] reduction =  3.38% coverage =  4.78%, sp =  3.42 [ 3.41 -  3.41], tp = 3.42
+      avg work = 41.00, cp = 12.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 18] reduction =  2.91% coverage =  4.20%, sp =  3.27 [ 3.27 -  3.27], tp = 3.27
+      avg work = 36.00, cp = 11.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 19] reduction =  2.68% coverage =  4.66%, sp =  2.35 [ 2.35 -  2.35], tp = 2.35
+      avg work = 40.00, cp = 17.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 20] reduction =  2.45% coverage =  3.61%, sp =  3.10 [ 3.10 -  3.10], tp = 3.10
+      avg work = 31.00, cp = 10.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 21] reduction =  2.10% coverage = 17.13%, sp =  1.14 [ 1.13 -  1.13], tp = 3.27
+      avg work = 147.00, cp = 45.00, count =     1
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 22] reduction =  1.98% coverage =  3.03%, sp =  2.89 [ 2.88 -  2.88], tp = 2.89
+      avg work = 26.00, cp = 9.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 23] reduction =  1.98% coverage =  3.61%, sp =  2.21 [ 2.21 -  2.21], tp = 2.21
+      avg work = 31.00, cp = 14.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 24] reduction =  1.52% coverage =  2.45%, sp =  2.63 [ 2.62 -  2.62], tp = 2.63
+      avg work = 21.00, cp = 8.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 25] reduction =  1.28% coverage =  2.56%, sp =  2.00 [ 2.00 -  2.00], tp = 2.00
+      avg work = 22.00, cp = 11.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 26] reduction =  1.05% coverage =  1.86%, sp =  2.29 [ 2.28 -  2.28], tp = 2.29
+      avg work = 16.00, cp = 7.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 27] reduction =  0.58% coverage =  1.52%, sp =  1.63 [ 1.62 -  1.62], tp = 1.63
+      avg work = 13.00, cp = 8.00, count =     1
+  LOOP     main.c [  12 -   13]:        main
+
+[ 28] reduction =  0.58% coverage =  1.28%, sp =  1.83 [ 1.83 -  1.83], tp = 1.83
+      avg work = 11.00, cp = 6.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 29] reduction =  0.12% coverage =  0.70%, sp =  1.20 [ 1.20 -  1.20], tp = 1.20
+      avg work = 6.00, cp = 5.00, count =     1
+  LOOP     main.c [  21 -   22]:        main
+
+[ 30] reduction =  0.00% coverage =  5.24%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     9
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 31] reduction =  0.00% coverage =  4.66%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     8
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 32] reduction =  0.00% coverage =  0.47%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     1
+  BODY     main.c [  21 -   22]:        main
+
+[ 33] reduction =  0.00% coverage =  0.93%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     2
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 34] reduction =  0.00% coverage =  5.83%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =    10
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 35] reduction =  0.00% coverage =  2.80%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     6
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 36] reduction =  0.00% coverage =  0.58%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     1
+  BODY     main.c [  12 -   13]:        main
+
+[ 37] reduction =  0.00% coverage =  1.17%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     2
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 38] reduction =  0.00% coverage =  2.33%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     5
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 39] reduction =  0.00% coverage =  4.20%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     9
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 40] reduction =  0.00% coverage =  2.33%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     4
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 41] reduction =  0.00% coverage =  1.75%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     3
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 42] reduction =  0.00% coverage =  3.73%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     8
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 43] reduction =  0.00% coverage =  3.26%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     7
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 44] reduction =  0.00% coverage = 100.00%, sp =  1.00 [ 1.00 -  1.00], tp = 4.54
+      avg work = 858.00, cp = 189.00, count =     1
+  LOOP       root [   0 -    0]:        root
+
+[ 45] reduction =  0.00% coverage =  2.91%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     5
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 46] reduction =  0.00% coverage =  4.08%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     7
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 47] reduction =  0.00% coverage =  4.66%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =    10
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 48] reduction =  0.00% coverage =  3.50%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 5.00, cp = 5.00, count =     6
+  BODY     main.c [  12 -   13]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 49] reduction =  0.00% coverage =  1.86%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     4
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
+[ 50] reduction =  0.00% coverage =  1.40%, sp =  1.00 [ 1.00 -  1.00], tp = 1.00
+      avg work = 4.00, cp = 4.00, count =     3
+  BODY     main.c [  21 -   22]:        main
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+  FUNC     main.c [   7 -    7]:        main called at file     main.c, line   19
+
