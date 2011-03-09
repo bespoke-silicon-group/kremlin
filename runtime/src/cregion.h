@@ -11,6 +11,8 @@ typedef struct _cregion_t {
 	UInt64 totalCP;
 	UInt64 tpWork;
 	UInt64 spWork;
+	UInt64 readCnt;
+	UInt64 writeCnt;
 	double minSP;
 	double maxSP;
 	UInt64 numInstance;
