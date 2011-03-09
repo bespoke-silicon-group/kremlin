@@ -31,6 +31,7 @@
 #define FALSE 0
 
 //#define USE_UREGION
+//#define EXTRA_STATS
 
 #ifndef MAX_REGION_LEVEL
 #define MAX_REGION_LEVEL	20		
@@ -71,7 +72,7 @@ typedef struct _RegionField_t {
 	UInt64 readCnt;
 	UInt64 writeCnt;
 	UInt64 readLineCnt;
-	UInt64 readLineCnt;
+	UInt64 writeLineCnt;
 #endif
 } RegionField;
 
