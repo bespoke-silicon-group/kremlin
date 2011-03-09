@@ -68,16 +68,15 @@ extern UInt levelNum;
 // XXX: for PoolMalloc to work, size always must be the same!
 TEntry* allocTEntry(int size) {
     TEntry* entry;
+    size_t spaceToAlloc = sizeof(TEntry);
 
 #ifdef EXTRA_STATS
-    assert(0 && "not supported");
     size_t readVersionSize = sizeof(UInt32) * levelNum;
     size_t readTimeSize = sizeof(UInt64) * levelNum;
     spaceToAlloc += readVersionSize + readTimeSize;
 #endif
     
-    if(!(entry = (TEntry*) malloc(sizeof(TEntry))))
-    //if(!(entry = (TEntry*) PoolMalloc(tEntryPool)))
+    if(!(entry = (TEntry*) malloc(spaceToAlloc)))
     {
         fprintf(stderr, "Failed to alloc TEntry\n");
         assert(0);
@@ -89,7 +88,7 @@ TEntry* allocTEntry(int size) {
     entry->timeArrayLength = levelNum;
 
 #ifdef EXTRA_STATS
-    entry->readVersion = (UInt32*)((unsigned char*)entry->time + timeSize);
+    entry->readVersion = (UInt32*)((unsigned char*)entry + sizesof(TEntry));
     entry->readTime = (UInt64*)((unsigned char*)entry->readVersion + readVersionSize);
 #endif
 
