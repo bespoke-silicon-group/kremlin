@@ -1,6 +1,9 @@
 ifndef LLVM_RULES_MK
 LLVM_RULES_MK = 1
 
+UNROLL_COUNT = 0
+UNROLL_THRESH = 150
+
 # ---------------------------------------------------------------------------
 # Chained rules
 #
@@ -21,6 +24,7 @@ $(call OPT_PASS_RULE,  ,                            -simplifycfg,           EMPT
 $(call OPT_PASS_RULE,  ,                            -O1,               		EMPTY)
 $(call OPT_PASS_RULE,  ,                            -O2,               		EMPTY)
 $(call OPT_PASS_RULE,  ,                            -O3,               		EMPTY)
+$(call OPT_PASS_RULE,  ,                            -loop-unroll,      		--unroll-allow-partial --unroll-count=$(UNROLL_COUNT) --unroll-threshold=$(UNROLL_THRESH))
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -elimsinglephis,        EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -splitbbatfunccall,     EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -uniquify,              EMPTY)
