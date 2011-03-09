@@ -56,6 +56,9 @@ ifneq ($(filter %.f %.f95, $(SOURCES)),)
 LD = $(FC)
 endif # cpp
 
+# How to run the program
+RUN_COMMAND = ./$(TARGET) $(ARGS)
+
 # ---------------------------------------------------------------------------
 # Rules (alpha order)
 # ---------------------------------------------------------------------------
@@ -102,9 +105,10 @@ $(REFERENCE_CHECK_TASK): $(PROFILE_OUT)
 
 # Runs the program.
 $(RUN_TASK): $(TARGET)
-	./$(TARGET) $(ARGS)
+	$(RUN_COMMAND)
 
 # Builds the executable image binary.
 $(TARGET): $(OBJECTS)
 	$(LD) $(LDFLAGS) -o $(TARGET) $(OBJECTS)
 
+include $(REGRESSION_TEST_ROOT)/defaultValgrindTest.mk

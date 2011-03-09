@@ -1,3 +1,4 @@
 REGRESSION_TEST_ROOT = ..
 
+CFLAGS += -DEXTRA_STATS
 include $(REGRESSION_TEST_ROOT)/defaultTest.mk
