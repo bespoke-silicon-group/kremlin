@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "defs.h"
 #include "table.h"
 #include "MemMapAllocator.h"
@@ -68,15 +69,8 @@ extern UInt levelNum;
 // XXX: for PoolMalloc to work, size always must be the same!
 TEntry* allocTEntry(int size) {
     TEntry* entry;
-    size_t spaceToAlloc = sizeof(TEntry);
-
-#ifdef EXTRA_STATS
-    size_t readVersionSize = sizeof(UInt32) * levelNum;
-    size_t readTimeSize = sizeof(UInt64) * levelNum;
-    spaceToAlloc += readVersionSize + readTimeSize;
-#endif
     
-    if(!(entry = (TEntry*) malloc(spaceToAlloc)))
+    if(!(entry = (TEntry*) malloc(sizeof(TEntry))))
     {
         fprintf(stderr, "Failed to alloc TEntry\n");
         assert(0);
@@ -85,22 +79,49 @@ TEntry* allocTEntry(int size) {
 
     entry->version = (UInt32*)calloc(sizeof(UInt32), levelNum);
     entry->time = (UInt64*)calloc(sizeof(UInt64), levelNum);
-    entry->timeArrayLength = levelNum;
 
 #ifdef EXTRA_STATS
-    entry->readVersion = (UInt32*)((unsigned char*)entry + sizesof(TEntry));
-    entry->readTime = (UInt64*)((unsigned char*)entry->readVersion + readVersionSize);
-#endif
+    entry->readVersion = (UInt32*)calloc(sizeof(UInt32), levelNum);
+    entry->readTime = (UInt64*)calloc(sizeof(UInt64), levelNum);
+#endif /* EXTRA_STATS */
+
+    entry->timeArrayLength = levelNum;
 
     return entry;
 }
 
+/**
+ * Allocates enough memory for at least the specified level.
+ * @param entry The TEntry.
+ * @param level The level.
+ */
 void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 {
     if(entry->timeArrayLength < level)
     {
         entry->time = (UInt64*)realloc(entry->time, sizeof(UInt64) * level);
         entry->version = (UInt32*)realloc(entry->version, sizeof(UInt32) * level);
+
+        assert(entry->time);
+        assert(entry->version);
+
+
+#ifdef EXTRA_STATS
+
+        UInt32 lastSize = entry->timeArrayLength;
+        entry->readTime = (UInt64*)realloc(entry->readTime, sizeof(UInt64) * level);
+        entry->readVersion = (UInt32*)realloc(entry->readVersion, sizeof(UInt32) * level);
+
+        bzero(entry->version + lastSize, sizeof(UInt32) * (level - lastSize));
+
+        assert(entry->readTime);
+        assert(entry->readVersion);
+
+        bzero(entry->readTime + lastSize, sizeof(UInt64) * (level - lastSize));
+        bzero(entry->readVersion + lastSize, sizeof(UInt32) * (level - lastSize));
+
+#endif /* EXTRA_STATS */
+
         entry->timeArrayLength = level;
     }
 }
@@ -111,6 +132,12 @@ void freeTEntry(TEntry* entry) {
 
     free(entry->version);
     free(entry->time);
+
+#ifdef EXTRA_STATS
+    free(entry->readVersion);
+    free(entry->readTime);
+#endif /* EXTRA_STATS */
+
 	free(entry);
 	//PoolFree(tEntryPool, entry);
 }

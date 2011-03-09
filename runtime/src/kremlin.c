@@ -377,7 +377,7 @@ UInt getVersion(int level) {
 inline UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
     int level = inLevel - MIN_REGION_LEVEL;
 
-    UInt64 ret = (level < entry->timeArrayLength && entry->version[level] == version) ?
+    UInt64 ret = (level >= 0 && level < entry->timeArrayLength && entry->version[level] == version) ?
                     entry->time[level] : 0;
     return ret;
 }
@@ -394,10 +394,8 @@ inline void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt6
 UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
     int level = inLevel - MIN_REGION_LEVEL;
     assert(entry != NULL);
-    assert(level >= 0 && level < getTEntrySize());
-    UInt64 ret = (entry->readVersion[level] == version) ?
+    return (level >= 0 && entry->timeArrayLength > level && entry->readVersion[level] == version) ?
                     entry->readTime[level] : 0;
-    return ret;
 }
 
 void updateReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
@@ -883,8 +881,13 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     TEntry* entry0 = getGTEntry(src_addr);
     TEntry* entryDest = getLTEntry(dest);
 
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+
 #ifdef EXTRA_STATS
     TEntry* entry0Line = getGTEntryCacheLine(src_addr);
+    TEntryAllocAtLeastLevel(entry0, maxLevel);
+    TEntryAllocAtLeastLevel(entry0Line, maxLevel);
 #endif
 
     //assert(entryDest != NULL);
@@ -892,8 +895,6 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     
     //fprintf(stderr, "\n\nload ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
     //fprintf(stderr, "load addr = 0x%x, entryLine = 0x%x\n", src_addr, entry0Line);
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
@@ -932,17 +933,18 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     TEntry* entry0 = getLTEntry(src);
     TEntry* entryDest = getGTEntry(dest_addr);
 
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+
 #ifdef EXTRA_STATS
     TEntry* entryLine = getGTEntryCacheLine(dest_addr);
+    TEntryAllocAtLeastLevel(entryLine, maxLevel);
 #endif
 
     assert(entryDest != NULL);
     assert(entry0 != NULL);
 
     //fprintf(stderr, "\n\nstore ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
-
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
