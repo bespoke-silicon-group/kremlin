@@ -114,6 +114,8 @@ define OPT_PASS_RULE_TEXT
 # has been evaluated.
 $(eval PASS_NAME := $$(patsubst -%,%,$(2)))
 
+$(eval EXTRA_FLAGS := $$(value $(strip $(3))))
+
 # Print args
 ifneq ($(strip $(DEBUG_MAKE)),)
 $$(info beginning rule defs for $(PASS_NAME). Args: $$$$(1): $$(1), $$$$(2): $$(2), $$$$(3): $$(3))
@@ -121,7 +123,7 @@ endif # DEBUG_MAKE
 
 # Create a rule to run the pass.
 %.$(PASS_NAME).bc: %.bc $(call OPT_PASS_SHARED_OBJ, $(1))
-	$(OPT) $(OPT_FLAGS) $(call OPT_LOAD_PASS_SHARED_OBJ,$(1)) $(2) $(value $(3)) -o $$@ $$<  &>$$*.$(PASS_NAME).log
+	$(OPT) $(OPT_FLAGS) $(call OPT_LOAD_PASS_SHARED_OBJ,$(1)) $(2) $(EXTRA_FLAGS) -o $$@ $$<  &>$$*.$(PASS_NAME).log
 
 # Create a rule to make the shared object if required.
 ifneq ($(strip $(call OPT_PASS_SHARED_OBJ) $(1)),)
