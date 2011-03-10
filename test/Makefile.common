@@ -1,3 +1,6 @@
+# This should not be here.
+#  -- chris
+
 build:
 	kremlin-gcc -O3 test.c -o $(BENCH)
 

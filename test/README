@@ -1,0 +1,5 @@
+All subdirectories with Makefiles are regression tests.
+
+All test makefiles must print "FAILED" to stdout or stderr if they fail.
+They also fail if they do not build the rule successfully. That is, they will
+return a non-zero exit code.

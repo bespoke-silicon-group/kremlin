@@ -42,3 +42,5 @@ $(REFERENCE_BUILD_TASK):
 $(CLEAN_TASK)::
 	-make clean -f kremlin.mk
 	-@rm -rf *.s *.log *.bc *.o $(TARGET)
+
+include $(REGRESSION_TEST_ROOT)/make/nullValgrindTest.mk

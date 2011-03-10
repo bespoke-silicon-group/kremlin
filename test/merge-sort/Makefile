@@ -1,5 +1,1 @@
-REGRESSION_TEST_ROOT = ..
-
-CFLAGS += -DSEED=5
-
-include $(REGRESSION_TEST_ROOT)/defaultTest.mk
+include topLevel.mk

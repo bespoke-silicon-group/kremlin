@@ -1,8 +1,6 @@
-REGRESSION_TEST_ROOT = ../../..
+include topLevel.mk
 
 SOURCES = main.c add.c
 
 add.o: CC = gcc
 add.o: CFLAGS := $(filter-out --krem-%, $(CFLAGS))
-
-include $(REGRESSION_TEST_ROOT)/defaultTest.mk
