@@ -1,57 +1,27 @@
-# ---------------------------------------------------------------------------
-# Defines tests to build and test reference files. These are the assumed
-# correct output files.
-#
-# The following build rules are added:
-# ------------------------------------
-# make referenceBuild.out 
-# make referenceCheck.out
-#
-# ---------------------------------------------------------------------------
+ifndef REFERENCE_TEST_MK
 
-# The name of the build output.
-REFERENCE_BUILD_OUTPUT = referenceBuild.out
-
-# The name of the check output.
-REFERENCE_CHECK_OUTPUT = referenceCheck.out
-
-# The build summary.
-REFERENCE_BUILD_RESULT = referenceBuild.out
-
-# The check summary.
-REFERENCE_CHECK_RESULT = referenceCheck.out
-
-# All the check output.
-REFERENCE_CHECK_OUTPUTS = $(addsuffix $(REFERENCE_CHECK_OUTPUT), $(TEST_DIRECTORIES))
-
-# All the build output.
-REFERENCE_BUILD_OUTPUTS = $(addsuffix $(REFERENCE_BUILD_OUTPUT), $(TEST_DIRECTORIES))
+REFERENCE_TEST_MK = 1
 
 # ---------------------------------------------------------------------------
-#  Rules (alpha order)
+# Includes
 # ---------------------------------------------------------------------------
+include $(dir $(lastword $(MAKEFILE_LIST)))/../paths.mk
+include $(MAKE_DIR)/genericTest.mk
 
-.PHONY: $(REFERENCE_BUILD_OUTPUTS) $(REFERENCE_CHECK_RESULT) $(REFERENCE_CHECK_OUTPUTS) $(REFERENCE_BUILD_RESULT)
+EXPECTED_OUT = kremlin.bin
+REFERENCE_OUT = $(EXPECTED_OUT).reference
 
-# Checks a run against the reference file.
-$(REFERENCE_CHECK_OUTPUTS):
-	(make -C $(dir $@) $(CLEAN_TASK) $(BUILD_TASK) $(RUN_TASK) $(REFERENCE_CHECK_TASK) || echo "check reference FAILED") &> $@
+DEPENDENCIES := $(RUN_TASK)
 
-# Builds the reference file.
-$(REFERENCE_BUILD_OUTPUTS):
-	(make -C $(dir $@) $(CLEAN_TASK) $(BUILD_TASK) $(RUN_TASK) $(REFERENCE_BUILD_TASK) || echo "make reference FAILED") &> $@
+define REFERENCE_BUILD_COMMANDS
+	cp $(EXPECTED_OUT) $(REFERENCE_OUT)
+endef
 
-# Builds all the reference files.
-$(REFERENCE_BUILD_RESULT): $(REFERENCE_BUILD_OUTPUTS)
-	-@grep 'FAILED' $(REFERENCE_BUILD_OUTPUTS) > $@
-	@echo "`cat $@ | wc -l` of $(words $(REFERENCE_BUILD_OUTPUTS)) failed" >> $@
-	@clear
-	@cat $@
+define REFERENCE_CHECK_COMMANDS
+	diff --brief $(EXPECTED_OUT) $(REFERENCE_OUT)
+endef
 
-# Builds all the reference files.
-$(REFERENCE_CHECK_RESULT): $(REFERENCE_CHECK_OUTPUTS)
-	-@grep 'FAILED' $(REFERENCE_CHECK_OUTPUTS) > $@
-	@echo "`cat $@ | wc -l` of $(words $(REFERENCE_CHECK_OUTPUTS)) failed" >> $@
-	@clear
-	@cat $@
+$(call GENERIC_TEST, referenceBuild, $(DEPENDENCIES), $(REFERENCE_BUILD_COMMANDS))
+$(call GENERIC_TEST, referenceCheck, $(DEPENDENCIES), $(REFERENCE_CHECK_COMMANDS))
 
+endif # REFERENCE_TEST_MK
