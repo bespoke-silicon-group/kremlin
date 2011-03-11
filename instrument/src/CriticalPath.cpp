@@ -64,6 +64,8 @@ namespace {
 		OpCosts costs;
 		std::map<std::string,unsigned int> uninstrumented_func_cost_map;
 
+		std::map<BasicBlock*,BasicBlock*> idom;
+
 		unsigned int basicBlockCount;
 
 		std::map<BasicBlock*, unsigned int> basicBlockIdMap;
@@ -321,36 +323,6 @@ namespace {
 			DominatorTree &dt = getAnalysis<DominatorTree>(*blk->getParent());
 			
 			return dt.getNode(blk)->getIDom()->getBlock();
-
-			/*
-			DomTreeNode* blk_node = dt.getNode(blk);
-			DomTreeNode* curr = dt.getRootNode();
-
-			// closest starts of as the root
-			DomTreeNode* closest = curr;
-
-			// start with nodes only containing the root
-			std::vector<DomTreeNode*> nodes;
-			nodes.push_back(curr);
-
-			while(!nodes.empty()) {
-				curr = nodes.back();
-				nodes.pop_back();
-
-				// don't go any further if curr node is blk's node
-				if(curr == blk_node)
-					continue;
-
-				// add in any children of curr
-				nodes.insert(nodes.end(), curr->begin(), curr->end());
-
-				// if closest dominates curr but curr dominates blk_node then curr is closer
-				if(dt.dominates(closest, curr) && dt.dominates(curr, blk_node))
-					closest = curr;
-			}
-
-			return closest->getBlock();
-			*/
 		}
 
 		/**
@@ -419,7 +391,7 @@ namespace {
 			result.clear();
 
 			BasicBlock* bb_containing_phi = phi->getParent();
-			BasicBlock* immediate_dominator = getImmediateDominator(bb_containing_phi);
+			//BasicBlock* immediate_dominator = getImmediateDominator(bb_containing_phi);
 			DominatorTree &dt = getAnalysis<DominatorTree>(*bb_containing_phi->getParent());
 
 
@@ -441,7 +413,7 @@ namespace {
 			// Add all the controlling blocks of the incoming blocks.
 			for(std::set<BasicBlock*>::iterator it = incoming_blocks.begin(), end = incoming_blocks.end(); it != end; it++)
 			{
-				getControllingBlocks(*it, immediate_dominator, dt, result);
+				getControllingBlocks(*it, idom[bb_containing_phi], dt, result);
 			}
 			return result;
 		}
@@ -2016,6 +1988,12 @@ namespace {
 			}
 		}
 
+		void createIDomMap(Function* func) {
+			for(Function::iterator blk = ++func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
+				idom[blk] = getImmediateDominator(blk);
+			}
+		}
+
 		void instrumentModule(Module &m, unsigned int &op_id) {
 
 			std::string mod_name = m.getModuleIdentifier();
@@ -2096,6 +2074,8 @@ namespace {
 				}
 
 				//std::map< PHINode*,std::set<unsigned int> > phinode_completions;
+
+				createIDomMap(func);
 
 				for (Function::iterator blk = func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
 					instrumentBasicBlock(blk,canon_indvs,canon_incs,red_var_ops,inst_to_id,inst_calls_begin,inst_calls_end);
