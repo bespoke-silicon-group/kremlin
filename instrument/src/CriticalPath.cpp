@@ -61,6 +61,9 @@ namespace {
 
 		PassLog& log;
 
+		OpCosts costs;
+		std::map<std::string,unsigned int> uninstrumented_func_cost_map;
+
 		unsigned int basicBlockCount;
 
 		std::map<BasicBlock*, unsigned int> basicBlockIdMap;
@@ -151,7 +154,7 @@ namespace {
 			 *
 			 * @param inst The instruction that we are instrumenting.
 			 * @param name The name of the instrumenation call.
-			 * @param args The arguments to the function.
+			 * @param ,inst_to_idargs The arguments to the function.
 			 */
 			void addCallInst(Instruction* inst, const std::string& name, const std::vector<Value*>& args) {
 				CallInst* call_inst = createCallInst(name, args);
@@ -316,7 +319,10 @@ namespace {
 
 		BasicBlock* getImmediateDominator(BasicBlock* blk) {
 			DominatorTree &dt = getAnalysis<DominatorTree>(*blk->getParent());
+			
+			return dt.getNode(blk)->getIDom()->getBlock();
 
+			/*
 			DomTreeNode* blk_node = dt.getNode(blk);
 			DomTreeNode* curr = dt.getRootNode();
 
@@ -344,6 +350,7 @@ namespace {
 			}
 
 			return closest->getBlock();
+			*/
 		}
 
 		/**
@@ -409,24 +416,29 @@ namespace {
 		 */
 		std::set<BasicBlock*>& getControllingBlocks(PHINode* phi, std::set<BasicBlock*>& result)
 		{
-			unsigned int num_incoming = phi->getNumIncomingValues();
+			result.clear();
+
 			BasicBlock* bb_containing_phi = phi->getParent();
 			BasicBlock* immediate_dominator = getImmediateDominator(bb_containing_phi);
 			DominatorTree &dt = getAnalysis<DominatorTree>(*bb_containing_phi->getParent());
 
-			result.clear();
 
 			std::map<Value*, std::set<BasicBlock*> > equivelent_values;
+
+			// Create map between incoming values and the block(s) they come from.
+			unsigned int num_incoming = phi->getNumIncomingValues();
 			for(unsigned int i = 0; i < num_incoming; i++) {
 				Value* incoming_value = phi->getIncomingValue(i);
 				equivelent_values[incoming_value].insert(phi->getIncomingBlock(i));
 			}
 
+			// For each incoming value, we find the nearest common dominator of all incoming
+			// blocks that contain that value, adding it to the incoming_blocks set.
 			std::set<BasicBlock*> incoming_blocks;
 			for(std::map<Value*, std::set<BasicBlock*> >::iterator it = equivelent_values.begin(), end = equivelent_values.end(); it != end; it++)
 				incoming_blocks.insert(findNearestCommonDominator(it->second));
 
-			//Add all the controlling blocks of the incoming blocks.
+			// Add all the controlling blocks of the incoming blocks.
 			for(std::set<BasicBlock*>::iterator it = incoming_blocks.begin(), end = incoming_blocks.end(); it != end; it++)
 			{
 				getControllingBlocks(*it, immediate_dominator, dt, result);
@@ -457,8 +469,9 @@ namespace {
 			BasicBlock* controlling_block;
 
 			//Only add the controlling block if we haven't seen it before and it's not null.
-			if((controlling_block = getControllingBlock(target, is_successor(target))) && result.find(controlling_block) == result.end())
-			{
+			if( (controlling_block = getControllingBlock(target, is_successor(target))) 
+			  && result.find(controlling_block) == result.end()
+			  ) {
 				result.insert(controlling_block);
 
 				//Add the controlling block of the found controlling block.
@@ -535,10 +548,13 @@ namespace {
 			//LOG_DEBUG() << blk->getName() << "\n";
 
 
+			// get post dominance frontier for blk
 			DominanceFrontierBase::iterator dsmt_it = PDF.find(blk);
+
+			// sanity check to make sure an entry in the PDF exists for this blk
 			if(dsmt_it == PDF.end())
 			{
-				LOG_DEBUG() << "ERROR: Could not find blk " << blk->getName() << 
+				LOG_ERROR() << "Could not find blk " << blk->getName() << 
 					" in post dominance frontier of function " << blk->getParent()->getName() <<
 					"! Contents of the pdf:"<< "\n";
 
@@ -561,6 +577,7 @@ namespace {
 				return NULL;
 			}
 
+			// Look at all blocks in post-dom frontier and find one that dominates the current block
 			for(DominanceFrontierBase::DomSetType::iterator dst_it = dsmt_it->second.begin(), dst_end = dsmt_it->second.end(); dst_it != dst_end; ++dst_it) {
 				BasicBlock* candidate = *dst_it;
 
@@ -972,12 +989,22 @@ namespace {
 			// If we specified a file for op costs, let's read those in.
 			// Note that we don't require that the file contain all (or even any) of the ops. Those note
 			// defined will retain the default op cost.
-			OpCosts costs;
 			if(opCostFile != "__none__") {
 				costs.parseFromFile(opCostFile);
 			}
 
 			LOG_DEBUG() << costs;
+
+			uninstrumented_func_cost_map["sin"] = 10;
+			uninstrumented_func_cost_map["cos"] = 10;
+			uninstrumented_func_cost_map["log"] = 10;
+			uninstrumented_func_cost_map["sqrt"] = 10;
+
+			uninstrumented_func_cost_map["ceil"] = 1;
+			uninstrumented_func_cost_map["floor"] = 1;
+			uninstrumented_func_cost_map["fabs"] = 1;
+
+			uninstrumented_func_cost_map["feof"] = 2;
 
 			unsigned int op_id = 1; // use this for a unique function
 
@@ -985,7 +1012,7 @@ namespace {
 			basicBlockIdMap.clear();
 
 			// Instrument the module
-			instrumentModule(m,op_id,costs);
+			instrumentModule(m,op_id);
 
 			log.close();
 
@@ -1129,32 +1156,877 @@ namespace {
 			return temp;
 		}
 
-		void instrumentModule(Module &m, unsigned int &op_id, const OpCosts& costs) {
+
+		void instrumentNonPHIInsts(BasicBlock* blk, std::set<Instruction*> canon_incs, std::set<Instruction*> red_var_ops, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_begin, InstrumentationCalls& inst_calls_end) {
+			LLVMTypes types(blk->getContext());
+
+			std::vector<Value*> args; // holds arguments passed to instrumentation functions
+
+			InvokeInst* ii;
+			uint64_t bb_call_idx = 0;
+			for (BasicBlock::iterator i = blk->getFirstNonPHI(), inst_end = blk->end(); i != inst_end; ++i) {
+
+				LOG_DEBUG() << "processing inst: " << PRINT_VALUE(*i) << "\n";
+
+				if(isa<BinaryOperator>(i) || isa<CmpInst>(i) || isa<SelectInst>(i)) {
+
+						// assign an ID to the current instruction
+						switch(i->getOpcode()) {
+							case Instruction::Add:
+								args.push_back(ConstantInt::get(types.i32(),costs.int_add));
+								break;
+							case Instruction::FAdd:
+								args.push_back(ConstantInt::get(types.i32(),costs.fp_add));
+								break;
+							case Instruction::Sub:
+								args.push_back(ConstantInt::get(types.i32(),costs.int_sub));
+								break;
+							case Instruction::FSub:
+								args.push_back(ConstantInt::get(types.i32(),costs.fp_sub));
+								break;
+							case Instruction::Mul:
+								args.push_back(ConstantInt::get(types.i32(),costs.int_mul));
+								break;
+							case Instruction::FMul:
+								args.push_back(ConstantInt::get(types.i32(),costs.fp_mul));
+								break;
+							case Instruction::UDiv:
+							case Instruction::SDiv:
+							case Instruction::URem:
+							case Instruction::SRem:
+								args.push_back(ConstantInt::get(types.i32(),costs.int_div));
+								break;
+							case Instruction::FDiv:
+							case Instruction::FRem:
+								args.push_back(ConstantInt::get(types.i32(),costs.fp_div));
+								break;
+							case Instruction::Shl:
+							case Instruction::LShr:
+							case Instruction::AShr:
+							case Instruction::And:
+							case Instruction::Or:
+							case Instruction::Xor:
+								args.push_back(ConstantInt::get(types.i32(),costs.logic));
+								break;
+							case Instruction::ICmp:
+								args.push_back(ConstantInt::get(types.i32(),costs.int_cmp));
+								break;
+							case Instruction::FCmp:
+								args.push_back(ConstantInt::get(types.i32(),costs.fp_cmp));
+								break;
+							case Instruction::Select:
+								args.push_back(ConstantInt::get(types.i32(),0));
+								break;
+							default:
+								//args.push_back(ConstantInt::get(types.i32(),0));
+								//LOG_DEBUG() << "unknown opcode (" << i->getOpcode() << ") for binop/icmp: " << *i;
+								log.close();
+								assert(0 && "unknown opcode for binop/icmp");
+								break;
+						}
+
+						Value* op0;
+						Value* op1;
+
+						// if this is a select inst, we need to call addControlDep before using the condition of the op
+						if(isa<SelectInst>(i)) {
+							SelectInst* sel_inst = cast<SelectInst>(i);
+							op0 = sel_inst->getTrueValue();
+							op1 = sel_inst->getFalseValue();
+
+							std::vector<Value*> args2;
+
+							args2.push_back(ConstantInt::get(types.i32(),inst_to_id[sel_inst->getCondition()]));
+
+							inst_calls_end.addCallInst(i,"addControlDep",args2);
+
+							// call to removeInit after select inst
+							args2.clear();
+						}
+						else {
+							op0 = i->getOperand(0);
+							op1 = i->getOperand(1);
+						}
+
+						if(red_var_ops.find(i) != red_var_ops.end()) { // special function if this is a reduction variable op
+							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+							inst_calls_end.addCallInst(i,"logReductionVar",args);
+						}
+						else if(isa<Constant>(op0) || isa<Constant>(op1)) { // const propagation should stop these from both being constant
+
+							std::string func_to_use; // will contain name of instrumentation function to call
+
+							// if this inst is an induction var, we use a special logging function
+							if(canon_incs.find(i) != canon_incs.end()) {
+								args.clear();
+
+								func_to_use = "logInductionVar";
+							}
+							// if both ops are constant, then we should use logAssignmentConst
+							else if(isa<Constant>(op0) && isa<Constant>(op1)) {
+								args.clear();
+
+								LOG_DEBUG() << "NOTE: both operands are constant... did you forget to run constant propagation before this?\n";
+
+								func_to_use = "logAssignmentConst";
+							}
+							else if(isa<Constant>(op0)) {
+								args.push_back(ConstantInt::get(types.i32(),inst_to_id[op1])); // src ID
+								func_to_use = "logBinaryOpConst";
+							}
+							else { // op1 is a constant
+								args.push_back(ConstantInt::get(types.i32(),inst_to_id[op0])); // src ID
+								func_to_use = "logBinaryOpConst";
+							}
+
+							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+							inst_calls_end.addCallInst(i,func_to_use,args);
+						}
+						else { // going to use logBinaryOp() function
+							LOG_DEBUG() << "inserting call to logBinaryOp\n";
+
+							args.push_back(ConstantInt::get(types.i32(),inst_to_id[op0])); // src0 ID
+							args.push_back(ConstantInt::get(types.i32(),inst_to_id[op1])); // src1 ID
+							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+							inst_calls_end.addCallInst(i,"logBinaryOp",args);
+						}
+
+						// if this was a select, we need to end the control dep now that we have the correct logging func inserted
+						if(isa<SelectInst>(i)) {
+							args.clear();
+							inst_calls_end.addCallInst(i,"removeControlDep",args);
+						}
+
+						args.clear();
+				} // end binop, icmp, selectinst
+
+				else if(isa<CastInst>(i) && isa<Constant>(cast<CastInst>(i)->getOperand(0))) {
+					Value* op = i->getOperand(0);
+
+					// if this is a cast of a constant, we create a logAssignmentConst for this cast instruction
+					if(isa<Constant>(op)) {
+						LOG_DEBUG() << "inst is cast of a constant\n";
+
+						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+						inst_calls_end.addCallInst(i,"logAssignmentConst",args);
+
+						args.clear();
+					}
+				} // end cast
+
+				// TODO: combine this with cast inst?
+				else if(isa<AllocaInst>(i)) {
+					LOG_DEBUG() << "inst is an alloca\n";
+					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+					inst_calls_end.addCallInst(i,"logAssignmentConst",args);
+
+					args.clear();
+				}
+
+				// insertvalue takes a struct and inserts a value into a specified position in the struct, returning the updated struct
+				// We use logInsertValue/logInsertValueConst to track the dependencies between the inserted value and the struct into
+				// which it is inserted. Note we can't just use logAssignment here because if we happen to insert a constant after
+				// inserting another value, the struct's timestamp will use the constant time instead of the more accurate other value
+				// time.
+				// TODO: track the individual parts of the struct that are changing rather than the whole struct
+				else if(isa<InsertValueInst>(i)) {
+					LOG_DEBUG() << "inst is an insertvalue\n";
+
+					if(!isa<Constant>(i->getOperand(1))) {
+						// get ID of value that we will be updating the struct with
+						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i->getOperand(1)])); // src ID
+					}
+
+					// If the input struct is undefined, we want the dest to be to the current insertvalue inst.
+					// Otherwise, we use the dest that is given in the instruction
+					if(isa<Constant>(i->getOperand(0))) {
+						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID (current inst)
+					}
+					else {
+						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i->getOperand(0)])); // dest ID
+					}
+
+					if(isa<Constant>(i->getOperand(1))) {
+						inst_calls_end.addCallInst(i,"logInsertValueConst",args);
+					}
+					else {
+						inst_calls_end.addCallInst(i,"logInsertValue",args);
+					}
+
+					args.clear();
+				}
+
+				// extractvalue just returns the specified index of a specified struct
+				// currently we just use logAssignment; in the future we should have a new function which takes into account the index being extracted
+				else if(isa<ExtractValueInst>(i)) {
+					LOG_DEBUG() << "inst is an extractvalue\n";
+
+					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i->getOperand(0)])); // src ID
+					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+					// log assignment between the struct and the resulting value we pull out of it
+					inst_calls_end.addCallInst(i,"logAssignment",args);
+
+					args.clear();
+				}
+
+				// need to add in calls to setup the necessary transfer of function arguments
+				// Cannot insert prep call before throwing an exception because it is allocated beyond the stack pointer.
+				// Making any calls after the value has been allocated will corrupt the value.
+				else if(isa<CallInst>(i) && !isThrowCall(cast<CallInst>(i))) {
+					CallInst* ci = cast<CallInst>(i);
+					instrumentCall(ci, inst_to_id, inst_calls_begin, bb_call_idx++);
+
+					Function* called_func = untangleCall(ci);
+
+					// calls to malloc and calloc get logMalloc(addr, size) call
+					if(called_func 
+					  && (called_func->getName() == "malloc" || called_func->getName() == "calloc")
+					  ) {
+						LOG_DEBUG() << "inst is a call to malloc/calloc\n";
+
+						// insert address (return value of callinst)
+						LOG_DEBUG() << "adding return value of inst as arg to logMalloc\n";
+						args.push_back(ci);
+
+						// insert size (arg 0 of func)
+						Value* sizeOperand = ci->getArgOperand(0);
+						LOG_DEBUG() << "pushing arg: " << PRINT_VALUE(*sizeOperand) << "\n";
+						args.push_back(sizeOperand);
+
+						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+						
+						inst_calls_end.addCallInst(i,"logMalloc",args);
+						args.clear();
+					}
+
+					// calls to free get logFree(addr) call
+					else if(called_func && called_func->getName() == "free") {
+						LOG_DEBUG() << "inst is a call to free\n";
+
+						// Insert address (first arg of call ist)
+						// If op1 isn't pointing to an 8-bit int then we need to cast it to one for use.
+						if(isNBitIntPointer(ci->getArgOperand(0),8)) {
+							args.push_back(ci->getArgOperand(0));
+						}
+						else {
+							args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(0),types.pi8(),"free_arg_recast",blk->getTerminator()));
+						}
+
+
+						inst_calls_end.addCallInst(i,"logFree",args);
+						args.clear();
+					}
+
+					// handle calls to realloc
+					else if(called_func && called_func->getName() == "realloc") {
+						LOG_DEBUG() << "isnt is  call to realloc\n";
+
+						// Insert old addr (arg 0 of func).
+						// Just like for free, we need to make sure this has type i8*
+						if(isNBitIntPointer(ci->getArgOperand(0),8)) {
+							args.push_back(ci->getArgOperand(0));
+						}
+						else {
+							args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(0),types.pi8(),"realloc_arg_recast",blk->getTerminator()));
+						}
+
+						// insert new addr (return val of callinst)
+						args.push_back(ci);
+
+						// insert size (arg 1 of function)
+						args.push_back(ci->getArgOperand(1));
+
+						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+						inst_calls_end.addCallInst(i,"logRealloc",args);
+						args.clear();
+					}
+
+					else if(called_func && called_func->getName() == "fscanf") {
+						LOG_DEBUG() << "inst is call to fscanf\n";
+
+						// for each of the values we are writing to, we'll use logStoreInstConst since it will be an address being passed to fscanf
+						for(unsigned idx = 2; idx < ci->getNumArgOperands(); ++idx) {
+							// we need to make sure this has type i8*
+							if(isNBitIntPointer(ci->getArgOperand(idx),8)) {
+								args.push_back(ci->getArgOperand(idx));
+							}
+							else {
+								args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(idx),types.pi8(),"fscanf_arg_recast",blk->getTerminator()));
+							}
+
+							inst_calls_end.addCallInst(i,"logStoreInstConst",args);
+							args.clear();
+						}
+					}
+
+					else if(called_func && uninstrumented_func_cost_map.find(called_func->getName()) != uninstrumented_func_cost_map.end()) {
+						LOG_DEBUG() << "inst is call to ''library'' function: " << called_func->getName() << "\n";
+
+						// cost of the lib function
+						args.push_back(ConstantInt::get(types.i32(),uninstrumented_func_cost_map[called_func->getName()]));
+
+						// number of ops (stupid varargs implementation)
+						unsigned int num_func_args = 0;
+
+						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+						// as long at is isn't a constant, we are going to use it as an input to logLibraryCall
+						for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
+							Value* operand = ci->getArgOperand(q);
+
+							if(!isa<ConstantInt>(operand) && !isa<ConstantFP>(operand)) {
+								num_func_args++;
+							}
+						}
+
+						args.push_back(ConstantInt::get(types.i32(),num_func_args));
+
+						// go through and push on pointers to all the non-const inputs to the function
+						for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
+							Value* operand = ci->getArgOperand(q);
+
+
+							if(!isa<ConstantInt>(operand) && !isa<ConstantFP>(operand)) {
+								LOG_DEBUG() << "adding argument: " << q << "\n";
+								args.push_back(ConstantInt::get(types.i32(),inst_to_id[ci->getArgOperand(q)])); // dest ID
+							}
+							else {
+								LOG_DEBUG() << "skipping cosntant argument: " << q << "\n";
+							}
+						}
+
+						inst_calls_end.addCallInst(i,"logLibraryCall",args);
+
+						args.clear();
+					}
+				} // end callinst
+
+				else if((ii = dyn_cast<InvokeInst>(i)))
+				{
+					static int invoke_id = 0;
+					ConstantInt* invoke_id_const = ConstantInt::get(types.i32(),invoke_id++);
+					args.push_back(invoke_id_const);
+					inst_calls_begin.addCallInst(i,"prepareInvoke",args);
+
+					//The exception value is pushed on to the stack, so we are not allowed to call any other function until the
+					//value has been grabbed. As a result, we must push the instrumentation call to be after these calls,
+					//but before any other instrumentation calls. The following gets the first instrumentation call found.
+					//We will insert before it. If we don't find one, the terminator will suffice.
+					{
+
+						BasicBlock* blk = ii->getUnwindDest();
+
+						std::vector<Instruction*> joined_blks;
+						joinBasicBlocks(blk, joined_blks);
+
+						LOG_DEBUG() << "joined blocks contents of " << blk->getName() << ":" << "\n";
+						foreach(Instruction* inst, joined_blks)
+							LOG_DEBUG() << PRINT_VALUE(*inst) << "\n";
+						LOG_DEBUG() << "\n";
+
+						//TODO: Need to handle if we put something in the front. If we do this, ours needs to go into the front instead of the back.
+						Instruction* insert_before = joined_blks.back();
+						foreach(Instruction* inst, joined_blks) {
+
+							if(willInstrument(inst)) {
+								insert_before = inst;
+								break;
+							}
+						}
+
+						LOG_DEBUG() << "inserting invokeThrew before " << PRINT_VALUE(*insert_before) << "\n";
+
+						inst_calls_end.addCallInstBefore(insert_before, "invokeThrew", args);
+					}
+
+					// insert invokeOkay for this invoke instruction
+					{
+						BasicBlock* blk = ii->getNormalDest();
+						Instruction* insert_before = blk->getFirstNonPHI();
+						inst_calls_begin.addCallInstBefore(insert_before, "invokeOkay", args);
+					}
+
+					args.clear();
+					instrumentCall(ii, inst_to_id, inst_calls_begin, bb_call_idx++);
+				} // end invokeinst
+
+				// store is either logStoreInst or logStoreInstConst (if storing a constant)
+				else if(isa<StoreInst>(i)) {
+					LOG_DEBUG() << "inst is a store inst\n";
+
+					StoreInst* si = cast<StoreInst>(i);
+
+					// first we get a ptr to the source (if it's not a constant)
+					if(!isa<Constant>(si->getOperand(0))) {
+						args.push_back(ConstantInt::get(types.i32(),inst_to_id[si->getOperand(0)])); // src ID
+					}
+
+					// the dest is already in ptr form so we simply use that
+					args.push_back(CastInst::CreatePointerCast(si->getPointerOperand(),types.pi8(),"inst_arg_ptr",blk->getTerminator())); // dest addr
+
+					if(isa<Constant>(si->getOperand(0))) {
+						inst_calls_end.addCallInst(i,"logStoreInstConst",args);
+					}
+					else {
+						inst_calls_end.addCallInst(i,"logStoreInst",args);
+					}
+
+					args.clear();
+				} // end storeinst
+
+				// look at loads to see if there is a dependence
+				else if(isa<LoadInst>(i)) {
+					LoadInst* li = cast<LoadInst>(i);
+
+					/*
+					//std::vector<Value*> ptr_deps; // these are the ptrs we will add as dependences at the end
+					std::vector<unsigned int> ptr_deps; // these are the ptrs we will add as dependences at the end
+
+					if(isa<GetElementPtrInst>(li->getPointerOperand())) {
+						GetElementPtrInst* gepi = cast<GetElementPtrInst>(li->getPointerOperand());
+
+						// find all non-constant ops and add them to a list for later use
+						for(User::op_iterator gepi_op = gepi->idx_begin(), gepi_ops_end = gepi->idx_end(); gepi_op != gepi_ops_end; ++gepi_op) {
+							if(!isa<Constant>(gepi_op)) {
+								//LOG_DEBUG() << "getelementptr " << gepi->getName() << " depends on " << gepi_op->get()->getName() << "\n";
+								ptr_deps.push_back(inst_to_id[*gepi_op]);
+							}
+						}
+					}
+
+					// find all the places that this load is used
+					for(Value::use_iterator li_use = li->use_begin(), li_use_end = li->use_end(); li_use != li_use_end; ++li_use) {
+						// now add a call to logInductionVarDependence for all ptr_deps
+
+						// if this is used in a phi node, we need to insert the call to logAssignment now so the correct ordering of logInductVarDep() THEN logAssignment() is maintained
+						if(PHINode* phi = dyn_cast<PHINode>(li_use)) {
+							LOG_DEBUG() << "load used by phi node " << phi->getName() << "\n";
+
+							BasicBlock* ld_bb = i->getParent();
+							LOG_DEBUG() << "looking for incoming edge from " << ld_bb->getName() << "...\n";
+
+							bool found_incoming_block = false;
+							unsigned int phi_location = 0;
+							for(unsigned int n = 0; n < phi->getNumIncomingValues(); ++n) {
+								// if this value comes from the same block as our load, then we are good to go
+								if(phi->getIncomingValue(n) == i) {
+									LOG_DEBUG() << "... found incoming edge. Inserting calls to logInductionVariable() and logAssignment() in this block\n";
+									phinode_completions[phi].insert(n); // mark this so when we process the phinode later, we don't insert another call to logAssignment
+									phi_location = n;
+									found_incoming_block = true;
+									break;
+								}
+							}
+
+							// big problem is we have a phi node without an incoming edge from the blk that has this load... why would this happen?
+							if(!found_incoming_block) {
+								LOG_DEBUG() << "ERROR: could not find edge to that phinode from this block!\n";
+								LOG_DEBUG().close();
+								assert(0);
+								return;
+							}
+							else {
+
+								// add in the calls to logInductionVarDep() before the block terminator
+								for(std::vector<unsigned int>::iterator ptr_it = ptr_deps.begin(), ptr_it_end = ptr_deps.end(); ptr_it != ptr_it_end; ++ptr_it) {
+									args.push_back(ConstantInt::get(types.i32(),*ptr_it)); // ind var ID
+
+									// TODO: FIXME
+									instrumentation_calls.insert(CallInst::Create(inst_funcs["logInductionVarDependence"], args.begin(), args.end(), "", ld_bb->getTerminator()));
+
+									args.clear();
+								}
+
+								// now add in the call to logAssignment() before the block terminator (which will be immediately after the calls to logIndVarDep()
+								args.push_back(ConstantInt::get(types.i32(),inst_to_id[phi->getIncomingValue(phi_location)])); // src ID
+								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+								// TODO: FIXME
+								instrumentation_calls.insert(CallInst::Create(inst_funcs["logAssignment"], args.begin(), args.end(), "", ld_bb->getTerminator()));
+
+								args.clear();
+							}
+						}
+						else {
+							for(std::vector<unsigned int>::iterator ptr_it = ptr_deps.begin(), ptr_it_end = ptr_deps.end(); ptr_it != ptr_it_end; ++ptr_it) {
+								args.push_back(ConstantInt::get(types.i32(),*ptr_it)); // ind var ID
+								// XXX FIXME: potential ordering problem here
+								instrumentation_calls.insert(CallInst::Create(inst_funcs["logInductionVarDependence"], args.begin(), args.end(), "", dyn_cast<Instruction>(*li_use)));
+
+								args.clear();
+							}
+						}
+					}
+
+					ptr_deps.clear();
+					*/
+
+					// now we create an assignment from the load's src addr to the load's ID
+
+					// the mem loc is already in ptr form so we simply use that
+					args.push_back(CastInst::CreatePointerCast(li->getPointerOperand(),types.pi8(),"inst_arg_ptr",i)); // src addr
+					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+					inst_calls_end.addCallInst(i,"logLoadInst",args);
+
+					args.clear();
+				}
+
+
+				else if(isa<ReturnInst>(i)) {
+					ReturnInst* ri = cast<ReturnInst>(i);
+					LOG_DEBUG() << "inst is a return\n";
+
+					if(returnsRealValue(blk->getParent()) // make sure this returns a non-pointer
+					  && ri->getNumOperands() != 0) { // and that it isn't returning void
+						if(isa<Constant>(ri->getReturnValue(0))) {
+							inst_calls_end.addCallInst(i,"logFuncReturnConst",args);
+							LOG_DEBUG() << "returning const value\n";
+						}
+						else {
+							args.push_back(ConstantInt::get(types.i32(),inst_to_id[ri->getReturnValue(0)])); // src ID
+
+							inst_calls_end.addCallInst(i,"logFuncReturn",args);
+							LOG_DEBUG() << "returning non-const value\n";
+						}
+					}
+					else {
+						LOG_DEBUG() << "void or pointer return not logged\n";
+					}
+
+					args.clear();
+				} // end returninst
+
+			} // end basic blk iterator (instructions)
+		}
+
+		void instrumentPHINodes(BasicBlock* blk, std::set<PHINode*>& canon_indvs,std::map<Value*, unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_begin, InstrumentationCalls& inst_calls_end) {
+			LLVMTypes types(blk->getContext());
+			LoopInfo &LI = getAnalysis<LoopInfo>(*blk->getParent());
+
+			std::vector<Value*> args; // holds arguments passed to instrumentation functions
+
+			for (BasicBlock::iterator i = blk->begin(), inst_end = blk->getFirstNonPHI(); i != inst_end; ++i) {
+				PHINode* phi = dyn_cast<PHINode>(i);
+
+				assert(phi && "expected phi node but didn't get one!");
+
+				// We'll deal with induction variables later
+				if(canon_indvs.find(phi) == canon_indvs.end()) {
+					LOG_DEBUG() << "processing phi node: " << PRINT_VALUE(*i) << "\n";
+
+					unsigned int dest_id = inst_to_id[i];
+					args.push_back(ConstantInt::get(types.i32(),dest_id)); // dest ID
+
+					PHINode* incoming_val_id = PHINode::Create(types.i32(),"phi-incoming-val-id",phi);
+
+					unsigned int num_in = phi->getNumIncomingValues();
+					for(unsigned int i = 0; i < num_in; i++) {
+
+						BasicBlock* incoming_block = phi->getIncomingBlock(i);
+						Value* incoming_val = phi->getIncomingValue(i);
+
+						unsigned int incoming_id = 0; // default ID to 0 (i.e. a constant)
+
+						// if incoming val isn't a constant, we grab the it's ID
+						if(!isa<Constant>(incoming_val)) {
+							incoming_id = inst_to_id[incoming_val];
+						}
+
+						incoming_val_id->addIncoming(ConstantInt::get(types.i32(),incoming_id), incoming_block);
+					}
+
+					args.push_back(incoming_val_id); // ID for incoming value
+
+					std::set<BasicBlock*> controllers;
+					getControllingBlocks(phi, controllers);
+
+					IsPredecessor is_predecessor(blk);
+					DominatorTree &dt = getAnalysis<DominatorTree>(*blk->getParent());
+
+					std::vector<Value*> control_deps;
+
+					for(std::set<BasicBlock*>::iterator it = controllers.begin(), end = controllers.end(); it != end; it++) {
+						LOG_DEBUG() << "controller to " << blk->getName() << ": " << (*it)->getName() << "\n";
+						
+						PHINode* incoming_condition_addr = PHINode::Create(types.i32(),"phi-incoming-condition",phi);
+
+						std::map<BasicBlock*, Value*> incoming_value_addrs;
+
+						unsigned int incoming_id;
+						bool all_zeros = true;
+
+						// check all preds of current basic block
+						for(unsigned int i = 0; i < num_in; i++) {
+							BasicBlock* incoming_block = phi->getIncomingBlock(i);
+
+							// If this controller dominates incoming block, get the id of condition at end of pred
+							if(dt.dominates(*it, incoming_block)) {
+								LOG_DEBUG() << (*it)->getName() << " dominates " << incoming_block->getName() << "\n";
+
+								incoming_id = getConditionIdOfBlock(*it, inst_to_id);
+
+							} 
+							// doesn't dominate so condition key is 0
+							else {
+								LOG_DEBUG() << (*it)->getName() << " does NOT dominate " << incoming_block->getName() << "\n";
+								incoming_id = 0;
+							}
+
+							if(incoming_id != 0) all_zeros = false;
+
+							incoming_condition_addr->addIncoming(ConstantInt::get(types.i32(),incoming_id), incoming_block);
+						}
+						
+						if(all_zeros) {
+							LOG_DEBUG() << "predecessor has all 0 IDs. Erasing...\n";
+							incoming_condition_addr->eraseFromParent();
+						}
+						else {
+							control_deps.push_back(incoming_condition_addr);
+						}
+					}
+
+					unsigned int num_control_deps = control_deps.size();
+
+					// In order to avoid using a var arg function for LogPhiNode, we break this up into chunks
+					// of 4 (logPhiNode4CD) plus remaining (logPhiNodeXCD, where X is 1,2, or 3).
+					if(num_control_deps <= 4 && num_control_deps > 0) {
+						// tack the control deps on to arg list
+						args.insert(args.end(),control_deps.begin(),control_deps.end());
+
+						std::stringstream ss;
+						ss << "logPhiNode" << num_control_deps << "CD";
+
+						// insert call to appropriate logging function at begining of blk
+						inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),ss.str(),args);
+					}
+					else if(num_control_deps > 0) {
+						// push the first 4 control deps on and create call to logPhiNode4CD
+						for(unsigned j = 0; j < 4; ++j) {
+							args.push_back(control_deps[j]);
+						}
+
+						inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"logPhiNode4CD",args);
+
+						// save dest because we'll need it for each call to log4CDToPhiNode
+						Value* dest_val = args[0];
+
+						args.clear();
+
+						// keep constructing log4CDToPhiNode calls until we run out of control deps
+						unsigned int num_args_added = 0;
+
+						for(unsigned dep_index = 4; dep_index < num_control_deps; ++dep_index) {
+							// check to see if we need to reset args
+							if(num_args_added == 0) {
+								args.clear();
+								args.push_back(dest_val);
+							}
+
+							args.push_back(control_deps[dep_index]);
+
+							num_args_added = (num_args_added+1)%4;
+
+							// got a full set of args so let's create the func call
+							if(num_args_added == 0) {
+								inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"log4CDToPhiNode",args);
+							}
+						}
+
+						// if we didn't have enough control deps to complete log4CDToPhiNode then we repeat an arbitrary control dep (e.g. the first one) to
+						// get the required number of args
+						if(num_args_added != 0) {
+							Constant* padding = ConstantInt::get(types.i32(), 0); // 0 should indicate this is padding
+							do {
+								args.push_back(padding);
+								num_args_added++;
+							} while(num_args_added < 4);
+
+							inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"log4CDToPhiNode",args);
+						}
+					}
+
+					args.clear();
+
+					//add loop conditions that occur after the phi instruction
+					if(LI.isLoopHeader(blk)) {
+						Loop* loop = LI.getLoopFor(blk);
+						TerminatorInst* terminator = blk->getTerminator();
+						BranchInst* branch_inst;
+
+						//only try if this is conditional
+						if(isa<BranchInst>(terminator) && (branch_inst = cast<BranchInst>(terminator))->isConditional()) {
+							bool is_do_loop = true;
+							for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) {
+								BasicBlock* successor = branch_inst->getSuccessor(i);
+								if(std::find(loop->block_begin(), loop->block_end(), successor) == loop->block_end()) {
+									is_do_loop = false;
+									break;
+								}
+							}
+							for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) {
+								BasicBlock* successor = branch_inst->getSuccessor(i);
+								if(&*blk == successor) {
+									is_do_loop = true;
+									break;
+								}
+							}
+
+							//do..while loops need the condition appended after the loop concludes
+							if(is_do_loop)
+								for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) {
+									BasicBlock* successor = branch_inst->getSuccessor(i);
+									if(!is_predecessor(successor) && &*blk != successor) {
+										args.push_back(ConstantInt::get(types.i32(), dest_id));                                            // dest ID
+										args.push_back(ConstantInt::get(types.i32(), getConditionIdOfBlock(blk, inst_to_id)));             // condition ID
+
+										inst_calls_begin.addCallInstBefore(successor->getFirstNonPHI(),"logPhiNodeAddCondition",args);
+										args.clear();
+									}
+								}
+
+							//while loops need the condition appended as soon as the header executes
+							else {
+								// Check to see if this is a constant value (i.e. while true)
+								// TODO: check to see if this occurs
+								if(!isa<ConstantInt>(branch_inst->getCondition())) { 
+
+									args.push_back(ConstantInt::get(types.i32(), dest_id));                                            // dest ID
+									args.push_back(ConstantInt::get(types.i32(), getConditionIdOfBlock(blk, inst_to_id)));             // condition ID
+
+									Instruction* condition = dyn_cast<Instruction>(branch_inst->getCondition());
+									if(!condition) {
+										log.error() << "branch condition isn't an instruction: " << *branch_inst->getCondition() << "\n";
+										assert(0);
+									}
+									assert(condition);
+									inst_calls_end.addCallInstAfter(condition,"logPhiNodeAddCondition",args);
+									args.clear();
+								}
+							}
+						}
+					} //end handling phi's in loops
+				} // end not canonical phi
+			} // end looping over phi's
+		}
+
+		void instrumentBasicBlock(BasicBlock* blk, std::set<PHINode*>& canon_indvs, std::set<Instruction*>& canon_incs, std::set<Instruction*>& red_var_ops, std::map<Value*, unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_begin, InstrumentationCalls& inst_calls_end) {
+			//LOG_DEBUG() << "processing BB: " << PRINT_VALUE(*blk);
+
+			instrumentNonPHIInsts(blk,canon_incs,red_var_ops,inst_to_id,inst_calls_begin,inst_calls_end);
+			instrumentPHINodes(blk,canon_indvs,inst_to_id,inst_calls_begin,inst_calls_end);
+		}
+
+		void instrumentBasicBlockIndVars(BasicBlock* blk, std::set<PHINode*>& canon_indvs, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_end) {
+			LLVMTypes types(blk->getContext());
+
+			std::vector<Value*> args;
+
+			for (BasicBlock::iterator i = blk->begin(), inst_end = blk->getFirstNonPHI(); i != inst_end; ++i) {
+
+				// If this a PHI that is a loop induction var, we only logAssignment when we first enter the loop so that we don't get
+				// caught in a dependency cycle. For example, the induction var inc would get the time of t_init for the first iter,
+				// which would then force the next iter's t_init to be one higher and so on and so forth...
+				if(canon_indvs.find(cast<PHINode>(i)) != canon_indvs.end()) {
+					LOG_DEBUG() << "processing canonical induction var (function: " << i->getParent()->getParent()->getName() << "): " << *i << "\n";
+
+					PHINode* phi = cast<PHINode>(i);
+
+					// Loop through all incoming vals of PHI and find the one that is constant (i.e. initializes the loop to 0).
+					// We then insert a call to logAssignmentConst() to permanently set the time of this to whatever t_init happens
+					// to be in the BB where that value comes from.
+					int const_idx = -1;
+
+					for(unsigned int n = 0; n < phi->getNumIncomingValues(); ++n) {
+						if(isa<ConstantInt>(phi->getIncomingValue(n)) && const_idx == -1) {
+							const_idx = n;
+						}
+						else if(isa<ConstantInt>(phi->getIncomingValue(n))) {
+							LOG_DEBUG() << "ERROR: found multiple incoming constants to induction var phi node\n";
+							log.close();
+							assert(0);
+						}
+					}
+
+					if(const_idx == -1) {
+						LOG_DEBUG() << "ERROR: could not find constant incoming value to induction variable phi node\n";
+						log.close();
+						assert(0);
+					}
+
+					BasicBlock* in_blk = phi->getIncomingBlock(const_idx);
+
+					// finally, we will insert the call to logAssignmentConst
+					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
+
+					inst_calls_end.addCallInstBefore(in_blk->getTerminator(),"logInductionVar",args);
+
+					args.clear();
+				}
+			}
+		}
+
+		void instrumentBasicBlockControlDeps(BasicBlock* blk, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_begin, InstrumentationCalls& inst_calls_end) {
+			LLVMTypes types(blk->getContext());
+
+			BasicBlock* controller = getControllingBlock(blk, false);
+
+			// move on to next blk if this one doesn't have a controller
+			if(controller != NULL) {
+				//LOG_DEBUG() << blk->getName() << " is controlled by " << controller->getName() << ". inserting call to linkinit...\n";
+
+				std::vector<Value*> args;
+
+				unsigned int cond_id = 0;
+
+				// get ptr to the condition variable
+
+				if(BranchInst* br_inst = dyn_cast<BranchInst>(controller->getTerminator())) {
+					cond_id = inst_to_id[br_inst->getCondition()];
+				}
+				else if(SwitchInst* sw_inst = dyn_cast<SwitchInst>(controller->getTerminator())) {
+					cond_id = inst_to_id[sw_inst->getCondition()];
+				}
+				else if(dyn_cast<InvokeInst>(controller->getTerminator())) {
+					//TODO: Get the condition of the exception that was thrown
+					return;
+				}
+				else {
+					LOG_ERROR() << "controlling terminator (" << controller->getTerminator()->getName() << ": " << PRINT_VALUE(*controller->getTerminator()) << ") is not a branch or switch. what is it???\n";
+					log.close();
+					assert(0);
+				}
+
+				args.push_back(ConstantInt::get(types.i32(),cond_id)); // cond ID
+				inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"addControlDep",args);
+
+				args.clear();
+
+				inst_calls_end.addCallInstBefore(blk->getTerminator(),"removeControlDep",args);
+
+				args.clear();
+			}
+		}
+
+		void instrumentModule(Module &m, unsigned int &op_id) {
 
 			std::string mod_name = m.getModuleIdentifier();
 			LOG_DEBUG() << "instrumenting module: " << mod_name << "\n";
 
-			std::map< PHINode*,std::set<unsigned int> > phinode_completions;
 
 			// All the instrumentation functions we may insert.
 			InstrumentationFuncManager inst_funcs(m);
 			inst_funcs.initializeDefaultValues();
 
-			// LLVM's types
 			LLVMTypes types(m.getContext());
-
-			std::map<std::string,unsigned int> uninstrumented_func_cost_map;
-
-			uninstrumented_func_cost_map["sin"] = 10;
-			uninstrumented_func_cost_map["cos"] = 10;
-			uninstrumented_func_cost_map["log"] = 10;
-			uninstrumented_func_cost_map["sqrt"] = 10;
-
-			uninstrumented_func_cost_map["ceil"] = 1;
-			uninstrumented_func_cost_map["floor"] = 1;
-			uninstrumented_func_cost_map["fabs"] = 1;
-
-			uninstrumented_func_cost_map["feof"] = 2;
 
 			const GetTerminator get_terminator;
 			const GetFirstNonPHI get_non_phi;
@@ -1165,12 +2037,17 @@ namespace {
 
 			for (Module::iterator func = m.begin(), func_end = m.end(); func != func_end; ++func) {
 
-				// skip unsupported funcs
-				if(func->isDeclaration()                                      // can't instrument if this is only a declaration (i.e. has no body)
-				  || func->getLinkage() == GlobalValue::AvailableExternallyLinkage // LLVM 2.6 allows outside funcs to temporarily be visible. ignore them.
-				  || (func->isVarArg() && func->getName() != "MAIN__")                                         // no support for vararg funcs now (TODO?)
+				// Don't try instrumenting this if it's just a declaration or if it is external
+				// but LLVM is showing the code anyway.
+				if(func->isDeclaration()
+				  || func->getLinkage() == GlobalValue::AvailableExternallyLinkage
 				  ) {
-					//LOG_DEBUG() << "ignoring function " << func->getName() << "\n";
+					//LOG_DEBUG() << "ignoring external function " << func->getName() << "\n";
+					continue;
+				}
+				// for now we don't instrument vararg functions (TODO: figure out how to support them)
+				else if(func->isVarArg() && func->getName() != "MAIN__") { 
+					LOG_WARN() << "Not instrumenting var arg function: " << func->getName() << "\n";
 					continue;
 				}
 
@@ -1179,25 +2056,20 @@ namespace {
 				LOG_DEBUG() << "instrumenting function " << func->getName() << "\n";
 				LOG_DEBUG() << "bb count" << func->getBasicBlockList().size() << "\n";
 
-				// map between instructions and a unique id
-				std::map<Value*,unsigned int> inst_to_id;
-
 				std::vector<Value*> args;  // Arguments to insrumentation functions
 
 				unsigned int curr_id = 1;
-
-				//get the start op_id for this function
-				//unsigned int op_id_start = op_id;
 				
+				/*
 				foreach(BasicBlock& blk, *func)
 					getBasicBlockId(&blk);
+				*/
 
-				bool isMain = func->getName() == "main";
-
-				isMain = func->getName().compare("main") == 0 || func->getName().compare("MAIN__") == 0;
+				bool isMain = func->getName().compare("main") == 0 || func->getName().compare("MAIN__") == 0;
 					
 				// Create ID's for all the instructions that will get their own virtual register number.
 				// We do this here so that we don't have races based on which BB is instrumented first (most likely with PHI nodes)
+				std::map<Value*,unsigned int> inst_to_id;
 				mapInstIDs(func, inst_to_id, curr_id);
 
 				LoopInfo &LI = getAnalysis<LoopInfo>(*func);
@@ -1209,6 +2081,7 @@ namespace {
 
 				for(LoopInfo::iterator loop = LI.begin(), loop_end = LI.end(); loop != loop_end; ++loop) {
 					addCIVIToSet(*loop,canon_indvs,canon_incs);
+
 					getReductionVars(LI,*loop,red_var_ops);
 				}
 				//LOG_DEBUG() << "number of CIVIs found in " << func->getName() << ": " << canon_incs.size() << "\n";
@@ -1222,876 +2095,24 @@ namespace {
 					setupFuncArgs(func,inst_to_id, curr_id, inst_calls_begin, isMain);
 				}
 
+				//std::map< PHINode*,std::set<unsigned int> > phinode_completions;
 
-				// begin instrumenting ops phase
 				for (Function::iterator blk = func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
-					//LOG_DEBUG() << "processing BB: " << PRINT_VALUE(*blk);
-
-					InvokeInst* ii;
-                    uint64_t bb_call_idx = 0;
-					for (BasicBlock::iterator i = blk->getFirstNonPHI(), inst_end = blk->end(); i != inst_end; ++i) {
-
-						LOG_DEBUG() << "processing inst: " << PRINT_VALUE(*i) << "\n";
-
-						if(isa<BinaryOperator>(i) || isa<CmpInst>(i) || isa<SelectInst>(i)) {
-
-						        // assign an ID to the current instruction
-                                switch(i->getOpcode()) {
-                                    case Instruction::Add:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.int_add));
-                                        break;
-                                    case Instruction::FAdd:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.fp_add));
-                                        break;
-                                    case Instruction::Sub:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.int_sub));
-                                        break;
-                                    case Instruction::FSub:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.fp_sub));
-                                        break;
-                                    case Instruction::Mul:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.int_mul));
-                                        break;
-                                    case Instruction::FMul:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.fp_mul));
-                                        break;
-                                    case Instruction::UDiv:
-                                    case Instruction::SDiv:
-                                    case Instruction::URem:
-                                    case Instruction::SRem:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.int_div));
-                                        break;
-                                    case Instruction::FDiv:
-                                    case Instruction::FRem:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.fp_div));
-                                        break;
-                                    case Instruction::Shl:
-                                    case Instruction::LShr:
-                                    case Instruction::AShr:
-                                    case Instruction::And:
-                                    case Instruction::Or:
-                                    case Instruction::Xor:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.logic));
-                                        break;
-                                    case Instruction::ICmp:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.int_cmp));
-                                        break;
-                                    case Instruction::FCmp:
-                                        args.push_back(ConstantInt::get(types.i32(),costs.fp_cmp));
-                                        break;
-                                    case Instruction::Select:
-                                        args.push_back(ConstantInt::get(types.i32(),0));
-                                        break;
-                                    default:
-										//args.push_back(ConstantInt::get(types.i32(),0));
-										//LOG_DEBUG() << "unknown opcode (" << i->getOpcode() << ") for binop/icmp: " << *i;
-										log.close();
-										assert(0 && "unknown opcode for binop/icmp");
-										break;
-								}
-
-								Value* op0;
-								Value* op1;
-
-								// if this is a select inst, we need to call addControlDep before using the condition of the op
-								if(isa<SelectInst>(i)) {
-									SelectInst* sel_inst = cast<SelectInst>(i);
-									op0 = sel_inst->getTrueValue();
-									op1 = sel_inst->getFalseValue();
-
-									std::vector<Value*> args2;
-
-									args2.push_back(ConstantInt::get(types.i32(),inst_to_id[sel_inst->getCondition()]));
-
-									inst_calls_end.addCallInst(i,"addControlDep",args2);
-
-									// call to removeInit after select inst
-									args2.clear();
-								}
-								else {
-									op0 = i->getOperand(0);
-									op1 = i->getOperand(1);
-								}
-
-								if(red_var_ops.find(i) != red_var_ops.end()) { // special function if this is a reduction variable op
-									args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-									inst_calls_end.addCallInst(i,"logReductionVar",args);
-								}
-								else if(isa<Constant>(op0) || isa<Constant>(op1)) { // const propagation should stop these from both being constant
-
-									std::string func_to_use; // will contain name of instrumentation function to call
-
-									// if this inst is an induction var, we use a special logging function
-									if(canon_incs.find(i) != canon_incs.end()) {
-										args.clear();
-
-										func_to_use = "logInductionVar";
-									}
-									// if both ops are constant, then we should use logAssignmentConst
-									else if(isa<Constant>(op0) && isa<Constant>(op1)) {
-										args.clear();
-
-										LOG_DEBUG() << "NOTE: both operands are constant... did you forget to run constant propagation before this?\n";
-
-										func_to_use = "logAssignmentConst";
-									}
-									else if(isa<Constant>(op0)) {
-										args.push_back(ConstantInt::get(types.i32(),inst_to_id[op1])); // src ID
-										func_to_use = "logBinaryOpConst";
-									}
-									else { // op1 is a constant
-										args.push_back(ConstantInt::get(types.i32(),inst_to_id[op0])); // src ID
-										func_to_use = "logBinaryOpConst";
-									}
-
-									args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-									inst_calls_end.addCallInst(i,func_to_use,args);
-								}
-								else { // going to use logBinaryOp() function
-									LOG_DEBUG() << "inserting call to logBinaryOp\n";
-
-									args.push_back(ConstantInt::get(types.i32(),inst_to_id[op0])); // src0 ID
-									args.push_back(ConstantInt::get(types.i32(),inst_to_id[op1])); // src1 ID
-									args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-									inst_calls_end.addCallInst(i,"logBinaryOp",args);
-								}
-
-								// if this was a select, we need to end the control dep now that we have the correct logging func inserted
-								if(isa<SelectInst>(i)) {
-									args.clear();
-									inst_calls_end.addCallInst(i,"removeControlDep",args);
-								}
-
-								args.clear();
-						} // end binop, icmp, selectinst
-
-						else if(isa<CastInst>(i) && isa<Constant>(cast<CastInst>(i)->getOperand(0))) {
-							Value* op = i->getOperand(0);
-
-							// if this is a cast of a constant, we create a logAssignmentConst for this cast instruction
-							if(isa<Constant>(op)) {
-								LOG_DEBUG() << "inst is cast of a constant\n";
-
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-								inst_calls_end.addCallInst(i,"logAssignmentConst",args);
-
-								args.clear();
-							}
-						} // end cast
-
-						// TODO: combine this with cast inst?
-						else if(isa<AllocaInst>(i)) {
-							LOG_DEBUG() << "inst is an alloca\n";
-							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-							inst_calls_end.addCallInst(i,"logAssignmentConst",args);
-
-							args.clear();
-						}
-
-						// insertvalue takes a struct and inserts a value into a specified position in the struct, returning the updated struct
-						// We use logInsertValue/logInsertValueConst to track the dependencies between the inserted value and the struct into
-						// which it is inserted. Note we can't just use logAssignment here because if we happen to insert a constant after
-						// inserting another value, the struct's timestamp will use the constant time instead of the more accurate other value
-						// time.
-						// TODO: track the individual parts of the struct that are changing rather than the whole struct
-						else if(isa<InsertValueInst>(i)) {
-							LOG_DEBUG() << "inst is an insertvalue\n";
-
-							if(!isa<Constant>(i->getOperand(1))) {
-								// get ID of value that we will be updating the struct with
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i->getOperand(1)])); // src ID
-							}
-
-							// If the input struct is undefined, we want the dest to be to the current insertvalue inst.
-							// Otherwise, we use the dest that is given in the instruction
-							if(isa<Constant>(i->getOperand(0))) {
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID (current inst)
-							}
-							else {
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i->getOperand(0)])); // dest ID
-							}
-
-							if(isa<Constant>(i->getOperand(1))) {
-								inst_calls_end.addCallInst(i,"logInsertValueConst",args);
-							}
-							else {
-								inst_calls_end.addCallInst(i,"logInsertValue",args);
-							}
-
-							args.clear();
-						}
-
-						// extractvalue just returns the specified index of a specified struct
-						// currently we just use logAssignment; in the future we should have a new function which takes into account the index being extracted
-						else if(isa<ExtractValueInst>(i)) {
-							LOG_DEBUG() << "inst is an extractvalue\n";
-
-							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i->getOperand(0)])); // src ID
-							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-							// log assignment between the struct and the resulting value we pull out of it
-							inst_calls_end.addCallInst(i,"logAssignment",args);
-
-							args.clear();
-						}
-
-						// need to add in calls to setup the necessary transfer of function arguments
-                        // Cannot insert prep call before throwing an exception because it is allocated beyond the stack pointer.
-                        // Making any calls after the value has been allocated will corrupt the value.
-						else if(isa<CallInst>(i) && !isThrowCall(cast<CallInst>(i))) {
-							CallInst* ci = cast<CallInst>(i);
-							instrumentCall(ci, inst_to_id, inst_calls_begin, bb_call_idx++);
-
-							Function* called_func = untangleCall(ci);
-
-							// calls to malloc and calloc get logMalloc(addr, size) call
-							if(called_func 
-							  && (called_func->getName() == "malloc" || called_func->getName() == "calloc")
-							  ) {
-								LOG_DEBUG() << "inst is a call to malloc/calloc\n";
-
-								// insert address (return value of callinst)
-								LOG_DEBUG() << "adding return value of inst as arg to logMalloc\n";
-								args.push_back(ci);
-
-								// insert size (arg 0 of func)
-								Value* sizeOperand = ci->getArgOperand(0);
-								LOG_DEBUG() << "pushing arg: " << PRINT_VALUE(*sizeOperand) << "\n";
-								args.push_back(sizeOperand);
-
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-								
-								inst_calls_end.addCallInst(i,"logMalloc",args);
-								args.clear();
-							}
-
-							// calls to free get logFree(addr) call
-							else if(called_func && called_func->getName() == "free") {
-								LOG_DEBUG() << "inst is a call to free\n";
-
-								// Insert address (first arg of call ist)
-								// If op1 isn't pointing to an 8-bit int then we need to cast it to one for use.
-								if(isNBitIntPointer(ci->getArgOperand(0),8)) {
-									args.push_back(ci->getArgOperand(0));
-								}
-								else {
-									args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(0),types.pi8(),"free_arg_recast",blk->getTerminator()));
-								}
-
-
-								inst_calls_end.addCallInst(i,"logFree",args);
-								args.clear();
-							}
-
-							// handle calls to realloc
-							else if(called_func && called_func->getName() == "realloc") {
-								LOG_DEBUG() << "isnt is  call to realloc\n";
-
-								// Insert old addr (arg 0 of func).
-								// Just like for free, we need to make sure this has type i8*
-								if(isNBitIntPointer(ci->getArgOperand(0),8)) {
-									args.push_back(ci->getArgOperand(0));
-								}
-								else {
-									args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(0),types.pi8(),"realloc_arg_recast",blk->getTerminator()));
-								}
-
-								// insert new addr (return val of callinst)
-								args.push_back(ci);
-
-								// insert size (arg 1 of function)
-								args.push_back(ci->getArgOperand(1));
-
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-								inst_calls_end.addCallInst(i,"logRealloc",args);
-								args.clear();
-							}
-
-							else if(called_func && called_func->getName() == "fscanf") {
-								LOG_DEBUG() << "inst is call to fscanf\n";
-
-								// for each of the values we are writing to, we'll use logStoreInstConst since it will be an address being passed to fscanf
-								for(unsigned idx = 2; idx < ci->getNumArgOperands(); ++idx) {
-									// we need to make sure this has type i8*
-									if(isNBitIntPointer(ci->getArgOperand(idx),8)) {
-										args.push_back(ci->getArgOperand(idx));
-									}
-									else {
-										args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(idx),types.pi8(),"fscanf_arg_recast",blk->getTerminator()));
-									}
-
-									inst_calls_end.addCallInst(i,"logStoreInstConst",args);
-									args.clear();
-								}
-							}
-
-							else if(called_func && uninstrumented_func_cost_map.find(called_func->getName()) != uninstrumented_func_cost_map.end()) {
-								LOG_DEBUG() << "inst is call to ''library'' function: " << called_func->getName() << "\n";
-
-								// cost of the lib function
-								args.push_back(ConstantInt::get(types.i32(),uninstrumented_func_cost_map[called_func->getName()]));
-
-								// number of ops (stupid varargs implementation)
-								unsigned int num_func_args = 0;
-
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-								// as long at is isn't a constant, we are going to use it as an input to logLibraryCall
-								for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
-									Value* operand = ci->getArgOperand(q);
-
-									if(!isa<ConstantInt>(operand) && !isa<ConstantFP>(operand)) {
-										num_func_args++;
-									}
-								}
-
-								args.push_back(ConstantInt::get(types.i32(),num_func_args));
-
-								// go through and push on pointers to all the non-const inputs to the function
-								for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
-									Value* operand = ci->getArgOperand(q);
-
-
-									if(!isa<ConstantInt>(operand) && !isa<ConstantFP>(operand)) {
-										LOG_DEBUG() << "adding argument: " << q << "\n";
-										args.push_back(ConstantInt::get(types.i32(),inst_to_id[ci->getArgOperand(q)])); // dest ID
-									}
-									else {
-										LOG_DEBUG() << "skipping cosntant argument: " << q << "\n";
-									}
-								}
-
-								inst_calls_end.addCallInst(i,"logLibraryCall",args);
-
-								args.clear();
-							}
-						} // end callinst
-
-						else if((ii = dyn_cast<InvokeInst>(i)))
-                        {
-							static int invoke_id = 0;
-							ConstantInt* invoke_id_const = ConstantInt::get(types.i32(),invoke_id++);
-							args.push_back(invoke_id_const);
-							inst_calls_begin.addCallInst(i,"prepareInvoke",args);
-
-							//The exception value is pushed on to the stack, so we are not allowed to call any other function until the
-							//value has been grabbed. As a result, we must push the instrumentation call to be after these calls,
-							//but before any other instrumentation calls. The following gets the first instrumentation call found.
-							//We will insert before it. If we don't find one, the terminator will suffice.
-							{
-
-								BasicBlock* blk = ii->getUnwindDest();
-
-								std::vector<Instruction*> joined_blks;
-								joinBasicBlocks(blk, joined_blks);
-
-								LOG_DEBUG() << "joined blocks contents of " << blk->getName() << ":" << "\n";
-								foreach(Instruction* inst, joined_blks)
-									LOG_DEBUG() << PRINT_VALUE(*inst) << "\n";
-								LOG_DEBUG() << "\n";
-
-								//TODO: Need to handle if we put something in the front. If we do this, ours needs to go into the front instead of the back.
-								Instruction* insert_before = joined_blks.back();
-								foreach(Instruction* inst, joined_blks) {
-
-									if(willInstrument(inst)) {
-										insert_before = inst;
-										break;
-									}
-								}
-
-								LOG_DEBUG() << "inserting invokeThrew before " << PRINT_VALUE(*insert_before) << "\n";
-
-								inst_calls_end.addCallInstBefore(insert_before, "invokeThrew", args);
-							}
-
-							// insert invokeOkay for this invoke instruction
-							{
-								BasicBlock* blk = ii->getNormalDest();
-								Instruction* insert_before = blk->getFirstNonPHI();
-								inst_calls_begin.addCallInstBefore(insert_before, "invokeOkay", args);
-							}
-
-							args.clear();
-							instrumentCall(ii, inst_to_id, inst_calls_begin, bb_call_idx++);
-						} // end invokeinst
-
-						// store is either logStoreInst or logStoreInstConst (if storing a constant)
-						else if(isa<StoreInst>(i)) {
-							LOG_DEBUG() << "inst is a store inst\n";
-
-							StoreInst* si = cast<StoreInst>(i);
-
-							// first we get a ptr to the source (if it's not a constant)
-							if(!isa<Constant>(si->getOperand(0))) {
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[si->getOperand(0)])); // src ID
-							}
-
-							// the dest is already in ptr form so we simply use that
-							args.push_back(CastInst::CreatePointerCast(si->getPointerOperand(),types.pi8(),"inst_arg_ptr",blk->getTerminator())); // dest addr
-
-							if(isa<Constant>(si->getOperand(0))) {
-								inst_calls_end.addCallInst(i,"logStoreInstConst",args);
-							}
-							else {
-								inst_calls_end.addCallInst(i,"logStoreInst",args);
-							}
-
-							args.clear();
-						} // end storeinst
-
-						// look at loads to see if there is a dependence
-						else if(isa<LoadInst>(i)) {
-							LoadInst* li = cast<LoadInst>(i);
-
-							/*
-							//std::vector<Value*> ptr_deps; // these are the ptrs we will add as dependences at the end
-							std::vector<unsigned int> ptr_deps; // these are the ptrs we will add as dependences at the end
-
-							if(isa<GetElementPtrInst>(li->getPointerOperand())) {
-								GetElementPtrInst* gepi = cast<GetElementPtrInst>(li->getPointerOperand());
-
-								// find all non-constant ops and add them to a list for later use
-								for(User::op_iterator gepi_op = gepi->idx_begin(), gepi_ops_end = gepi->idx_end(); gepi_op != gepi_ops_end; ++gepi_op) {
-									if(!isa<Constant>(gepi_op)) {
-										//LOG_DEBUG() << "getelementptr " << gepi->getName() << " depends on " << gepi_op->get()->getName() << "\n";
-										ptr_deps.push_back(inst_to_id[*gepi_op]);
-									}
-								}
-							}
-
-							// find all the places that this load is used
-							for(Value::use_iterator li_use = li->use_begin(), li_use_end = li->use_end(); li_use != li_use_end; ++li_use) {
-								// now add a call to logInductionVarDependence for all ptr_deps
-
-								// if this is used in a phi node, we need to insert the call to logAssignment now so the correct ordering of logInductVarDep() THEN logAssignment() is maintained
-								if(PHINode* phi = dyn_cast<PHINode>(li_use)) {
-									LOG_DEBUG() << "load used by phi node " << phi->getName() << "\n";
-
-									BasicBlock* ld_bb = i->getParent();
-									LOG_DEBUG() << "looking for incoming edge from " << ld_bb->getName() << "...\n";
-
-									bool found_incoming_block = false;
-									unsigned int phi_location = 0;
-									for(unsigned int n = 0; n < phi->getNumIncomingValues(); ++n) {
-										// if this value comes from the same block as our load, then we are good to go
-										if(phi->getIncomingValue(n) == i) {
-											LOG_DEBUG() << "... found incoming edge. Inserting calls to logInductionVariable() and logAssignment() in this block\n";
-											phinode_completions[phi].insert(n); // mark this so when we process the phinode later, we don't insert another call to logAssignment
-											phi_location = n;
-											found_incoming_block = true;
-											break;
-										}
-									}
-
-									// big problem is we have a phi node without an incoming edge from the blk that has this load... why would this happen?
-									if(!found_incoming_block) {
-										LOG_DEBUG() << "ERROR: could not find edge to that phinode from this block!\n";
-										LOG_DEBUG().close();
-										assert(0);
-										return;
-									}
-									else {
-
-										// add in the calls to logInductionVarDep() before the block terminator
-										for(std::vector<unsigned int>::iterator ptr_it = ptr_deps.begin(), ptr_it_end = ptr_deps.end(); ptr_it != ptr_it_end; ++ptr_it) {
-											args.push_back(ConstantInt::get(types.i32(),*ptr_it)); // ind var ID
-
-											// TODO: FIXME
-											instrumentation_calls.insert(CallInst::Create(inst_funcs["logInductionVarDependence"], args.begin(), args.end(), "", ld_bb->getTerminator()));
-
-											args.clear();
-										}
-
-										// now add in the call to logAssignment() before the block terminator (which will be immediately after the calls to logIndVarDep()
-										args.push_back(ConstantInt::get(types.i32(),inst_to_id[phi->getIncomingValue(phi_location)])); // src ID
-										args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-										// TODO: FIXME
-										instrumentation_calls.insert(CallInst::Create(inst_funcs["logAssignment"], args.begin(), args.end(), "", ld_bb->getTerminator()));
-
-										args.clear();
-									}
-								}
-								else {
-									for(std::vector<unsigned int>::iterator ptr_it = ptr_deps.begin(), ptr_it_end = ptr_deps.end(); ptr_it != ptr_it_end; ++ptr_it) {
-										args.push_back(ConstantInt::get(types.i32(),*ptr_it)); // ind var ID
-										// XXX FIXME: potential ordering problem here
-										instrumentation_calls.insert(CallInst::Create(inst_funcs["logInductionVarDependence"], args.begin(), args.end(), "", dyn_cast<Instruction>(*li_use)));
-
-										args.clear();
-									}
-								}
-							}
-
-							ptr_deps.clear();
-							*/
-
-							// now we create an assignment from the load's src addr to the load's ID
-
-							// the mem loc is already in ptr form so we simply use that
-							args.push_back(CastInst::CreatePointerCast(li->getPointerOperand(),types.pi8(),"inst_arg_ptr",i)); // src addr
-							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-							inst_calls_end.addCallInst(i,"logLoadInst",args);
-
-							args.clear();
-						}
-
-
-						else if(isa<ReturnInst>(i)) {
-							ReturnInst* ri = cast<ReturnInst>(i);
-							LOG_DEBUG() << "inst is a return\n";
-
-							if(returnsRealValue(func) // make sure this returns a non-pointer
-							  && ri->getNumOperands() != 0) { // and that it isn't returning void
-								if(isa<Constant>(ri->getReturnValue(0))) {
-									inst_calls_end.addCallInst(i,"logFuncReturnConst",args);
-									LOG_DEBUG() << "returning const value\n";
-								}
-								else {
-									args.push_back(ConstantInt::get(types.i32(),inst_to_id[ri->getReturnValue(0)])); // src ID
-
-									inst_calls_end.addCallInst(i,"logFuncReturn",args);
-									LOG_DEBUG() << "returning non-const value\n";
-								}
-							}
-							else {
-								LOG_DEBUG() << "void or pointer return not logged\n";
-							}
-
-							args.clear();
-						} // end returninst
-
-					} // end basic blk iterator (instructions)
-
-
-					for (BasicBlock::iterator i = blk->begin(), inst_end = blk->getFirstNonPHI(); i != inst_end; ++i) {
-						PHINode* phi = dyn_cast<PHINode>(i);
-
-						assert(phi && "expected phi node but didn't get one!");
-
-						if(canon_indvs.find(phi) == canon_indvs.end()) {
-							LOG_DEBUG() << "processing phi node: " << PRINT_VALUE(*i) << "\n";
-
-							PHINode* phi = cast<PHINode>(i);
-							//LOG_DEBUG() << "phi node with number of incoming edges of " << phi->getNumIncomingValues() << "\n";
-
-							unsigned int dest_id = inst_to_id[i];                    // used later
-							args.push_back(ConstantInt::get(types.i32(),dest_id)); // dest ID
-
-							//set the number of incoming values
-							unsigned int num_in = phi->getNumIncomingValues();
-
-							std::vector<BasicBlock*> controlling_blocks;
-
-							BasicBlock* dominating_block = getImmediateDominator(blk);
-							controlling_blocks.push_back(dominating_block);
-
-							PHINode* incoming_val_id = PHINode::Create(types.i32(),"phi-incoming-val-id",phi);
-
-							for(unsigned int i = 0; i < num_in; i++) {
-
-								BasicBlock* incoming_block = phi->getIncomingBlock(i);
-								Value* incoming_val = phi->getIncomingValue(i);
-
-								unsigned int incoming_id = 0; // default ID to 0 (i.e. a constant)
-
-								// if incoming val isn't a constant, we grab the it's ID
-								if(!isa<Constant>(incoming_val)) {
-									incoming_id = inst_to_id[incoming_val];
-								}
-
-								incoming_val_id->addIncoming(ConstantInt::get(types.i32(),incoming_id), incoming_block);
-							}
-
-							args.push_back(incoming_val_id); // ID for incoming value
-
-							std::set<BasicBlock*> controllers;
-							getControllingBlocks(phi, controllers);
-
-							IsSuccessor is_successor(blk);
-							IsPredecessor is_predecessor(blk);
-							DominatorTree &dt = getAnalysis<DominatorTree>(*blk->getParent());
-
-							std::vector<Value*> control_deps;
-
-							for(std::set<BasicBlock*>::iterator it = controllers.begin(), end = controllers.end(); it != end; it++) {
-								LOG_DEBUG() << "controller to " << blk->getName() << ": " << (*it)->getName() << "\n";
-								
-								PHINode* incoming_condition_addr = PHINode::Create(types.i32(),"phi-incoming-condition",phi);
-
-								std::map<BasicBlock*, Value*> incoming_value_addrs;
-
-								unsigned int incoming_id;
-								bool all_zeros = true;
-
-								// check all preds of current basic block
-								for(unsigned int i = 0; i < num_in; i++) {
-									BasicBlock* incoming_block = phi->getIncomingBlock(i);
-
-									// If this "closest pred" dominates incoming block, get the id of condition at end of pred
-									if(dt.dominates(*it, incoming_block)) {
-										LOG_DEBUG() << (*it)->getName() << " dominates " << incoming_block->getName() << "\n";
-
-										incoming_id = getConditionIdOfBlock(*it, inst_to_id);
-
-									} 
-									// doesn't dominate so condition key is 0
-									else {
-										LOG_DEBUG() << (*it)->getName() << " does NOT dominate " << incoming_block->getName() << "\n";
-										incoming_id = 0;
-									}
-
-									if(incoming_id != 0) all_zeros = false;
-
-									incoming_condition_addr->addIncoming(ConstantInt::get(types.i32(),incoming_id), incoming_block);
-								}
-								
-								if(all_zeros) {
-									incoming_condition_addr->eraseFromParent();
-									LOG_DEBUG() << "predecessor has all 0 IDs. Erasing...\n";
-								}
-								else {
-									control_deps.push_back(incoming_condition_addr);
-								}
-							}
-
-							//args[cond_dep_index] = ConstantInt::get(types.i32(), t_inits_to_check); // update index that says how many conditions we had
-
-							unsigned int num_control_deps = control_deps.size();
-
-							// if less than 4 (but more than 0) control deps, we can use the logPhiNodeXCD() functions
-							if(num_control_deps <= 4 && num_control_deps > 0) {
-								// tack the control deps on to arg list
-								args.insert(args.end(),control_deps.begin(),control_deps.end());
-
-								std::stringstream ss;
-								ss << "logPhiNode" << num_control_deps << "CD";
-
-								// insert call to appropriate logging function at begining of blk
-								inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),ss.str(),args);
-							}
-							else if(num_control_deps > 0) {
-								// push the first 4 control deps on and create call to logPhiNode4CD
-								for(unsigned j = 0; j < 4; ++j) {
-									args.push_back(control_deps[j]);
-								}
-
-								inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"logPhiNode4CD",args);
-
-								// save dest because we'll need it for each call to log4CDToPhiNode
-								Value* dest_val = args[0];
-
-								args.clear();
-
-								// keep constructing log4CDToPhiNode calls until we run out of control deps
-								unsigned int num_args_added = 0;
-
-								for(unsigned dep_index = 4; dep_index < num_control_deps; ++dep_index) {
-									// check to see if we need to reset args
-									if(num_args_added == 0) {
-										args.clear();
-										args.push_back(dest_val);
-									}
-
-									args.push_back(control_deps[dep_index]);
-
-									num_args_added = (num_args_added+1)%4;
-
-									// got a full set of args so let's create the func call
-									if(num_args_added == 0) {
-										inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"log4CDToPhiNode",args);
-									}
-								}
-
-								// if we didn't have enough control deps to complete log4CDToPhiNode then we repeat an arbitrary control dep (e.g. the first one) to
-								// get the required number of args
-								if(num_args_added != 0) {
-									Constant* padding = ConstantInt::get(types.i32(), 0); // 0 should indicate this is padding
-									do {
-										args.push_back(padding);
-										num_args_added++;
-									} while(num_args_added < 4);
-
-									inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"log4CDToPhiNode",args);
-								}
-							}
-
-							args.clear();
-
-							//add loop conditions that occur after the phi instruction
-							if(LI.isLoopHeader(blk)) {
-								Loop* loop = LI.getLoopFor(blk);
-								TerminatorInst* terminator = blk->getTerminator();
-								BranchInst* branch_inst;
-
-								//only try if this is conditional
-								if(isa<BranchInst>(terminator) && (branch_inst = cast<BranchInst>(terminator))->isConditional()) {
-									bool is_do_loop = true;
-									for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) {
-										BasicBlock* successor = branch_inst->getSuccessor(i);
-										if(std::find(loop->block_begin(), loop->block_end(), successor) == loop->block_end()) {
-											is_do_loop = false;
-											break;
-										}
-									}
-									for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) {
-										BasicBlock* successor = branch_inst->getSuccessor(i);
-										if(&*blk == successor) {
-											is_do_loop = true;
-											break;
-										}
-									}
-
-									//do..while loops need the condition appended after the loop concludes
-									if(is_do_loop)
-										for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) {
-											BasicBlock* successor = branch_inst->getSuccessor(i);
-											if(!is_predecessor(successor) && &*blk != successor) {
-												args.push_back(ConstantInt::get(types.i32(), dest_id));                                            // dest ID
-												args.push_back(ConstantInt::get(types.i32(), getConditionIdOfBlock(blk, inst_to_id)));             // condition ID
-
-												inst_calls_begin.addCallInstBefore(successor->getFirstNonPHI(),"logPhiNodeAddCondition",args);
-												args.clear();
-											}
-										}
-
-									//while loops need the condition appended as soon as the header executes
-									else {
-										// Check to see if this is a constant value (i.e. while true)
-										// TODO: check to see if this occurs
-										if(!isa<ConstantInt>(branch_inst->getCondition())) { 
-
-											args.push_back(ConstantInt::get(types.i32(), dest_id));                                            // dest ID
-											args.push_back(ConstantInt::get(types.i32(), getConditionIdOfBlock(blk, inst_to_id)));             // condition ID
-
-											Instruction* condition = dyn_cast<Instruction>(branch_inst->getCondition());
-											if(!condition) {
-												log.error() << "branch condition isn't an instruction: " << *branch_inst->getCondition() << "\n";
-												assert(0);
-											}
-											assert(condition);
-											inst_calls_end.addCallInstAfter(condition,"logPhiNodeAddCondition",args);
-											args.clear();
-										}
-									}
-								}
-							} //end handling phi's in loops
-						} // end not canonical phi
-					} // end looping over phi's
-
-				} // end function iterator (basic blocks)
-				// end of instrumenting ops phase
-
-
-
+					instrumentBasicBlock(blk,canon_indvs,canon_incs,red_var_ops,inst_to_id,inst_calls_begin,inst_calls_end);
+				} 
 
 				// Phi nodes associated with canonical induction vars require that all insts that can be inserted at the back 
 				// (other than removeControlDep()) have already been "inserted".
 				// This requirement is satisfied now that we have done the instrumenting ops phase so we can process these special
 				// phi nodes.
 				for (Function::iterator blk = func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
-					std::vector<Value*> args;
-
-					for (BasicBlock::iterator i = blk->begin(), inst_end = blk->getFirstNonPHI(); i != inst_end; ++i) {
-
-						// If this a PHI that is a loop induction var, we only logAssignment when we first enter the loop so that we don't get
-						// caught in a dependency cycle. For example, the induction var inc would get the time of t_init for the first iter,
-						// which would then force the next iter's t_init to be one higher and so on and so forth...
-						if(canon_indvs.find(cast<PHINode>(i)) != canon_indvs.end()) {
-							LOG_DEBUG() << "processing canonical induction var (function: " << i->getParent()->getParent()->getName() << "): " << *i << "\n";
-
-							PHINode* phi = cast<PHINode>(i);
-
-							// Loop through all incoming vals of PHI and find the one that is constant (i.e. initializes the loop to 0).
-							// We then insert a call to logAssignmentConst() to permanently set the time of this to whatever t_init happens
-							// to be in the BB where that value comes from.
-							int const_idx = -1;
-
-							for(unsigned int n = 0; n < phi->getNumIncomingValues(); ++n) {
-								if(isa<ConstantInt>(phi->getIncomingValue(n)) && const_idx == -1) {
-									const_idx = n;
-								}
-								else if(isa<ConstantInt>(phi->getIncomingValue(n))) {
-									LOG_DEBUG() << "ERROR: found multiple incoming constants to induction var phi node\n";
-									log.close();
-									assert(0);
-								}
-							}
-
-							if(const_idx == -1) {
-								LOG_DEBUG() << "ERROR: could not find constant incoming value to induction variable phi node\n";
-								log.close();
-								assert(0);
-							}
-
-							BasicBlock* in_blk = phi->getIncomingBlock(const_idx);
-
-							// finally, we will insert the call to logAssignmentConst
-							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-							inst_calls_end.addCallInstBefore(in_blk->getTerminator(),"logInductionVar",args);
-
-							args.clear();
-
-							// This induction var should have a use that is a compare inst to see if one more iter should happen.
-							// We examine this compare to get the other operand and therefore determine the number of iterations
-							// of the loop.
-						}
-					}
+					instrumentBasicBlockIndVars(blk,canon_indvs,inst_to_id,inst_calls_end);
 				}
-
-
-
-
 
 				// add control dep inst functions
 				for (Function::iterator blk = func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
-					BasicBlock* controller = getControllingBlock(blk, false);
+					instrumentBasicBlockControlDeps(blk,inst_to_id,inst_calls_begin,inst_calls_end);
 
-					std::vector<Value*> args;
-
-					// move on to next blk if this one doesn't have a controller
-					if(controller != NULL) {
-						//LOG_DEBUG() << blk->getName() << " is controlled by " << controller->getName() << ". inserting call to linkinit...\n";
-
-
-						unsigned int cond_id = 0;
-
-						// get ptr to the condition variable
-
-						if(BranchInst* br_inst = dyn_cast<BranchInst>(controller->getTerminator())) {
-							cond_id = inst_to_id[br_inst->getCondition()];
-						}
-						else if(SwitchInst* sw_inst = dyn_cast<SwitchInst>(controller->getTerminator())) {
-							cond_id = inst_to_id[sw_inst->getCondition()];
-						}
-						else if(dyn_cast<InvokeInst>(controller->getTerminator())) {
-							//TODO: Get the condition of the exception that was thrown
-							continue;
-						}
-						else {
-							LOG_ERROR() << "controlling terminator (" << controller->getTerminator()->getName() << ": " << PRINT_VALUE(*controller->getTerminator()) << ") is not a branch or switch. what is it???\n";
-							log.close();
-							assert(0);
-						}
-
-						args.push_back(ConstantInt::get(types.i32(),cond_id)); // cond ID
-						inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"addControlDep",args);
-
-						args.clear();
-
-						inst_calls_end.addCallInstBefore(blk->getTerminator(),"removeControlDep",args);
-
-						args.clear();
-					}
 				}
 
 				// insert call to setupLocalTable so we know how many spots in the local table to allocate 
