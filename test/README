@@ -1,3 +1,29 @@
+
+Regression Test Types
+---------------------
+
+The following rules can be made from within each regression test:
+
+Rule            Description
+--------------- ------------------------------------------------------------
+referenceBuild  Builds a reference kremlin.bin.
+referenceCheck  Compiles and runs the program. Then diffs against the
+                reference kremlin.bin.
+sregionsBuild   Builds a reference sregions.txt
+sregionsCheck   Compiles and diffs against the reference sregions.txt
+valgrindCheck   Compiles and runs valgrind on the test. Fails if any invalid
+                memory accesses or leaks occur.
+
+Running the Regression Suite
+----------------------------
+Any of the rules can be run across all tests by appending "All" to the rule.
+For example, to run referenceCheck across all tests, run 
+
+    make referenceCheckAll
+
+Directory Layout
+----------------
+
 All subdirectories with Makefiles are regression tests.
 
 All test makefiles must print "FAILED" to stdout or stderr if they fail.

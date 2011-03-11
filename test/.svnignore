@@ -25,3 +25,9 @@ sregions.txt
 testResults.txt
 valgrindCheck.out
 valgrindCheckAll
+sregionsBuild.out
+sregionsCheck.out
+sregions.txt.normalized.reference
+sregions.txt.normalized
+sregionsCheckAll
+sregionsBuildAll

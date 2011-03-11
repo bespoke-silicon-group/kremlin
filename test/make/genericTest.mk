@@ -80,7 +80,7 @@ $(OUTPUTS):
 	(make -C $$(dir $$@) $(CLEAN_TASK) $(TEST_RULE) || echo "test FAILED") &> $$@
 
 $(CLEAN_TASK)::
-	-@rm $(OUTPUTS)
+	-@rm $(OUTPUTS) $(TEST_ALL_RULE)
 
 endef
 
