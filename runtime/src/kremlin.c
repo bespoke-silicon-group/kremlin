@@ -50,6 +50,8 @@ typedef struct _region_t {
 	UInt64 childrenWork;
 	UInt64 childrenCP;
     RegionType regionType;
+    UInt64 loadCnt;
+    UInt64 storeCnt;
 #ifdef EXTRA_STATS
     UInt64 readCnt;
     UInt64 writeCnt;
@@ -563,6 +565,8 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     regionInfo[level].childrenCP = 0LL;
     regionInfo[level].regionType = regionType;
 
+    regionInfo[level].loadCnt = 0LL;
+    regionInfo[level].storeCnt = 0LL;
 #ifdef EXTRA_STATS
     regionInfo[level].readCnt = 0LL;
     regionInfo[level].writeCnt = 0LL;
@@ -709,6 +713,8 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 	field.tpWork = tpWork;
 	assert(work >= spWork);
 	assert(work >= tpWork);
+    field.loadCnt = regionInfo[level].loadCnt;
+    field.storeCnt = regionInfo[level].storeCnt;
 #ifdef EXTRA_STATS
     field.readCnt = regionInfo[level].readCnt;
     field.writeCnt = regionInfo[level].writeCnt;
@@ -885,9 +891,9 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
 #ifdef EXTRA_STATS
-    TEntry* entry0Line = getGTEntryCacheLine(src_addr);
+//    TEntry* entry0Line = getGTEntryCacheLine(src_addr);
     TEntryAllocAtLeastLevel(entry0, maxLevel);
-    TEntryAllocAtLeastLevel(entry0Line, maxLevel);
+//    TEntryAllocAtLeastLevel(entry0Line, maxLevel);
 #endif
 
     //assert(entryDest != NULL);
@@ -898,7 +904,9 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
+  //  TEntryAllocAtLeastLevel(entry0Line, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
+        regionInfo[i].loadCnt++;
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
         UInt64 ts0 = getTimestamp(entry0, i, version);
@@ -907,7 +915,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 
 #ifdef EXTRA_STATS
         updateReadMemoryAccess(entry0, i, version, value);
-        updateReadMemoryLineAccess(entry0Line, i, version, value);
+   //     updateReadMemoryLineAccess(entry0Line, i, version, value);
 #endif
 
         updateTimestamp(entryDest, i, version, value);
@@ -937,8 +945,8 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
 #ifdef EXTRA_STATS
-    TEntry* entryLine = getGTEntryCacheLine(dest_addr);
-    TEntryAllocAtLeastLevel(entryLine, maxLevel);
+    //TEntry* entryLine = getGTEntryCacheLine(dest_addr);
+    //TEntryAllocAtLeastLevel(entryLine, maxLevel);
 #endif
 
     assert(entryDest != NULL);
@@ -947,16 +955,18 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     //fprintf(stderr, "\n\nstore ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
+    //TEntryAllocAtLeastLevel(entryLine, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
+        regionInfo[i].storeCnt++;
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
         UInt64 ts0 = getTimestamp(entry0, i, version);
         UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
         UInt64 value = greater1 + STORE_COST;
 
-#ifdef EXTRA_STATS
+#ifdef E/XTRA_STATS
         updateWriteMemoryAccess(entryDest, i, version, value);
-        updateWriteMemoryLineAccess(entryLine, i, version, value);
+      //  updateWriteMemoryLineAccess(entryLine, i, version, value);
 #endif
 
         updateTimestamp(entryDest, i, version, value);

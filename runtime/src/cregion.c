@@ -93,6 +93,8 @@ static void emitRegion(FILE* fp, CNode* node) {
     fwrite(&maxSPInt, sizeof(Int64), 1, fp);
     fwrite(&region->readCnt, sizeof(Int64), 1, fp);
     fwrite(&region->writeCnt, sizeof(Int64), 1, fp);
+    fwrite(&region->loadCnt, sizeof(Int64), 1, fp);
+    fwrite(&region->storeCnt, sizeof(Int64), 1, fp);
 
 	UInt64 size = node->childrenSize;
 	if (size == 0)
@@ -132,6 +134,8 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	region->spWork += info->spWork;
 	region->readCnt += info->readCnt;
 	region->writeCnt += info->writeCnt;
+	region->loadCnt += info->loadCnt;
+	region->storeCnt += info->storeCnt;
 	assert(region->numInstance >= 0);
 	region->numInstance++;
 	
@@ -192,6 +196,8 @@ static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
 	ret->maxSP = 0;
 	ret->readCnt = 0;
 	ret->writeCnt = 0;
+	ret->loadCnt = 0;
+	ret->storeCnt = 0;
 	ret->numInstance = 0;
 	return ret;
 }

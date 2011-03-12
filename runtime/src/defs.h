@@ -72,6 +72,8 @@ typedef struct _RegionField_t {
 	UInt64 writeCnt;
 	UInt64 readLineCnt;
 	UInt64 writeLineCnt;
+	UInt64 loadCnt;
+	UInt64 storeCnt;
 } RegionField;
 
 #ifdef __cplusplus
