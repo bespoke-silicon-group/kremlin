@@ -6,9 +6,12 @@ import java.util.List;
 import pprof.*;
 
 public class PlanPrinter {
-	public static void print(CRegionManager manager, Plan plan) {		
+	public static void print(CRegionManager manager, Plan plan) {
+		long serial = manager.getRoot().getTotalWork();
 		System.out.printf("Target : %s\n", plan.getTarget());
-		System.out.printf("Speedup: %.2f\n\n", 100.0 / (100.0 - plan.getTimeReduction()));
+		System.out.printf("Speedup: %.2f\n", 100.0 / (100.0 - plan.getTimeReduction()));
+		System.out.printf("Serial  : %d\n", serial);
+		System.out.printf("Parallel: %d\n\n", (int)(serial * 0.01 * (100.0 - plan.getTimeReduction())));
 		
 		List<CRegion> list = new ArrayList<CRegion>();
 		for (CRegionRecord each : plan.getCRegionList())

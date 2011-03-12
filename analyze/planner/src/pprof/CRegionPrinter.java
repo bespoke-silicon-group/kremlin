@@ -48,8 +48,9 @@ public class CRegionPrinter {
 	}
 	
 	public String getStatString2(CRegion region) {		
-		String stats = String.format("avg work = %.2f, cp = %.2f, count = %5d, readCnt = %.2f, writeCnt = %.2f", 
-				region.getAvgWork(), region.getAvgCP(), region.getInstanceCount(), region.getAvgReadCnt(), region.getAvgWriteCnt());
+		String stats = String.format("avg work = %.2f, cp = %.2f, count = %5d, readCnt = %.2f, writeCnt = %.2f, load = %.2f, store = %.2f", 
+				region.getAvgWork(), region.getAvgCP(), region.getInstanceCount(), 
+				region.getAvgReadCnt(), region.getAvgWriteCnt(), region.avgLoadCnt, region.avgStoreCnt);
 		return stats;
 	}
 	

@@ -44,18 +44,20 @@ public class KremlinRaw {
 	public static Set<CRegion> getNonLeafLoopSet(CRegionManager manager) {
 		Set<CRegion> ret = new HashSet<CRegion>();
 		for (CRegion each : manager.getCRegionSet()) {
-			if (!isLeafLoop(each))
+			if (!isExploitable(each))
 				ret.add(each);			
 		}		
 		return ret;
 	}
 	
 	// should not contain any function or loop except loop bodies
-	static boolean isLeafLoop(CRegion region) {
+	static boolean isExploitable(CRegion region) {
 		SRegion sregion = region.getSRegion();
 		//if (sregion.getType() != RegionType.LOOP)
 		//	return false;
-		
+		if (sregion.getType() == RegionType.LOOP) {
+			return false;
+		}
 		List<CRegion> ready = new ArrayList<CRegion>(region.getChildrenSet());		
 		while (!ready.isEmpty()) {
 			CRegion current = ready.remove(0);

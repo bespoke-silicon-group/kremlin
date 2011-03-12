@@ -15,7 +15,7 @@ public class CRegion implements Comparable {
 		//build(totalWork);
 	}
 	
-	CRegion(SRegion sregion, long uid, CallSite callSite, long cnt, long work, long tpWork, long spWork, double minSP, double maxSP, long readCnt, long writeCnt) {
+	CRegion(SRegion sregion, long uid, CallSite callSite, long cnt, long work, long tpWork, long spWork, double minSP, double maxSP, long readCnt, long writeCnt, long loadCnt, long storeCnt) {
 		this.region = sregion;
 		this.callSite = callSite;
 		this.id = uid;
@@ -26,7 +26,25 @@ public class CRegion implements Comparable {
 		this.maxSP = maxSP;
 		this.totalReadCnt = readCnt;
 		this.totalWriteCnt = writeCnt;
+		this.totalLoadCnt = loadCnt;
+		this.totalStoreCnt = storeCnt;
 		build(cnt, work, tpWork, spWork);
+	}
+	
+	CRegion(SRegion sregion, CallSite callSite, TraceEntry entry) {
+		this.region = sregion;
+		this.callSite = callSite;
+		this.id = entry.uid;
+		this.totalWork = entry.work;		
+		this.numInstance = entry.cnt;
+		this.children = new HashSet<CRegion>();
+		this.minSP = entry.minSP;
+		this.maxSP = entry.maxSP;
+		this.totalReadCnt = entry.readCnt;
+		this.totalWriteCnt = entry.writeCnt;
+		this.totalLoadCnt = entry.loadCnt;
+		this.totalStoreCnt = entry.storeCnt;
+		build(entry.cnt, entry.work, entry.tpWork, entry.spWork);
 	}
 	
 	SRegion getParentSRegion() {
@@ -78,12 +96,16 @@ public class CRegion implements Comparable {
 	double sdWorkPercent;	// standard deviation of Work
 	long totalReadCnt;
 	long totalWriteCnt;
+	long totalLoadCnt;
+	long totalStoreCnt;
 	long totalReadLineCnt;
 	long totalWriteLineCnt;
 	double avgReadCnt;
 	double avgWriteCnt;
 	double avgReadLineCnt;
 	double avgWriteLineCnt;
+	double avgLoadCnt;
+	double avgStoreCnt;
 	long totalIter;
 	
 	Set<URegion> set;
@@ -164,6 +186,8 @@ public class CRegion implements Comparable {
 		this.avgWriteCnt = (double)this.totalWriteCnt / numInstance;
 		this.avgReadLineCnt = (double)this.totalReadLineCnt / numInstance;
 		this.avgWriteLineCnt = (double)this.totalWriteLineCnt / numInstance;
+		this.avgLoadCnt = (double)this.totalLoadCnt / numInstance;
+		this.avgStoreCnt = (double)this.totalStoreCnt / numInstance;
 		//this.workCoverage = ((double)this.totalWork / (double)appTotalWork) * 100.0;
 		this.workCoverage = 0.0;
 		this.selfSpeedup = 100.00 / (100.00 - (this.workCoverage - this.workCoverage / (double)this.selfParallelism));

@@ -43,8 +43,14 @@ public class SRegionReader {
 		String func = splitted[3].trim();
 		String name = "N/A";
 		//System.out.printf("%16x %s %s\n", id, type, module);
-		int start = Integer.parseInt(splitted[4].trim());
-		int end = Integer.parseInt(splitted[5].trim());
+		int start, end;
+		try {
+			start = Integer.parseInt(splitted[4].trim());
+			end = Integer.parseInt(splitted[5].trim());
+		} catch(Exception e) {
+			start = 0;
+			end = 0;
+		}
 		RegionType regionType = getType(type);
 		SRegion ret = null;
 		if (regionType == RegionType.CALLSITE)
