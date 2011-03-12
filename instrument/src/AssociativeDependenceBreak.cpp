@@ -161,6 +161,11 @@ namespace {
 
 				// Replace uses of the last value in chain with sole member of next_chain
 				chain.back()->replaceAllUsesWith(next_chain[0]);
+
+				// start from end of chain and erase old insts
+				for(unsigned i = chain.size()-1; i > 0; --i) {
+					chain[i]->eraseFromParent();
+				}
 			}
 
 			//log.close();
