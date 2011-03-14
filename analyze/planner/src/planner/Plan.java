@@ -4,14 +4,20 @@ import java.util.*;
 
 public class Plan {
 	double totalReduction;
+	double serialTime;
 	Target target;
 	List<CRegionRecord> list;
 	
-	Plan(List<CRegionRecord> list, Target target, double totalReduction) {
+	Plan(List<CRegionRecord> list, Target target, double totalReduction, double serialTime) {
 		this.list = list;
 		this.target = target;
 		this.totalReduction = totalReduction;
-	}	
+		this.serialTime = serialTime;
+	}
+	
+	public double getSerialTime() {
+		return this.serialTime;
+	}
 	
 	public double getTimeReduction() {
 		return this.totalReduction;

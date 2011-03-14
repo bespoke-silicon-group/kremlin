@@ -1,18 +1,16 @@
-
-
 import java.io.File;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
 
 import planner.*;
 import pprof.*;
 
-public class KremlinOMP {
-	/**
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
+
+
+public class KremlinOmpCache {
+	public static void main(String[] args) {		
 		String baseDir = ".";
+		//baseDir="f:\\Work\\pact2011";
 		//baseDir="f:\\Work\\pact2011\\cg";
 		int numCore = 32;
 		int overhead = 1024;
@@ -34,17 +32,16 @@ public class KremlinOMP {
 		String rawDir = ParameterSet.rawDir;		
 		String sFile = rawDir + "/sregions.txt";
 		String dFile = rawDir + "/kremlin.bin";
+		String cacheFile = rawDir + "/cache.txt";
 
-				
-		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
+		SRegionManager sManager = new SRegionManager(new File(sFile), true);
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
+		CacheManager manager = new CacheManager(cManager, cacheFile);
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
 		Target target = new Target(numCore, overhead);
-		CDPPlanner planner = new CDPPlanner(cManager, target);
-		//BWPlannerWorst planner = new BWPlannerWorst(cManager, target);
-		//BWPlannerBest planner = new BWPlannerBest(cManager, target);
-		Plan plan = planner.plan(excludeSet);		
-		PlanPrinter.print(cManager, plan);		
+		CacheAwarePlanner planner = new CacheAwarePlanner(manager, target);
+		Plan plan = planner.plan(excludeSet);
+		PlanPrinter.print(cManager, plan);
 	}	
 	
 	public static Set<CRegion> getNonLoopSet(CRegionManager manager) {

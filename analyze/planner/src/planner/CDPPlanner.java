@@ -22,10 +22,11 @@ public class CDPPlanner {
 		this.target = target;
 		this.maxCore = target.numCore;
 		this.overhead = target.overhead;
-	}
+	}	
 	
-	protected long getTotalTime() {
-		return analyzer.getRoot().getTotalWork();
+	
+	protected double getSerialTime(CRegion region) {
+		return region.getAvgWork();
 	}
 	
 	protected double getParallelTime(CRegion region) {
@@ -56,7 +57,7 @@ public class CDPPlanner {
 			CRegion current = list.remove(0);
 			SRegion region = current.getSRegion();
 			
-			retired.add(current);			
+			retired.add(current);
 			
 			double sum = 0;
 			for (CRegion child : current.getChildrenSet()) {
@@ -64,12 +65,19 @@ public class CDPPlanner {
 			}
 			
 			boolean exclude = false;
-			//double selfPoint = this.speedupCalc.getAppTimeReduction(current, root);			 
+			//double selfPoint = this.speedupCalc.getAppTimeReduction(current, root);
 			
 			double parallelTime = this.getParallelTime(current);
-			double speedup = current.getAvgWork() / parallelTime;
-			double coverage = ((double)current.getTotalWork() / (double)getTotalTime()) * 100.0;
+			double serialTime = this.getSerialTime(current);
+			double speedup = serialTime / parallelTime;
+			if (parallelTime > serialTime)
+				speedup = 1.0;
+			double coverage = ((this.getSerialTime(current) * current.getInstanceCount()) / (double)this.getSerialTime(root)) * 100.0;			
 			double selfPoint = coverage - coverage / speedup;
+			//System.err.printf("pTime = %.2f, sTime = %.2f, coverage = %.2f, speedup = %.2f, sPoint = %.2f\n", parallelTime, serialTime, coverage, speedup, selfPoint);
+			if (selfPoint <= -0.0)
+				selfPoint = 0.0;
+			//assert(selfPoint >= -0.0);
 					 
 			if (toExclude.contains(current))
 				exclude = true;
@@ -123,7 +131,7 @@ public class CDPPlanner {
 		//List<CRegion> infoList = SRegionInfoFilter.toSRegionInfoList(analyzer, ret);
 		Collections.sort(ret);		
 		double sum = 0.0;				
-		Plan plan = new Plan(ret, this.target, pointMap.get(root));		
+		Plan plan = new Plan(ret, this.target, pointMap.get(root), this.getSerialTime(root));		
 		return plan;
 	}
 	

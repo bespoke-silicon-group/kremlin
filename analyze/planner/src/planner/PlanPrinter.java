@@ -7,7 +7,7 @@ import pprof.*;
 
 public class PlanPrinter {
 	public static void print(CRegionManager manager, Plan plan) {
-		long serial = manager.getRoot().getTotalWork();
+		long serial = (long)plan.getSerialTime();
 		System.out.printf("Target : %s\n", plan.getTarget());
 		System.out.printf("Speedup: %.2f\n", 100.0 / (100.0 - plan.getTimeReduction()));
 		System.out.printf("Serial  : %d\n", serial);
