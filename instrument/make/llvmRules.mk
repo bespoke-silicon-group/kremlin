@@ -6,6 +6,10 @@ UNROLL_THRESH = 150
 
 UNROLL_OPT_STRING = --unroll-allow-partial --unroll-count=$(UNROLL_COUNT) --unroll-threshold=$(UNROLL_THRESH) -debug
 
+MIN_ADB_CHAIN_LEN = 3
+
+ADB_OPT_STRING = --min-chain-length=$(MIN_ADB_CHAIN_LEN)
+
 # ---------------------------------------------------------------------------
 # Chained rules
 #
@@ -31,7 +35,7 @@ $(call OPT_PASS_RULE,  ,                            -loop-rotate,   		EMPTY)
 $(call OPT_PASS_RULE,  ,                            -loop-unroll,   		UNROLL_OPT_STRING)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -elimsinglephis,        EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -splitbbatfunccall,     EMPTY)
-$(call OPT_PASS_RULE,  KremlinInstrument.so,        -assoc-dep-break,       EMPTY)
+$(call OPT_PASS_RULE,  KremlinInstrument.so,        -assoc-dep-break,       ADB_OPT_STRING)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -criticalpath,          EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -regioninstrument,      EMPTY)
 

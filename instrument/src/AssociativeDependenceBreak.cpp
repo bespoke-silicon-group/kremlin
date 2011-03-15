@@ -33,6 +33,7 @@
 using namespace llvm;
 
 namespace {
+	static cl::opt<unsigned int> minChainLength("min-chain-length",cl::desc("Sets the minimum length for a dependency chain to be considered before breaking."),cl::Hidden,cl::init(3));
 
 	struct AssociativeDependenceBreak : public BasicBlockPass {
 		static char ID;
@@ -134,7 +135,7 @@ namespace {
 				// don't forget to add the chain end link
 				inst_chain.push_back(curr_inst);
 
-				if(inst_chain.size() >= 3) {
+				if(inst_chain.size() >= minChainLength) {
 					LOG_DEBUG() << "found chain with " << inst_chain.size() << " links:\n";
 
 					set_of_chains.insert(inst_chain);
