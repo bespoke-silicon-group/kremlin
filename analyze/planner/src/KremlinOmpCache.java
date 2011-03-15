@@ -44,6 +44,29 @@ public class KremlinOmpCache {
 		CacheAwarePlanner planner = new CacheAwarePlanner(manager, target);
 		Plan plan = planner.plan(excludeSet);
 		PlanPrinter.print(cManager, plan);
+		
+		double reduction0 = 0.0;
+		double reduction1 = 0.0;
+		for (CRegionRecord record : plan.getCRegionList()) {
+			CRegion region = record.getCRegion();
+			int core = record.getCoreCount();
+			reduction0 += manager.getCacheServiceTimeReduction(region, 0, core);
+			reduction1 += manager.getCacheServiceTimeReduction(region, 1, core);
+		}
+		double totalCacheTime0 = manager.getCacheServiceTime(cManager.getRoot(), 0, 1);
+		double totalCacheTime1 = manager.getCacheServiceTime(cManager.getRoot(), 1, 1);
+		double cacheServiceTime0 = totalCacheTime0 - reduction0;
+		double cacheServiceTime1 = totalCacheTime1 - reduction1;
+		double cache0Percent = cacheServiceTime0 / plan.getParallelTime() * 100.0;
+		double cache1Percent = cacheServiceTime1 / plan.getParallelTime() * 100.0;
+		double computePercent = 100.0 - cache0Percent - cache1Percent;
+		double accumCache0Percent = computePercent + cache0Percent;
+		double accumCache1Percent = accumCache0Percent + cache1Percent;
+		System.out.printf("Total Time = %.2f\n", plan.getParallelTime());
+		System.out.printf("CacheServiceTime0 = %.2f\n", cacheServiceTime0);
+		System.out.printf("CacheServiceTime1 = %.2f\n", cacheServiceTime1);
+		
+		System.out.printf("Percentage:\t%d\t%.2f\t%.2f\t%.2f\n", numCore, computePercent, accumCache0Percent, 100.0);				
 	}	
 	
 	public static Set<CRegion> getNonLoopSet(CRegionManager manager) {

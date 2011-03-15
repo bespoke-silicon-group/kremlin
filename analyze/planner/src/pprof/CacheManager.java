@@ -37,6 +37,15 @@ public class CacheManager {
 		double writeMissCnt = storeCnt * stat.getWriteMissRate(core, level);
 		return writeMissCnt * levels[level].serviceTime;
 	}
+	
+	public double getCacheServiceTime(CRegion region, int level, int core) {		
+		double sum = 0.0;		
+		double readTime = getReadMissTime(region, level, core);
+		double writeTime = getWriteMissTime(region, level, core);
+		int divider = (core > levels[level].scaleLimit) ? levels[level].scaleLimit : core;
+		sum += (readTime + writeTime) / divider;		
+		return sum;		
+	}
 		
 	public double getCacheServiceTime(CRegion region, int core) {
 		int maxLevel = levels.length;
@@ -49,5 +58,11 @@ public class CacheManager {
 			sum += (readTime + writeTime) / divider;			
 		}	
 		return sum;		
+	}
+	
+	public double getCacheServiceTimeReduction(CRegion region, int level, int core) {
+		double original = getCacheServiceTime(region, level, 1);
+		double parallel = getCacheServiceTime(region, level, core);
+		return (original - parallel) * region.getInstanceCount();
 	}
 }

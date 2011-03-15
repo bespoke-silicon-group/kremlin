@@ -14,7 +14,9 @@ public class Plan {
 		this.totalReduction = totalReduction;
 		this.serialTime = serialTime;
 	}
-	
+	public double getParallelTime() {
+		return serialTime * 0.01 * (100.0 - getTimeReduction());
+	}
 	public double getSerialTime() {
 		return this.serialTime;
 	}
