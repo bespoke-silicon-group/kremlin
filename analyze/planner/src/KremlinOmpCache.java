@@ -14,6 +14,7 @@ public class KremlinOmpCache {
 		//baseDir="f:\\Work\\pact2011\\cg";
 		int numCore = 32;
 		int overhead = 1024;
+		int llCacheMaxScaleFactor = 8;
 		 
 		if (args.length < 1) {			
 			//baseDir = ".";
@@ -25,6 +26,7 @@ public class KremlinOmpCache {
 		if (args.length > 2) {
 			numCore = Integer.parseInt(args[1]);
 			overhead = Integer.parseInt(args[2]);
+			llCacheMaxScaleFactor = Integer.parseInt(args[3]);
 		}
 					
 		ParameterSet.rawDir = baseDir;		
@@ -36,7 +38,7 @@ public class KremlinOmpCache {
 
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
-		CacheManager manager = new CacheManager(cManager, cacheFile);
+		CacheManager manager = new CacheManager(cManager, cacheFile, llCacheMaxScaleFactor);
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
 		Target target = new Target(numCore, overhead);
 		CacheAwarePlanner planner = new CacheAwarePlanner(manager, target);

@@ -13,11 +13,11 @@ public class CacheManager {
 		int scaleLimit;
 	}	
 	
-	public CacheManager(CRegionManager manager, String cacheFile) {
+	public CacheManager(CRegionManager manager, String cacheFile, int maxFactor) {
 		this.manager = manager;
 		this.levels = new CacheLevel[2];
 		this.levels[0] = new CacheLevel(10, 64);
-		this.levels[1] = new CacheLevel(200, 8);
+		this.levels[1] = new CacheLevel(200, maxFactor);
 		this.stat = new CacheStat(cacheFile);
 	}
 	
