@@ -952,33 +952,31 @@ namespace {
 				BasicBlock* bb = loop_blocks[j];
 				std::vector<GetElementPtrInst*> geps;
 
+				std::map<Value*,std::vector<GetElementPtrInst*> > ptr_val_to_geps;
+
 				// find all the GEP instructions
 				for(BasicBlock::iterator inst = bb->begin(), inst_end = bb->end(); inst != inst_end; ++inst) {
-					if(isa<GetElementPtrInst>(inst)) {
-						geps.push_back(cast<GetElementPtrInst>(inst));
+					if(GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(inst)) {
+						ptr_val_to_geps[gep->getPointerOperand()].push_back(gep);
+						//geps.push_back(cast<GetElementPtrInst>(inst));
 					}
 				}
 
-				// now we'll see how many pairs of GEP insts in this block use the same pointer
-				std::map<Value*,unsigned> gep_ptr_uses_in_bb;
+				//for(std::map<Value*,unsigned>::iterator gp_it = gep_ptr_uses_in_bb.begin(), gp_end = gep_ptr_uses_in_bb.end(); gp_it != gp_end; ++gp_it) {
+				for(std::map<Value*,std::vector<GetElementPtrInst*> >::iterator gp_it = ptr_val_to_geps.begin(), gp_end = ptr_val_to_geps.end(); gp_it != gp_end; ++gp_it) {
+					Instruction* red_var_op = NULL;
 
-				for(unsigned i = 0; i < geps.size(); ++i) {
-					//Value* gep_ptr = geps[i]->getPointerOperand();
-					//LOG_INFO() << "gep ptr op: " << *gep_ptr << "\n";
+					if((*gp_it).second.size() == 1) {
+						red_var_op = getReductionVarOp(LI,loop,(*gp_it).second.front());
+					}
+					else if((*gp_it).second.size() == 2) {
+						red_var_op = getArrayReductionVarOp(LI,loop,(*gp_it).first);
+					}
 
-					gep_ptr_uses_in_bb[geps[i]->getPointerOperand()]++;
-				}
-
-				for(std::map<Value*,unsigned>::iterator gp_it = gep_ptr_uses_in_bb.begin(), gp_end = gep_ptr_uses_in_bb.end(); gp_it != gp_end; ++gp_it) {
-					if((*gp_it).second == 2) {
-						// First condition met.
-						// We'll now check the rest of the conditions now to make sure they work.
-
-						if(Instruction* red_var_op = getArrayReductionVarOp(LI,loop,(*gp_it).first)) {
-							LOG_WARN() << "identified reduction variable increment (array, used in function: " << red_var_op->getParent()->getParent()->getName() << "): " << *red_var_op << "\n";
-							LOG_WARN() << "\treduction var: " << *(*gp_it).first << "\n";
-							red_var_ops.insert(red_var_op);
-						}
+					if(red_var_op) {
+						LOG_WARN() << "identified reduction variable increment (array, used in function: " << red_var_op->getParent()->getParent()->getName() << "): " << *red_var_op << "\n";
+						LOG_WARN() << "\treduction var: " << *(*gp_it).first << "\n";
+						red_var_ops.insert(red_var_op);
 					}
 				}
 			}
