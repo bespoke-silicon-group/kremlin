@@ -848,26 +848,35 @@ namespace {
 			return uses;
 		}
 
-		Instruction* getReductionVarOp(LoopInfo& LI, Loop* loop, GlobalVariable *gv) {
-			std::vector<Instruction*> uses_in_loop = getUsesInLoop(LI,loop,gv);
+		bool isReductionOpType(Instruction* inst) {
+			if( inst->getOpcode() == Instruction::Add
+			  || inst->getOpcode() == Instruction::FAdd
+			  || inst->getOpcode() == Instruction::Sub
+			  || inst->getOpcode() == Instruction::FSub
+			  || inst->getOpcode() == Instruction::Mul
+			  || inst->getOpcode() == Instruction::FMul
+			  ) { return true; }
+			else { return false; }
+		}
+
+		Instruction* getReductionVarOp(LoopInfo& LI, Loop* loop, Value *val) {
+			std::vector<Instruction*> uses_in_loop = getUsesInLoop(LI,loop,val);
 
 			//LOG_DEBUG() << "\tnum uses in loop: " << uses_in_loop.size() << "\n";
 
-			// should have two uses: load then store
+
 			if(uses_in_loop.size() == 2
 			 && isa<LoadInst>(uses_in_loop[1])
 			 && isa<StoreInst>(uses_in_loop[0])
 			 && uses_in_loop[1]->hasOneUse()
 			 ) {
-				//LOG_DEBUG() << "\tlooking good so far for: " << *gv;
+				//LOG_DEBUG() << "\tlooking good so far for: " << PRINT_VALUE(*val);
 				Instruction* load_user = cast<Instruction>(*uses_in_loop[1]->use_begin());
-				//LOG_DEBUG() << "\tuser of load: " << *load_user;
+				//LOG_DEBUG() << "\tuser of load: " << PRINT_VALUE(*load_user);
 
 				if( load_user->hasOneUse()
 				  && uses_in_loop[0] == *load_user->use_begin()
-				  && (load_user->getOpcode() == Instruction::Add
-				  || load_user->getOpcode() == Instruction::Sub
-				  || load_user->getOpcode() == Instruction::Mul)
+				  && isReductionOpType(load_user)
 				  ) {
 					//LOG_DEBUG() << "\t\thot diggity dawg, that is it!\n";
 					return load_user;
@@ -876,6 +885,103 @@ namespace {
 
 
 			return NULL;
+		}
+
+		Instruction* getArrayReductionVarOp(LoopInfo& LI, Loop* loop, Value *val) {
+			std::vector<Instruction*> uses_in_loop = getUsesInLoop(LI,loop,val);
+
+			// should have two uses: load then store
+			if(uses_in_loop.size() != 2) {
+				//LOG_DEBUG() << "\tdidn't have 2 uses\n";
+				return NULL;
+			}
+
+			// By construction, we know that the two users are GEP insts
+			// Node: order is reversed when doing getUsesInLoop, so user0 is actually entry 1
+			// and vice versa
+			GetElementPtrInst* gep_user0 = dyn_cast<GetElementPtrInst>(uses_in_loop[1]);
+			GetElementPtrInst* gep_user1 = dyn_cast<GetElementPtrInst>(uses_in_loop[0]);
+
+			if(gep_user0->getNumUses() != 1) {
+				//LOG_DEBUG() << "not exactly 1 user of get_user0: " << *gep_user0 << "\n";
+				return NULL;
+			}
+			else if(gep_user1->getNumUses() != 1) {
+				//LOG_DEBUG() << "not exactly 1 user of get_user1: " << *gep_user1 << "\n";
+				return NULL;
+			}
+
+			Instruction* should_be_load = cast<Instruction>(*gep_user0->use_begin());
+
+			if(!isa<LoadInst>(should_be_load)) {
+				//LOG_DEBUG() << "\t not a load user: " << *should_be_load << "\n";
+				//LOG_DEBUG() << "\t\t get_user1's first user: " << **gep_user1->use_begin() << "\n";
+				return NULL;
+			}
+			else if(!isa<StoreInst>(*gep_user1->use_begin())) {
+				//LOG_DEBUG() << "\t not a store user: " << **gep_user1->use_begin() << "\n";
+				//LOG_DEBUG() << "\t\t get_user0's first user: " << *should_be_load << "\n";
+				return NULL;
+			}
+
+			//LOG_DEBUG() << "\tlooking good so far for: " << PRINT_VALUE(*val);
+			Instruction* load_user = cast<Instruction>(*should_be_load->use_begin());
+			//LOG_DEBUG() << "\tuser of load: " << PRINT_VALUE(*load_user);
+
+			if( load_user->hasOneUse()
+			  // TODO: make sure load_user is stored?
+			  && isReductionOpType(load_user)
+			  ) {
+				return load_user;
+			}
+
+
+			return NULL;
+		}
+
+		void getArrayReductionVars(LoopInfo& LI, Loop* loop, std::set<Instruction*>& red_var_ops) {
+			// The pattern we'll look for is a pointer used in 2 getelementptr insts that are in the same block,
+			// with the first being used by a load, the second by a store, and the load being used by an associative
+			// op
+
+			// loop through basic blocks in loop
+			std::vector<BasicBlock*> loop_blocks = loop->getBlocks();
+
+			//for(Loop::block_iterator* bb = loop->block_begin(), bb_end = loop->block_end(); bb != bb_end; ++bb) {
+			for(unsigned j = 0; j < loop_blocks.size(); ++j) {
+				BasicBlock* bb = loop_blocks[j];
+				std::vector<GetElementPtrInst*> geps;
+
+				// find all the GEP instructions
+				for(BasicBlock::iterator inst = bb->begin(), inst_end = bb->end(); inst != inst_end; ++inst) {
+					if(isa<GetElementPtrInst>(inst)) {
+						geps.push_back(cast<GetElementPtrInst>(inst));
+					}
+				}
+
+				// now we'll see how many pairs of GEP insts in this block use the same pointer
+				std::map<Value*,unsigned> gep_ptr_uses_in_bb;
+
+				for(unsigned i = 0; i < geps.size(); ++i) {
+					//Value* gep_ptr = geps[i]->getPointerOperand();
+					//LOG_INFO() << "gep ptr op: " << *gep_ptr << "\n";
+
+					gep_ptr_uses_in_bb[geps[i]->getPointerOperand()]++;
+				}
+
+				for(std::map<Value*,unsigned>::iterator gp_it = gep_ptr_uses_in_bb.begin(), gp_end = gep_ptr_uses_in_bb.end(); gp_it != gp_end; ++gp_it) {
+					if((*gp_it).second == 2) {
+						// First condition met.
+						// We'll now check the rest of the conditions now to make sure they work.
+
+						if(Instruction* red_var_op = getArrayReductionVarOp(LI,loop,(*gp_it).first)) {
+							LOG_WARN() << "identified reduction variable increment (array, used in function: " << red_var_op->getParent()->getParent()->getName() << "): " << *red_var_op << "\n";
+							LOG_WARN() << "\treduction var: " << *(*gp_it).first << "\n";
+							red_var_ops.insert(red_var_op);
+						}
+					}
+				}
+			}
 		}
 
 		void getReductionVars(LoopInfo& LI, Loop* loop, std::set<Instruction*>& red_var_ops) {
@@ -890,8 +996,10 @@ namespace {
 					getReductionVars(LI,*sl_it,red_var_ops);
 			}
 
-			// if no subloops we can look for global vars with "load; comm op; store" pattern
+			// If no subloops we can look for global vars with "load; comm op; store" pattern.
+			// We also check for array reductions here (which are a bit tricky).
 			else {
+				// check for global var reduction
 				Module* mod = header->getParent()->getParent();
 
 				// loop through all global vars
@@ -902,11 +1010,14 @@ namespace {
 					//LOG_DEBUG() << "checking for red var: " << *gi;
 
 					if(Instruction* red_var_op = getReductionVarOp(LI,loop,gi)) {
-						LOG_DEBUG() << "identified reduction variable increment (global, used in function: " << red_var_op->getParent()->getParent()->getName() << "): " << *red_var_op;
-						LOG_DEBUG() << "\treduction var: " << *gi;
+						LOG_DEBUG() << "identified reduction variable increment (global, used in function: " << red_var_op->getParent()->getParent()->getName() << "): " << *red_var_op << "\n";
+						LOG_DEBUG() << "\treduction var: " << *gi << "\n";
 						red_var_ops.insert(red_var_op);
 					}
 				}
+
+				// check for array reduction.
+				getArrayReductionVars(LI,loop,red_var_ops);
 			}
 
 			//LOG_DEBUG() << "checking for red vars in loop with header " << header->getName() << "\n";
@@ -938,8 +1049,8 @@ namespace {
 					  || user->getOpcode() == Instruction::Mul
 					  || user->getOpcode() == Instruction::FMul
 					  ) {
-						LOG_DEBUG() << "identified reduction variable increment (phi, function: " << user->getParent()->getParent()->getName() << "): " << *user;
-						LOG_DEBUG() << "\treduction var: " << *phi_it;
+						LOG_DEBUG() << "identified reduction variable increment (phi, function: " << user->getParent()->getParent()->getName() << "): " << *user << "\n";
+						LOG_DEBUG() << "\treduction var: " << *phi_it << "\n";
 						red_var_ops.insert(user);
 					}
 				}
@@ -1097,12 +1208,6 @@ namespace {
 				isa<CallInst>(i) && !isCppThrowFunc(i);
 		}
 			
-		bool definitionIsVarArg(Function* func) {
-			assert(func && "undefined function");
-
-			return func->isVarArg();
-		}
-
 		// returns true if val is a pointer to n-bit int
 		bool isNBitIntPointer(Value* val, unsigned n) {
 			const Type* val_type = val->getType();
@@ -2092,7 +2197,6 @@ namespace {
 				// add control dep inst functions
 				for (Function::iterator blk = func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
 					instrumentBasicBlockControlDeps(blk,inst_to_id,inst_calls_begin,inst_calls_end);
-
 				}
 
 				// insert call to setupLocalTable so we know how many spots in the local table to allocate 
