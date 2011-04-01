@@ -147,6 +147,26 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 	addFunc("logLoadInst", pvoid_uint);
 
+	args.push_back(types.i32());
+	FunctionType* pvoid_uint_uint = FunctionType::get(types.voidTy(), args, false);
+
+	addFunc("logLoadInst1Src", pvoid_uint_uint);
+
+	args.push_back(types.i32());
+	FunctionType* pvoid_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
+
+	addFunc("logLoadInst2Src", pvoid_uint_uint_uint);
+
+	args.push_back(types.i32());
+	FunctionType* pvoid_uint_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
+
+	addFunc("logLoadInst3Src", pvoid_uint_uint_uint_uint);
+
+	args.push_back(types.i32());
+	FunctionType* pvoid_uint_uint_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
+
+	addFunc("logLoadInst4Src", pvoid_uint_uint_uint_uint_uint);
+
 	args.clear();
 
 	// Look for definition of malloc to find out if it takes 32 bit int or 64 bit.

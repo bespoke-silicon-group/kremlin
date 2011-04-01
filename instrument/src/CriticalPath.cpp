@@ -1127,6 +1127,33 @@ namespace {
 			}
 		}
 
+		// Returns true if value requires an instruction ID, false otherwise
+		inline bool requiresInstID(Value* val) {
+			Instruction* i = dyn_cast<Instruction>(val);
+
+			// if this isn't an instruction then it obviously doesn't get an inst id
+			if(i == NULL) {
+				return false;
+			}
+			else if(isa<BinaryOperator>(i) 
+			  || isa<CastInst>(i) && isa<Constant>(cast<CastInst>(i)->getOperand(0))
+			  || isa<CmpInst>(i) 
+			  || isa<LoadInst>(i)
+			  || isa<PHINode>(i)
+			  || isa<SelectInst>(i) 
+			  || isa<InsertValueInst>(i)
+			  || isa<ExtractValueInst>(i)
+			  // TODO: callinst's returning pointers shouldn't get values?
+			  // TODO: we probably don't need ID for func that returns void
+			  || isa<CallInst>(i)
+			  || isa<InvokeInst>(i)
+			  || isa<AllocaInst>(i)
+			  ) {
+				return true;
+			}
+			else { return false; }
+		}
+
 		// Maps every instruction (that we care about) to an ID. This will prevent us from racing on which BB is porcessed
 		// first.
 		void mapInstIDs(Function* func, std::map<Value*,unsigned int>& inst_to_id, unsigned int& curr_id) {
@@ -1135,6 +1162,7 @@ namespace {
 						// if we had to assign this an ID earlier (probably a PHI) then don't give it another one now
 						if(inst_to_id[i] != 0) { continue; }
 
+						/*
 						if(isa<BinaryOperator>(i) 
 						  || isa<CastInst>(i) && isa<Constant>(cast<CastInst>(i)->getOperand(0))
 						  || isa<CmpInst>(i) 
@@ -1149,6 +1177,8 @@ namespace {
 						  || isa<InvokeInst>(i)
 						  || isa<AllocaInst>(i)
 						  ) {
+						*/
+						if(requiresInstID(i)) {
 							inst_to_id[i] = curr_id;
 							curr_id++;
 						}
@@ -1160,6 +1190,10 @@ namespace {
 							// If op hasn't been assigned an ID yet, we'll give it one now.
 							// Otherwise, we just use the op's ID for this inst
 							if(op_id == 0) {
+						  		if(!requiresInstID(op)) {
+									LOG_WARN() << "indirectly assigning inst ID to value that doesn't require one: " << *op << "\n";
+								}
+
 								inst_to_id[i] = curr_id;
 								inst_to_id[op] = curr_id;
 
@@ -1232,7 +1266,7 @@ namespace {
 		}
 
 
-		void instrumentNonPHIInsts(BasicBlock* blk, std::set<Instruction*> canon_incs, std::set<Instruction*> red_var_ops, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_begin, InstrumentationCalls& inst_calls_end) {
+		void instrumentNonPHIInsts(BasicBlock* blk, std::set<PHINode*>& canon_indvs, std::set<Instruction*> canon_incs, std::set<Instruction*> red_var_ops, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_begin, InstrumentationCalls& inst_calls_end) {
 			LLVMTypes types(blk->getContext());
 
 			std::vector<Value*> args; // holds arguments passed to instrumentation functions
@@ -1660,96 +1694,61 @@ namespace {
 				else if(isa<LoadInst>(i)) {
 					LoadInst* li = cast<LoadInst>(i);
 
-					/*
-					//std::vector<Value*> ptr_deps; // these are the ptrs we will add as dependences at the end
-					std::vector<unsigned int> ptr_deps; // these are the ptrs we will add as dependences at the end
-
-					if(isa<GetElementPtrInst>(li->getPointerOperand())) {
-						GetElementPtrInst* gepi = cast<GetElementPtrInst>(li->getPointerOperand());
-
-						// find all non-constant ops and add them to a list for later use
-						for(User::op_iterator gepi_op = gepi->idx_begin(), gepi_ops_end = gepi->idx_end(); gepi_op != gepi_ops_end; ++gepi_op) {
-							if(!isa<Constant>(gepi_op)) {
-								//LOG_DEBUG() << "getelementptr " << gepi->getName() << " depends on " << gepi_op->get()->getName() << "\n";
-								ptr_deps.push_back(inst_to_id[*gepi_op]);
-							}
-						}
-					}
-
-					// find all the places that this load is used
-					for(Value::use_iterator li_use = li->use_begin(), li_use_end = li->use_end(); li_use != li_use_end; ++li_use) {
-						// now add a call to logInductionVarDependence for all ptr_deps
-
-						// if this is used in a phi node, we need to insert the call to logAssignment now so the correct ordering of logInductVarDep() THEN logAssignment() is maintained
-						if(PHINode* phi = dyn_cast<PHINode>(li_use)) {
-							LOG_DEBUG() << "load used by phi node " << phi->getName() << "\n";
-
-							BasicBlock* ld_bb = i->getParent();
-							LOG_DEBUG() << "looking for incoming edge from " << ld_bb->getName() << "...\n";
-
-							bool found_incoming_block = false;
-							unsigned int phi_location = 0;
-							for(unsigned int n = 0; n < phi->getNumIncomingValues(); ++n) {
-								// if this value comes from the same block as our load, then we are good to go
-								if(phi->getIncomingValue(n) == i) {
-									LOG_DEBUG() << "... found incoming edge. Inserting calls to logInductionVariable() and logAssignment() in this block\n";
-									phinode_completions[phi].insert(n); // mark this so when we process the phinode later, we don't insert another call to logAssignment
-									phi_location = n;
-									found_incoming_block = true;
-									break;
-								}
-							}
-
-							// big problem is we have a phi node without an incoming edge from the blk that has this load... why would this happen?
-							if(!found_incoming_block) {
-								LOG_DEBUG() << "ERROR: could not find edge to that phinode from this block!\n";
-								LOG_DEBUG().close();
-								assert(0);
-								return;
-							}
-							else {
-
-								// add in the calls to logInductionVarDep() before the block terminator
-								for(std::vector<unsigned int>::iterator ptr_it = ptr_deps.begin(), ptr_it_end = ptr_deps.end(); ptr_it != ptr_it_end; ++ptr_it) {
-									args.push_back(ConstantInt::get(types.i32(),*ptr_it)); // ind var ID
-
-									// TODO: FIXME
-									instrumentation_calls.insert(CallInst::Create(inst_funcs["logInductionVarDependence"], args.begin(), args.end(), "", ld_bb->getTerminator()));
-
-									args.clear();
-								}
-
-								// now add in the call to logAssignment() before the block terminator (which will be immediately after the calls to logIndVarDep()
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[phi->getIncomingValue(phi_location)])); // src ID
-								args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
-
-								// TODO: FIXME
-								instrumentation_calls.insert(CallInst::Create(inst_funcs["logAssignment"], args.begin(), args.end(), "", ld_bb->getTerminator()));
-
-								args.clear();
-							}
-						}
-						else {
-							for(std::vector<unsigned int>::iterator ptr_it = ptr_deps.begin(), ptr_it_end = ptr_deps.end(); ptr_it != ptr_it_end; ++ptr_it) {
-								args.push_back(ConstantInt::get(types.i32(),*ptr_it)); // ind var ID
-								// XXX FIXME: potential ordering problem here
-								instrumentation_calls.insert(CallInst::Create(inst_funcs["logInductionVarDependence"], args.begin(), args.end(), "", dyn_cast<Instruction>(*li_use)));
-
-								args.clear();
-							}
-						}
-					}
-
-					ptr_deps.clear();
-					*/
-
-					// now we create an assignment from the load's src addr to the load's ID
-
 					// the mem loc is already in ptr form so we simply use that
 					args.push_back(CastInst::CreatePointerCast(li->getPointerOperand(),types.pi8(),"inst_arg_ptr",i)); // src addr
+
+					// If this load uses a getelementptr inst for its address, we need
+					// to check for any non-constant ops (other than the pointer index)
+					// that are in the gep and add them as dependencies for the load
+					GetElementPtrInst* gepi = dyn_cast<GetElementPtrInst>(li->getPointerOperand());
+
+					if(gepi != NULL) {
+						for(User::op_iterator gepi_op = gepi->idx_begin(), gepi_ops_end = gepi->idx_end(); gepi_op != gepi_ops_end; ++gepi_op) {
+							// We are only looking for non-consts that aren't induction variables.
+							// We avoid induction variables because they add unnecessary dependencies
+							// (i.e. we don't care that i is a dep for a[i])
+							PHINode* gepi_op_phi = dyn_cast<PHINode>(gepi_op);
+							Instruction* gepi_op_inst = dyn_cast<Instruction>(gepi_op);
+
+							if(!isa<ConstantInt>(gepi_op)
+							  && (!gepi_op_phi || canon_indvs.find(gepi_op_phi) == canon_indvs.end())
+							  && (!gepi_op_inst || canon_incs.find(gepi_op_inst) == canon_incs.end())
+							  ) {
+								//LOG_DEBUG() << "getelementptr " << gepi->getName() << " depends on " << gepi_op->get()->getName() << "\n";
+
+								args.push_back(ConstantInt::get(types.i32(),inst_to_id[*gepi_op]));
+							}
+						}
+					}
+
 					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
-					inst_calls_end.addCallInst(i,"logLoadInst",args);
+					std::string inst_op_name = "";
+					switch(args.size()) {
+						case 2:
+							inst_op_name = "logLoadInst";
+							break;
+						case 3:
+							LOG_DEBUG() << "load has 1 dep\n";
+							inst_op_name = "logLoadInst1Src";
+							break;
+						case 4:
+							LOG_DEBUG() << "load has 2 deps\n";
+							inst_op_name = "logLoadInst2Src";
+							break;
+						case 5:
+							LOG_DEBUG() << "load has 3 deps\n";
+							inst_op_name = "logLoadInst3Src";
+							break;
+						case 6:
+							LOG_DEBUG() << "load has 4 deps\n";
+							inst_op_name = "logLoadInst4Src";
+							break;
+						default:
+							assert(0 && "Cannot handle more than 4 deps for load insts for now");
+					}
+
+					inst_calls_end.addCallInst(i,inst_op_name,args);
 
 					args.clear();
 				}
@@ -1996,7 +1995,7 @@ namespace {
 		void instrumentBasicBlock(BasicBlock* blk, std::set<PHINode*>& canon_indvs, std::set<Instruction*>& canon_incs, std::set<Instruction*>& red_var_ops, std::map<Value*, unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_begin, InstrumentationCalls& inst_calls_end) {
 			//LOG_DEBUG() << "processing BB: " << PRINT_VALUE(*blk);
 
-			instrumentNonPHIInsts(blk,canon_incs,red_var_ops,inst_to_id,inst_calls_begin,inst_calls_end);
+			instrumentNonPHIInsts(blk,canon_indvs,canon_incs,red_var_ops,inst_to_id,inst_calls_begin,inst_calls_end);
 			instrumentPHINodes(blk,canon_indvs,inst_to_id,inst_calls_begin,inst_calls_end);
 		}
 
