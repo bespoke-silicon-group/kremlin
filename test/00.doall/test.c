@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int* loopTest(int x) __attribute__ ((noinline));
+
 int* pointer;
 
 
