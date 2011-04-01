@@ -928,6 +928,58 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 #endif
 }
 
+void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) { 
+    if (!isKremlinOn())
+        return NULL;
+
+    MSG(1, "load ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, src_addr, src1, LOAD_COST);
+    addWork(LOAD_COST);
+
+#ifndef WORK_ONLY
+    TEntry* entrySrcAddr = getGTEntry(src_addr);
+    TEntry* entrySrc1 = getLTEntry(src1);
+    TEntry* entryDest = getLTEntry(dest);
+
+    assert(entrySrcAddr != NULL);
+    assert(entrySrc1 != NULL);
+    assert(entryDest != NULL);
+    
+    int minLevel = MIN_REGION_LEVEL;
+    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+
+    int i;
+    TEntryAllocAtLeastLevel(entryDest, maxLevel);
+    for (i = minLevel; i < maxLevel; i++) {
+        UInt version = getVersion(i);
+
+        UInt64 cdt = getCdt(i,version);
+
+        UInt64 ts_src_addr = getTimestamp(entrySrcAddr, i, version);
+        UInt64 ts_src1 = getTimestamp(entrySrc1, i, version);
+
+        UInt64 max1 = (ts_src_addr > cdt) ? ts_src_addr : cdt;
+        UInt64 max2 = (max1 > ts_src1) ? max1 : ts_src1;
+
+		UInt64 value = max2 + LOAD_COST;
+
+        updateTimestamp(entryDest, i, version, value);
+        updateCP(value, i);
+
+        MSG(2, "logLoadInst1Src level %u version %u \n", i, version);
+        MSG(2, " src_addr 0x%x src1 %u dest %u\n", src_addr, src1, dest);
+        MSG(2, " cdt %u ts_src_addr %u ts_src1 %u max %u\n", cdt, ts_src_addr, ts_src1, max2);
+    }
+
+    return entryDest;
+#else
+    return NULL;
+#endif
+}
+
+void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest) { return logLoadInst(src_addr,dest); }
+void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest) { return logLoadInst(src_addr,dest); }
+void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest) { return logLoadInst(src_addr,dest); }
+
 void* logStoreInst(UInt src, Addr dest_addr) {
     if (!isKremlinOn())
         return NULL;

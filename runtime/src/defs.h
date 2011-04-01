@@ -18,7 +18,7 @@
 #endif
 
 #ifndef DEBUGLEVEL
-#define DEBUGLEVEL		0
+#define DEBUGLEVEL		1
 #endif
 
 // save the last visited BB number 
@@ -91,6 +91,10 @@ void* logInsertValue(UInt src, UInt dest);
 void* logInsertValueConst(UInt dest); 
 
 void* logLoadInst(Addr src_addr, UInt dest); 
+void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest);
+void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest);
+void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest);
+void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest);
 void* logStoreInst(UInt src, Addr dest_addr); 
 void* logStoreInstConst(Addr dest_addr); 
 
