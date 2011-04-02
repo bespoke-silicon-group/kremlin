@@ -15,7 +15,7 @@
 #include "cregion.h"
 #include "Vector.h"
 
-#define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024)
+#define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 
 #define _MAX_REGION_LEVEL   100     // used for static data structures
 
@@ -210,7 +210,13 @@ void transferAndUnlinkArg(UInt dest) {
     TEntry* destEntry = getLTEntry(dest);
     TEntry* srcEntry = deque_pop_front(argTimestamps);
     assert(destEntry);
-    assert(srcEntry);
+
+    // If no arg was passed, the use the dummy one
+    // library functions will not pass arguments, so we do not know their
+    // timestamps.
+    if(!srcEntry)
+        srcEntry = getDummyTEntry();
+
     copyTEntry(destEntry, srcEntry);
 #endif
 }
@@ -1426,9 +1432,12 @@ void logFuncReturn(UInt src) {
     // Assert there is a function context before the top.
     assert(FuncContextsSize(funcContexts) > 1);
 
-    // Assert that its return value has been set
+    // Assert that its return value has been set.
     FuncContext** nextHead = FuncContextsLast(funcContexts) - 1;
-    assert((*nextHead)->ret);
+
+    // Skip of the caller did not set up a return value location (i.e. lib functions).
+    if(!(*nextHead)->ret)
+        return;
 
     // Copy the return timestamp into the previous stack's return value.
     copyTEntry((*nextHead)->ret, srcEntry);
@@ -1449,6 +1458,10 @@ void logFuncReturnConst(void) {
     assert(FuncContextsSize(funcContexts) > 1);
 
     FuncContext** nextHead = FuncContextsLast(funcContexts) - 1;
+
+    // Skip of the caller did not set up a return value location (i.e. lib functions).
+    if(!(*nextHead)->ret)
+        return;
 
     TEntryAllocAtLeastLevel((*nextHead)->ret, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
