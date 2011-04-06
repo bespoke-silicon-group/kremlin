@@ -1210,9 +1210,7 @@ void logFree(Addr addr) {
 
 
 #ifndef WORK_ONLY
-    MEntry* me = getMEntry(addr);
-
-    size_t mem_size = me->size;
+    size_t mem_size = getMEntry(addr);
     Addr a;
     for(a = addr; a < addr + mem_size; a++)
         GTableDeleteTEntry(gTable, a);

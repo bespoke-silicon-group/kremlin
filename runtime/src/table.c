@@ -1,13 +1,19 @@
 #include <assert.h>
 #include "table.h"
+#include "hash_map.h"
 #include "MemMapAllocator.h"
 
+HASH_MAP_DEFINE_PROTOTYPES(mt, Addr, size_t);
+HASH_MAP_DEFINE_FUNCTIONS(mt, Addr, size_t);
+
 LTable* lTable;
-MTable* mTable;
 UInt32	maxRegionLevel;
+static hash_map_mt* mTable;
 Pool* tEntryPool;
 
 void dumpTableMemAlloc(void);
+static UInt64 addrHash(Addr addr);
+static int addrCompare(Addr a1, Addr a2);
 
 UInt32 getTEntrySize() {
 	return maxRegionLevel;
@@ -16,6 +22,7 @@ UInt32 getTEntrySize() {
 
 void freeTEntry(TEntry* entry);
 
+/*
 MTable* allocMallocTable() {
 	MTable* ret = (MTable*) calloc(1,sizeof(MTable));
 
@@ -38,7 +45,7 @@ void freeMallocTable(MTable* table) {
 	free(table->array);
 	free(table);
 }
-
+*/
 
 long long _tEntryLocalCnt = 0;
 long long _tEntryGlobalCnt = 0;
@@ -119,87 +126,99 @@ void freeTEntry(TEntry* entry) {
 	//PoolFree(tEntryPool, entry);
 }
 
-void createMEntry(Addr start_addr, size_t entry_size) {
-	MEntry* me = (MEntry*)malloc(sizeof(MEntry));
-
-	me->start_addr = start_addr;
-	me->size = entry_size;
-
-	int mtable_size = mTable->size + 1;
-
-	//assert(mtable_size < MALLOC_TABLE_CHUNK_SIZE);
-
-	// see if we need to create more entries for malloc table
-	if(mtable_size == mTable->capacity) {
-		int new_mtable_capacity = mtable_size + MALLOC_TABLE_CHUNK_SIZE;
-		fprintf(stderr, "Increasing size of malloc table from %d to %d\n",mtable_size,new_mtable_capacity);
-		void* old = mTable->array;
-		mTable->array = realloc(mTable->array,(mtable_size+MALLOC_TABLE_CHUNK_SIZE) * sizeof(MEntry*));
-		fprintf(stderr, "mTable from 0x%x to 0x%x\n", old, mTable->array);
-		mTable->capacity = new_mtable_capacity;
-		/*
-		int i;
-		for(i = mtable_size; i < new_mtable_capacity; ++i) {
-			mTable->array[i] = NULL;
-		}
-		*/
-	}
-
-	mTable->size = mtable_size;
-	mTable->array[mtable_size] = me;
+void createMEntry(Addr addr, size_t size) {
+    hash_map_mt_put(mTable, addr, size, TRUE);
+//	MEntry* me = (MEntry*)malloc(sizeof(MEntry));
+//
+//	me->start_addr = start_addr;
+//	me->size = entry_size;
+//
+//	int mtable_size = mTable->size + 1;
+//
+//	//assert(mtable_size < MALLOC_TABLE_CHUNK_SIZE);
+//
+//	// see if we need to create more entries for malloc table
+//	if(mtable_size == mTable->capacity) {
+//		int new_mtable_capacity = mtable_size + MALLOC_TABLE_CHUNK_SIZE;
+//		fprintf(stderr, "Increasing size of malloc table from %d to %d\n",mtable_size,new_mtable_capacity);
+//		void* old = mTable->array;
+//		mTable->array = realloc(mTable->array,(mtable_size+MALLOC_TABLE_CHUNK_SIZE) * sizeof(MEntry*));
+//		fprintf(stderr, "mTable from 0x%x to 0x%x\n", old, mTable->array);
+//		mTable->capacity = new_mtable_capacity;
+//		/*
+//		int i;
+//		for(i = mtable_size; i < new_mtable_capacity; ++i) {
+//			mTable->array[i] = NULL;
+//		}
+//		*/
+//	}
+//
+//	mTable->size = mtable_size;
+//	mTable->array[mtable_size] = me;
 }
 
 void freeMEntry(Addr start_addr) {
-	MEntry* me = NULL;
+    hash_map_mt_remove(mTable, start_addr);
 
-	// most likely to free something we recently malloced
-	// so we'll start searching from the end
-	int i, found_index;
-	for(i = mTable->size; i >= 0; --i) {
-		if(mTable->array[i]->start_addr == start_addr) {
-			me = mTable->array[i];
-			found_index = i;
-			break;
-		}
-	}
-
-	assert(me != NULL);
-
-	// need to shuffle entries accordingly now that we
-	// are going to delete this entry
-	if(found_index != mTable->size) {
-		// starting from found index, shift everything
-		// to the left by one spot
-		for(i = found_index; i < mTable->size; ++i) {
-			mTable->array[i] = mTable->array[i+1];
-		}
-	}
-
-	// NULLIFIED!
-	free(me);
-	mTable->array[mTable->size] = NULL;
-
-	mTable->size -= 1;
+//	MEntry* me = NULL;
+//
+//	// most likely to free something we recently malloced
+//	// so we'll start searching from the end
+//	int i, found_index;
+//	for(i = mTable->size; i >= 0; --i) {
+//		if(mTable->array[i]->start_addr == start_addr) {
+//			me = mTable->array[i];
+//			found_index = i;
+//			break;
+//		}
+//	}
+//
+//	assert(me != NULL);
+//
+//	// need to shuffle entries accordingly now that we
+//	// are going to delete this entry
+//	if(found_index != mTable->size) {
+//		// starting from found index, shift everything
+//		// to the left by one spot
+//		for(i = found_index; i < mTable->size; ++i) {
+//			mTable->array[i] = mTable->array[i+1];
+//		}
+//	}
+//
+//	// NULLIFIED!
+//	free(me);
+//	mTable->array[mTable->size] = NULL;
+//
+//	mTable->size -= 1;
 }
 
-MEntry* getMEntry(Addr start_addr) {
-	MEntry* me = NULL;
+//TODO: rename to something more accurate
+size_t getMEntry(Addr addr) {
+    size_t* ret = hash_map_mt_get(mTable, addr);
+    if(!ret)
+    {
+        fprintf(stderr, "Freeing %p which was never malloc'd!\n", addr);
+        assert(0);
+    }
+    return *ret;
 
-	// search from end b/c we're most likely to find it there
-	int i;
-	for(i = mTable->size; i >= 0; --i) {
-		if(mTable->array[i]->start_addr == start_addr) {
-			me = mTable->array[i];
-			break;
-		}
-	}
-
-	if(me == NULL) {
-		fprintf(stderr,"no entry found with addr 0x%p. mTable->size = %d\n",start_addr,mTable->size);
-		assert(0);
-	}
-
-	return me;
+//	MEntry* me = NULL;
+//
+//	// search from end b/c we're most likely to find it there
+//	int i;
+//	for(i = mTable->size; i >= 0; --i) {
+//		if(mTable->array[i]->start_addr == start_addr) {
+//			me = mTable->array[i];
+//			break;
+//		}
+//	}
+//
+//	if(me == NULL) {
+//		fprintf(stderr,"no entry found with addr 0x%p. mTable->size = %d\n",start_addr,mTable->size);
+//		assert(0);
+//	}
+//
+//	return me;
 }
 
 void copyTEntry(TEntry* dest, TEntry* src) {
@@ -250,7 +269,7 @@ void setLocalTable(LTable* table) {
 void initDataStructure(int regionLevel) {
 	fprintf(stderr, "# of instrumented region Levels = %d\n", regionLevel);
 	maxRegionLevel = regionLevel;
-	mTable = allocMallocTable();
+    hash_map_mt_create(&mTable, addrHash, addrCompare, NULL, NULL);
 
 	// Set TEntry Size
     size_t versionSize = sizeof(UInt32) * maxRegionLevel;
@@ -266,7 +285,7 @@ void initDataStructure(int regionLevel) {
 }
 
 void finalizeDataStructure() {
-	freeMallocTable(mTable);
+    hash_map_mt_delete(&mTable);
     PoolDelete(&tEntryPool);
 }
 
@@ -313,5 +332,14 @@ char* toStringTEntry(TEntry* entry) {
 #endif
 
 void dumpTableMemAlloc() {
+}
+
+UInt64 addrHash(Addr addr)
+{
+    return addr;
+}
+int addrCompare(Addr a1, Addr a2)
+{
+    return a1 == a2;
 }
 
