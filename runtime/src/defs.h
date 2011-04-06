@@ -1,4 +1,4 @@
-#define NDEBUG
+//#define NDEBUG
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */

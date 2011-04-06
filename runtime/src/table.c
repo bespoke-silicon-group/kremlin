@@ -1,9 +1,7 @@
 #include <assert.h>
-#include "defs.h"
 #include "table.h"
 #include "MemMapAllocator.h"
 
-GTable* gTable;
 LTable* lTable;
 MTable* mTable;
 UInt32	maxRegionLevel;
@@ -17,11 +15,6 @@ UInt32 getTEntrySize() {
 
 
 void freeTEntry(TEntry* entry);
-
-GTable* allocGlobalTable(int depth) {
-	GTable* ret = (GTable*) calloc(sizeof(GTable), 1);
-	return ret;
-}
 
 MTable* allocMallocTable() {
 	MTable* ret = (MTable*) calloc(1,sizeof(MTable));
@@ -46,22 +39,6 @@ void freeMallocTable(MTable* table) {
 	free(table);
 }
 
-void freeGlobalTable(GTable* table) {
-	int i, j;
-	for (i = 0; i < 0x10000; i++) {
-		if (table->array[i] != NULL) {
-			GEntry* entry = table->array[i];
-			for (j = 0; j < 0x4000; j++) {
-				if (entry->array[j] != NULL) {
-					TEntry* current = entry->array[j];
-					freeTEntry(current);	
-				}
-			}	
-			free(entry);
-		}
-	}
-	free(table);
-}
 
 long long _tEntryLocalCnt = 0;
 long long _tEntryGlobalCnt = 0;
@@ -225,12 +202,6 @@ MEntry* getMEntry(Addr start_addr) {
 	return me;
 }
 
-GEntry* createGEntry() {
-	GEntry* ret = (GEntry*) malloc(sizeof(GEntry));
-	bzero(ret, sizeof(GEntry));
-	return ret;
-}
-
 void copyTEntry(TEntry* dest, TEntry* src) {
 	int i;
 	assert(dest != NULL);
@@ -279,7 +250,6 @@ void setLocalTable(LTable* table) {
 void initDataStructure(int regionLevel) {
 	fprintf(stderr, "# of instrumented region Levels = %d\n", regionLevel);
 	maxRegionLevel = regionLevel;
-	gTable = allocGlobalTable(maxRegionLevel);
 	mTable = allocMallocTable();
 
 	// Set TEntry Size
@@ -296,7 +266,6 @@ void initDataStructure(int regionLevel) {
 }
 
 void finalizeDataStructure() {
-	freeGlobalTable(gTable);
 	freeMallocTable(mTable);
     PoolDelete(&tEntryPool);
 }
@@ -317,53 +286,6 @@ TEntry* getLTEntry(UInt32 vreg) {
 	}
 	//assert(vreg < lTable->size);
 	return lTable->array[vreg];	
-#else
-	return (TEntry*)1;
-#endif
-}
-
-// FIXME: 64bit address?
-TEntry* getGTEntry(Addr addr) {
-#ifndef WORK_ONLY
-	UInt32 index = ((UInt64) addr >> 16) & 0xffff;
-	assert(index < 0x10000);
-	GEntry* entry = gTable->array[index];
-	if (entry == NULL) {
-		entry = createGEntry();
-		gTable->array[index] = entry;
-	}
-	UInt32 index2 = ((UInt64) addr >> 2) & 0x3fff;
-	TEntry* ret = entry->array[index2];
-	if (ret == NULL) {
-		ret = allocTEntry(maxRegionLevel);
-		entry->array[index2] = ret;
-		entry->used += 1;
-		_tEntryGlobalCnt++;
-	}
-	return ret;
-#else
-	return (TEntry*)1;
-#endif
-}
-
-TEntry* getGTEntryCacheLine(Addr addr) {
-#ifndef WORK_ONLY
-	UInt32 index = ((UInt64) addr >> 16) & 0xffff;
-	assert(index < 0x10000);
-	GEntry* entry = gTable->array[index];
-	if (entry == NULL) {
-		entry = createGEntry();
-		gTable->array[index] = entry;
-	}
-	UInt32 index2 = ((UInt64) addr >> (2 + CACHE_LINE_POWER_2)) & 0x3ff;
-	TEntry* ret = entry->lineArray[index2];
-	if (ret == NULL) {
-		ret = allocTEntry(maxRegionLevel);
-		entry->lineArray[index2] = ret;
-		entry->usedLine += 1;
-		//_tEntryGlobalCnt++;
-	}
-	return ret;
 #else
 	return (TEntry*)1;
 #endif

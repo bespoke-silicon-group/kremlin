@@ -10,6 +10,7 @@
 #include "log.h"
 #include "debug.h"
 #include "table.h"
+#include "GTable.h"
 #include "kremlin_deque.h"
 #include "hash_map.h"
 #include "cregion.h"
@@ -102,6 +103,7 @@ deque*              argTimestamps;
 hash_map_sid_did*   sidToDid;
 UInt64              lastCallSiteId;
 UInt64              calledRegionId;
+GTable*             gTable;
 
 #ifdef MANAGE_BB_INFO
 UInt    __prevBB;
@@ -890,7 +892,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     //addLoad();
 
 #ifndef WORK_ONLY
-    TEntry* entry0 = getGTEntry(src_addr);
+    TEntry* entry0 = GTableGetTEntry(gTable, src_addr);
     TEntry* entryDest = getLTEntry(dest);
 
     int minLevel = MIN_REGION_LEVEL;
@@ -942,7 +944,7 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
     addWork(LOAD_COST);
 
 #ifndef WORK_ONLY
-    TEntry* entrySrcAddr = getGTEntry(src_addr);
+    TEntry* entrySrcAddr = GTableGetTEntry(gTable, src_addr);
     TEntry* entrySrc1 = getLTEntry(src1);
     TEntry* entryDest = getLTEntry(dest);
 
@@ -997,7 +999,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 
 #ifndef WORK_ONLY
     TEntry* entry0 = getLTEntry(src);
-    TEntry* entryDest = getGTEntry(dest_addr);
+    TEntry* entryDest = GTableGetTEntry(gTable, dest_addr);
 
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
@@ -1022,7 +1024,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
         UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
         UInt64 value = greater1 + STORE_COST;
 
-#ifdef E/XTRA_STATS
+#ifdef EXTRA_STATS
         updateWriteMemoryAccess(entryDest, i, version, value);
       //  updateWriteMemoryLineAccess(entryLine, i, version, value);
 #endif
@@ -1046,7 +1048,7 @@ void* logStoreInstConst(Addr dest_addr) {
     addWork(STORE_COST);
 
 #ifndef WORK_ONLY
-    TEntry* entryDest = getGTEntry(dest_addr);
+    TEntry* entryDest = GTableGetTEntry(gTable, dest_addr);
     assert(entryDest != NULL);
 
 #ifdef EXTRA_STATS
@@ -1086,7 +1088,9 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
 	assert(regionInfo[0].start == 0ULL);
 
 #ifndef WORK_ONLY
-    assert(size != 0);
+    assert(size > 0);
+
+    /*
     UInt32 start_index, end_index;
     start_index = ((UInt64) addr >> 16) & 0xffff;
     UInt64 end_addr = (UInt64)addr + (size-1);
@@ -1182,6 +1186,12 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
         }
     }
 
+    // XXX: Do we even need this?
+    Addr i;
+    for(i = addr; i < addr + size; i++)
+        getGTEntry(i);
+    */
+
     createMEntry(addr,size);
 	if (regionInfo[0].start != 0ULL) {
 		fprintf(stderr, "add regionInfo[0] = 0x%x\n", &regionInfo[0]);
@@ -1203,7 +1213,11 @@ void logFree(Addr addr) {
     MEntry* me = getMEntry(addr);
 
     size_t mem_size = me->size;
+    Addr a;
+    for(a = addr; a < addr + mem_size; a++)
+        GTableDeleteTEntry(gTable, a);
 
+    /*
     UInt32 start_index, end_index;
 
     start_index = ((UInt64) addr >> 16) & 0xffff;
@@ -1214,7 +1228,7 @@ void logFree(Addr addr) {
 
     if(start_index == end_index) {
         // get entry (must exist b/c of logMalloc)
-        GEntry* entry = gTable->array[start_index];
+        GTEntry* entry = gTable->array[start_index];
         assert(entry != NULL);
 
         entry->used -= (mem_size >> 2);
@@ -1305,6 +1319,7 @@ void logFree(Addr addr) {
             gTable->array[curr_index] = NULL;
         }
     }
+    */
 
     freeMEntry(addr);
 
@@ -1335,12 +1350,12 @@ void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
 }
 
 void* logInsertValue(UInt src, UInt dest) {
-    printf("Warning: logInsertValue not correctly implemented\n");
+    //printf("Warning: logInsertValue not correctly implemented\n");
     return logAssignment(src, dest);
 }
 
 void* logInsertValueConst(UInt dest) {
-    printf("Warning: logInsertValueConst not correctly implemented\n");
+    //printf("Warning: logInsertValueConst not correctly implemented\n");
     return logAssignmentConst(dest);
 }
 
@@ -1855,6 +1870,8 @@ int kremlinInit() {
     // Allocate the hash map to store dynamic region id counts.
     hash_map_sid_did_create(&sidToDid, sidHash, sidCompare, NULL, NULL);
 
+    GTableCreate(&gTable);
+
     allocDummyTEntry();
 
 	initCDT();
@@ -1926,6 +1943,7 @@ int kremlinDeinit() {
     FuncContextsDelete(&funcContexts);
 	deinitCDT();
 
+    GTableDelete(&gTable);
 
     fprintf(stderr, "[kremlin] minRegionLevel = %d maxRegionLevel = %d\n", 
         _minRegionToLog, _maxRegionToLog);
