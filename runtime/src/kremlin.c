@@ -1088,7 +1088,10 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
 	assert(regionInfo[0].start == 0ULL);
 
 #ifndef WORK_ONLY
-    assert(size > 0);
+
+    // Don't do anything if malloc returned NULL
+    if(!addr)
+        return;
 
     /*
     UInt32 start_index, end_index;
@@ -1338,6 +1341,8 @@ void logFree(Addr addr) {
 }
 
 // TODO: more efficient implementation (if old_addr = new_addr)
+// XXX: This is wrong. Values in the realloc'd location should still have the
+// same timestamp.
 void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
     if (!isKremlinOn())
         return;
