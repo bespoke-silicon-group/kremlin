@@ -110,7 +110,7 @@ public class CRegion implements Comparable {
 	double avgStoreCnt;
 	long totalIter;
 	
-	Set<URegion> set;
+	//Set<URegion> set;
 	CRegion parent;
 	Set<CRegion> children;
 	
