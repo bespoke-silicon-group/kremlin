@@ -42,13 +42,13 @@ public class CRegionPrinter {
 	public String getStatString(CRegion region) {
 		double coverage = manager.getCoverage(region);
 		double timeReduction = manager.getTimeReduction(region);
-		String stats = String.format("IdealExecTimeReduction = %5.2f%% coverage = %5.2f%%, sp = %5.2f [%5.2f - %5.2f], tp = %.2f", 
+		String stats = String.format("IdealTimeReduction = %5.2f%% coverage = %5.2f%%, avg sp = %5.2f [%5.2f - %5.2f], avg tp = %.2f", 
 				timeReduction, coverage, region.selfParallelism, region.minSP, region.maxSP, region.totalParallelism);
 		return stats;
 	}
 	
 	public String getStatString2(CRegion region) {		
-		String stats = String.format("avg work = %.2f, cp = %.2f, count = %5d, readCnt = %.2f, writeCnt = %.2f, load = %.2f, store = %.2f", 
+		String stats = String.format("[avg stats] work = %.2f, cp = %.2f, count = %5d, readCnt = %.2f, writeCnt = %.2f, load = %.2f, store = %.2f", 
 				region.getAvgWork(), region.getAvgCP(), region.getInstanceCount(), 
 				region.getAvgReadCnt(), region.getAvgWriteCnt(), region.avgLoadCnt, region.avgStoreCnt);
 		return stats;
@@ -64,9 +64,12 @@ public class CRegionPrinter {
 	
 	public void printRegionList(List<CRegion> list) {
 		int index = 0;
+		long total = 0;
 		for (CRegion region : list) {
 			System.out.printf("[%3d] %s\n      %s\n%s\n", 
 					index++, getStatString(region), getStatString2(region), getContextString(region));
+			total += region.numInstance;
 		}
+		System.out.printf("Total Region Count = %d\n", total);
 	}
 }

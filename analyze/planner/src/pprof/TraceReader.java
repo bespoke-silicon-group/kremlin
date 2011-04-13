@@ -29,6 +29,8 @@ public class TraceReader {
 				long writeCnt = Long.reverseBytes(input.readLong());
 				long loadCnt = Long.reverseBytes(input.readLong());
 				long storeCnt = Long.reverseBytes(input.readLong());
+				//long loadCnt = 0;
+				//long storeCnt = 0;
 				
 								
 				long nChildren = Long.reverseBytes(input.readLong());

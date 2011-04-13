@@ -38,7 +38,7 @@ public class GreedyPlanner {
 		if (parallelTime > serialTime)
 			speedup = 1.0;
 		double coverage = ((this.getSerialTime(current) * current.getInstanceCount()) / (double)this.getSerialTime(analyzer.getRoot())) * 100.0;			
-		double selfPoint = coverage - coverage / speedup;
+		double selfPoint = coverage - coverage / speedup;		
 		return selfPoint;
 	}
 	

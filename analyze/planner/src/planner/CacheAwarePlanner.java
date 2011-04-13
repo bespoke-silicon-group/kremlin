@@ -16,6 +16,7 @@ public class CacheAwarePlanner extends CDPPlanner {
 		return parallelTime + cacheServiceTime;
 	}
 	
+	@Override
 	protected double getSerialTime(CRegion region) {
 		double cacheServiceTime = cacheManager.getCacheServiceTime(region, 1);
 		return region.getAvgWork() + cacheServiceTime;

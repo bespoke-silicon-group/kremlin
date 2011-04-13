@@ -16,8 +16,8 @@ public class CacheManager {
 	public CacheManager(CRegionManager manager, String cacheFile, int maxFactor) {
 		this.manager = manager;
 		this.levels = new CacheLevel[2];
-		this.levels[0] = new CacheLevel(10, 64);
-		this.levels[1] = new CacheLevel(200, maxFactor);
+		this.levels[0] = new CacheLevel(20, 64);
+		this.levels[1] = new CacheLevel(300, maxFactor);
 		this.stat = new CacheStat(cacheFile);
 	}
 	
@@ -28,13 +28,19 @@ public class CacheManager {
 	
 	double getReadMissTime(CRegion region, int level, int core) {
 		double loadCnt = region.avgLoadCnt;
-		double readMissCnt = loadCnt * stat.getReadMissRate(core, level);
+		double readMissCnt = loadCnt;
+		for (int i=0; i<=level; i++)
+			readMissCnt *= stat.getReadMissRate(core, i);
 		return readMissCnt * levels[level].serviceTime;		
 	}
 	
 	double getWriteMissTime(CRegion region, int level, int core) {
 		double storeCnt = region.avgStoreCnt;
-		double writeMissCnt = storeCnt * stat.getWriteMissRate(core, level);
+		double writeMissCnt = storeCnt;// * stat.getWriteMissRate(core, level);
+		
+		for (int i=0; i<=level; i++)
+			writeMissCnt *= stat.getReadMissRate(core, i);
+		
 		return writeMissCnt * levels[level].serviceTime;
 	}
 	

@@ -4,6 +4,8 @@ import java.util.*;
 
 public class CRegion implements Comparable {
 	static long allocatedId = 0;
+	
+	/*
 	CRegion(SRegion sregion, Set<URegion> set, List<Long> context, long totalWork) {
 		this.id = allocatedId++;
 		this.region = sregion;
@@ -13,7 +15,7 @@ public class CRegion implements Comparable {
 		this.parentSRegion = (parentSet.size() > 0) ? parentSet.iterator().next().getSRegion() : null;
 		this.children = new HashSet<CRegion>();
 		//build(totalWork);
-	}
+	}*/
 	
 	CRegion(SRegion sregion, long uid, CallSite callSite, long cnt, long work, long tpWork, long spWork, double minSP, double maxSP, long readCnt, long writeCnt, long loadCnt, long storeCnt) {
 		this.region = sregion;

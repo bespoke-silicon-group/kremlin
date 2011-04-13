@@ -65,6 +65,7 @@ public class KremlinOmpCache {
 		System.out.printf("Total Time = %.2f\n", plan.getParallelTime());
 		System.out.printf("CacheServiceTime0 = %.2f\n", cacheServiceTime0);
 		System.out.printf("CacheServiceTime1 = %.2f\n", cacheServiceTime1);
+		System.out.printf("Accum Cache1 = %.2f\n", accumCache1Percent);
 		
 		System.out.printf("Percentage:\t%d\t%.2f\t%.2f\t%.2f\n", numCore, computePercent, accumCache0Percent, 100.0);				
 	}	

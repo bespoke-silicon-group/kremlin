@@ -3,48 +3,18 @@ package pprof;
 import java.io.*;
 import java.util.*;
 
-import pprof.URegionManager.Entry;
 
 public class CRegionManager {
-	SRegionManager sManager;
-	URegionManager uManager;
+	SRegionManager sManager;	
 	CRegion root;
-	Map<SRegion, Set<URegionSet>> map;
+	
 	Map<SRegion, Set<CRegion>> cRegionMap = new HashMap<SRegion, Set<CRegion>>();
 	
-	class URegionSet {
-		URegionSet(SRegion region, List<Long> context) {
-			this.sregion = region;
-			this.context = context;
-			this.set = new HashSet<URegion>();
-		}
-		
-		SRegion sregion;
-		List<Long> context;
-		Set<URegion> set;
-		
-		void add(URegion toAdd) {
-			assert(toAdd.getSRegion() == this.sregion);
-			set.add(toAdd);
-		}		
-	}
 	
 	public CRegionManager(SRegionManager sManager, String binFile) {
 		this.sManager = sManager;
 		readBinaryFile(binFile);
-	}
-	
-	public CRegionManager(URegionManager uManager) {		
-		this.map = new HashMap<SRegion, Set<URegionSet>>();
-		this.uManager = uManager;
-		System.err.println("start bulding URegionSet");
-		buildURegionSet();
-		System.err.println("start bulding URegion Tree");
-		buildCRegionTree();
-		System.err.println("start connecting");
-		connect();
-		System.err.println("done");
-	}
+	}	
 	
 	public Set<CRegion> getCRegionSet(SRegion region) {
 		return cRegionMap.get(region); 
@@ -64,65 +34,6 @@ public class CRegionManager {
 			CRegion region = new CRegion(sregion, callSite, entry);
 			regionMap.put(entry.uid, region);
 			childrenMap.put(entry.uid, entry.childrenSet);
-		}
-		
-		try {
-			DataInputStream input =  new DataInputStream(new FileInputStream(file));			
-		
-			while(true) {
-				Set<Long> childrenSet = new HashSet<Long>();
-				//Map<Long, Long> childrenMap = new HashMap<Long, Long>();
-				long uid = Long.reverseBytes(input.readLong());
-				long sid = Long.reverseBytes(input.readLong());
-				long callSiteValue = Long.reverseBytes(input.readLong());
-				long cnt = Long.reverseBytes(input.readLong());
-				long work = Long.reverseBytes(input.readLong());				
-				long tpWork = Long.reverseBytes(input.readLong());
-				long spWork = Long.reverseBytes(input.readLong());
-				
-				double minSP = (Long.reverseBytes(input.readLong())) / 100.0;
-				double maxSP = (Long.reverseBytes(input.readLong())) / 100.0;
-				long readCnt = Long.reverseBytes(input.readLong());
-				long writeCnt = Long.reverseBytes(input.readLong());
-				long loadCnt = Long.reverseBytes(input.readLong());
-				long storeCnt = Long.reverseBytes(input.readLong());
-				
-								
-				long nChildren = Long.reverseBytes(input.readLong());
-				//assert(cp != 0);
-
-				for (int i=0; i<nChildren; i++) {
-					long childUid = Long.reverseBytes(input.readLong());
-					childrenSet.add(childUid);
-				}
-				SRegion sregion = sManager.getSRegion(sid);
-				
-				//System.out.println("\t" + childrenSet);
-				CallSite callSite = null;
-				if (callSiteValue != 0)
-					callSite = sManager.getCallSite(callSiteValue);
-				
-				//System.out.printf("[%d %d]*%d\t %d %d %d %d %d children: %d %s\n",
-				//		uid, callSiteValue, cnt, work, tpWork, spWork, readCnt, writeCnt, nChildren, sregion);
-				
-				CRegion region = new CRegion(sregion, uid, callSite, cnt, work, tpWork, spWork, minSP, maxSP, readCnt, writeCnt, loadCnt, storeCnt);
-				regionMap.put(uid, region);
-				childrenMap.put(uid, childrenSet);
-				//uMap.put(uid, new Entry(uid, sid, work, cp, callSite, readCnt, writeCnt, readLineCnt, writeLineCnt, cnt, childrenMap));
-				/*
-				if (nChildren == 0) {
-					workList.add(0, uMap.get(uid));				
-				} else {
-					workList.add(uMap.get(uid));
-				}*/
-			}			
-			
-		} catch(Exception e) {
-			//System.out.println(e);
-			if (e instanceof java.io.EOFException == false) {
-				e.printStackTrace();
-				assert(false);
-			}
 		}
 		
 		// connect parent with children
@@ -176,21 +87,7 @@ public class CRegionManager {
 		}
 		return ret;
 	}
-	
-	void buildCRegionTree() {
-		long totalWork = uManager.getRoot().getWork();
-		for (SRegion each : map.keySet()) {
-			Set<URegionSet> set = map.get(each);
-			Set<CRegion> toAddSet = new HashSet<CRegion>();
-			cRegionMap.put(each, toAddSet);
-			for (URegionSet target : set) {
-				CRegion toAdd = new CRegion(each, target.set, target.context, totalWork);
-				toAddSet.add(toAdd);
-			}
-		}		
-	}
-	
-	
+		
 	
 	void connect() {
 		
@@ -293,7 +190,7 @@ public class CRegionManager {
 				workList.add(child);			
 		}		
 	}*/
-	
+	/*
 	void buildURegionSet() {
 		System.out.println("Total URegion Size = " + uManager.getURegionSet().size());
 		int cnt = 0;
@@ -329,7 +226,7 @@ public class CRegionManager {
 				set.add(toAdd);
 			}
 		}
-	}
+	}*/
 	/*
 	void buildURegionSet() {
 		System.out.println("Total URegion Size = " + uManager.getURegionSet().size());
