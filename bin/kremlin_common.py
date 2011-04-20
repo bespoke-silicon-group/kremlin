@@ -98,18 +98,7 @@ def create_kremlin_mk(src_lang):
 
     lang_ext = ""
 
-    print "args: "
-    for arg in args:
-        print arg
-        arg_ext = arg.split(".")[1]
-
-        if arg_ext == "o": pass
-        elif lang_ext == "": lang_ext = arg_ext
-        elif lang_ext != arg_ext: 
-
-            # This is not an error. kremlin-gcc -c foo.c bar.s baz.f should
-            # work because gcc handles this properly. --chris
-            raise "ERROR: mixed input languages detected."
+    print "args: " + " ".join(args)
 
     make_target, make_defines = get_make_target(options)
 

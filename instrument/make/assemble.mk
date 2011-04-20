@@ -15,8 +15,15 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/useTemp.mk
 # Source files
 # ---------------------------------------------------------------------------
 
+# Filter out the assembly sources
+ASM_FROM_SOURCES := $(filter %.s, $(SOURCES))
+SOURCES := $(filter-out %.s, $(SOURCES))
+
+$(info SOURCES minus assembly: $(SOURCES))
+
 # All the assembly files that have been instrumented or not.
-ASM_SOURCES += $(filter %.s, $(SOURCES))
+# Need to add this in a seperate step since we can't simple add.
+ASM_SOURCES += $(ASM_FROM_SOURCES)
 
 # All the object files that have been instrumented or not.
 ASM_SOURCES_AS_OBJ = $(addsuffix .o, $(notdir $(basename $(ASM_SOURCES))))

@@ -25,7 +25,7 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/kremlinLib.mk
 # extensions to the linker.
 #
 # We also add the objects that we've assembled.
-OBJ_SOURCES += $(filter %.o, $(SOURCES))
+OBJ_SOURCES += $(SOURCES)
 
 # The name of the executable to produce.
 LINK_OUTPUT_FILE ?= a.out

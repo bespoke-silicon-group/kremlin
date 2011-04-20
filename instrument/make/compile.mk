@@ -17,9 +17,16 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/useTemp.mk
 # Files
 # ---------------------------------------------------------------------------
 
+# The extension of any file we will instrument.
+EXTENSIONS = %.c %.cc %.cxx %.C %.cpp %.f95 %.f
+
 # Anything we must instrument.
 # Unprocessed sources are files with source code (as opposed to e.g. object files)
-UNPROCESSED_SOURCES += $(filter %.c %.cc %.cxx %.C %.cpp %.f95 %.f, $(SOURCES))
+UNPROCESSED_FROM_SOURCES := $(filter $(EXTENSIONS), $(SOURCES))
+SOURCES := $(filter-out $(EXTENSIONS), $(SOURCES))
+UNPROCESSED_SOURCES += $(UNPROCESSED_FROM_SOURCES)
+
+$(info SOURCES minus c/cpp/fortran: $(SOURCES))
 
 # All the unprocessed sources without the .c
 UNPROCESSED_SOURCES_NO_EXTENSION = $(basename $(UNPROCESSED_SOURCES))
