@@ -170,8 +170,7 @@ void freeDummyTEntry() {
 }
 
 void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
-    if(!isKremlinOn())
-        return;
+    if(!isKremlinOn()) { return; }
 
     // Clear off any argument timestamps that have been left here before the
     // call. These are left on the deque because library calls never take
@@ -224,9 +223,12 @@ void transferAndUnlinkArg(UInt dest) {
 }
 
 
+/**
+ * Setup the local shadow register table.
+ * @param maxVregNum	Number of virtual registers to allocate.
+ */
 void setupLocalTable(UInt maxVregNum) {
-    if(!isKremlinOn())
-        return;
+    if(!isKremlinOn()) { return; }
 
     MSG(1, "setupLocalTable size %u\n", maxVregNum);
 
@@ -234,11 +236,12 @@ void setupLocalTable(UInt maxVregNum) {
     assert(_requireSetupTable == 1);
 
     LTable* table = allocLocalTable(maxVregNum);
-    FuncContext* funcHead = *FuncContextsLast(funcContexts);
-    assert(funcHead->table == NULL);
     assert(table != NULL);
 
-    funcHead->table = table;    
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
+    assert(funcHead->table == NULL);
+
+    funcHead->table = table;
     setLocalTable(funcHead->table);
     _setupTableCnt++;
     _requireSetupTable = 0;
@@ -250,9 +253,7 @@ void incrementRegionLevel() {
     _maxRegionNum = MAX(_maxRegionNum, levelNum);
 }
 
-void decrementRegionLevel() {
-    levelNum--;
-}
+void decrementRegionLevel() { levelNum--; }
 
 /**
  * Increments the dynamic id count for a static region.
@@ -280,6 +281,12 @@ UInt64* getDynamicRegionId(UInt64 sid) {
     return did;
 }
 
+/**
+ * Returns timestamp of control dep at specified level with specified version.
+ * @param level 	Level at which to look for control dep.
+ * @param version	Version we are looking for.
+ * @return			Timestamp of control dep.
+ */
 // preconditions: cdtHead != NULL && level >= 0
 UInt64 getCdt(int level, UInt32 version) {
     //assert(cdtHead != NULL);
@@ -288,29 +295,58 @@ UInt64 getCdt(int level, UInt32 version) {
         cdtHead->time[level - MIN_REGION_LEVEL] : 0;
 }
 
+/**
+ * Sets the control dep at specified level to specified (version,time) pair
+ * @param level		Level to set.
+ * @param version	Version number to set.
+ * @param time		Timestamp to set control dep to.
+ */
 void setCdt(int level, UInt32 version, UInt64 time) {
     assert(level >= MIN_REGION_LEVEL);
     cdtHead->time[level - MIN_REGION_LEVEL] = time;
     cdtHead->version[level - MIN_REGION_LEVEL] = version;
 }
 
+/**
+ * Copies data from table entry over to cdt.
+ * @param cdt		Pointer to CDT to copy data to.
+ * @param entry		Pointer to TEntry containing data to be copied.
+ */
 void fillCDT(CDT* cdt, TEntry* entry) {
+	// entry may not have data for all logged levels so we have to check timeArrayLength
     int i;
-    for (i = MIN_REGION_LEVEL; i < MAX_REGION_LEVEL && i < entry->timeArrayLength; i++) {
+    for (i = MIN_REGION_LEVEL; i < MAX_REGION_LEVEL /*&& i < entry->timeArrayLength*/; ++i) {
         int level = i - MIN_REGION_LEVEL;
-        cdt->time[level] = entry->time[level];
-        cdt->version[level] = entry->version[level];
+		//fprintf(stderr,"filling level %d\n",level);
+
+		if(i < entry->timeArrayLength) {
+        	cdt->time[level] = entry->time[level];
+        	cdt->version[level] = entry->version[level];
+		}
+		else {
+        	cdt->time[level] = 0;
+        	cdt->version[level] = 0;
+		}
     }
+
+	// if entry didn't have all the levels covered, we zero out any leftover levels
+	/*
     if(i < MAX_REGION_LEVEL) {
+		i--;
+		fprintf(stderr,"zeroing out %d to %d\n",i,_maxRegionToLog);
         bzero(cdt->time + i, sizeof(UInt64) * (MAX_REGION_LEVEL - i));
         bzero(cdt->version + i, sizeof(UInt32) * (MAX_REGION_LEVEL - i));
     }
+	*/
 }
 
+/**
+ * Pushes new context onto function context stack.
+ */
 void pushFuncContext() {
-
     FuncContext* funcContext = (FuncContext*) malloc(sizeof(FuncContext));
     assert(funcContext);
+
     FuncContextsPushVal(funcContexts, funcContext);
     funcContext->table = NULL;
 	funcContext->callSiteId = lastCallSiteId;
@@ -325,24 +361,28 @@ void pushFuncContext() {
 
 }
 
-void dumpCdt(CDT* cdt) {
-    int i;
-    fprintf(stderr, "cdtHead@%p\n", cdt);
-    for (i = 0; i < 5; i++) {
-        fprintf(stderr, "\t%llu", cdt->time[i]);
-    }
-    fprintf(stderr, "\n");
-}
-
+/**
+ * Prints out TEntry times.
+ * @param entry		Pointer to TEntry.
+ * @param size		Number of entries to print
+ */
 void dumpTEntry(TEntry* entry, int size) {
     int i;
     fprintf(stderr, "entry@%p\n", entry);
+	// XXX: assert on bounds check?
     for (i = 0; i < size; i++) {
         fprintf(stderr, "\t%llu", entry->time[i]);
     }
     fprintf(stderr, "\n");
 }
 
+/**
+ * Updates (and returns) critical path length of region at specified level. If specified timestamp
+ * is greater than current CP length, CP length is updated with this time.
+ * @param value			Timestamp to update with.
+ * @param level			Region level to update.
+ * @return				Critical path length of specified level.
+ */
 UInt64 updateCP(UInt64 value, int level) {
 	regionInfo[level].cp = (value > regionInfo[level].cp) ? value : regionInfo[level].cp;
 	return regionInfo[level].cp;
@@ -351,14 +391,12 @@ UInt64 updateCP(UInt64 value, int level) {
 
 #define addWork(work) timestamp += work;
 
-void addLoad() {
-    loadCnt++;
-}
+void addLoad() { loadCnt++; }
+void addStore() { storeCnt++; }
 
-void addStore() {
-    storeCnt++;
-}
-
+/**
+ * Removes context at the top of the function context stack.
+ */
 void popFuncContext() {
     FuncContext* ret = FuncContextsPopVal(funcContexts);
     assert(ret);
@@ -378,6 +416,11 @@ void popFuncContext() {
     free(ret);  
 }
 
+/*
+ * Returns version ID at specified region level.
+ * @param level			Region level to get version from.
+ * @return				Version ID at specified level.
+ */
 UInt getVersion(int level) {
     assert(level >= 0 && level < _MAX_REGION_LEVEL);
     return versions[level];
@@ -511,90 +554,81 @@ void invokeThrew(UInt64 id)
         MSG(1, "invokeThrew(%u) ignored\n", id);
 }
 
-void logRegionEntry(UInt64 regionId, UInt regionType) {
-    if (!isKremlinOn()) {
-        return;
-    }
+void initCurrentRegion(UInt64 regionId, UInt64 did, UInt regionType) {
+    int curr_level = getCurrentLevel();
 
-    if (regionType == 0)
-        _regionFuncCnt++;
+    regionInfo[curr_level].regionId = regionId;
+    regionInfo[curr_level].start = timestamp;
+    regionInfo[curr_level].did = did;
+    regionInfo[curr_level].cp = 0LL;
+    regionInfo[curr_level].childrenWork = 0LL;
+    regionInfo[curr_level].childrenCP = 0LL;
+    regionInfo[curr_level].regionType = regionType;
+
+    regionInfo[curr_level].loadCnt = 0LL;
+    regionInfo[curr_level].storeCnt = 0LL;
+#ifdef EXTRA_STATS
+    regionInfo[curr_level].readCnt = 0LL;
+    regionInfo[curr_level].writeCnt = 0LL;
+    regionInfo[curr_level].readLineCnt = 0LL;
+    regionInfo[curr_level].writeLineCnt = 0LL;
+#endif
+}
+
+void logRegionEntry(UInt64 regionId, UInt regionType) {
+    if (!isKremlinOn()) { return; }
 
     if(regionType == RegionFunc)
     {
-		/*
-		if(getCurrentLevel() >= MAX_REGION_LEVEL-1) {
-			fprintf(stderr,"entering region too deep to log. level = %d, lastCallSiteId = %llu\n",getCurrentLevel(),lastCallSiteId);
-		}
-		*/
+		_regionFuncCnt++;
         pushFuncContext();
         _requireSetupTable = 1;
     }
 
-    FuncContext* funcHead = *FuncContextsLast(funcContexts);
     incrementRegionLevel();
 
-    int level = getCurrentLevel();
+    int curr_level = getCurrentLevel();
 
 	// If we exceed the maximum depth, we act like this region doesn't exist
-	if(level >= MAX_REGION_LEVEL) { return; }
+	if(curr_level >= MAX_REGION_LEVEL) { return; }
 
-
-//    if (level < MIN_REGION_LEVEL || level >= MAX_REGION_LEVEL)
-//        return;
 
     incDynamicRegionId(regionId);
-    versions[level]++;
+    versions[curr_level]++;
+
 /*   
-	UInt64 parentSid = (level > 0) ? regionInfo[level-1].regionId : 0;
-    UInt64 parentDid = (level > 0) ? regionInfo[level-1].did : 0;
+	UInt64 parentSid = (curr_level > 0) ? regionInfo[curr_level-1].regionId : 0;
+    UInt64 parentDid = (curr_level > 0) ? regionInfo[curr_level-1].did : 0;
     if (regionType < RegionLoopBody)
         MSG(0, "[+++] region [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
-            regionType, level, regionId, getDynamicRegionId(regionId), 
+            regionType, curr_level, regionId, getDynamicRegionId(regionId), 
             parentSid, parentDid, timestamp);
 */
+
     if (regionType < RegionLoopBody)
         MSG(0, "[+++] region [%u, %d, %llu:%llu] start: %llu\n",
-            regionType, level, regionId, *getDynamicRegionId(regionId), timestamp);
+            regionType, curr_level, regionId, *getDynamicRegionId(regionId), timestamp);
 
-    // for now, recursive call is not allowed
-	/*
-    int i;
-    for (i=0; i<level; i++) {
-        assert(regionInfo[i].regionId != regionId && "For now, no recursive calls!");
-    }
-	*/
-
-	//fprintf(stderr,"entering region with ID = %llu\n. level = %d",regionId,level);
-    regionInfo[level].regionId = regionId;
-    regionInfo[level].start = timestamp;
-    regionInfo[level].did = *getDynamicRegionId(regionId);
-    regionInfo[level].cp = 0LL;
-    regionInfo[level].childrenWork = 0LL;
-    regionInfo[level].childrenCP = 0LL;
-    regionInfo[level].regionType = regionType;
-
-    regionInfo[level].loadCnt = 0LL;
-    regionInfo[level].storeCnt = 0LL;
-#ifdef EXTRA_STATS
-    regionInfo[level].readCnt = 0LL;
-    regionInfo[level].writeCnt = 0LL;
-    regionInfo[level].readLineCnt = 0LL;
-    regionInfo[level].writeLineCnt = 0LL;
-#endif
+	// set initial values for newly entered region
+	// TODO: this probably desn't need to happen if curr_level < MIN_REGION_LEVEL
+	initCurrentRegion(regionId,*getDynamicRegionId(regionId),regionType);
 
 #ifndef USE_UREGION
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
 	UInt64 callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
 	cregionPutContext(regionId, callSiteId);
 #endif
 
 #ifndef WORK_ONLY
-    if (level >= MIN_REGION_LEVEL && level < MAX_REGION_LEVEL)
-        setCdt(level, versions[level], 0);
+    if (curr_level >= MIN_REGION_LEVEL && curr_level < MAX_REGION_LEVEL)
+        setCdt(curr_level, versions[curr_level], 0);
 #endif
-    incIndentTab();
 
+    incIndentTab(); // only affects debug printing
 }
 
+// TODO: these seem unused... delete?
+/*
 UInt64 _lastSid;
 UInt64 _lastDid;
 UInt64 _lastWork;
@@ -604,132 +638,148 @@ UInt64 _lastEnd;
 UInt64 _lastCnt;
 UInt64 _lastParentSid;
 UInt64 _lastParentDid;
+*/
 
-void logRegionExit(UInt64 regionId, UInt regionType) {
-    if (!isKremlinOn()) {
-        return;
-    }
+/**
+ * Does the clean up work when exiting a function region.
+ */
+void handleFuncRegionExit() {
+	popFuncContext();
 
-    int level = getCurrentLevel();
+	FuncContext* funcHead = *FuncContextsLast(funcContexts);
 
-	if(level >= MAX_REGION_LEVEL) {
-#ifndef WORK_ONLY
-		if (regionType == RegionFunc) { 
-			popFuncContext();
-            FuncContext* funcHead = *FuncContextsLast(funcContexts);
-			if (funcHead == NULL) {
-				assert(getCurrentLevel() == 0);
+	if (funcHead == NULL) { assert(getCurrentLevel() == 0); }
+	else { setLocalTable(funcHead->table); }
 
-			} else {
-				setLocalTable(funcHead->table);
-			}
 #if MANAGE_BB_INFO
-			MSG(1, "    currentBB: %u   lastBB: %u\n",
-				__currentBB, __prevBB);
+	MSG(1, "    currentBB: %u   lastBB: %u\n",
+		__currentBB, __prevBB);
 #endif
-		}
+}
+
+
+/**
+ * Creates RegionField and fills it based inputs.
+ */
+RegionField fillRegionField(UInt64 work, UInt64 cp, UInt64 callSiteId, UInt64 spWork, UInt64 tpWork, Region region_info) {
+	RegionField field;
+
+    field.work = work;
+    field.cp = cp;
+	field.callSite = callSiteId;
+	field.spWork = spWork;
+	field.tpWork = tpWork;
+
+    field.loadCnt = region_info.loadCnt;
+    field.storeCnt = region_info.storeCnt;
+#ifdef EXTRA_STATS
+    field.readCnt = region_info.readCnt;
+    field.writeCnt = region_info.writeCnt;
+    field.readLineCnt = region_info.readLineCnt;
+    field.writeLineCnt = region_info.writeLineCnt;
+    assert(work >= field.readCnt && work >= field.writeCnt);
+#endif
+
+	return field;
+}
+
+
+/**
+ * Handles exiting of regions. This includes handling function context, calculating profiled
+ * statistics, and logging region statistics.
+ * @param regionID		ID of region that is being exited.
+ * @param regionType	Type of region being exited.
+ */
+void logRegionExit(UInt64 regionId, UInt regionType) {
+    if (!isKremlinOn()) { return; }
+
+    int curr_level = getCurrentLevel();
+
+	// If we are outside range of levels, handle function stack then exit
+	if(curr_level >= MAX_REGION_LEVEL) {
+#ifndef WORK_ONLY
+		if (regionType == RegionFunc) { handleFuncRegionExit(); }
 #endif
     	decrementRegionLevel();
 		return;
 	}
 
+	Region curr_region = regionInfo[curr_level];
+
     UInt64 sid = regionId;
-    UInt64 did = regionInfo[level].did;
-    if(regionInfo[level].regionId != regionId) {
-		fprintf(stderr, "mismatch in regionID. expected %llu, got %llu. level = %d\n",regionInfo[level].regionId,regionId,level);
+    UInt64 did = curr_region.did;
+    if(curr_region.regionId != regionId) {
+		fprintf(stderr, "mismatch in regionID. expected %llu, got %llu. curr_level = %d\n",curr_region.regionId,regionId,curr_level);
 		assert(0);
 	}
-    UInt64 startTime = regionInfo[level].start;
-    UInt64 endTime = timestamp;
-    UInt64 work = endTime - startTime;
-    UInt64 cp = regionInfo[level].cp;
 
-	/*
-	if (work == 0 || cp == 0 || work < cp) {
-		fprintf(stderr, "sid=%llu work=%llu childrenWork = %llu cp=%llu\n", sid, work, regionInfo[level].childrenWork, cp);
-	}
-	*/
+    UInt64 work = timestamp - curr_region.start;
+    UInt64 cp = curr_region.cp;
 
-	assert(work == 0 || cp > 0);
-	assert(work >= cp);
-	assert(work >= regionInfo[level].childrenWork);
-
-	double spTemp = (work - regionInfo[level].childrenWork + regionInfo[level].childrenCP) / (double)cp;
-	double sp = (work > 0) ? spTemp : 1.0;
-	if(sp < 1.0) {
-		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu childrenCP=%lld\n", sid, work, regionInfo[level].childrenWork, regionInfo[level].childrenCP);
-		assert(0);
-	}
-	//assert(sp >= 1.0);
-	//assert(cp >= 1.0);
-
-	UInt64 spWork = (UInt64)((double)work / sp);
-	UInt64 tpWork = cp;
-	//fprintf(stderr, "work=%llu childrenWork = %llu childrenCP=%lld cp=%lld sp=%.2f spTemp=%.2f\n", work, regionInfo[level].childrenWork, regionInfo[level].childrenCP, cp, sp, spTemp);
-
-	// due to floating point variables,
-	// spWork or tpWork can be larger than work
-	if (spWork > work)
-		spWork = work;
-	if (tpWork > work)
-		tpWork = work;
-
-    if(regionId != regionInfo[level].regionId) {
-        fprintf(stderr,"ERROR: unexpected region exit: %llu (expected region %llu)\n",regionId,regionInfo[level].regionId);
-        assert(0);
-    }
 	UInt64 parentSid = 0;
 	UInt64 parentDid = 0;
 
-	if (level > 0) {
-    	parentSid = regionInfo[level-1].regionId;
-		parentDid = regionInfo[level-1].did;
-		regionInfo[level-1].childrenWork += work;
-		regionInfo[level-1].childrenCP += cp;
+	// If we aren't at the root, we need to update parent region's childrenWork and childrenCP
+	// TODO: only need this for one level when doing parallel kremlin
+	if (curr_level > 0) {
+		Region parent_region = regionInfo[curr_level-1];
+
+    	parentSid = parent_region.regionId;
+		parentDid = parent_region.did;
+		parent_region.childrenWork += work;
+		parent_region.childrenCP += cp;
 	} 
-
-    if(work < cp) {
-        fprintf(stderr,"ERROR: cp (%llu) > work (%llu) [regionId=%llu]",cp,work,regionId);
-        assert(0);
-    }
-
-    decIndentTab();
-    /*
-    if (regionType < RegionLoopBody)
-        MSG(0, "[---] region [%u, %u, %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
-                regionType, level, regionId, did, parentSid, parentDid, 
-                regionInfo[level].cp, work);
-                */
 
     if (regionType < RegionLoopBody)
         MSG(0, "[---] region [%u, %u, %llu:%llu] cp %llu work %llu\n",
-                regionType, level, regionId, did, regionInfo[level].cp, work);
+                regionType, curr_level, regionId, did, curr_region.cp, work);
 
-    if (isKremlinOn() && work > 0 && cp == 0 && isCurrentLevelInstrumentable()) {
+//#ifdef LEVEL_TO_LOG
+	assert(!isCurrentLevelInstrumentable() || work == 0 || cp > 0);
+//#else
+	//assert(work == 0 || cp > 0);
+//#endif
+	assert(work >= cp);
+	assert(work >= curr_region.childrenWork);
+
+
+	// Check that cp is positive if work is positive.
+	// This only applies when the current level gets instrumented (otherwise this condition always holds)
+    if (cp == 0 && work > 0 && isCurrentLevelInstrumentable()) {
         fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
-        fprintf(stderr, "region [type: %u, level: %u, id: %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
-            regionType, level, regionId, did, parentSid, parentDid, 
-            regionInfo[level].cp, work);
+        fprintf(stderr, "region [type: %u, curr_level: %u, id: %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
+            regionType, curr_level, regionId, did, parentSid, parentDid, 
+            curr_region.cp, work);
         assert(0);
     }
 
-    RegionField field;
-    field.work = work;
-    field.cp = cp;
-	field.callSite = (*FuncContextsLast(funcContexts))->callSiteId;
-	field.spWork = spWork;
-	field.tpWork = tpWork;
-	assert(work >= spWork);
-	assert(work >= tpWork);
-    field.loadCnt = regionInfo[level].loadCnt;
-    field.storeCnt = regionInfo[level].storeCnt;
-#ifdef EXTRA_STATS
-    field.readCnt = regionInfo[level].readCnt;
-    field.writeCnt = regionInfo[level].writeCnt;
-    field.readLineCnt = regionInfo[level].readLineCnt;
-    field.writeLineCnt = regionInfo[level].writeLineCnt;
-    assert(work >= field.readCnt && work >= field.writeCnt);
-#endif
+	double spTemp = (work - curr_region.childrenWork + curr_region.childrenCP) / (double)cp;
+	double sp = (work > 0) ? spTemp : 1.0;
+
+	if(sp < 1.0) {
+		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu childrenCP=%lld\n", sid, work,
+			curr_region.childrenWork, curr_region.childrenCP);
+		assert(0);
+	}
+
+	UInt64 spWork = (UInt64)((double)work / sp);
+	UInt64 tpWork = cp;
+
+	// due to floating point variables,
+	// spWork or tpWork can be larger than work
+	if (spWork > work) { spWork = work; }
+	if (tpWork > work) { tpWork = work; }
+
+    decIndentTab(); // applies only to debug printing
+
+    /*
+    if (regionType < RegionLoopBody)
+        MSG(0, "[---] region [%u, %u, %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
+                regionType, curr_level, regionId, did, parentSid, parentDid, 
+                curr_region.cp, work);
+    */
+
+    RegionField field = fillRegionField(work,cp,(*FuncContextsLast(funcContexts))->callSiteId,spWork,tpWork,curr_region);
 
 #ifdef USE_UREGION
     processUdr(sid, did, parentSid, parentDid, field);
@@ -738,23 +788,12 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 #endif
         
 #ifndef WORK_ONLY
-    if (regionType == RegionFunc) { 
-        popFuncContext();
-        FuncContext* funcHead = *FuncContextsLast(funcContexts);
-        if (funcHead == NULL) {
-            assert(getCurrentLevel() == 0);
+    if (regionType == RegionFunc) { handleFuncRegionExit(); }
+#endif
 
-        } else {
-            setLocalTable(funcHead->table);
-        }
-#if MANAGE_BB_INFO
-        MSG(1, "    currentBB: %u   lastBB: %u\n",
-            __currentBB, __prevBB);
-#endif
-    }
-#endif
     decrementRegionLevel();
 }
+
 
 void* logReductionVar(UInt opCost, UInt dest) {
     addWork(opCost);
@@ -776,8 +815,9 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
-    int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
+
+    int i;
     for (i = minLevel; i < maxLevel; ++i) {
 		// calculate availability time
         UInt version = getVersion(i);
@@ -821,8 +861,9 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
     int minLevel = MIN_REGION_LEVEL;
     int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
 
-    int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
+
+    int i;
     for (i = minLevel; i < maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -1090,110 +1131,7 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
 #ifndef WORK_ONLY
 
     // Don't do anything if malloc returned NULL
-    if(!addr)
-        return;
-
-    /*
-    UInt32 start_index, end_index;
-    start_index = ((UInt64) addr >> 16) & 0xffff;
-    UInt64 end_addr = (UInt64)addr + (size-1);
-    end_index = (end_addr >> 16) & 0xffff;
-
-    //MSG(1,"start_index = %lu, end_index = %lu\n",start_index,end_index);
-
-    if(start_index == end_index) {
-        // get/create entry and set "used" field appropriately
-        GEntry* entry = gTable->array[start_index];
-        if (entry == NULL) {
-            entry = createGEntry();
-            gTable->array[start_index] = entry;
-            entry->used = (size >> 2);
-        }
-        else {
-            entry->used += (size >> 2);
-        }
-
-        MSG(2,"  allocating from gTable[%lu]. %hu used in this block\n",start_index,entry->used);
-
-        UInt32 start_index2, end_index2;
-
-        // find starting and ending addr
-        start_index2 = ((UInt64) addr >> 2) & 0x3fff;
-        end_index2 = (end_addr >> 2) & 0x3fff;
-
-        MSG(2,"  gTable entry range: [%lu:%lu]\n",start_index2,end_index2);
-
-        // create TEntry instances for the range of mem addrs
-        // We assume that TEntry instances don't exist for the
-        // index2 range because otherwise malloc would be buggy.
-        int i;
-        for(i = start_index2; i <= end_index2; ++i) {
-            entry->array[i] = allocTEntry(maxRegionLevel);
-        }
-
-    }
-    else {
-        // handle start_index
-        GEntry* entry = gTable->array[start_index];
-        UInt32 start_index2 = ((UInt64) addr >> 2) & 0x3fff;
-
-        if (entry == NULL) {
-            entry = createGEntry();
-            gTable->array[start_index] = entry;
-            entry->used = (0x4000-start_index2);
-        }
-        else {
-            entry->used += (0x4000-start_index2);
-        }
-
-        MSG(2,"  allocating from gTable[%lu]. %hu used in this block\n",start_index,entry->used);
-
-        int i;
-        for(i = start_index2; i < 0x4000; ++i) {
-            entry->array[i] = allocTEntry(maxRegionLevel);
-        }
-
-        // handle end_index
-        entry = gTable->array[end_index];
-        UInt32 end_index2 = (end_addr >> 2) & 0x3fff;
-
-        if (entry == NULL) {
-            entry = createGEntry();
-            gTable->array[end_index] = entry;
-            entry->used = end_index2 + 1;
-        }
-        else {
-            entry->used += (end_index2+1);
-        }
-
-        for(i = 0; i <= end_index2; ++i) {
-            entry->array[i] = allocTEntry(maxRegionLevel);
-        }
-
-        MSG(2,"  allocating from gTable[%lu]. %hu used in this block\n",end_index,entry->used);
-
-        // handle all intermediate indices
-        UInt32 curr_index;
-        for(curr_index = start_index+1; curr_index < end_index; ++curr_index) {
-            // assume that malloc isn't buggy and therefore won't give us addresses
-            // that have been used but not freed
-            entry = createGEntry();
-            gTable->array[curr_index] = entry;
-            entry->used = 0x4000;
-
-            MSG(2,"  allocating all entries in gTable[%lu].\n",curr_index);
-
-            for(i = 0; i < 0x4000; ++i) {
-                entry->array[i] = allocTEntry(maxRegionLevel);
-            }
-        }
-    }
-
-    // XXX: Do we even need this?
-    Addr i;
-    for(i = addr; i < addr + size; i++)
-        getGTEntry(i);
-    */
+    if(!addr) { return; }
 
     createMEntry(addr,size);
 	if (regionInfo[0].start != 0ULL) {
@@ -1368,7 +1306,8 @@ static int cdtSize;
 static int cdtIndex;
 
 CDT* allocCDT() {
-	CDT* ret = &cdtPool[cdtIndex++];
+	cdtIndex++;
+	CDT* ret = &cdtPool[cdtIndex];
 	if (cdtIndex == cdtSize) {
 		int i;
 		cdtSize += CDTSIZE;
@@ -1381,8 +1320,9 @@ CDT* allocCDT() {
 	return ret;
 }
 
-CDT* freeCDT(CDT* toFree) {
-	return &cdtPool[--cdtIndex];
+CDT* freeCDT(CDT* toFree) { 
+	cdtIndex--;
+	return &cdtPool[cdtIndex]; 
 }
 
 void initCDT() {
@@ -1392,9 +1332,15 @@ void initCDT() {
 	cdtIndex = 0;
 	cdtSize = CDTSIZE;
 
+	//fprintf(stderr,"TEntry size = %u\n",getTEntrySize());
+
 	for (i=0; i<CDTSIZE; i++) {
     	cdtPool[i].time = (UInt64*) calloc(getTEntrySize(), sizeof(UInt64));
 	    cdtPool[i].version = (UInt32*) calloc(getTEntrySize(), sizeof(UInt32));
+
+		assert(cdtPool[i].time && cdtPool[i].version);
+		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
+		//fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
 	}
 	cdtHead = allocCDT();
 }
@@ -1402,6 +1348,9 @@ void initCDT() {
 void deinitCDT() {
 	int i=0;
 	for (i=0; i<cdtSize; i++) {
+		//fprintf(stderr,"deinit %d\n",i);
+		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
+		//fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
 		free(cdtPool[i].time);
 		free(cdtPool[i].version);
 	}
@@ -1411,7 +1360,8 @@ void addControlDep(UInt cond) {
     MSG(2, "push ControlDep ts[%u]\n", cond);
 
 #ifndef WORK_ONLY
-    cdtHead = allocCDT();
+    if(isCurrentLevelInstrumentable()) { cdtHead = allocCDT(); }
+
     if (isKremlinOn()) {
         TEntry* entry = getLTEntry(cond);
         fillCDT(cdtHead, entry);
@@ -1422,7 +1372,7 @@ void addControlDep(UInt cond) {
 void removeControlDep() {
     MSG(2, "pop  ControlDep\n");
 #ifndef WORK_ONLY
-	cdtHead = freeCDT(cdtHead);
+    if(isCurrentLevelInstrumentable()) { cdtHead = freeCDT(cdtHead); }
 #endif
 }
 
@@ -1849,7 +1799,10 @@ int kremlinInit() {
 	cregionInit();
 #endif
     levelNum = 0;
+
     InvokeRecordsCreate(&invokeRecords);
+
+	// TODO: storage size will always be 2 for parallel kremlin
     int storageSize = MAX_REGION_LEVEL - MIN_REGION_LEVEL;
     MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
         _minRegionToLog, _maxRegionToLog, storageSize);

@@ -15,7 +15,7 @@ static void deleteCNode();
 static CRegion* createCRegion(UInt64 sid, UInt64 callSite);
 static void deleteCRegion(CRegion* region);
 static void emit(char* file);
-static void emitRegion(FILE* fp, CNode* node);
+static void emitRegion(FILE* fp, CNode* node, UInt level);
 
 
 /*** public functions ***/
@@ -66,13 +66,13 @@ static int numEntriesLeaf = 0;
 
 static void emit(char* file) {
 	FILE* fp = fopen(file, "w");
-	emitRegion(fp, root);
+	emitRegion(fp, root, 0);
 	fclose(fp);
 	fprintf(stderr, "[Emit] total = %d, leaves = %d\n", numEntries, numEntriesLeaf);
 }
 
 // recursive call
-static void emitRegion(FILE* fp, CNode* node) {
+static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	CRegion* region = node->region;
 	numEntries++;
 //	fprintf(stderr, "emitting region 0x%llx\n", node->region->id);
@@ -80,38 +80,49 @@ static void emitRegion(FILE* fp, CNode* node) {
     assert(node != NULL);
     assert(region != NULL);
 	//assert(region->numInstance > 0);
-    fwrite(&region->id, sizeof(Int64), 1, fp);
-    fwrite(&region->sid, sizeof(Int64), 1, fp);
-    fwrite(&region->callSite, sizeof(Int64), 1, fp);
-    fwrite(&region->numInstance, sizeof(Int64), 1, fp);
-    fwrite(&region->totalWork, sizeof(Int64), 1, fp);
-    fwrite(&region->tpWork, sizeof(Int64), 1, fp);
-    fwrite(&region->spWork, sizeof(Int64), 1, fp);
-	UInt64 minSPInt = (UInt64)(region->minSP * 100.0);
-	UInt64 maxSPInt = (UInt64)(region->maxSP * 100.0);
-    fwrite(&minSPInt, sizeof(Int64), 1, fp);
-    fwrite(&maxSPInt, sizeof(Int64), 1, fp);
-    fwrite(&region->readCnt, sizeof(Int64), 1, fp);
-    fwrite(&region->writeCnt, sizeof(Int64), 1, fp);
-    fwrite(&region->loadCnt, sizeof(Int64), 1, fp);
-    fwrite(&region->storeCnt, sizeof(Int64), 1, fp);
 
 	UInt64 size = node->childrenSize;
-	if (size == 0)
-		numEntriesLeaf++;
-	int i;
-    fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
-    CNode* current = node->firstChild;
-	for (i=0; i<size; i++) {
-		assert(current != NULL);
-        fwrite(&current->region->id, sizeof(Int64), 1, fp);    
-        current = current->next;
-    }           
-	assert(current == NULL);
+	if(size == 0) { numEntriesLeaf++; }
 
-	current = node->firstChild;
+#ifdef LEVEL_TO_LOG
+	if(level == LEVEL_TO_LOG)
+#endif
+	{
+		fwrite(&region->id, sizeof(Int64), 1, fp);
+		fwrite(&region->sid, sizeof(Int64), 1, fp);
+		fwrite(&region->callSite, sizeof(Int64), 1, fp);
+		fwrite(&region->numInstance, sizeof(Int64), 1, fp);
+		fwrite(&region->totalWork, sizeof(Int64), 1, fp);
+		fwrite(&region->tpWork, sizeof(Int64), 1, fp);
+		fwrite(&region->spWork, sizeof(Int64), 1, fp);
+
+		UInt64 minSPInt = (UInt64)(region->minSP * 100.0);
+		UInt64 maxSPInt = (UInt64)(region->maxSP * 100.0);
+		fwrite(&minSPInt, sizeof(Int64), 1, fp);
+		fwrite(&maxSPInt, sizeof(Int64), 1, fp);
+		fwrite(&region->readCnt, sizeof(Int64), 1, fp);
+		fwrite(&region->writeCnt, sizeof(Int64), 1, fp);
+		fwrite(&region->loadCnt, sizeof(Int64), 1, fp);
+		fwrite(&region->storeCnt, sizeof(Int64), 1, fp);
+
+		fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
+
+		CNode* current = node->firstChild;
+
+		int i;
+		for (i=0; i<size; i++) {
+			assert(current != NULL);
+			fwrite(&current->region->id, sizeof(Int64), 1, fp);    
+			current = current->next;
+		}           
+		assert(current == NULL);
+	}
+
+	CNode* current = node->firstChild;
+
+	int i;
 	for (i=0; i<size; i++) {
-		emitRegion(fp, current);
+		emitRegion(fp, current, level+1);
         current = current->next;
 	}
 	assert(current == NULL);
@@ -174,14 +185,10 @@ static CNode* createCNode(CNode* parent, CRegion* region) {
 }
 
 // remove a CNode
-static void deleteCNode(CRegion* region) {
-	free(region);
-}
+static void deleteCNode(CRegion* region) { free(region); }
 
 static UInt64 lastId = 0;
-static UInt64 allocateCRegionId() {
-	return ++lastId;
-}
+static UInt64 allocateCRegionId() { return ++lastId; }
 
 
 static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
@@ -202,7 +209,5 @@ static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
 	return ret;
 }
 
-static void deleteCRegion(CRegion* region) {
-	free(region);
-}
+static void deleteCRegion(CRegion* region) { free(region); }
 
