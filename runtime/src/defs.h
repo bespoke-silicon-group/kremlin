@@ -12,14 +12,6 @@
 #ifndef _KREMLIN_DEF
 #define _KREMLIN_DEF
 
-// unless specified, we assume no debugging
-#ifndef KREMLIN_DEBUG
-#define KREMLIN_DEBUG	0
-#endif
-
-#ifndef DEBUGLEVEL
-#define DEBUGLEVEL		1
-#endif
 
 // save the last visited BB number 
 // for now we do not use it
@@ -33,6 +25,7 @@
 //#define USE_UREGION
 //#define EXTRA_STATS
 
+/*
 #ifdef LEVEL_TO_LOG
 	#define MIN_REGION_LEVEL (LEVEL_TO_LOG)
 	#define MAX_REGION_LEVEL (LEVEL_TO_LOG+2)
@@ -45,6 +38,7 @@
 	#define MAX_REGION_LEVEL	20		
 	#endif
 #endif
+*/
 
 
 #define LOAD_COST			4

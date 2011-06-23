@@ -16,12 +16,28 @@
 #include "cregion.h"
 #include "Vector.h"
 
+//#include "globals.h"
+
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 
-#define _MAX_REGION_LEVEL   100     // used for static data structures
+#define DS_ALLOC_SIZE   100     // used for static data structures
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
+
+
+// Global definitions
+int __kremlin_level_to_log = -1;
+
+unsigned int __kremlin_min_level = 0;
+unsigned int __kremlin_max_level = 20;
+
+char* __kremlin_output_filename;
+
+extern int	__kremlin_debug;
+extern int  __kremlin_debug_level;
+
+
 
 UInt64*     getDynamicRegionId(UInt64 sid);
 void        incDynamicRegionId(UInt64 sid);
@@ -69,7 +85,7 @@ typedef struct _InvokeRecord {
 #define isKremlinOn()       (kremlinOn == 1)
 #define getLevelNum()      (levelNum)
 #define getCurrentLevel()  (levelNum-1)
-#define isCurrentLevelInstrumentable() (((levelNum-1) >= MIN_REGION_LEVEL) && ((levelNum-1) <= MAX_REGION_LEVEL))
+#define isCurrentLevelInstrumentable() (((levelNum-1) >= __kremlin_min_level) && ((levelNum-1) <= __kremlin_max_level))
 
 void initStartFuncContext();
 HASH_MAP_DEFINE_PROTOTYPES(sid_did, UInt64, UInt64);
@@ -82,11 +98,6 @@ VECTOR_DEFINE_FUNCTIONS(FuncContexts, FuncContext*, VECTOR_COPY, VECTOR_NO_DELET
 // A vector used to record invoked calls.
 VECTOR_DEFINE_PROTOTYPES(InvokeRecords, InvokeRecord);
 VECTOR_DEFINE_FUNCTIONS(InvokeRecords, InvokeRecord, VECTOR_COPY, VECTOR_NO_DELETE);
-
-#if 1
-const int               _maxRegionToLog = MAX_REGION_LEVEL;
-const int               _minRegionToLog = MIN_REGION_LEVEL;
-#endif
 
 int                 kremlinOn = 0;
 int                 levelNum = 0;
@@ -126,10 +137,9 @@ int _requireSetupTable;
  * most instrumentation functions do nothing.
  */ 
 void turnOnProfiler() {
-	fprintf(stderr, "Starting profiling...");
     kremlinOn = 1;
     logRegionEntry(0, 1);
-	fprintf(stderr, "done\n");
+	fprintf(stderr, "[kremlin] Logging started.\n");
 }
 
 /**
@@ -140,17 +150,17 @@ void turnOnProfiler() {
 void turnOffProfiler() {
     logRegionExit(0, 1);
     kremlinOn = 0;
-	fprintf(stderr, "Stopping profiling...\n");
+	fprintf(stderr, "[kremlin] Logging stopped.\n");
 }
 
 void pauseProfiler() {
 	kremlinOn = 0;
-	fprintf(stderr, "pauseProfiler\n");
+	fprintf(stderr, "[kremlin] Logging paused.\n");
 }
 
 void resumeProfiler() {
 	kremlinOn = 1;
-	fprintf(stderr, "resumeProfiler\n");
+	fprintf(stderr, "[kremlin] Logging resumed.\n");
 }
 int _maxRegionNum = 0;
 
@@ -291,8 +301,8 @@ UInt64* getDynamicRegionId(UInt64 sid) {
 UInt64 getCdt(int level, UInt32 version) {
     //assert(cdtHead != NULL);
     //assert(level >= 0);
-    return (cdtHead->version[level - MIN_REGION_LEVEL] == version) ?
-        cdtHead->time[level - MIN_REGION_LEVEL] : 0;
+    return (cdtHead->version[level - __kremlin_min_level] == version) ?
+        cdtHead->time[level - __kremlin_min_level] : 0;
 }
 
 /**
@@ -302,9 +312,9 @@ UInt64 getCdt(int level, UInt32 version) {
  * @param time		Timestamp to set control dep to.
  */
 void setCdt(int level, UInt32 version, UInt64 time) {
-    assert(level >= MIN_REGION_LEVEL);
-    cdtHead->time[level - MIN_REGION_LEVEL] = time;
-    cdtHead->version[level - MIN_REGION_LEVEL] = version;
+    assert(level >= __kremlin_min_level);
+    cdtHead->time[level - __kremlin_min_level] = time;
+    cdtHead->version[level - __kremlin_min_level] = version;
 }
 
 /**
@@ -315,8 +325,8 @@ void setCdt(int level, UInt32 version, UInt64 time) {
 void fillCDT(CDT* cdt, TEntry* entry) {
 	// entry may not have data for all logged levels so we have to check timeArrayLength
     int i;
-    for (i = MIN_REGION_LEVEL; i < MAX_REGION_LEVEL /*&& i < entry->timeArrayLength*/; ++i) {
-        int level = i - MIN_REGION_LEVEL;
+    for (i = __kremlin_min_level; i < __kremlin_max_level /*&& i < entry->timeArrayLength*/; ++i) {
+        int level = i - __kremlin_min_level;
 		//fprintf(stderr,"filling level %d\n",level);
 
 		if(i < entry->timeArrayLength) {
@@ -331,11 +341,11 @@ void fillCDT(CDT* cdt, TEntry* entry) {
 
 	// if entry didn't have all the levels covered, we zero out any leftover levels
 	/*
-    if(i < MAX_REGION_LEVEL) {
+    if(i < __kremlin_max_level) {
 		i--;
 		fprintf(stderr,"zeroing out %d to %d\n",i,_maxRegionToLog);
-        bzero(cdt->time + i, sizeof(UInt64) * (MAX_REGION_LEVEL - i));
-        bzero(cdt->version + i, sizeof(UInt32) * (MAX_REGION_LEVEL - i));
+        bzero(cdt->time + i, sizeof(UInt64) * (__kremlin_max_level - i));
+        bzero(cdt->version + i, sizeof(UInt32) * (__kremlin_max_level - i));
     }
 	*/
 }
@@ -422,13 +432,13 @@ void popFuncContext() {
  * @return				Version ID at specified level.
  */
 UInt getVersion(int level) {
-    assert(level >= 0 && level < _MAX_REGION_LEVEL);
+    assert(level >= 0 && level < DS_ALLOC_SIZE);
     return versions[level];
 }
 
-// precondition: inLevel >= MIN_REGION_LEVEL && inLevel < maxRegionSize
+// precondition: inLevel >= __kremlin_min_level && inLevel < maxRegionSize
 inline UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
-    int level = inLevel - MIN_REGION_LEVEL;
+    int level = inLevel - __kremlin_min_level;
 
     UInt64 ret = (level >= 0 && level < entry->timeArrayLength && entry->version[level] == version) ?
                     entry->time[level] : 0;
@@ -438,21 +448,21 @@ inline UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
 
 // precondition: entry != NULL
 inline void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int level = inLevel - MIN_REGION_LEVEL;
+    int level = inLevel - __kremlin_min_level;
     entry->version[level] = version;
     entry->time[level] = timestamp;
 }
 
 #ifdef EXTRA_STATS
 UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
-    int level = inLevel - MIN_REGION_LEVEL;
+    int level = inLevel - __kremlin_min_level;
     assert(entry != NULL);
     return (level >= 0 && entry->timeArrayLength > level && entry->readVersion[level] == version) ?
                     entry->readTime[level] : 0;
 }
 
 void updateReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int level = inLevel - MIN_REGION_LEVEL;
+    int level = inLevel - __kremlin_min_level;
     assert(entry != NULL);
 
     entry->readVersion[level] = version;
@@ -590,7 +600,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     int curr_level = getCurrentLevel();
 
 	// If we exceed the maximum depth, we act like this region doesn't exist
-	if(curr_level >= MAX_REGION_LEVEL) { return; }
+	if(curr_level >= __kremlin_max_level) { return; }
 
 
     incDynamicRegionId(regionId);
@@ -610,7 +620,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
             regionType, curr_level, regionId, *getDynamicRegionId(regionId), timestamp);
 
 	// set initial values for newly entered region
-	// TODO: this probably desn't need to happen if curr_level < MIN_REGION_LEVEL
+	// TODO: this probably desn't need to happen if curr_level < __kremlin_min_level
 	initCurrentRegion(regionId,*getDynamicRegionId(regionId),regionType);
 
 #ifndef USE_UREGION
@@ -620,7 +630,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 #endif
 
 #ifndef WORK_ONLY
-    if (curr_level >= MIN_REGION_LEVEL && curr_level < MAX_REGION_LEVEL)
+    if (curr_level >= __kremlin_min_level && curr_level < __kremlin_max_level)
         setCdt(curr_level, versions[curr_level], 0);
 #endif
 
@@ -696,7 +706,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     int curr_level = getCurrentLevel();
 
 	// If we are outside range of levels, handle function stack then exit
-	if(curr_level >= MAX_REGION_LEVEL) {
+	if(curr_level >= __kremlin_max_level) {
 #ifndef WORK_ONLY
 		if (regionType == RegionFunc) { handleFuncRegionExit(); }
 #endif
@@ -734,11 +744,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
         MSG(0, "[---] region [%u, %u, %llu:%llu] cp %llu work %llu\n",
                 regionType, curr_level, regionId, did, curr_region.cp, work);
 
-//#ifdef LEVEL_TO_LOG
 	assert(!isCurrentLevelInstrumentable() || work == 0 || cp > 0);
-//#else
-	//assert(work == 0 || cp > 0);
-//#endif
 	assert(work >= cp);
 	assert(work >= curr_region.childrenWork);
 
@@ -812,8 +818,8 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
     TEntry* entry1 = getLTEntry(src1);
     TEntry* entryDest = getLTEntry(dest);
 
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
 
@@ -858,8 +864,8 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
     //assert(entry0 != NULL);
     //assert(entryDest != NULL);
 
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
 
@@ -905,8 +911,8 @@ void* logAssignmentConst(UInt dest) {
     
     //assert(entryDest != NULL);
 
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
@@ -936,8 +942,8 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     TEntry* entry0 = GTableGetTEntry(gTable, src_addr);
     TEntry* entryDest = getLTEntry(dest);
 
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
 #ifdef EXTRA_STATS
 //    TEntry* entry0Line = getGTEntryCacheLine(src_addr);
@@ -993,8 +999,8 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
     assert(entrySrc1 != NULL);
     assert(entryDest != NULL);
     
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
@@ -1042,8 +1048,8 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     TEntry* entry0 = getLTEntry(src);
     TEntry* entryDest = GTableGetTEntry(gTable, dest_addr);
 
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
 #ifdef EXTRA_STATS
     //TEntry* entryLine = getGTEntryCacheLine(dest_addr);
@@ -1097,8 +1103,8 @@ void* logStoreInstConst(Addr dest_addr) {
 #endif
     
     //fprintf(stderr, "\nstoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
@@ -1265,8 +1271,8 @@ void logFree(Addr addr) {
 	addWork(FREE_COST);
 
 	// make sure CP is at least the time needed to complete the free
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     int i;
     for (i = minLevel; i < maxLevel; i++) {
@@ -1419,8 +1425,8 @@ void logFuncReturnConst(void) {
 
 #ifndef WORK_ONLY
     int i;
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     // Assert there is a function context before the top.
     assert(FuncContextsSize(funcContexts) > 1);
@@ -1466,8 +1472,8 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
     assert(entryCD != NULL);
     assert(entryDest != NULL);
     
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
@@ -1505,8 +1511,8 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
     assert(entryCD2 != NULL);
     assert(entryDest != NULL);
     
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
@@ -1549,8 +1555,8 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     assert(entryDest != NULL);
     
     int i = 0;
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
@@ -1603,8 +1609,8 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
     assert(entryDest != NULL);
     
     int i = 0;
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
@@ -1656,8 +1662,8 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     assert(entryDest != NULL);
     
     int i = 0;
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
@@ -1691,8 +1697,8 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
     MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
 
 #ifndef WORK_ONLY
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
     int i = 0;
     FuncContext* funcHead = *FuncContextsLast(funcContexts);
     assert(funcHead->table != NULL);
@@ -1744,8 +1750,8 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
     }   
     va_end(ap);
 
-    int minLevel = MIN_REGION_LEVEL;
-    int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
+    int minLevel = __kremlin_min_level;
+    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i < maxLevel; i++) {
@@ -1791,7 +1797,7 @@ int kremlinInit() {
 
     kremlinOn = TRUE;
 
-    fprintf(stderr,"DEBUGLEVEL = %d\n", DEBUGLEVEL);
+	if(__kremlin_debug) { fprintf(stderr,"[kremlin] debugging enabled at level %d\n", __kremlin_debug_level); }
 
 #ifdef USE_UREGION
     initializeUdr();
@@ -1803,9 +1809,9 @@ int kremlinInit() {
     InvokeRecordsCreate(&invokeRecords);
 
 	// TODO: storage size will always be 2 for parallel kremlin
-    int storageSize = MAX_REGION_LEVEL - MIN_REGION_LEVEL;
+    int storageSize = __kremlin_max_level - __kremlin_min_level;
     MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
-        _minRegionToLog, _maxRegionToLog, storageSize);
+        __kremlin_min_level, __kremlin_max_level, storageSize);
 
     // Allocate a memory allocator.
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
@@ -1814,10 +1820,10 @@ int kremlinInit() {
     FuncContextsCreate(&funcContexts);
     initDataStructure(storageSize);
 
-    versions = (int*) calloc(sizeof(int), _MAX_REGION_LEVEL);
+    versions = (int*) calloc(sizeof(int), DS_ALLOC_SIZE);
     assert(versions);
 
-    regionInfo = (Region*) calloc(sizeof(Region), _MAX_REGION_LEVEL);
+    regionInfo = (Region*) calloc(sizeof(Region), DS_ALLOC_SIZE);
     assert(regionInfo);
 
     // Allocate a deque to hold timestamps of args.
@@ -1871,7 +1877,8 @@ int kremlinDeinit() {
 #ifdef USE_UREGION
     finalizeUdr();
 #else
-	cregionFinish("kremlin.bin");
+	//cregionFinish("kremlin.bin");
+	cregionFinish(__kremlin_output_filename);
 #endif
     freeDummyTEntry();
 
@@ -1901,9 +1908,7 @@ int kremlinDeinit() {
 
     GTableDelete(&gTable);
 
-    fprintf(stderr, "[kremlin] minRegionLevel = %d maxRegionLevel = %d\n", 
-        _minRegionToLog, _maxRegionToLog);
-    fprintf(stderr, "[kremlin] app MaxRegionLevel = %d\n", _maxRegionNum);
+    fprintf(stderr, "[kremlin] maximum level encountered = %d\n", _maxRegionNum);
 
     kremlinOn = FALSE;
 
@@ -1938,3 +1943,106 @@ int sidCompare(UInt64 s1, UInt64 s2) {
 }
 
 void printProfileData() {}
+
+int parseOptionInt(char* option_str) {
+	char *dbg_level_str = strtok(option_str,"= ");
+	dbg_level_str = strtok(NULL,"= ");
+
+	if(dbg_level_str) {
+		return atoi(dbg_level_str);
+	}
+	else {
+		fprintf(stderr,"ERROR: Couldn't parse int from option (%s)\n",option_str);
+	}
+}
+
+void createOutputFilename() {
+	__kremlin_output_filename[0] = '\0'; // "clear" the old name
+
+	strcat(__kremlin_output_filename,"kremlin-L");
+	char level_str[5];
+	sprintf(level_str,"%d",__kremlin_level_to_log);
+	strcat(__kremlin_output_filename,level_str);
+	strcat(__kremlin_output_filename,".bin");
+}
+
+void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args) {
+	int num_true_args = 0;
+	char** true_args = malloc(argc*sizeof(char*));
+
+	int i;
+	for(i = 0; i < argc; ++i) {
+		//fprintf(stderr,"checking %s\n",argv[i]);
+		char *str_start;
+
+		str_start = strstr(argv[i],"kremlin-debug");
+
+		if(str_start) {
+			__kremlin_debug= 1;
+			__kremlin_debug_level = parseOptionInt(argv[i]);
+
+			continue;
+		}
+
+		str_start = strstr(argv[i],"kremlin-ltl");
+		if(str_start) {
+			__kremlin_level_to_log = parseOptionInt(argv[i]);
+			__kremlin_min_level = __kremlin_level_to_log;
+			__kremlin_max_level = __kremlin_min_level + 2;
+
+			createOutputFilename();
+			continue;
+		}
+
+		str_start = strstr(argv[i],"kremlin-min-level");
+		if(str_start) {
+			__kremlin_min_level = parseOptionInt(argv[i]);
+			continue;
+		}
+
+		str_start = strstr(argv[i],"kremlin-max-level");
+		if(str_start) {
+			__kremlin_max_level = parseOptionInt(argv[i]);
+			continue;
+		}
+		else {
+			true_args[num_true_args] = strdup(argv[i]);
+			num_true_args++;
+		}
+	}
+
+	true_args = realloc(true_args,num_true_args*sizeof(char*));
+
+	*num_args = num_true_args;
+	*real_args = true_args;
+}
+
+// look for any kremlin specific inputs to the program
+int main(int argc, char* argv[]) {
+	int num_args = 0;;
+	char** real_args;
+
+	__kremlin_output_filename = malloc(20*sizeof(char));
+	strcat(__kremlin_output_filename,"kremlin.bin");
+
+	parseKremlinOptions(argc,argv,&num_args,&real_args);
+
+	if(__kremlin_level_to_log == -1) {
+    	fprintf(stderr, "[kremlin] min logged level = %d, max logged level = %d\n", __kremlin_min_level, __kremlin_max_level);
+	}
+	else {
+    	fprintf(stderr, "[kremlin] logging only level %d\n", __kremlin_level_to_log);
+	}
+
+	fprintf(stderr,"[kremlin] writing data to: %s\n",__kremlin_output_filename);
+	/*
+	fprintf(stderr,"number of \"real\" args = %d\n",num_args);
+
+	int i;
+	for(i = 0; i < num_args; ++i) {
+		fprintf(stderr,"%d: %s\n",i,real_args[i]);
+	}
+	*/
+
+	__main(argc,argv);
+}

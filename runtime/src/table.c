@@ -267,7 +267,7 @@ void setLocalTable(LTable* table) {
 }
 
 void initDataStructure(int regionLevel) {
-	fprintf(stderr, "# of instrumented region Levels = %d\n", regionLevel);
+	//fprintf(stderr, "[kremlin] # of instrumented levels = %d\n", regionLevel);
 	maxRegionLevel = regionLevel;
     hash_map_mt_create(&mTable, addrHash, addrCompare, NULL, NULL);
 
@@ -309,27 +309,6 @@ TEntry* getLTEntry(UInt32 vreg) {
 	return (TEntry*)1;
 #endif
 }
-
-#if 0
-extern int regionNum;
-char* toStringTEntry(TEntry* entry) {
-#if KREMLIN_DEBUG == 1
-    int level = regionNum;
-    int i;
-    char temp[50];
-
-    // XXX: Causes memory leak?
-    char* ret = (char*)malloc(300);
-    ret[0] = 0;
-
-    for (i = 0; i < level; i++) {
-        sprintf(temp, " %llu (%u)", entry->time[i], entry->version[i]);
-        strcat(ret, temp);
-    }
-    return ret;
-#endif
-}
-#endif
 
 void dumpTableMemAlloc() {
 }

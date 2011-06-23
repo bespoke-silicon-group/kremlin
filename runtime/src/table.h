@@ -74,10 +74,12 @@ extern LTable* lTable;
 extern UInt32  maxRegionLevel;
 extern Pool* tEntryPool;
 
+/*
 #if KREMLIN_DEBUG == 1
 	char* toStringTEntry(TEntry* entry);
 #else
 #	define toStringTEntry(entry)       ((void)0)
 #endif
+*/
 
 #endif /* TABLE_H */

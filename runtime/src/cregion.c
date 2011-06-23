@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cregion.h"
+#include "globals.h"
 
 
 /*** file local global variables ***/
@@ -23,12 +24,12 @@ static void emitRegion(FILE* fp, CNode* node, UInt level);
 
 // initialize CRegion system
 void cregionInit() {
-	fprintf(stderr, "cregionInit..");
+	//fprintf(stderr, "cregionInit..");
 	//CRegion* region = createCRegion(0, 0);
 	//root = createCNode(NULL, region);
 
 	//current = root;
-	fprintf(stderr, "done!..\n");
+	//fprintf(stderr, "done!..\n");
 }
 
 void cregionFinish(char* file) {
@@ -68,7 +69,7 @@ static void emit(char* file) {
 	FILE* fp = fopen(file, "w");
 	emitRegion(fp, root, 0);
 	fclose(fp);
-	fprintf(stderr, "[Emit] total = %d, leaves = %d\n", numEntries, numEntriesLeaf);
+	fprintf(stderr, "[kremlin] Emitted %d total regions to file, %d leaves.\n", numEntries, numEntriesLeaf);
 }
 
 // recursive call
@@ -84,9 +85,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	UInt64 size = node->childrenSize;
 	if(size == 0) { numEntriesLeaf++; }
 
-#ifdef LEVEL_TO_LOG
-	if(level == LEVEL_TO_LOG)
-#endif
+	if((__kremlin_level_to_log != -1) && level == __kremlin_level_to_log)
 	{
 		fwrite(&region->id, sizeof(Int64), 1, fp);
 		fwrite(&region->sid, sizeof(Int64), 1, fp);

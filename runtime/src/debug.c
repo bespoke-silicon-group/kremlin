@@ -1,13 +1,16 @@
 #include "defs.h"
 #include "debug.h"
 #include "table.h"
+#include "globals.h"
 
-#if KREMLIN_DEBUG == 1
+int	__kremlin_debug = 0;
+int  __kremlin_debug_level = 0;
+
 static char tabString[2000];
 static int tabLevel = 0;
 
 void MSG(int level, char* format, ...) {
-    if (level > DEBUGLEVEL) {
+    if (!__kremlin_debug || level > __kremlin_debug_level) {
         return;
     }
 
@@ -36,5 +39,3 @@ void decIndentTab() {
     tabLevel--;
     updateTabString();
 }
-#endif
-
