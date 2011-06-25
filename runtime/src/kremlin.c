@@ -601,6 +601,12 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 
     int curr_level = getCurrentLevel();
 
+#ifndef USE_UREGION
+    FuncContext* funcHead = *FuncContextsLast(funcContexts);
+	UInt64 callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
+	cregionPutContext(regionId, callSiteId);
+#endif
+
 	// If we exceed the maximum depth, we act like this region doesn't exist
 	if(curr_level >= __kremlin_max_level) { return; }
 
@@ -625,11 +631,6 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 	// TODO: this probably desn't need to happen if curr_level < __kremlin_min_level
 	initCurrentRegion(regionId,*getDynamicRegionId(regionId),regionType);
 
-#ifndef USE_UREGION
-    FuncContext* funcHead = *FuncContextsLast(funcContexts);
-	UInt64 callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
-	cregionPutContext(regionId, callSiteId);
-#endif
 
 #ifndef WORK_ONLY
     if (curr_level >= __kremlin_min_level && curr_level < __kremlin_max_level)
@@ -713,6 +714,9 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 		if (regionType == RegionFunc) { handleFuncRegionExit(); }
 #endif
     	decrementRegionLevel();
+#ifndef USE_UREGION
+		cregionRemoveContext(NULL);
+#endif
 		return;
 	}
 
