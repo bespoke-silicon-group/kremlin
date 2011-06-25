@@ -1,0 +1,127 @@
+#!/usr/bin/env python
+
+from optparse import OptionParser
+import os
+import subprocess
+from time import sleep
+from shutil import copyfileobj
+
+def get_max_region_depth(args):
+
+	# step 1: create qsub script
+	df_script_name = "df-" + args[0] + ".qsub.sh"
+	script = open(df_script_name,'w')
+	write_qsub_header(script)
+
+	script.write('./df-')
+	for arg in args:
+		script.write(arg + " ")
+
+	done_filename = 'df-' + args[0] + '.DONE'
+	script.write('\n\ntouch ' + done_filename + '\n')
+
+	script.close()
+
+	#step 2: launch qsub
+	qsub_cmd_args = ["qsub",df_script_name]
+	subprocess.Popen(qsub_cmd_args)
+
+	# step 3: wait for qsub job to complete
+	wait_for_jobs([done_filename])
+
+	assert os.path.isfile("kremlin.depth.txt")
+
+	# read depth from file
+	depth_file = open("kremlin.depth.txt","r")
+	depth = int(depth_file.readline())
+	depth_file.close()
+
+	# cleanup generated files
+	os.remove(df_script_name)
+	os.remove(done_filename)
+	os.remove('kremlin.depth.txt')
+
+	return depth
+
+def write_qsub_header(script):
+	script.write("#/bin/bash\n\n")
+	script.write("#PBS -o /dev/null\n")
+	script.write("#PBS -e /dev/null\n\n")
+	script.write("cd $PBS_O_WORKDIR\n")
+
+def create_qsub_script(args, level):
+	script_basename = args[0] + '.L' + str(level)
+	script_filename = script_basename + '.qsub.sh'
+
+	script = open(script_filename,'w')
+	write_qsub_header(script)
+
+	script.write("./")
+	script.write(args[0] + " --kremlin-ltl=" + str(level))
+	
+	for arg in args[1:]:
+		script.write(arg + " ")
+
+	done_filename = script_basename + '.DONE'
+	script.write("\n\ntouch " + done_filename + "\n")
+
+	script.close()
+
+	bin_filename = "kremlin-L" + str(level) + ".bin"
+
+	return (script_filename,done_filename,bin_filename)
+
+def launch_jobs(args,depth):
+	scripts = []
+	done_files = []
+	bin_files = []
+
+	for i in range(depth+1):
+		script_fn, done_fn, bin_fn = create_qsub_script(args,i)
+		scripts.append(script_fn)
+		done_files.append(done_fn)
+		bin_files.append(bin_fn)
+
+	for script in scripts:
+		cmd_args = ["qsub",script]
+		subprocess.Popen(cmd_args)
+
+	return (scripts,done_files,bin_files)
+
+def wait_for_jobs(done_files):
+	waiting_for = []
+	waiting_for.extend(done_files)
+
+	while len(waiting_for) != 0:
+		print "waiting for jobs to finish..."
+		sleep(5)
+		waiting_for = [file for file in waiting_for if not os.path.isfile(file)]
+
+def combine_results(bin_files):
+	combined_bin = open('kremlin.bin','wb')
+	for file in bin_files:
+		copyfileobj(open(file, 'rb'), combined_bin)
+	combined_bin.close()
+
+def clean_up(scripts,done_files,bin_files):
+	def remove_files(list):
+		for file in list: os.remove(file)
+	
+	remove_files(scripts)
+	remove_files(done_files)
+	remove_files(bin_files)
+	
+
+if __name__ == "__main__":
+	parser = OptionParser()
+
+	(options,args) = parser.parse_args()
+
+	depth = get_max_region_depth(args)
+	scripts, done_files, bin_files = launch_jobs(args,depth)
+
+	wait_for_jobs(done_files)
+
+	combine_results(bin_files)
+	
+	clean_up(scripts,done_files,bin_files)
