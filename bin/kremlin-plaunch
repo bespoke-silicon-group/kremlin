@@ -99,13 +99,16 @@ def wait_for_jobs(done_files):
 	print "waiting for jobs to finish: ",
 	print waiting_for
 
+	sleep_time = 1
+
 	while len(waiting_for) != 0:
-		sys.stdout.write('.')
-		sleep(5)
+		sleep(sleep_time)
+
+		# exponential backoff up to 512 seconds (roughly every 10 minutes)
+		if sleep_time <= 512: sleep_time = sleep_time * 2
+
 		waiting_for = [file for file in waiting_for if not os.path.isfile(file)]
 
-
-	sys.stdout.write('\n')
 
 def combine_results(bin_files):
 	combined_bin = open('kremlin.bin','wb')
