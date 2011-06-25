@@ -56,7 +56,11 @@ void cregionPutContext(UInt64 sid, UInt64 callSite) {
 // update the passed info and 
 // set current pointer to one level higher
 void cregionRemoveContext(RegionField* info) {
-	updateCRegion(current->region, info);
+	// don't update if we didn't give it any info
+	// this happens when we are out of range for logging
+	if(info != NULL) {
+		updateCRegion(current->region, info);
+	}
 	current = current->parent;	
 	//fprintf(stderr, "removing context \n");
 }
@@ -70,12 +74,20 @@ static void emit(char* file) {
 	emitRegion(fp, root, 0);
 	fclose(fp);
 	fprintf(stderr, "[kremlin] Emitted %d total regions to file, %d leaves.\n", numEntries, numEntriesLeaf);
+
+	fp = fopen("kremlin_region_graph.dot","w");
+	/*
+	fprintf(fp,"digraph G {\n");
+	emitDOT(fp,root);
+	fprintf(fp,"}\n");
+	fclose(fp);
+	*/
 }
 
 // recursive call
 static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	CRegion* region = node->region;
-//	fprintf(stderr, "emitting region 0x%llx\n", node->region->id);
+	//fprintf(stderr, "emitting region %llu at level %u\n", node->region->id,level);
     assert(fp != NULL);
     assert(node != NULL);
     assert(region != NULL);
@@ -128,6 +140,22 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	assert(current == NULL);
 }
 
+emitDOT(FILE* fp, CNode* node) {
+	CRegion* region = node->region;
+	fprintf(stderr,"DOT: visiting %llu\n",region->id);
+
+	CNode* child_node = node->firstChild;
+
+	UInt64 size = node->childrenSize;
+	int i;
+	for(i = 0; i < size; ++i) {
+		CRegion* child_region = child_node->region;
+		fprintf(fp,"\t%llu -> %llu;\n",region->id,child_region->id);
+		emitDOT(fp,child_node);
+		child_node = child_node->next;
+	}
+}
+
 static void updateCRegion(CRegion* region, RegionField* info) {
 //	fprintf(stderr, "update current region with info: csid(0x%llx), allSite(0x%llx), work(0x%llx), cp(%llx), tpWork(%llx), spWork(%llx)\n", 
 //			region->sid, info->callSite, info->work, info->cp, info->tpWork, info->spWork);
@@ -149,8 +177,8 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	region->storeCnt += info->storeCnt;
 	assert(region->numInstance >= 0);
 	region->numInstance++;
-	
 }
+
 static CNode* findChildNode(CNode* node, UInt64 sid, UInt64 callSite) {
 	CNode* child = node->firstChild;
 	//fprintf(stderr, "looking for sid : 0x%llx, callSite: 0x%llx\n", sid, callSite);
