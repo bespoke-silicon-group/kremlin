@@ -85,6 +85,8 @@ typedef struct _InvokeRecord {
 #define isKremlinOn()       (kremlinOn == 1)
 #define getLevelNum()      (levelNum)
 #define getCurrentLevel()  (levelNum-1)
+
+// FIXME: shouldn't the following be < __kremlin_max_level instead of <=????
 #define isCurrentLevelInstrumentable() (((levelNum-1) >= __kremlin_min_level) && ((levelNum-1) <= __kremlin_max_level))
 
 void initStartFuncContext();
@@ -1328,7 +1330,7 @@ CDT* allocCDT() {
 
 CDT* freeCDT(CDT* toFree) { 
 	cdtIndex--;
-	return &cdtPool[cdtIndex]; 
+	return &cdtPool[cdtIndex-1]; 
 }
 
 void initCDT() {

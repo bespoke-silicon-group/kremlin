@@ -75,7 +75,6 @@ static void emit(char* file) {
 // recursive call
 static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	CRegion* region = node->region;
-	numEntries++;
 //	fprintf(stderr, "emitting region 0x%llx\n", node->region->id);
     assert(fp != NULL);
     assert(node != NULL);
@@ -83,10 +82,12 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	//assert(region->numInstance > 0);
 
 	UInt64 size = node->childrenSize;
-	if(size == 0) { numEntriesLeaf++; }
 
 	if((__kremlin_level_to_log != -1) && level == __kremlin_level_to_log)
 	{
+		numEntries++;
+		if(size == 0) { numEntriesLeaf++; }
+
 		fwrite(&region->id, sizeof(Int64), 1, fp);
 		fwrite(&region->sid, sizeof(Int64), 1, fp);
 		fwrite(&region->callSite, sizeof(Int64), 1, fp);
