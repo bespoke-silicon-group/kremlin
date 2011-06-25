@@ -9,15 +9,18 @@ from shutil import copyfileobj
 def get_max_region_depth(args):
 
 	# step 1: create qsub script
-	df_script_name = "df-" + args[0] + ".qsub.sh"
+	(path,bin_name) = os.path.split(args[0])
+	df_script_name = "df-" + bin_name + ".qsub.sh"
 	script = open(df_script_name,'w')
 	write_qsub_header(script)
 
-	script.write('./df-')
-	for arg in args:
+	df_bin_name = os.path.join(path,'df-' + bin_name)
+
+	script.write(df_bin_name + ' ')
+	for arg in args[1:]:
 		script.write(arg + " ")
 
-	done_filename = 'df-' + args[0] + '.DONE'
+	done_filename = 'df-' + bin_name + '.DONE'
 	script.write('\n\ntouch ' + done_filename + '\n')
 
 	script.close()
@@ -50,13 +53,13 @@ def write_qsub_header(script):
 	script.write("cd $PBS_O_WORKDIR\n")
 
 def create_qsub_script(args, level):
-	script_basename = args[0] + '.L' + str(level)
+	(path,bin_name) = os.path.split(args[0])
+	script_basename = bin_name + '.L' + str(level)
 	script_filename = script_basename + '.qsub.sh'
 
 	script = open(script_filename,'w')
 	write_qsub_header(script)
 
-	script.write("./")
 	script.write(args[0] + " --kremlin-ltl=" + str(level))
 	
 	for arg in args[1:]:
@@ -92,10 +95,16 @@ def wait_for_jobs(done_files):
 	waiting_for = []
 	waiting_for.extend(done_files)
 
+	print "waiting for jobs to finish: ",
+	print waiting_for
+
 	while len(waiting_for) != 0:
-		print "waiting for jobs to finish..."
+		print '.',
 		sleep(5)
 		waiting_for = [file for file in waiting_for if not os.path.isfile(file)]
+
+
+	print ""
 
 def combine_results(bin_files):
 	combined_bin = open('kremlin.bin','wb')
