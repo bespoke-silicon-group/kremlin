@@ -1809,7 +1809,7 @@ int kremlinInit() {
     InvokeRecordsCreate(&invokeRecords);
 
 	// TODO: storage size will always be 2 for parallel kremlin
-    int storageSize = __kremlin_max_profiled_level - __kremlin_min_level;
+    int storageSize = (__kremlin_max_profiled_level - __kremlin_min_level)+1;
     MSG(0, "minLevel = %d maxLevel (profiled) = %d storageSize = %d\n", 
         __kremlin_min_level, __kremlin_max_profiled_level, storageSize);
 

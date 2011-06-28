@@ -84,8 +84,8 @@ void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 {
     if(entry->timeArrayLength <= level)
     {
-        entry->time = (UInt64*)realloc(entry->time, sizeof(UInt64) * level);
-        entry->version = (UInt32*)realloc(entry->version, sizeof(UInt32) * level);
+        entry->time = (UInt64*)realloc(entry->time, sizeof(UInt64) * (level+1));
+        entry->version = (UInt32*)realloc(entry->version, sizeof(UInt32) * (level+1));
 
         assert(entry->time);
         assert(entry->version);
@@ -94,9 +94,10 @@ void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 #ifdef EXTRA_STATS
 
         UInt32 lastSize = entry->timeArrayLength;
-        entry->readTime = (UInt64*)realloc(entry->readTime, sizeof(UInt64) * level);
-        entry->readVersion = (UInt32*)realloc(entry->readVersion, sizeof(UInt32) * level);
+        entry->readTime = (UInt64*)realloc(entry->readTime, sizeof(UInt64) * (level+1));
+        entry->readVersion = (UInt32*)realloc(entry->readVersion, sizeof(UInt32) * (level+1));
 
+		// FIXME! should this be level+1 - lastSize???
         bzero(entry->version + lastSize, sizeof(UInt32) * (level - lastSize));
 
         assert(entry->readTime);
@@ -107,7 +108,7 @@ void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 
 #endif /* EXTRA_STATS */
 
-        entry->timeArrayLength = level;
+        entry->timeArrayLength = level+1;
     }
 }
 
