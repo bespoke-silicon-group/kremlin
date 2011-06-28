@@ -73,7 +73,10 @@ def create_qsub_script(args, level, step):
 
 	script.close()
 
-	bin_filename = "kremlin-L" + str(level) + "_" + str(level+step-1) + ".bin"
+	# TODO: use string replacement instead
+	bin_filename = "kremlin-L" + str(level)
+	if step != 1: bin_filename += "_" + str(level+step-1)
+	bin_filename += ".bin"
 
 	return (script_filename,done_filename,bin_filename)
 
