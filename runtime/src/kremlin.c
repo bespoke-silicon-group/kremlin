@@ -16,8 +16,6 @@
 #include "cregion.h"
 #include "Vector.h"
 
-//#include "globals.h"
-
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 
 #define DS_ALLOC_SIZE   100     // used for static data structures
