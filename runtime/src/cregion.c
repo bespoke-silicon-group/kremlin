@@ -95,7 +95,9 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 
 	UInt64 size = node->childrenSize;
 
-	if((__kremlin_level_to_log == -1) || level == __kremlin_level_to_log)
+	//if(__kremlin_level_to_log == -1) || level == __kremlin_level_to_log)
+	if( level >= __kremlin_min_level 
+	 && level <= __kremlin_max_level )
 	{
 		numEntries++;
 		if(size == 0) { numEntriesLeaf++; }

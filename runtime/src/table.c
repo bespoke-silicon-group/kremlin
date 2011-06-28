@@ -50,6 +50,7 @@ void freeMallocTable(MTable* table) {
 long long _tEntryLocalCnt = 0;
 long long _tEntryGlobalCnt = 0;
 extern UInt levelNum;
+
 // XXX: for PoolMalloc to work, size always must be the same!
 TEntry* allocTEntry(int size) {
     TEntry* entry;
@@ -61,15 +62,15 @@ TEntry* allocTEntry(int size) {
         return NULL;
     }
 
-    entry->version = (UInt32*)calloc(sizeof(UInt32), levelNum);
-    entry->time = (UInt64*)calloc(sizeof(UInt64), levelNum);
+    entry->version = (UInt32*)calloc(sizeof(UInt32), levelNum+1);
+    entry->time = (UInt64*)calloc(sizeof(UInt64), levelNum+1);
 
 #ifdef EXTRA_STATS
-    entry->readVersion = (UInt32*)calloc(sizeof(UInt32), levelNum);
-    entry->readTime = (UInt64*)calloc(sizeof(UInt64), levelNum);
+    entry->readVersion = (UInt32*)calloc(sizeof(UInt32), levelNum+1);
+    entry->readTime = (UInt64*)calloc(sizeof(UInt64), levelNum+1);
 #endif /* EXTRA_STATS */
 
-    entry->timeArrayLength = levelNum;
+    entry->timeArrayLength = levelNum+1;
 
     return entry;
 }
@@ -81,7 +82,7 @@ TEntry* allocTEntry(int size) {
  */
 void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 {
-    if(entry->timeArrayLength < level)
+    if(entry->timeArrayLength <= level)
     {
         entry->time = (UInt64*)realloc(entry->time, sizeof(UInt64) * level);
         entry->version = (UInt32*)realloc(entry->version, sizeof(UInt32) * level);

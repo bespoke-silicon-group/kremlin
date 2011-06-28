@@ -29,8 +29,14 @@
 // Global definitions
 int __kremlin_level_to_log = -1;
 
+// These are the levels on which we are ``reporting'' (i.e. writing info out to the
+// .bin file)
 unsigned int __kremlin_min_level = 0;
 unsigned int __kremlin_max_level = 20;
+
+// To be able to calculate SP, we need to profile one more level than we
+// report
+unsigned int __kremlin_max_profiled_level = 21;
 
 char* __kremlin_output_filename;
 
@@ -83,11 +89,9 @@ typedef struct _InvokeRecord {
 } InvokeRecord;
 
 #define isKremlinOn()       (kremlinOn == 1)
-#define getLevelNum()      (levelNum)
-#define getCurrentLevel()  (levelNum-1)
+#define getCurrentLevel()  (levelNum)
 
-// FIXME: shouldn't the following be < __kremlin_max_level instead of <=????
-#define isCurrentLevelInstrumentable() (((levelNum-1) >= __kremlin_min_level) && ((levelNum-1) <= __kremlin_max_level))
+#define isCurrentLevelInstrumentable() (((levelNum) >= __kremlin_min_level) && ((levelNum) <= __kremlin_max_profiled_level))
 
 void initStartFuncContext();
 HASH_MAP_DEFINE_PROTOTYPES(sid_did, UInt64, UInt64);
@@ -327,7 +331,8 @@ void setCdt(int level, UInt32 version, UInt64 time) {
 void fillCDT(CDT* cdt, TEntry* entry) {
 	// entry may not have data for all logged levels so we have to check timeArrayLength
     int i;
-    for (i = __kremlin_min_level; i < __kremlin_max_level /*&& i < entry->timeArrayLength*/; ++i) {
+	// XXX: should this be "<" max profiled level???
+    for (i = __kremlin_min_level; i <= __kremlin_max_profiled_level /*&& i < entry->timeArrayLength*/; ++i) {
         int level = i - __kremlin_min_level;
 		//fprintf(stderr,"filling level %d\n",level);
 
@@ -343,11 +348,11 @@ void fillCDT(CDT* cdt, TEntry* entry) {
 
 	// if entry didn't have all the levels covered, we zero out any leftover levels
 	/*
-    if(i < __kremlin_max_level) {
+    if(i <= __kremlin_max_profiled_level) {
 		i--;
 		fprintf(stderr,"zeroing out %d to %d\n",i,_maxRegionToLog);
-        bzero(cdt->time + i, sizeof(UInt64) * (__kremlin_max_level - i));
-        bzero(cdt->version + i, sizeof(UInt32) * (__kremlin_max_level - i));
+        bzero(cdt->time + i, sizeof(UInt64) * (__kremlin_max_profiled_level - i));
+        bzero(cdt->version + i, sizeof(UInt32) * (__kremlin_max_profiled_level - i));
     }
 	*/
 }
@@ -608,7 +613,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 #endif
 
 	// If we exceed the maximum depth, we act like this region doesn't exist
-	if(curr_level >= __kremlin_max_level) { return; }
+	if(curr_level > __kremlin_max_profiled_level) { return; }
 
 
     incDynamicRegionId(regionId);
@@ -633,25 +638,13 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 
 
 #ifndef WORK_ONLY
-    if (curr_level >= __kremlin_min_level && curr_level < __kremlin_max_level)
+    //if (curr_level >= __kremlin_min_level && curr_level <= __kremlin_max_profiled_level)
+	if(isCurrentLevelInstrumentable())
         setCdt(curr_level, versions[curr_level], 0);
 #endif
 
     incIndentTab(); // only affects debug printing
 }
-
-// TODO: these seem unused... delete?
-/*
-UInt64 _lastSid;
-UInt64 _lastDid;
-UInt64 _lastWork;
-UInt64 _lastCP;
-UInt64 _lastStart;
-UInt64 _lastEnd;
-UInt64 _lastCnt;
-UInt64 _lastParentSid;
-UInt64 _lastParentDid;
-*/
 
 /**
  * Does the clean up work when exiting a function region.
@@ -709,7 +702,8 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
     int curr_level = getCurrentLevel();
 
 	// If we are outside range of levels, handle function stack then exit
-	if(curr_level >= __kremlin_max_level) {
+	// FIXME: min level?
+	if(curr_level > __kremlin_max_profiled_level) {
 #ifndef WORK_ONLY
 		if (regionType == RegionFunc) { handleFuncRegionExit(); }
 #endif
@@ -825,12 +819,12 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
     TEntry* entryDest = getLTEntry(dest);
 
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
 
     int i;
-    for (i = minLevel; i < maxLevel; ++i) {
+    for (i = minLevel; i <= maxLevel; ++i) {
 		// calculate availability time
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -871,12 +865,12 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
     //assert(entryDest != NULL);
 
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
 
     int i;
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
         UInt64 ts0 = getTimestamp(entry0, i, version);
@@ -918,11 +912,11 @@ void* logAssignmentConst(UInt dest) {
     //assert(entryDest != NULL);
 
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
 
@@ -949,7 +943,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     TEntry* entryDest = getLTEntry(dest);
 
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
 #ifdef EXTRA_STATS
 //    TEntry* entry0Line = getGTEntryCacheLine(src_addr);
@@ -966,7 +960,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
   //  TEntryAllocAtLeastLevel(entry0Line, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         regionInfo[i].loadCnt++;
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -1006,11 +1000,11 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
     assert(entryDest != NULL);
     
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
 
         UInt64 cdt = getCdt(i,version);
@@ -1055,7 +1049,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     TEntry* entryDest = GTableGetTEntry(gTable, dest_addr);
 
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
 #ifdef EXTRA_STATS
     //TEntry* entryLine = getGTEntryCacheLine(dest_addr);
@@ -1069,7 +1063,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
     //TEntryAllocAtLeastLevel(entryLine, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         regionInfo[i].storeCnt++;
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
@@ -1110,11 +1104,11 @@ void* logStoreInstConst(Addr dest_addr) {
     
     //fprintf(stderr, "\nstoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; ++i) {
+    for (i = minLevel; i <= maxLevel; ++i) {
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
         UInt64 value = cdt + STORE_COST;
@@ -1278,10 +1272,10 @@ void logFree(Addr addr) {
 
 	// make sure CP is at least the time needed to complete the free
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     int i;
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 value = getCdt(i,version) + FREE_COST;
 
@@ -1432,7 +1426,7 @@ void logFuncReturnConst(void) {
 #ifndef WORK_ONLY
     int i;
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     // Assert there is a function context before the top.
     assert(FuncContextsSize(funcContexts) > 1);
@@ -1444,7 +1438,7 @@ void logFuncReturnConst(void) {
         return;
 
     TEntryAllocAtLeastLevel((*nextHead)->ret, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         int version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
 
@@ -1479,11 +1473,11 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
     assert(entryDest != NULL);
     
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_src = getTimestamp(entrySrc, i, version);
         UInt64 ts_cd = getTimestamp(entryCD, i, version);
@@ -1518,11 +1512,11 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
     assert(entryDest != NULL);
     
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     int i;
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_src = getTimestamp(entrySrc, i, version);
         UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
@@ -1562,10 +1556,10 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     
     int i = 0;
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_src = getTimestamp(entrySrc, i, version);
         UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
@@ -1616,10 +1610,10 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
     
     int i = 0;
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_src = getTimestamp(entrySrc, i, version);
         UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
@@ -1669,10 +1663,10 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     
     int i = 0;
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts_dest = getTimestamp(entryDest, i, version);
         UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
@@ -1704,7 +1698,7 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
 
 #ifndef WORK_ONLY
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
     int i = 0;
     FuncContext* funcHead = *FuncContextsLast(funcContexts);
     assert(funcHead->table != NULL);
@@ -1719,7 +1713,7 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
     assert(entryDest != NULL);
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 ts0 = getTimestamp(entry0, i, version);
         UInt64 ts1 = getTimestamp(entry1, i, version);
@@ -1757,10 +1751,10 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
     va_end(ap);
 
     int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_level, getLevelNum());
+    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    for (i = minLevel; i < maxLevel; i++) {
+    for (i = minLevel; i <= maxLevel; i++) {
         UInt version = getVersion(i);
         UInt64 max = 0;
         
@@ -1810,14 +1804,14 @@ int kremlinInit() {
 #else
 	cregionInit();
 #endif
-    levelNum = 0;
+    levelNum = -1;
 
     InvokeRecordsCreate(&invokeRecords);
 
 	// TODO: storage size will always be 2 for parallel kremlin
-    int storageSize = __kremlin_max_level - __kremlin_min_level;
-    MSG(0, "minLevel = %d maxLevel = %d storageSize = %d\n", 
-        __kremlin_min_level, __kremlin_max_level, storageSize);
+    int storageSize = __kremlin_max_profiled_level - __kremlin_min_level;
+    MSG(0, "minLevel = %d maxLevel (profiled) = %d storageSize = %d\n", 
+        __kremlin_min_level, __kremlin_max_profiled_level, storageSize);
 
     // Allocate a memory allocator.
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
@@ -1967,8 +1961,17 @@ void createOutputFilename() {
 
 	strcat(__kremlin_output_filename,"kremlin-L");
 	char level_str[5];
-	sprintf(level_str,"%d",__kremlin_level_to_log);
+	//sprintf(level_str,"%d",__kremlin_level_to_log);
+	sprintf(level_str,"%d",__kremlin_min_level);
 	strcat(__kremlin_output_filename,level_str);
+
+	if(__kremlin_max_level != (__kremlin_min_level)) {
+		strcat(__kremlin_output_filename,"_");
+		level_str[0] - '\0';
+		sprintf(level_str,"%d",__kremlin_max_level);
+		strcat(__kremlin_output_filename,level_str);
+	}
+	
 	strcat(__kremlin_output_filename,".bin");
 }
 
@@ -1994,9 +1997,9 @@ void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_arg
 		if(str_start) {
 			__kremlin_level_to_log = parseOptionInt(argv[i]);
 			__kremlin_min_level = __kremlin_level_to_log;
-			__kremlin_max_level = __kremlin_min_level + 2;
+			__kremlin_max_level = __kremlin_level_to_log;
+			__kremlin_max_profiled_level = __kremlin_max_level + 1;
 
-			createOutputFilename();
 			continue;
 		}
 
@@ -2009,6 +2012,7 @@ void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_arg
 		str_start = strstr(argv[i],"kremlin-max-level");
 		if(str_start) {
 			__kremlin_max_level = parseOptionInt(argv[i]);
+			__kremlin_max_profiled_level = __kremlin_max_level + 1;
 			continue;
 		}
 		else {
@@ -2016,6 +2020,8 @@ void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_arg
 			num_true_args++;
 		}
 	}
+
+	createOutputFilename();
 
 	true_args = realloc(true_args,num_true_args*sizeof(char*));
 
@@ -2034,7 +2040,7 @@ int main(int argc, char* argv[]) {
 	parseKremlinOptions(argc,argv,&num_args,&real_args);
 
 	if(__kremlin_level_to_log == -1) {
-    	fprintf(stderr, "[kremlin] min logged level = %d, max logged level = %d\n", __kremlin_min_level, __kremlin_max_level);
+    	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", __kremlin_min_level, __kremlin_max_level);
 	}
 	else {
     	fprintf(stderr, "[kremlin] logging only level %d\n", __kremlin_level_to_log);
