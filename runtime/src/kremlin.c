@@ -41,6 +41,9 @@ char* __kremlin_output_filename;
 extern int	__kremlin_debug;
 extern int  __kremlin_debug_level;
 
+extern int __kremlin_overhead_in_words;
+extern int __kremlin_max_overhead_in_words;
+
 
 
 UInt64*     getDynamicRegionId(UInt64 sid);
@@ -1698,6 +1701,9 @@ int kremlinInit() {
 #endif
     levelNum = -1;
 
+	__kremlin_overhead_in_words = 0;
+	__kremlin_max_overhead_in_words = 0;
+
     InvokeRecordsCreate(&invokeRecords);
 
     int storageSize = (__kremlin_max_profiled_level - __kremlin_min_level)+1;
@@ -1800,6 +1806,7 @@ int kremlinDeinit() {
     GTableDelete(&gTable);
 
     fprintf(stderr, "[kremlin] maximum level encountered = %d\n", _maxRegionNum);
+    fprintf(stderr, "[kremlin] maximum overhead (in words) = %llu\n", __kremlin_max_overhead_in_words);
 
     kremlinOn = FALSE;
 

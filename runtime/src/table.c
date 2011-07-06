@@ -11,25 +11,24 @@ HASH_MAP_DEFINE_PROTOTYPES(mt, Addr, size_t);
 HASH_MAP_DEFINE_FUNCTIONS(mt, Addr, size_t);
 
 LTable* lTable;
-//UInt32	maxRegionLevel;
 static hash_map_mt* mTable;
-Pool* tEntryPool;
+
+Pool* tEntryPool; // TODO: deprecated???
 
 void dumpTableMemAlloc(void);
 static UInt64 addrHash(Addr addr);
 static int addrCompare(Addr a1, Addr a2);
 
-UInt32 getTEntrySize() {
-	return __kremlin_max_profiled_level;
-}
-
-
 void freeTEntry(TEntry* entry);
 
+UInt32 getTEntrySize() { return __kremlin_max_profiled_level; }
 
 long long _tEntryLocalCnt = 0;
 long long _tEntryGlobalCnt = 0;
 extern int levelNum;
+
+UInt64 __kremlin_overhead_in_words;
+UInt64 __kremlin_max_overhead_in_words;
 
 // XXX: for PoolMalloc to work, size always must be the same!
 TEntry* allocTEntry() {
@@ -42,16 +41,26 @@ TEntry* allocTEntry() {
         return NULL;
     }
 
+	__kremlin_overhead_in_words += 5;
+
 	if(levelNum >= 0 && levelNum >= __kremlin_min_level) {
-    	entry->version = (UInt32*)calloc(sizeof(UInt32), (levelNum - __kremlin_min_level)+1);
-    	entry->time = (UInt64*)calloc(sizeof(UInt64), (levelNum - __kremlin_min_level)+1);
-    	entry->timeArrayLength = (levelNum - __kremlin_min_level) + 1;
+		UInt32 max_level = MIN(__kremlin_max_profiled_level,levelNum);
+		UInt32 size = (max_level - __kremlin_min_level) + 1;
+
+    	entry->version = (UInt32*)calloc(sizeof(UInt32), size);
+    	entry->time = (UInt64*)calloc(sizeof(UInt64), size);
+
+    	entry->timeArrayLength = size;
+
+		__kremlin_overhead_in_words += size * 3;
 	}
 	else {
 		entry->version = 0;
 		entry->time = 0;
 		entry->timeArrayLength = 0;
 	}
+
+	__kremlin_max_overhead_in_words = (__kremlin_overhead_in_words > __kremlin_max_overhead_in_words) ? __kremlin_overhead_in_words : __kremlin_max_overhead_in_words;
 
 #ifdef EXTRA_STATS
 	// FIXME: overprovisioning
@@ -73,20 +82,27 @@ TEntry* allocTEntry() {
 void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 {
 	UInt32 max_level = MIN(__kremlin_max_profiled_level,levelNum);
+	UInt32 new_size = (max_level - __kremlin_min_level) + 1;
 
     if(levelNum >= __kremlin_min_level 
-	  && entry->timeArrayLength <= (max_level - __kremlin_min_level)+1)
+	  && entry->timeArrayLength <= new_size)
     {
-        entry->time = (UInt64*)realloc(entry->time, sizeof(UInt64) * ((max_level - __kremlin_min_level) + 1));
-        entry->version = (UInt32*)realloc(entry->version, sizeof(UInt32) * ((max_level - __kremlin_min_level) + 1));
+        UInt32 lastSize = entry->timeArrayLength; // moved here overhead logging
+
+        entry->time = (UInt64*)realloc(entry->time, sizeof(UInt64) * new_size);
+        entry->version = (UInt32*)realloc(entry->version, sizeof(UInt32) * new_size);
+
+		__kremlin_overhead_in_words += (new_size - lastSize) * 3;
+
+		__kremlin_max_overhead_in_words = (__kremlin_overhead_in_words > __kremlin_max_overhead_in_words) ? __kremlin_overhead_in_words : __kremlin_max_overhead_in_words;
 
         assert(entry->time);
         assert(entry->version);
 
+
 #ifdef EXTRA_STATS
 
 		// FIXME: overprovisioning
-        UInt32 lastSize = entry->timeArrayLength;
         entry->readTime = (UInt64*)realloc(entry->readTime, sizeof(UInt64) * (level+1));
         entry->readVersion = (UInt32*)realloc(entry->readVersion, sizeof(UInt32) * (level+1));
 
@@ -101,12 +117,14 @@ void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 
 #endif /* EXTRA_STATS */
 
-        entry->timeArrayLength = (max_level - __kremlin_min_level) + 1;
+        entry->timeArrayLength = new_size;
     }
 }
 
 void freeTEntry(TEntry* entry) {
     if(!entry) return;
+
+	__kremlin_overhead_in_words -= 5 + (3 * entry->timeArrayLength);
 
     free(entry->version);
     free(entry->time);
@@ -142,8 +160,11 @@ size_t getMEntry(Addr addr) {
 void copyTEntry(TEntry* dest, TEntry* src) {
 	assert(dest != NULL);
 	assert(src != NULL);
+
     TEntryAllocAtLeastLevel(dest, src->timeArrayLength);
+
     assert(dest->timeArrayLength >= src->timeArrayLength);
+
     memcpy(dest->version, src->version, src->timeArrayLength * sizeof(UInt64));
     memcpy(dest->time, src->time, src->timeArrayLength * sizeof(UInt32));
 }
