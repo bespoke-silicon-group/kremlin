@@ -95,7 +95,7 @@ TEntry** GTEntryGet(GTEntry* e, Addr addr)
     TEntry** tEntry = e->array + GTEntryIndex(addr);
     if(!*tEntry)
     {
-        *tEntry = allocTEntry(0);
+        *tEntry = allocTEntry();
         e->used++;
 		e->usedLine += 1;
 		// _tEntryGlobalCnt++;
@@ -130,27 +130,19 @@ int GTableDelete(GTable** t) {
     return TRUE;
 }
 
+// get TEntry for address addr in GTable t
 // FIXME: 64bit address?
 TEntry* GTableGetTEntry(GTable* t, Addr addr) 
 {
 #ifndef WORK_ONLY
     GTEntry** entry = GTableGetGTEntry(t, addr);
     return *GTEntryGet(*entry, addr);
-    /*
-	UInt32 index2 = ((UInt64) addr >> 2) & 0x3fff;
-	TEntry* ret = entry->array[index2];
-	if (ret == NULL) {
-		ret = allocTEntry(maxRegionLevel);
-		entry->array[index2] = ret;
-		entry->used += 1;
-	}
-	return ret;
-    */
 #else
 	return (TEntry*)1;
 #endif
 }
 
+// get GTEntry in GTable t at address addr
 GTEntry** GTableGetGTEntry(GTable* t, Addr addr)
 {
     UInt32 index = GTableIndex(addr);
@@ -171,29 +163,3 @@ UInt64 GTableIndex(Addr addr)
 {
 	return ((UInt64)addr >> L1_SHIFT) & L1_MASK;
 }
-
-/*
-TEntry* getGTEntryCacheLine(Addr addr) {
-#ifndef WORK_ONLY
-	UInt32 index = ((UInt64) addr >> 16) & 0xffff;
-	assert(index < 0x10000);
-	GEntry* entry = gTable->array[index];
-	if (entry == NULL) {
-		entry = createGEntry();
-		gTable->array[index] = entry;
-	}
-	UInt32 index2 = ((UInt64) addr >> (2 + CACHE_LINE_POWER_2)) & 0x3ff;
-	TEntry* ret = entry->lineArray[index2];
-	if (ret == NULL) {
-		ret = allocTEntry(maxRegionLevel);
-		entry->lineArray[index2] = ret;
-		entry->usedLine += 1;
-		//_tEntryGlobalCnt++;
-	}
-	return ret;
-#else
-	return (TEntry*)1;
-#endif
-}
-*/
-

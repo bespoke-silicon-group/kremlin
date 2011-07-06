@@ -170,13 +170,10 @@ int _maxRegionNum = 0;
 
 
 TEntry* dummyEntry = NULL;
-void allocDummyTEntry() {
-    dummyEntry = (TEntry*) allocTEntry(getTEntrySize());
-}
 
-TEntry* getDummyTEntry() {
-    return dummyEntry;
-}
+void allocDummyTEntry() { dummyEntry = (TEntry*) allocTEntry(); }
+
+TEntry* getDummyTEntry() { return dummyEntry; }
 
 void freeDummyTEntry() {
     freeTEntry(dummyEntry);
@@ -207,6 +204,7 @@ void linkArgToLocal(UInt src) {
 void linkArgToConst() {
     if (!isKremlinOn())
         return;
+
     MSG(1, "linkArgToConst\n");
 
 #ifndef WORK_ONLY
@@ -219,7 +217,7 @@ void linkArgToConst() {
 void transferAndUnlinkArg(UInt dest) {
     if (!isKremlinOn())
         return;
-    MSG(1, "getArgInfo to ts[%u]\n", dest);
+    MSG(1, "transfer arg data to ts[%u]\n", dest);
 
 #ifndef WORK_ONLY
     TEntry* destEntry = getLTEntry(dest);
@@ -1124,7 +1122,7 @@ void* logStoreInstConst(Addr dest_addr) {
 #endif
 }
 
-// TODO: 64 bit?
+// FIXME: support 64 bit address
 void logMalloc(Addr addr, size_t size, UInt dest) {
     if (!isKremlinOn())
         return;
@@ -1159,110 +1157,6 @@ void logFree(Addr addr) {
     Addr a;
     for(a = addr; a < addr + mem_size; a++)
         GTableDeleteTEntry(gTable, a);
-
-    /*
-    UInt32 start_index, end_index;
-
-    start_index = ((UInt64) addr >> 16) & 0xffff;
-
-    UInt64 end_addr = (UInt64)addr + (mem_size-1);
-
-    end_index = (end_addr >> 16) & 0xffff;
-
-    if(start_index == end_index) {
-        // get entry (must exist b/c of logMalloc)
-        GTEntry* entry = gTable->array[start_index];
-        assert(entry != NULL);
-
-        entry->used -= (mem_size >> 2);
-
-        MSG(2,"  freeing from gTable[%lu]. %hu entries remain in use\n",start_index,entry->used);
-
-        UInt32 start_index2, end_index2;
-
-        // find starting and ending addr
-        start_index2 = ((UInt64) addr >> 2) & 0x3fff;
-        end_index2 = (end_addr >> 2) & 0x3fff;
-
-        MSG(2,"  gTable entry range: [%lu:%lu]\n",start_index2,end_index2);
-
-        // free TEntry instances for the range of mem addrs
-        int i;
-        for(i = start_index2; i <= end_index2; ++i) {
-            freeTEntry(entry->array[i]);
-            entry->array[i] = NULL;
-        }
-
-        // if nothing in this gtable entry is used
-        // then we can safely free it
-        if(entry->used == 0) { 
-            free(entry);
-            gTable->array[start_index] = NULL;
-            MSG(2,"    freeing gTable entry.\n");
-        }
-    }
-    else {
-        // handle start_index
-        GEntry* entry = gTable->array[start_index];
-        UInt32 start_index2 = ((UInt64) addr >> 2) & 0x3fff;
-
-        int i;
-        for(i = start_index2; i < 0x4000; ++i) {
-            freeTEntry(entry->array[i]);
-            entry->array[i] = NULL;
-        }
-
-        entry->used -= (0x4000-start_index2);
-
-        MSG(2,"  freeing from gTable[%lu] (range: [%lu:0x4000]). %hu entries remain in use\n",start_index,start_index2,entry->used);
-
-        // free it if nothing used
-        if(entry->used == 0) { 
-            free(entry);
-            gTable->array[start_index] = NULL;
-            MSG(2,"    freeing gTable entry.\n");
-        }
-
-        // handle end_index
-        entry = gTable->array[end_index];
-        UInt32 end_index2 = (end_addr >> 2) & 0x3fff;
-
-        for(i = 0; i <= end_index2; ++i) {
-            freeTEntry(entry->array[i]);
-            entry->array[i] = NULL;
-        }
-
-        entry->used -= (end_index2+1);
-
-        MSG(2,"  freeing from gTable[%lu] (range: [0:%lu]). %hu entries remain in use\n",end_index,entry->used);
-
-        // free it if nothing used
-        if(entry->used == 0) { 
-            free(entry);
-            gTable->array[end_index] = NULL;
-            MSG(2,"    freeing gTable entry.\n");
-        }
-
-        // handle all intermediate indices
-        UInt32 curr_index;
-        for(curr_index = start_index+1; curr_index < end_index; ++curr_index) {
-            entry = gTable->array[curr_index];
-
-            MSG(2,"  freeing all entries from gTable[%lu].\n",curr_index);
-
-            for(i = 0; i < 0x4000; ++i) {
-                freeTEntry(entry->array[i]);
-                // we don't need to set entry->array[i] to NULL here since we are
-                // nullifying the whole entry
-            }
-
-            // intermediate will always have all TEntries
-            // deleted and therefore are always safe to free
-            free(entry);
-            gTable->array[curr_index] = NULL;
-        }
-    }
-    */
 
     freeMEntry(addr);
 
@@ -1806,7 +1700,6 @@ int kremlinInit() {
 
     InvokeRecordsCreate(&invokeRecords);
 
-	// TODO: storage size will always be 2 for parallel kremlin
     int storageSize = (__kremlin_max_profiled_level - __kremlin_min_level)+1;
     MSG(0, "minLevel = %d maxLevel (profiled) = %d storageSize = %d\n", 
         __kremlin_min_level, __kremlin_max_profiled_level, storageSize);
@@ -1857,7 +1750,7 @@ void initStartFuncContext()
 
     prepareCall(0, 0);
 	pushFuncContext();
-    (*FuncContextsLast(funcContexts))->ret = mainReturn = allocTEntry(0);
+    (*FuncContextsLast(funcContexts))->ret = mainReturn = allocTEntry();
 }
 
 

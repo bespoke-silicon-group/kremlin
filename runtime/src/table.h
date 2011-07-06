@@ -38,16 +38,6 @@ typedef struct _MTableEntry {
     size_t size;
 } MEntry;
 
-///*
-//    MallocTable:
-//        malloc table is a table to track active mallocs
-//*/
-//typedef struct _MallocTable {
-//    int size;
-//	int capacity;
-//    MEntry** array;
-//} MTable;
-
 // declaration of functions in table.c
 void setLocalTable(LTable* table);
 
@@ -58,13 +48,11 @@ UInt32 getMaxRegionLevel();
 void finalizeDataStructure();
 void updateTimestamp(TEntry* entry, UInt32 level, UInt32 version, UInt64 timestamp);
 
-TEntry* allocTEntry(int size);
+TEntry* allocTEntry();
 void freeTEntry(TEntry* entry);
 LTable* allocLocalTable(int size);
 void freeLocalTable(LTable* table);
 TEntry* getLTEntry(UInt32 index);
-//TEntry* getGTEntry(Addr addr); // depricated
-//TEntry* getGTEntryCacheLine(Addr addr); // depricated
 void initDataStructure(int regionLevel);
 void finalizeDataStructure();
 UInt32 getTEntrySize(void);

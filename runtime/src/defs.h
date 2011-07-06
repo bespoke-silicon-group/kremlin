@@ -22,25 +22,6 @@
 #define TRUE 1
 #define FALSE 0
 
-//#define USE_UREGION
-//#define EXTRA_STATS
-
-/*
-#ifdef LEVEL_TO_LOG
-	#define MIN_REGION_LEVEL (LEVEL_TO_LOG)
-	#define MAX_REGION_LEVEL (LEVEL_TO_LOG+2)
-#else
-	#ifndef MIN_REGION_LEVEL
-	#define MIN_REGION_LEVEL	0
-	#endif
-
-	#ifndef MAX_REGION_LEVEL
-	#define MAX_REGION_LEVEL	20		
-	#endif
-#endif
-*/
-
-
 #define LOAD_COST			4
 #define STORE_COST			1
 #define MALLOC_COST			100
