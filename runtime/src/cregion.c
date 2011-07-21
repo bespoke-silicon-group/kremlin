@@ -165,10 +165,8 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	//		region->id, region->sid, region->callSite);
 	assert(region->callSite == info->callSite);
 	double sp = (double)info->work / (double)info->spWork;
-	if (region->minSP > sp)
-		region->minSP = sp;
-	if (region->maxSP < sp)
-		region->maxSP = sp;
+	if (region->minSP > sp) region->minSP = sp;
+	if (region->maxSP < sp) region->maxSP = sp;
 	region->totalWork += info->work;
 	region->totalCP += info->cp;
 	region->tpWork += info->tpWork;
