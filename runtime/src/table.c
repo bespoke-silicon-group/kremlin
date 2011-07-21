@@ -74,6 +74,7 @@ TEntry* allocTEntry() {
     return entry;
 }
 
+// TODO: level parameter should go away
 /**
  * Allocates enough memory for at least the specified level.
  * @param entry The TEntry.
