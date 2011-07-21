@@ -43,11 +43,6 @@ char* __kremlin_output_filename;
 extern int	__kremlin_debug;
 extern int  __kremlin_debug_level;
 
-extern int __kremlin_overhead_in_words;
-extern int __kremlin_max_overhead_in_words;
-
-
-
 UInt64*     getDynamicRegionId(UInt64 sid);
 void        incDynamicRegionId(UInt64 sid);
 UInt64      sidHash(UInt64 sid);
@@ -56,6 +51,7 @@ int         sidCompare(UInt64 s1, UInt64 s2);
 typedef struct _CDT_T {
     UInt64* time;
     UInt32* version;
+	UInt32 size;
 } CDT;
 
 typedef struct _FuncContext {
@@ -112,6 +108,7 @@ VECTOR_DEFINE_FUNCTIONS(InvokeRecords, InvokeRecord, VECTOR_COPY, VECTOR_NO_DELE
 
 int                 kremlinOn = 0;
 int                 levelNum = 0;
+UInt32				storageSize = 0;
 int					numActiveLevels = 0; // number of levels currently being logged
 
 TSArray**			src_arrays = NULL; // 2D array of TSArray*
@@ -340,10 +337,8 @@ void setCdt(int level, UInt32 version, UInt64 time) {
 void fillCDT(CDT* cdt, TEntry* entry) {
 	// entry may not have data for all logged levels so we have to check timeArrayLength
     int i;
-	// XXX: should this be "<" max profiled level???
-    for (i = __kremlin_min_level; i <= __kremlin_max_profiled_level /*&& i < entry->timeArrayLength*/; ++i) {
+    for (i = __kremlin_min_level; i <= __kremlin_max_profiled_level; ++i) {
         int level = i - __kremlin_min_level;
-		//fprintf(stderr,"filling level %d\n",level);
 
 		if(i < entry->timeArrayLength) {
         	cdt->time[level] = entry->time[level];
@@ -354,16 +349,6 @@ void fillCDT(CDT* cdt, TEntry* entry) {
         	cdt->version[level] = 0;
 		}
     }
-
-	// if entry didn't have all the levels covered, we zero out any leftover levels
-	/*
-    if(i <= __kremlin_max_profiled_level) {
-		i--;
-		fprintf(stderr,"zeroing out %d to %d\n",i,_maxRegionToLog);
-        bzero(cdt->time + i, sizeof(UInt64) * (__kremlin_max_profiled_level - i));
-        bzero(cdt->version + i, sizeof(UInt32) * (__kremlin_max_profiled_level - i));
-    }
-	*/
 }
 
 /**
@@ -1321,15 +1306,16 @@ static int cdtSize;
 static int cdtIndex;
 
 CDT* allocCDT() {
-	cdtIndex++;
 	CDT* ret = &cdtPool[cdtIndex];
+	cdtIndex++;
 	if (cdtIndex == cdtSize) {
 		int i;
 		cdtSize += CDTSIZE;
 		cdtPool = realloc(cdtPool, sizeof(CDT) * cdtSize);
 		for (i=cdtSize-CDTSIZE; i<cdtSize; i++) {
-    		cdtPool[i].time = (UInt64*) calloc(getTEntrySize(), sizeof(UInt64));
-		    cdtPool[i].version = (UInt32*) calloc(getTEntrySize(), sizeof(UInt32));
+    		cdtPool[i].time = (UInt64*) calloc(storageSize, sizeof(UInt64));
+		    cdtPool[i].version = (UInt32*) calloc(storageSize, sizeof(UInt32));
+			cdtPool[i].size = storageSize;
 		}
 	};
 	return ret;
@@ -1337,7 +1323,7 @@ CDT* allocCDT() {
 
 CDT* freeCDT(CDT* toFree) { 
 	cdtIndex--;
-	return &cdtPool[cdtIndex-1]; 
+	return &cdtPool[cdtIndex]; 
 }
 
 void initCDT() {
@@ -1347,11 +1333,10 @@ void initCDT() {
 	cdtIndex = 0;
 	cdtSize = CDTSIZE;
 
-	//fprintf(stderr,"TEntry size = %u\n",getTEntrySize());
-
 	for (i=0; i<CDTSIZE; i++) {
-    	cdtPool[i].time = (UInt64*) calloc(getTEntrySize(), sizeof(UInt64));
-	    cdtPool[i].version = (UInt32*) calloc(getTEntrySize(), sizeof(UInt32));
+    	cdtPool[i].time = (UInt64*) calloc(storageSize, sizeof(UInt64));
+	    cdtPool[i].version = (UInt32*) calloc(storageSize, sizeof(UInt32));
+		cdtPool[i].size = storageSize;
 
 		assert(cdtPool[i].time && cdtPool[i].version);
 		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
@@ -1363,12 +1348,11 @@ void initCDT() {
 void deinitCDT() {
 	int i=0;
 	for (i=0; i<cdtSize; i++) {
-		fprintf(stderr,"deinit %d\n",i);
-		fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
-		fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
+		//fprintf(stderr,"deinit %d\n",i);
+		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
+		//fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
 		free(cdtPool[i].time);
 		free(cdtPool[i].version);
-		fprintf(stderr,"done with iter %d\n",i);
 	}
 }
 
@@ -1816,12 +1800,9 @@ int kremlinInit() {
 #endif
     levelNum = -1;
 
-	__kremlin_overhead_in_words = 0;
-	__kremlin_max_overhead_in_words = 0;
-
     InvokeRecordsCreate(&invokeRecords);
 
-    int storageSize = (__kremlin_max_profiled_level - __kremlin_min_level)+1;
+    storageSize = (__kremlin_max_profiled_level - __kremlin_min_level)+1;
     MSG(0, "minLevel = %d maxLevel (profiled) = %d storageSize = %d\n", 
         __kremlin_min_level, __kremlin_max_profiled_level, storageSize);
 
@@ -1922,9 +1903,6 @@ int kremlinDeinit() {
 	deinitCDT();
 
     GTableDelete(&gTable);
-
-    fprintf(stderr, "[kremlin] maximum level encountered = %d\n", _maxRegionNum);
-    fprintf(stderr, "[kremlin] maximum overhead (in words) = %llu\n", __kremlin_max_overhead_in_words);
 
     kremlinOn = FALSE;
 

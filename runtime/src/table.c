@@ -21,16 +21,10 @@ static int addrCompare(Addr a1, Addr a2);
 
 void freeTEntry(TEntry* entry);
 
-UInt32 getTEntrySize() { return __kremlin_max_profiled_level; }
-
 long long _tEntryLocalCnt = 0;
 long long _tEntryGlobalCnt = 0;
 extern int levelNum;
 
-UInt64 __kremlin_overhead_in_words;
-UInt64 __kremlin_max_overhead_in_words;
-
-// XXX: for PoolMalloc to work, size always must be the same!
 TEntry* allocTEntry() {
     TEntry* entry;
     
@@ -38,10 +32,7 @@ TEntry* allocTEntry() {
     {
         fprintf(stderr, "Failed to alloc TEntry\n");
         assert(0);
-        return NULL;
     }
-
-	__kremlin_overhead_in_words += 5;
 
 	if(levelNum >= 0 && levelNum >= __kremlin_min_level) {
 		UInt32 max_level = MIN(__kremlin_max_profiled_level,levelNum);
@@ -51,16 +42,12 @@ TEntry* allocTEntry() {
     	entry->time = (UInt64*)calloc(sizeof(UInt64), size);
 
     	entry->timeArrayLength = size;
-
-		__kremlin_overhead_in_words += size * 3;
 	}
 	else {
 		entry->version = 0;
 		entry->time = 0;
 		entry->timeArrayLength = 0;
 	}
-
-	__kremlin_max_overhead_in_words = (__kremlin_overhead_in_words > __kremlin_max_overhead_in_words) ? __kremlin_overhead_in_words : __kremlin_max_overhead_in_words;
 
 #ifdef EXTRA_STATS
 	// FIXME: overprovisioning
@@ -88,14 +75,10 @@ void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
     if(levelNum >= __kremlin_min_level 
 	  && entry->timeArrayLength <= new_size)
     {
-        UInt32 lastSize = entry->timeArrayLength; // moved here overhead logging
+        UInt32 lastSize = entry->timeArrayLength;
 
         entry->time = (UInt64*)realloc(entry->time, sizeof(UInt64) * new_size);
         entry->version = (UInt32*)realloc(entry->version, sizeof(UInt32) * new_size);
-
-		__kremlin_overhead_in_words += (new_size - lastSize) * 3;
-
-		__kremlin_max_overhead_in_words = (__kremlin_overhead_in_words > __kremlin_max_overhead_in_words) ? __kremlin_overhead_in_words : __kremlin_max_overhead_in_words;
 
         assert(entry->time);
         assert(entry->version);
@@ -124,8 +107,6 @@ void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 
 void freeTEntry(TEntry* entry) {
     if(!entry) return;
-
-	__kremlin_overhead_in_words -= 5 + (3 * entry->timeArrayLength);
 
     free(entry->version);
     free(entry->time);
@@ -228,13 +209,6 @@ void initDataStructure(int regionLevel) {
 void finalizeDataStructure() {
     hash_map_mt_delete(&mTable);
     PoolDelete(&tEntryPool);
-}
-
-void printTEntry(TEntry* entry) {
-	int i;
-	for (i = 0; i < getTEntrySize(); i++) {
-		printf("%u %lld\n", entry->version[i], entry->time[i]);
-	}
 }
 
 // preconditions: lTable != NULL
