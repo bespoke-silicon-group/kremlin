@@ -39,6 +39,25 @@ typedef signed long long    Int64;
 typedef void*               Addr;
 typedef FILE                File;
 
+// BEGIN New interface to shadow memory
+
+typedef UInt64 Timestamp;
+typedef UInt32 VersionNumber;
+
+typedef struct TSEntry {
+	Timestamp ts;
+	VersionNumber vn;
+} TSEntry;
+
+typedef struct TSArray {
+	Timestamp* times;
+	UInt32 size;
+} TSArray;
+
+// END New interface to shadow memory
+
+
+
 typedef enum RegionType {RegionFunc, RegionLoop, RegionLoopBody} RegionType;
 MemMapAllocator* memPool;
 
