@@ -20,6 +20,8 @@
 
 #define DS_ALLOC_SIZE   100     // used for static data structures
 
+#define MAX_SRC_TSA_VAL	6
+
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 
@@ -91,6 +93,8 @@ typedef struct _InvokeRecord {
 
 #define isKremlinOn()       (kremlinOn == 1)
 #define getCurrentLevel()  (levelNum)
+//#define getLevelOffset(x)	(x - __kremlin_min_level)
+#define getLevelOffset(x)	(x)
 
 #define isCurrentLevelInstrumentable() (((levelNum) >= __kremlin_min_level) && ((levelNum) <= __kremlin_max_profiled_level))
 
@@ -108,6 +112,13 @@ VECTOR_DEFINE_FUNCTIONS(InvokeRecords, InvokeRecord, VECTOR_COPY, VECTOR_NO_DELE
 
 int                 kremlinOn = 0;
 int                 levelNum = 0;
+int					numActiveLevels = 0; // number of levels currently being logged
+
+TSArray**			src_arrays = NULL; // 2D array of TSArray*
+int					src_arrays_size = 0;
+TSArray*			dest_arrays = NULL; // array of TSArray*
+int					dest_arrays_size = 0;
+
 int*                versions = NULL;
 Region*             regionInfo = NULL;
 CDT*                cdtHead = NULL;
@@ -305,7 +316,6 @@ UInt64* getDynamicRegionId(UInt64 sid) {
 // preconditions: cdtHead != NULL && level >= 0
 UInt64 getCdt(int level, UInt32 version) {
     //assert(cdtHead != NULL);
-    //assert(level >= 0);
     return (cdtHead->version[level - __kremlin_min_level] == version) ?
         cdtHead->time[level - __kremlin_min_level] : 0;
 }
@@ -400,8 +410,10 @@ void dumpTEntry(TEntry* entry, int size) {
  * @return				Critical path length of specified level.
  */
 UInt64 updateCP(UInt64 value, int level) {
-	regionInfo[level].cp = (value > regionInfo[level].cp) ? value : regionInfo[level].cp;
-	return regionInfo[level].cp;
+	//int true_level = level - __kremlin_min_level;
+	int true_level = level;
+	regionInfo[true_level].cp = MAX(value,regionInfo[true_level].cp);
+	return regionInfo[true_level].cp;
 
 }
 
@@ -430,6 +442,85 @@ void popFuncContext() {
         freeLocalTable(ret->table);
 
     free(ret);  
+}
+
+// TODO: should this be moved to table.c???
+/*
+ * Filles tsa array with timestamps associated with vreg
+ * @param vreg			Virtual register number to get data from
+ * @param tsa			TSArray to write TS data to
+ */
+void getLocalTimes(UInt src_vreg, TSArray* tsa) {
+	// grab TEntry data
+	TEntry* entry = getLTEntry(src_vreg);
+
+	int fill_size = MIN(entry->timeArrayLength,numActiveLevels);
+
+	// Fill in the data, taking into account version
+	int i;
+	for(i = 0; i < fill_size; ++i) {
+    	tsa->times[i] = (entry->version[i] == versions[i]) ?  entry->time[i] : 0;
+	}
+
+	// TODO: memset for this?
+	for(i = fill_size; i < numActiveLevels; ++i) { tsa->times[i] = 0; }
+}
+
+void getCDTTSArray(TSArray* tsa) {
+	int i;
+	for(i = 0; i < numActiveLevels; ++i) {
+		tsa->times[i] = (cdtHead->version[i] == versions[i]) ?  cdtHead->time[i] : 0;
+	}
+}
+
+TSArray* getSrcTSArray(UInt idx) { 
+	assert(idx <= MAX_SRC_TSA_VAL);
+
+	// TODO: move this if to logRegionEntry for more efficiency
+	if(numActiveLevels >= src_arrays_size) {
+		src_arrays = realloc(src_arrays,sizeof(TSArray*)*numActiveLevels);
+		src_arrays[numActiveLevels-1] = malloc(sizeof(TSArray)*MAX_SRC_TSA_VAL);
+
+		int i;
+		for(i = 0; i < MAX_SRC_TSA_VAL; ++i) {
+			src_arrays[numActiveLevels-1][i].times =
+				malloc(sizeof(Timestamp)*(numActiveLevels));
+			src_arrays[numActiveLevels-1][i].size = numActiveLevels;
+		}
+
+		src_arrays_size++;
+	}
+
+	return &src_arrays[numActiveLevels-1][idx];
+}
+
+TSArray* getDestTSArray() { 
+	// TODO: move this if to logRegionEntry for more efficiency
+	if(numActiveLevels >= dest_arrays_size) {
+		dest_arrays = realloc(dest_arrays,sizeof(TSArray)*numActiveLevels);
+
+		dest_arrays[numActiveLevels-1].times = 
+			malloc(sizeof(Timestamp)*(numActiveLevels));
+		dest_arrays[numActiveLevels-1].size = numActiveLevels;
+
+		dest_arrays_size++;
+	}
+
+	return &dest_arrays[numActiveLevels-1];
+}
+
+void updateLocalTimes(UInt dest_vreg, TSArray* dest_tsa) {
+	TEntry* entry = getLTEntry(dest_vreg);
+
+    TEntryAllocAtLeastLevel(entry, 0);
+
+	int i;
+	for(i = 0; i < numActiveLevels; ++i) {
+		entry->time[i] = dest_tsa->times[i];
+		regionInfo[i].cp = MAX(dest_tsa->times[i],regionInfo[i].cp); // update CP
+
+		entry->version[i] = versions[i];
+	}
 }
 
 /*
@@ -559,7 +650,7 @@ void invokeThrew(UInt64 id)
         while(getCurrentLevel() > currentRecord->stackHeight)
         {
             UInt64 lastLevel = getCurrentLevel();
-            Region* region = regionInfo + getCurrentLevel();
+            Region* region = regionInfo + getLevelOffset(getCurrentLevel());
             logRegionExit(region->regionId, region->regionType);
             assert(getCurrentLevel() < lastLevel);
             assert(getCurrentLevel() >= 0);
@@ -573,21 +664,21 @@ void invokeThrew(UInt64 id)
 void initCurrentRegion(UInt64 regionId, UInt64 did, UInt regionType) {
     int curr_level = getCurrentLevel();
 
-    regionInfo[curr_level].regionId = regionId;
-    regionInfo[curr_level].start = timestamp;
-    regionInfo[curr_level].did = did;
-    regionInfo[curr_level].cp = 0LL;
-    regionInfo[curr_level].childrenWork = 0LL;
-    regionInfo[curr_level].childrenCP = 0LL;
-    regionInfo[curr_level].regionType = regionType;
+    regionInfo[getLevelOffset(curr_level)].regionId = regionId;
+    regionInfo[getLevelOffset(curr_level)].start = timestamp;
+    regionInfo[getLevelOffset(curr_level)].did = did;
+    regionInfo[getLevelOffset(curr_level)].cp = 0LL;
+    regionInfo[getLevelOffset(curr_level)].childrenWork = 0LL;
+    regionInfo[getLevelOffset(curr_level)].childrenCP = 0LL;
+    regionInfo[getLevelOffset(curr_level)].regionType = regionType;
 
-    regionInfo[curr_level].loadCnt = 0LL;
-    regionInfo[curr_level].storeCnt = 0LL;
+    regionInfo[getLevelOffset(curr_level)].loadCnt = 0LL;
+    regionInfo[getLevelOffset(curr_level)].storeCnt = 0LL;
 #ifdef EXTRA_STATS
-    regionInfo[curr_level].readCnt = 0LL;
-    regionInfo[curr_level].writeCnt = 0LL;
-    regionInfo[curr_level].readLineCnt = 0LL;
-    regionInfo[curr_level].writeLineCnt = 0LL;
+    regionInfo[getLevelOffset(curr_level)].readCnt = 0LL;
+    regionInfo[getLevelOffset(curr_level)].writeCnt = 0LL;
+    regionInfo[getLevelOffset(curr_level)].readLineCnt = 0LL;
+    regionInfo[getLevelOffset(curr_level)].writeLineCnt = 0LL;
 #endif
 }
 
@@ -611,6 +702,8 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 	cregionPutContext(regionId, callSiteId);
 #endif
 
+	if(isCurrentLevelInstrumentable()) numActiveLevels++;
+
 	// If we exceed the maximum depth, we act like this region doesn't exist
 	if(curr_level > __kremlin_max_profiled_level) { return; }
 
@@ -618,26 +711,18 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
     incDynamicRegionId(regionId);
     versions[curr_level]++;
 
-/*   
-	UInt64 parentSid = (curr_level > 0) ? regionInfo[curr_level-1].regionId : 0;
-    UInt64 parentDid = (curr_level > 0) ? regionInfo[curr_level-1].did : 0;
-    if (regionType < RegionLoopBody)
-        MSG(0, "[+++] region [%u, %d, %llu:%llu] parent [%llu:%llu] start: %llu\n",
-            regionType, curr_level, regionId, getDynamicRegionId(regionId), 
-            parentSid, parentDid, timestamp);
-*/
-
     if (regionType < RegionLoopBody)
         MSG(0, "[+++] region [%u, %d, %llu:%llu] start: %llu\n",
             regionType, curr_level, regionId, *getDynamicRegionId(regionId), timestamp);
 
-	// set initial values for newly entered region
-	// TODO: this probably desn't need to happen if curr_level < __kremlin_min_level
-	initCurrentRegion(regionId,*getDynamicRegionId(regionId),regionType);
+	// set initial values for newly entered region (but make sure we are only
+	// doing this for logged levels)
+	if(curr_level >= __kremlin_min_level) {
+		initCurrentRegion(regionId,*getDynamicRegionId(regionId),regionType);
+	}
 
 
 #ifndef WORK_ONLY
-    //if (curr_level >= __kremlin_min_level && curr_level <= __kremlin_max_profiled_level)
 	if(isCurrentLevelInstrumentable())
         setCdt(curr_level, versions[curr_level], 0);
 #endif
@@ -664,7 +749,7 @@ void handleFuncRegionExit() {
 
 
 /**
- * Creates RegionField and fills it based inputs.
+ * Creates RegionField and fills it based on inputs.
  */
 RegionField fillRegionField(UInt64 work, UInt64 cp, UInt64 callSiteId, UInt64 spWork, UInt64 tpWork, Region region_info) {
 	RegionField field;
@@ -700,20 +785,22 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 
     int curr_level = getCurrentLevel();
 
+	if(isCurrentLevelInstrumentable()) numActiveLevels--;
+
 	// If we are outside range of levels, handle function stack then exit
-	// FIXME: min level?
-	if(curr_level > __kremlin_max_profiled_level) {
+	if(!isCurrentLevelInstrumentable()) {
 #ifndef WORK_ONLY
 		if (regionType == RegionFunc) { handleFuncRegionExit(); }
 #endif
     	decrementRegionLevel();
+    	decIndentTab(); // applies only to debug printing
 #ifndef USE_UREGION
 		cregionRemoveContext(NULL);
 #endif
 		return;
 	}
 
-	Region curr_region = regionInfo[curr_level];
+	Region curr_region = regionInfo[getLevelOffset(curr_level)];
 
     UInt64 sid = regionId;
     UInt64 did = curr_region.did;
@@ -728,10 +815,10 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 	UInt64 parentSid = 0;
 	UInt64 parentDid = 0;
 
-	// If we aren't at the root, we need to update parent region's childrenWork and childrenCP
-	// TODO: only need this for one level when doing parallel kremlin
-	if (curr_level > 0) {
-		Region parent_region = regionInfo[curr_level-1];
+	// Only update parent region's childrenWork and childrenCP when we are
+	// logging the parent
+	if (curr_level > __kremlin_min_level) {
+		Region parent_region = regionInfo[getLevelOffset(curr_level)-1];
 
     	parentSid = parent_region.regionId;
 		parentDid = parent_region.did;
@@ -813,6 +900,32 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
     addWork(opCost);
 
 #ifndef WORK_ONLY
+	if(!isCurrentLevelInstrumentable()) return NULL;
+
+	/*
+	TSArray* src0_tsa = getSrcTSArray(0);
+	TSArray* src1_tsa = getSrcTSArray(1);
+
+	getLocalTimes(src0, src0_tsa);
+	getLocalTimes(src1, src1_tsa);
+
+	TSArray* cdt_tsa = getSrcTSArray(2);
+	
+	getCDTTSArray(cdt_tsa);
+
+	TSArray* dest_tsa = getDestTSArray();
+
+    int i;
+    for (i = 0; i < numActiveLevels; ++i) {
+		Timestamp max_src_ts = MAX(src0_tsa->times[i],src1_tsa->times[i]);
+		dest_tsa->times[i] = MAX(max_src_ts,cdt_tsa->times[i]) + opCost;
+	}
+
+	updateLocalTimes(dest,dest_tsa);
+
+    return dest_tsa;
+	*/
+
     TEntry* entry0 = getLTEntry(src0);
     TEntry* entry1 = getLTEntry(src1);
     TEntry* entryDest = getLTEntry(dest);
@@ -1131,7 +1244,7 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
         return;
     
     MSG(1, "logMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
-	assert(regionInfo[0].start == 0ULL);
+	assert(regionInfo[0].start == 0ULL); // XXX: why is this needed?
 
 #ifndef WORK_ONLY
 
@@ -1139,6 +1252,7 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
     if(!addr) { return; }
 
     createMEntry(addr,size);
+	// XXX: not sure why this would be necessary
 	if (regionInfo[0].start != 0ULL) {
 		fprintf(stderr, "add regionInfo[0] = 0x%x\n", &regionInfo[0]);
 	}
@@ -1249,11 +1363,12 @@ void initCDT() {
 void deinitCDT() {
 	int i=0;
 	for (i=0; i<cdtSize; i++) {
-		//fprintf(stderr,"deinit %d\n",i);
-		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
-		//fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
+		fprintf(stderr,"deinit %d\n",i);
+		fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
+		fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
 		free(cdtPool[i].time);
 		free(cdtPool[i].version);
+		fprintf(stderr,"done with iter %d\n",i);
 	}
 }
 
@@ -1717,10 +1832,13 @@ int kremlinInit() {
     FuncContextsCreate(&funcContexts);
     initDataStructure(storageSize);
 
+	// TODO: versions shouldn't be statically allocated to
+	// DS_ALLOC_SIZE... this should be dynamic
+	// Can we use storageSize instead?
     versions = (int*) calloc(sizeof(int), DS_ALLOC_SIZE);
     assert(versions);
 
-    regionInfo = (Region*) calloc(sizeof(Region), DS_ALLOC_SIZE);
+    regionInfo = (Region*) calloc(sizeof(Region), storageSize);
     assert(regionInfo);
 
     // Allocate a deque to hold timestamps of args.
