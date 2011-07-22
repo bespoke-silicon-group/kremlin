@@ -430,7 +430,6 @@ void popFuncContext() {
     free(ret);  
 }
 
-// TODO: should this be moved to table.c???
 /*
  * Filles tsa array with timestamps associated with vreg
  * @param vreg			Virtual register number to get data from
@@ -459,37 +458,40 @@ void getCDTTSArray(TSArray* tsa) {
 	}
 }
 
+// precondition: numActiveLevels > 0
 TSArray* getSrcTSArray(UInt idx) { 
 	assert(idx <= MAX_SRC_TSA_VAL);
 
 	// TODO: move this if to logRegionEntry for more efficiency
-	if(numActiveLevels >= src_arrays_size) {
+	if(src_arrays_size < numActiveLevels) {
 		src_arrays = realloc(src_arrays,sizeof(TSArray*)*numActiveLevels);
-		src_arrays[numActiveLevels-1] = malloc(sizeof(TSArray)*MAX_SRC_TSA_VAL);
 
-		int i;
-		for(i = 0; i < MAX_SRC_TSA_VAL; ++i) {
-			src_arrays[numActiveLevels-1][i].times =
-				malloc(sizeof(Timestamp)*(numActiveLevels));
-			src_arrays[numActiveLevels-1][i].size = numActiveLevels;
+		for( ; src_arrays_size < numActiveLevels; ++src_arrays_size) {
+			src_arrays[src_arrays_size] = malloc(sizeof(TSArray)*MAX_SRC_TSA_VAL);
+
+			int i;
+			for(i = 0; i < MAX_SRC_TSA_VAL; ++i) {
+				src_arrays[src_arrays_size][i].times =
+					malloc(sizeof(Timestamp)*(src_arrays_size+1));
+				src_arrays[src_arrays_size][i].size = src_arrays_size+1;
+			}
 		}
-
-		src_arrays_size++;
 	}
 
 	return &src_arrays[numActiveLevels-1][idx];
 }
 
+// precondition: numActiveLevels > 0
 TSArray* getDestTSArray() { 
 	// TODO: move this if to logRegionEntry for more efficiency
-	if(numActiveLevels >= dest_arrays_size) {
+	if(dest_arrays_size < numActiveLevels) {
 		dest_arrays = realloc(dest_arrays,sizeof(TSArray)*numActiveLevels);
 
-		dest_arrays[numActiveLevels-1].times = 
-			malloc(sizeof(Timestamp)*(numActiveLevels));
-		dest_arrays[numActiveLevels-1].size = numActiveLevels;
-
-		dest_arrays_size++;
+		for( ; dest_arrays_size < numActiveLevels; ++dest_arrays_size) {
+			dest_arrays[dest_arrays_size].times = 
+				malloc(sizeof(Timestamp)*(dest_arrays_size+1));
+			dest_arrays[dest_arrays_size].size = dest_arrays_size+1;
+		}
 	}
 
 	return &dest_arrays[numActiveLevels-1];
@@ -703,7 +705,6 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 
 	// set initial values for newly entered region (but make sure we are only
 	// doing this for logged levels)
-	// XXX FIXME TODO: why is this not isCurrentRegionInstrumentable?
 	if(curr_level >= __kremlin_min_level) {
 		initCurrentRegion(regionId,*getDynamicRegionId(regionId),regionType);
 	}
@@ -889,7 +890,6 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 #ifndef WORK_ONLY
 	if(!isCurrentLevelInstrumentable()) return NULL;
 
-	/*
 	TSArray* src0_tsa = getSrcTSArray(0);
 	TSArray* src1_tsa = getSrcTSArray(1);
 
@@ -911,8 +911,8 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 	updateLocalTimes(dest,dest_tsa);
 
     return dest_tsa;
-	*/
 
+	/*
     TEntry* entry0 = getLTEntry(src0);
     TEntry* entry1 = getLTEntry(src1);
     TEntry* entryDest = getLTEntry(dest);
@@ -941,6 +941,7 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
     }
 
     return entryDest;
+	*/
 #else
     return NULL;
 #endif
