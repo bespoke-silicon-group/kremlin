@@ -430,6 +430,7 @@ void popFuncContext() {
     free(ret);  
 }
 
+// move to table.c
 void fillTSArray(TEntry* src_entry, TSArray* dest_tsa) {
 	int fill_size = MIN(src_entry->timeArrayLength,numActiveLevels);
 
@@ -448,12 +449,14 @@ void fillTSArray(TEntry* src_entry, TSArray* dest_tsa) {
  * @param vreg			Virtual register number to get data from
  * @param tsa			TSArray to write TS data to
  */
+// TODO: move to table.c
 void getLocalTimes(UInt src_vreg, TSArray* tsa) {
 	TEntry* entry = getLTEntry(src_vreg);
 
 	fillTSArray(entry, tsa);
 }
 
+// TODO: move to GTable.c
 void getGlobalTimes(Addr src_addr, TSArray* tsa) {
     TEntry* entry = GTableGetTEntry(gTable, src_addr);
 
@@ -506,6 +509,7 @@ TSArray* getDestTSArray() {
 	return &dest_arrays[numActiveLevels-1];
 }
 
+// TODO: move to GTable.c
 void updateTEntry(TEntry* entry, TSArray* src_tsa) {
     TEntryAllocAtLeastLevel(entry, 0);
 
@@ -518,16 +522,23 @@ void updateTEntry(TEntry* entry, TSArray* src_tsa) {
 	}
 }
 
+// TODO: move to table.c
 void updateLocalTimes(UInt dest_vreg, TSArray* src_tsa) {
 	TEntry* entry = getLTEntry(dest_vreg);
 
 	updateTEntry(entry, src_tsa);
 }
 
+// TODO: move to GTable.c
 void updateGlobalTimes(Addr dest_addr, TSArray* src_tsa) {
     TEntry* entry = GTableGetTEntry(gTable, dest_addr);
 
 	updateTEntry(entry, src_tsa);
+}
+
+// TODO: move to GTable.c
+void eraseGlobalTimes(Addr addr) {
+	GTableDeleteTEntry(gTable, addr);
 }
 
 /*
@@ -1334,7 +1345,6 @@ void* logStoreInstConst(Addr dest_addr) {
 }
 
 // FIXME: support 64 bit address
-// TODO: implement for new shadow mem interface
 void logMalloc(Addr addr, size_t size, UInt dest) {
     if (!isKremlinOn()) return;
     
@@ -1358,12 +1368,14 @@ void logFree(Addr addr) {
     // Calls to free with NULL just return.
     if(addr == NULL) return;
 
-
 #ifndef WORK_ONLY
     size_t mem_size = getMEntry(addr);
+
     Addr a;
-    for(a = addr; a < addr + mem_size; a++)
-        GTableDeleteTEntry(gTable, a);
+    for(a = addr; a < addr + mem_size; a++) {
+		eraseGlobalTimes(a);
+        //GTableDeleteTEntry(gTable, a);
+	}
 
     freeMEntry(addr);
 
@@ -2056,9 +2068,9 @@ int kremlinInit() {
     // Allocate the hash map to store dynamic region id counts.
     hash_map_sid_did_create(&sidToDid, sidHash, sidCompare, NULL, NULL);
 
-    GTableCreate(&gTable);
+    GTableCreate(&gTable); // TODO: abstract this for new shadow mem imp
 
-    allocDummyTEntry();
+    allocDummyTEntry(); // TODO: abstract this for new shadow mem imp
 
 	initCDT();
     initStartFuncContext();
@@ -2130,11 +2142,11 @@ int kremlinDeinit() {
     FuncContextsDelete(&funcContexts);
 	deinitCDT();
 
-    GTableDelete(&gTable);
+    GTableDelete(&gTable); // TODO: abstract this for new shadow mem imp
 
     kremlinOn = FALSE;
 
-    dumpTableMemAlloc();
+    dumpTableMemAlloc(); // TODO: abstract this for new shadow mem imp
 
     return TRUE;
 }
