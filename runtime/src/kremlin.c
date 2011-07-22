@@ -89,8 +89,8 @@ typedef struct _InvokeRecord {
 
 #define isKremlinOn()       (kremlinOn == 1)
 #define getCurrentLevel()  (levelNum)
-//#define getLevelOffset(x)	(x - __kremlin_min_level)
-#define getLevelOffset(x)	(x)
+#define getLevelOffset(x)	(x - __kremlin_min_level)
+//#define getLevelOffset(x)	(x)
 
 #define isCurrentLevelInstrumentable() (((levelNum) >= __kremlin_min_level) && ((levelNum) <= __kremlin_max_profiled_level))
 
@@ -182,12 +182,13 @@ int _maxRegionNum = 0;
 
 TEntry* dummyEntry = NULL;
 
-void allocDummyTEntry() { dummyEntry = (TEntry*) allocTEntry(); }
+void allocDummyTEntry() { dummyEntry = allocTEntry(); }
 
 TEntry* getDummyTEntry() { return dummyEntry; }
 
 void freeDummyTEntry() {
-    freeTEntry(dummyEntry);
+    //freeTEntry(dummyEntry);
+	free(dummyEntry); // dummy will always have NULL for time/version
     dummyEntry = NULL;
 }
 
@@ -395,8 +396,8 @@ void dumpTEntry(TEntry* entry, int size) {
  * @return				Critical path length of specified level.
  */
 UInt64 updateCP(UInt64 value, int level) {
-	//int true_level = level - __kremlin_min_level;
-	int true_level = level;
+	int true_level = level - __kremlin_min_level;
+	//int true_level = level;
 	regionInfo[true_level].cp = MAX(value,regionInfo[true_level].cp);
 	return regionInfo[true_level].cp;
 
@@ -702,6 +703,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 
 	// set initial values for newly entered region (but make sure we are only
 	// doing this for logged levels)
+	// XXX FIXME TODO: why is this not isCurrentRegionInstrumentable?
 	if(curr_level >= __kremlin_min_level) {
 		initCurrentRegion(regionId,*getDynamicRegionId(regionId),regionType);
 	}
@@ -1058,7 +1060,7 @@ void* logLoadInst(Addr src_addr, UInt dest) {
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
   //  TEntryAllocAtLeastLevel(entry0Line, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        regionInfo[i].loadCnt++;
+        regionInfo[getLevelOffset(i)].loadCnt++;
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
         UInt64 ts0 = getTimestamp(entry0, i, version);
@@ -1161,7 +1163,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
     //TEntryAllocAtLeastLevel(entryLine, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        regionInfo[i].storeCnt++;
+        regionInfo[getLevelOffset(i)].storeCnt++;
         UInt version = getVersion(i);
         UInt64 cdt = getCdt(i,version);
         UInt64 ts0 = getTimestamp(entry0, i, version);

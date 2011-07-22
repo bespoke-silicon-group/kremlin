@@ -34,7 +34,7 @@ TEntry* allocTEntry() {
         assert(0);
     }
 
-	if(levelNum >= 0 && levelNum >= __kremlin_min_level) {
+	if(levelNum >= 0 /* GRAAAAHHHHHH! */ && levelNum >= __kremlin_min_level) {
 		UInt32 max_level = MIN(__kremlin_max_profiled_level,levelNum);
 		UInt32 size = (max_level - __kremlin_min_level) + 1;
 
@@ -73,7 +73,7 @@ void TEntryAllocAtLeastLevel(TEntry* entry, UInt32 level)
 	UInt32 new_size = (max_level - __kremlin_min_level) + 1;
 
     if(levelNum >= __kremlin_min_level 
-	  && entry->timeArrayLength <= new_size)
+	  && entry->timeArrayLength < new_size)
     {
         UInt32 lastSize = entry->timeArrayLength;
 
@@ -143,7 +143,7 @@ void copyTEntry(TEntry* dest, TEntry* src) {
 	assert(dest != NULL);
 	assert(src != NULL);
 
-    TEntryAllocAtLeastLevel(dest, src->timeArrayLength);
+    TEntryAllocAtLeastLevel(dest, 0); // level isn't used anymore, so we 0 it
 
     assert(dest->timeArrayLength >= src->timeArrayLength);
 
