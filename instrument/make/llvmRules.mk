@@ -38,6 +38,7 @@ $(call OPT_PASS_RULE,  KremlinInstrument.so,        -splitbbatfunccall,     EMPT
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -assoc-dep-break,       ADB_OPT_STRING)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -criticalpath,          EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -regioninstrument,      EMPTY)
+$(call OPT_PASS_RULE,  KremlinInstrument.so,        -renamemain,      		EMPTY)
 
 # ---------------------------------------------------------------------------
 # Required files
