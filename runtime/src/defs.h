@@ -38,15 +38,17 @@ typedef unsigned long long  UInt64;
 typedef signed long long    Int64;
 typedef void*               Addr;
 typedef FILE                File;
+typedef UInt64 				Timestamp;
+typedef UInt32 				Version;
+typedef UInt32 				Level;
+typedef UInt32 				Reg;
+
 
 // BEGIN New interface to shadow memory
 
-typedef UInt64 Timestamp;
-typedef UInt32 VersionNumber;
-
 typedef struct TSEntry {
 	Timestamp ts;
-	VersionNumber vn;
+	Version vn;
 } TSEntry;
 
 typedef struct TSArray {
@@ -109,7 +111,7 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 
 void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4);
 
-void logPhiNodeAddCondition(UInt dest, UInt src);
+void* logPhiNodeAddCondition(UInt dest, UInt src);
 
 void prepareInvoke(UInt64);
 void invokeThrew(UInt64);
@@ -145,6 +147,10 @@ void turnOffProfiler();
 
 void logRegionEntry(UInt64 region_id, UInt region_type);
 void logRegionExit(UInt64 region_id, UInt region_type);
+
+/* level management */
+Level getMinReportLevel();
+Level getMaxReportLevel();
 
 // the following two functions are part of our plans for c++ support
 void cppEntry();

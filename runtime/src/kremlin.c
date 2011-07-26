@@ -5,116 +5,31 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#include "defs.h"
-#include "udr.h"
+#include "kremlin.h"
 #include "log.h"
 #include "debug.h"
-#include "table.h"
 #include "GTable.h"
 #include "kremlin_deque.h"
-#include "hash_map.h"
 #include "cregion.h"
-#include "Vector.h"
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
-
 #define DS_ALLOC_SIZE   100     // used for static data structures
-
 #define MAX_SRC_TSA_VAL	6
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 
 
-// Global definitions
-int __kremlin_level_to_log = -1;
-
-// These are the levels on which we are ``reporting'' (i.e. writing info out to the
-// .bin file)
-unsigned int __kremlin_min_level = 0;
-unsigned int __kremlin_max_level = 20;
-
-// To be able to calculate SP, we need to profile one more level than we
-// report
-unsigned int __kremlin_max_profiled_level = 21;
-
-char* __kremlin_output_filename;
-
-extern int	__kremlin_debug;
-extern int  __kremlin_debug_level;
 
 UInt64*     getDynamicRegionId(UInt64 sid);
 void        incDynamicRegionId(UInt64 sid);
 UInt64      sidHash(UInt64 sid);
 int         sidCompare(UInt64 s1, UInt64 s2);
 
-typedef struct _CDT_T {
-    UInt64* time;
-    UInt32* version;
-	UInt32 size;
-} CDT;
-
-typedef struct _FuncContext {
-    LTable* table;
-    TEntry* ret; // should this change to TSArray?
-	UInt64 callSiteId;
-#ifdef MANAGE_BB_INFO
-    UInt    retBB;
-    UInt    retPrevBB;
-#endif
-} FuncContext;
-
-typedef struct _region_t {
-    UInt64 start;
-    UInt64 did;
-    UInt64 cp;
-    UInt64 regionId;
-	UInt64 childrenWork;
-	UInt64 childrenCP;
-    RegionType regionType;
-    UInt64 loadCnt;
-    UInt64 storeCnt;
-#ifdef EXTRA_STATS
-    UInt64 readCnt;
-    UInt64 writeCnt;
-    UInt64 readLineCnt;
-    UInt64 writeLineCnt;
-#endif
-} Region;
-
-typedef struct _InvokeRecord {
-    UInt64 id;
-    int stackHeight;
-} InvokeRecord;
-
-#define isKremlinOn()       (kremlinOn == 1)
-#define getCurrentLevel()  (levelNum)
-#define getLevelOffset(x)	(x - __kremlin_min_level)
-//#define getLevelOffset(x)	(x)
-
-#define isCurrentLevelInstrumentable() (((levelNum) >= __kremlin_min_level) && ((levelNum) <= __kremlin_max_profiled_level))
-
-void initStartFuncContext();
-HASH_MAP_DEFINE_PROTOTYPES(sid_did, UInt64, UInt64);
-HASH_MAP_DEFINE_FUNCTIONS(sid_did, UInt64, UInt64);
-
-// A vector used to represent the call stack.
-VECTOR_DEFINE_PROTOTYPES(FuncContexts, FuncContext*);
-VECTOR_DEFINE_FUNCTIONS(FuncContexts, FuncContext*, VECTOR_COPY, VECTOR_NO_DELETE);
-
-// A vector used to record invoked calls.
-VECTOR_DEFINE_PROTOTYPES(InvokeRecords, InvokeRecord);
-VECTOR_DEFINE_FUNCTIONS(InvokeRecords, InvokeRecord, VECTOR_COPY, VECTOR_NO_DELETE);
-
 int                 kremlinOn = 0;
 int                 levelNum = 0;
 UInt32				storageSize = 0;
 int					numActiveLevels = 0; // number of levels currently being logged
-
-TSArray**			src_arrays = NULL; // 2D array of TSArray*
-int					src_arrays_size = 0;
-TSArray*			dest_arrays = NULL; // array of TSArray*
-int					dest_arrays_size = 0;
 
 int*                versions = NULL;
 Region*             regionInfo = NULL;
@@ -129,7 +44,7 @@ deque*              argTimestamps;
 hash_map_sid_did*   sidToDid;
 UInt64              lastCallSiteId;
 UInt64              calledRegionId;
-GTable*             gTable;
+extern GTable*		gTable; 		// dhjeon: remove when decoupling of gtable is done
 
 #ifdef MANAGE_BB_INFO
 UInt    __prevBB;
@@ -140,6 +55,44 @@ UInt    __currentBB;
 UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
 int _requireSetupTable;
+
+// Dummy entries required for initialization
+// DJ Question: why dummy is required?
+static TEntry* dummyEntry = NULL;
+static void allocDummyTEntry() { dummyEntry = allocTEntry(); }
+static TEntry* getDummyTEntry() { return dummyEntry; }
+static void freeDummyTEntry() {
+   //freeTEntry(dummyEntry);
+   free(dummyEntry); // dummy will always have NULL for time/version
+   dummyEntry = NULL;
+}
+
+// precondition: inLevel >= getMinReportLevel() && inLevel < maxRegionSize
+inline Timestamp getTimestamp(TEntry* entry, Level inLevel, Version version) {
+	Level level = inLevel - getMinReportLevel();
+    Timestamp ret = (level >= 0 && level < entry->timeArrayLength && entry->version[level] == version) ?
+				entry->time[level] : 0;
+	return ret;
+}
+
+
+// precondition: entry != NULL
+inline void updateTimestamp(TEntry* entry, Level inLevel, Version version, Timestamp timestamp) {
+	Level level = inLevel - getMinReportLevel();
+	TEntryAllocAtLeastLevel(entry, level);
+	entry->version[level] = version;
+	entry->time[level] = timestamp;
+}
+
+// what are lowest and highest levels to instrument now?
+inline Level getStartLevel() {
+	return getMinReportLevel();
+}
+
+inline Level getEndLevel() {
+    return MIN(getMaxProfileLevel(), getCurrentLevel());
+}
+
 
 /**
  * start profiling
@@ -180,17 +133,6 @@ void resumeProfiler() {
 int _maxRegionNum = 0;
 
 
-TEntry* dummyEntry = NULL;
-
-void allocDummyTEntry() { dummyEntry = allocTEntry(); }
-
-TEntry* getDummyTEntry() { return dummyEntry; }
-
-void freeDummyTEntry() {
-    //freeTEntry(dummyEntry);
-	free(dummyEntry); // dummy will always have NULL for time/version
-    dummyEntry = NULL;
-}
 
 void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
     if(!isKremlinOn()) { return; }
@@ -202,6 +144,7 @@ void prepareCall(UInt64 callSiteId, UInt64 calledRegionId) {
 	lastCallSiteId = callSiteId;
 }
 
+// TODO: need to think how to pass args without TEntry
 void linkArgToLocal(UInt src) {
     if (!isKremlinOn())
         return;
@@ -305,6 +248,11 @@ UInt64* getDynamicRegionId(UInt64 sid) {
     return did;
 }
 
+UInt getVersion(int level) {
+	assert(level >= 0 && level < DS_ALLOC_SIZE);
+	return versions[level];
+}
+
 /**
  * Returns timestamp of control dep at specified level with specified version.
  * @param level 	Level at which to look for control dep.
@@ -312,10 +260,14 @@ UInt64* getDynamicRegionId(UInt64 sid) {
  * @return			Timestamp of control dep.
  */
 // preconditions: cdtHead != NULL && level >= 0
-UInt64 getCdt(int level, UInt32 version) {
+Timestamp getCdt(int level, UInt32 version) {
     //assert(cdtHead != NULL);
-    return (cdtHead->version[level - __kremlin_min_level] == version) ?
-        cdtHead->time[level - __kremlin_min_level] : 0;
+    return (cdtHead->version[level - getMinReportLevel()] == version) ?
+        cdtHead->time[level - getMinReportLevel()] : 0;
+}
+
+Timestamp getCurrentCdt(int level) {
+	return getCdt(level, getVersion(level));
 }
 
 /**
@@ -324,10 +276,10 @@ UInt64 getCdt(int level, UInt32 version) {
  * @param version	Version number to set.
  * @param time		Timestamp to set control dep to.
  */
-void setCdt(int level, UInt32 version, UInt64 time) {
-    assert(level >= __kremlin_min_level);
-    cdtHead->time[level - __kremlin_min_level] = time;
-    cdtHead->version[level - __kremlin_min_level] = version;
+void setCdt(int level, UInt32 version, Timestamp time) {
+    assert(level >= getMinReportLevel());
+    cdtHead->time[level - getMinReportLevel()] = time;
+    cdtHead->version[level - getMinReportLevel()] = version;
 }
 
 /**
@@ -338,8 +290,8 @@ void setCdt(int level, UInt32 version, UInt64 time) {
 void fillCDT(CDT* cdt, TEntry* entry) {
 	// entry may not have data for all logged levels so we have to check timeArrayLength
     int i;
-    for (i = __kremlin_min_level; i <= __kremlin_max_profiled_level; ++i) {
-        int level = i - __kremlin_min_level;
+    for (i = getMinReportLevel(); i <= getMaxProfileLevel(); ++i) {
+        int level = i - getMinReportLevel();
 
 		if(i < entry->timeArrayLength) {
         	cdt->time[level] = entry->time[level];
@@ -396,7 +348,7 @@ void dumpTEntry(TEntry* entry, int size) {
  * @return				Critical path length of specified level.
  */
 UInt64 updateCP(UInt64 value, int level) {
-	int true_level = level - __kremlin_min_level;
+	int true_level = level - getMinReportLevel();
 	//int true_level = level;
 	regionInfo[true_level].cp = MAX(value,regionInfo[true_level].cp);
 	return regionInfo[true_level].cp;
@@ -430,209 +382,6 @@ void popFuncContext() {
     free(ret);  
 }
 
-// move to table.c
-void fillTSArray(TEntry* src_entry, TSArray* dest_tsa) {
-	int fill_size = MIN(src_entry->timeArrayLength,numActiveLevels);
-
-	// Fill in the data, taking into account version
-	int i;
-	for(i = 0; i < fill_size; ++i) {
-    	dest_tsa->times[i] = (src_entry->version[i] == versions[i]) ?  src_entry->time[i] : 0;
-	}
-
-	// TODO: memset for this?
-	for(i = fill_size; i < numActiveLevels; ++i) { dest_tsa->times[i] = 0; }
-}
-
-/*
- * Filles tsa array with timestamps associated with vreg
- * @param vreg			Virtual register number to get data from
- * @param tsa			TSArray to write TS data to
- */
-// TODO: move to table.c
-void getLocalTimes(UInt src_vreg, TSArray* tsa) {
-	TEntry* entry = getLTEntry(src_vreg);
-
-	fillTSArray(entry, tsa);
-}
-
-// TODO: move to GTable.c
-void getGlobalTimes(Addr src_addr, TSArray* tsa) {
-    TEntry* entry = GTableGetTEntry(gTable, src_addr);
-
-	fillTSArray(entry, tsa);
-}
-
-void getCDTTSArray(TSArray* tsa) {
-	int i;
-	for(i = 0; i < numActiveLevels; ++i) {
-		tsa->times[i] = (cdtHead->version[i] == versions[i]) ?  cdtHead->time[i] : 0;
-	}
-}
-
-// precondition: numActiveLevels > 0
-TSArray* getSrcTSArray(UInt idx) { 
-	assert(idx <= MAX_SRC_TSA_VAL);
-
-	// TODO: move this if to logRegionEntry for more efficiency
-	if(src_arrays_size < numActiveLevels) {
-		src_arrays = realloc(src_arrays,sizeof(TSArray*)*numActiveLevels);
-
-		for( ; src_arrays_size < numActiveLevels; ++src_arrays_size) {
-			src_arrays[src_arrays_size] = malloc(sizeof(TSArray)*MAX_SRC_TSA_VAL);
-
-			int i;
-			for(i = 0; i < MAX_SRC_TSA_VAL; ++i) {
-				src_arrays[src_arrays_size][i].times =
-					malloc(sizeof(Timestamp)*(src_arrays_size+1));
-				src_arrays[src_arrays_size][i].size = src_arrays_size+1;
-			}
-		}
-	}
-
-	return &src_arrays[numActiveLevels-1][idx];
-}
-
-// precondition: numActiveLevels > 0
-TSArray* getDestTSArray() { 
-	// TODO: move this if to logRegionEntry for more efficiency
-	if(dest_arrays_size < numActiveLevels) {
-		dest_arrays = realloc(dest_arrays,sizeof(TSArray)*numActiveLevels);
-
-		for( ; dest_arrays_size < numActiveLevels; ++dest_arrays_size) {
-			dest_arrays[dest_arrays_size].times = 
-				malloc(sizeof(Timestamp)*(dest_arrays_size+1));
-			dest_arrays[dest_arrays_size].size = dest_arrays_size+1;
-		}
-	}
-
-	return &dest_arrays[numActiveLevels-1];
-}
-
-// TODO: move to GTable.c
-void updateTEntry(TEntry* entry, TSArray* src_tsa) {
-    TEntryAllocAtLeastLevel(entry, 0);
-
-	int i;
-	for(i = 0; i < numActiveLevels; ++i) {
-		entry->time[i] = src_tsa->times[i];
-		regionInfo[i].cp = MAX(src_tsa->times[i],regionInfo[i].cp); // update CP
-
-		entry->version[i] = versions[i];
-	}
-}
-
-// TODO: move to table.c
-void updateLocalTimes(UInt dest_vreg, TSArray* src_tsa) {
-	TEntry* entry = getLTEntry(dest_vreg);
-
-	updateTEntry(entry, src_tsa);
-}
-
-// TODO: move to GTable.c
-void updateGlobalTimes(Addr dest_addr, TSArray* src_tsa) {
-    TEntry* entry = GTableGetTEntry(gTable, dest_addr);
-
-	updateTEntry(entry, src_tsa);
-}
-
-// TODO: move to GTable.c
-void eraseGlobalTimes(Addr addr) {
-	GTableDeleteTEntry(gTable, addr);
-}
-
-/*
- * Returns version ID at specified region level.
- * @param level			Region level to get version from.
- * @return				Version ID at specified level.
- */
-UInt getVersion(int level) {
-    assert(level >= 0 && level < DS_ALLOC_SIZE);
-    return versions[level];
-}
-
-// precondition: inLevel >= __kremlin_min_level && inLevel < maxRegionSize
-inline UInt64 getTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
-    int level = inLevel - __kremlin_min_level;
-
-    UInt64 ret = (level >= 0 && level < entry->timeArrayLength && entry->version[level] == version) ?
-                    entry->time[level] : 0;
-    return ret;
-}
-
-
-// precondition: entry != NULL
-inline void updateTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int level = inLevel - __kremlin_min_level;
-    entry->version[level] = version;
-    entry->time[level] = timestamp;
-}
-
-#ifdef EXTRA_STATS
-UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
-    int level = inLevel - __kremlin_min_level;
-    assert(entry != NULL);
-    return (level >= 0 && entry->timeArrayLength > level && entry->readVersion[level] == version) ?
-                    entry->readTime[level] : 0;
-}
-
-void updateReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int level = inLevel - __kremlin_min_level;
-    assert(entry != NULL);
-
-    entry->readVersion[level] = version;
-    entry->readTime[level] = timestamp;
-}
-
-void updateReadMemoryAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int region = inLevel;
-    //UInt64 startTime = regionInfo[region].start;
-    UInt64 prevTimestamp = getReadTimestamp(entry, inLevel, version);
-
-    if (prevTimestamp == 0LL) {
-        regionInfo[region].readCnt++;
-        //fprintf(stderr, "\t[load] addr = 0x%x level = %d version = %d timestamp = %d\n",
-        //  entry, inLevel, version, timestamp);
-
-        updateReadTimestamp(entry, inLevel, version, timestamp);
-    }
-}
-    
-// 1) update readCnt and writeCnt
-// 2) update timestamp
-void updateWriteMemoryAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int region = inLevel;
-    //UInt64 startTime = regionInfo[region].start;
-    UInt64 prevTimestamp = getTimestamp(entry, inLevel, version);
-    if (prevTimestamp == 0LL) {
-        regionInfo[region].writeCnt++;
-    }   
-    //updateTimestamp(entry, inLevel, version, timestamp);
-}
-
-void updateReadMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int region = inLevel;
-    //UInt64 startTime = regionInfo[region].start;
-    UInt64 prevTimestamp = getReadTimestamp(entry, inLevel, version);
-    if (prevTimestamp == 0LL) {
-        regionInfo[region].readLineCnt++;
-        //fprintf(stderr, "[line] addr = 0x%x level = %d version = %d timestamp = %d\n",
-        //  entry, inLevel, version, timestamp);
-        updateReadTimestamp(entry, inLevel, version, timestamp);
-
-    }
-}
-
-void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, UInt64 timestamp) {
-    int region = inLevel;
-    //UInt64 startTime = regionInfo[region].start;
-    UInt64 prevTimestamp = getTimestamp(entry, inLevel, version);
-    if (prevTimestamp == 0LL) {
-        regionInfo[region].writeLineCnt++;
-    }
-    updateTimestamp(entry, inLevel, version, timestamp);
-}
-#endif
 
 void prepareInvoke(UInt64 id) {
     if(!isKremlinOn())
@@ -714,16 +463,14 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 
     int curr_level = getCurrentLevel();
 
-#ifndef USE_UREGION
     FuncContext* funcHead = *FuncContextsLast(funcContexts);
 	UInt64 callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
 	cregionPutContext(regionId, callSiteId);
-#endif
 
 	if(isCurrentLevelInstrumentable()) numActiveLevels++;
 
 	// If we exceed the maximum depth, we act like this region doesn't exist
-	if(curr_level > __kremlin_max_profiled_level) { return; }
+	if(curr_level > getMaxProfileLevel()) { return; }
 
 
     incDynamicRegionId(regionId);
@@ -735,7 +482,7 @@ void logRegionEntry(UInt64 regionId, UInt regionType) {
 
 	// set initial values for newly entered region (but make sure we are only
 	// doing this for logged levels)
-	if(curr_level >= __kremlin_min_level) {
+	if(curr_level >= getMinReportLevel()) {
 		initCurrentRegion(regionId,*getDynamicRegionId(regionId),regionType);
 	}
 
@@ -812,9 +559,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 #endif
     	decrementRegionLevel();
     	decIndentTab(); // applies only to debug printing
-#ifndef USE_UREGION
 		cregionRemoveContext(NULL);
-#endif
 		return;
 	}
 
@@ -835,7 +580,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 
 	// Only update parent region's childrenWork and childrenCP when we are
 	// logging the parent
-	if (curr_level > __kremlin_min_level) {
+	if (curr_level > getMinReportLevel()) {
 		Region parent_region = regionInfo[getLevelOffset(curr_level)-1];
 
     	parentSid = parent_region.regionId;
@@ -891,11 +636,7 @@ void logRegionExit(UInt64 regionId, UInt regionType) {
 
     RegionField field = fillRegionField(work,cp,(*FuncContextsLast(funcContexts))->callSiteId,spWork,tpWork,curr_region);
 
-#ifdef USE_UREGION
-    processUdr(sid, did, parentSid, parentDid, field);
-#else
 	cregionRemoveContext(&field);
-#endif
         
 #ifndef WORK_ONLY
     if (regionType == RegionFunc) { handleFuncRegionExit(); }
@@ -920,58 +661,29 @@ void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* src0_tsa = getSrcTSArray(0);
-	TSArray* src1_tsa = getSrcTSArray(1);
-
-	getLocalTimes(src0, src0_tsa);
-	getLocalTimes(src1, src1_tsa);
-
-	TSArray* cdt_tsa = getSrcTSArray(2);
-	
-	getCDTTSArray(cdt_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		Timestamp max_src_ts = MAX(src0_tsa->times[i],src1_tsa->times[i]);
-		dest_tsa->times[i] = MAX(max_src_ts,cdt_tsa->times[i]) + opCost;
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entry0 = getLTEntry(src0);
-    TEntry* entry1 = getLTEntry(src1);
-    TEntry* entryDest = getLTEntry(dest);
-
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
-
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     int i;
     for (i = minLevel; i <= maxLevel; ++i) {
 		// calculate availability time
-        UInt version = getVersion(i);
-        UInt64 cdt = getCdt(i,version);
-        UInt64 ts0 = getTimestamp(entry0, i, version);
-        UInt64 ts1 = getTimestamp(entry1, i, version);
-        UInt64 greater0 = (ts0 > ts1) ? ts0 : ts1;
-        UInt64 greater1 = (cdt > greater0) ? cdt : greater0;
-        UInt64 value = greater1 + opCost;
-        updateTimestamp(entryDest, i, version, value);
+        Timestamp cdt = getCurrentCdt(i);
+        Timestamp ts0 = regGetTimestamp(src0, i);
+        Timestamp ts1 = regGetTimestamp(src1, i);
+        Timestamp greater0 = (ts0 > ts1) ? ts0 : ts1;
+        Timestamp greater1 = (cdt > greater0) ? cdt : greater0;
+        Timestamp value = greater1 + opCost;
+		regSetTimestamp(value, dest, i);
         updateCP(value, i);
 		
-        MSG(2, "binOp[%u] level %u version %u \n", opCost, i, version);
+        MSG(2, "binOp[%u] level %u version %u \n", opCost, i, getVersion(i));
         MSG(2, " src0 %u src1 %u dest %u\n", src0, src1, dest);
         MSG(2, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
     }
 
-    return entryDest;
-	*/
+//  return entryDest;
+	return NULL;
+	
 #else
     return NULL;
 #endif
@@ -987,52 +699,28 @@ void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* src_tsa = getSrcTSArray(0);
-	getLocalTimes(src, src_tsa);
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
-	TSArray* cdt_tsa = getSrcTSArray(1);
-	
-	getCDTTSArray(cdt_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		dest_tsa->times[i] = MAX(src_tsa->times[i],cdt_tsa->times[i]) + opCost;
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entry0 = getLTEntry(src);
-    TEntry* entryDest = getLTEntry(dest);
-    
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
-
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
 
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 cdt = getCdt(i,version);
-        UInt64 ts0 = getTimestamp(entry0, i, version);
-        UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-        UInt64 value = greater1 + opCost;
+        Timestamp cdt = getCurrentCdt(i);
+        Timestamp ts0 = regGetTimestamp(src, i);
+        Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
+        Timestamp value = greater1 + opCost;
 
 		// update time and critical path info
-        updateTimestamp(entryDest, i, version, value);
+		regSetTimestamp(value, dest, i);
         updateCP(value, i);
 
-        MSG(2, "binOpConst[%u] level %u version %u \n", opCost, i, version);
+        MSG(2, "binOpConst[%u] level %u version %u \n", opCost, i, getVersion(i));
         MSG(2, " src %u dest %u\n", src, dest);
         MSG(2, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
     }
 
-    return entryDest;
-	*/
+//    return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1053,32 +741,19 @@ void* logAssignmentConst(UInt dest) {
 
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
-
-	TSArray* cdt_tsa = getSrcTSArray(1);
-	getCDTTSArray(cdt_tsa);
-
-	updateLocalTimes(dest,cdt_tsa);
-
-    return cdt_tsa;
-
-	/*
-    TEntry* entryDest = getLTEntry(dest);
     
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     int i;
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 cdt = getCdt(i,version);
-
-        updateTimestamp(entryDest, i, version, cdt);
+        Timestamp cdt = getCurrentCdt(i);
+		regSetTimestamp(cdt, dest, i);
         updateCP(cdt, i);
     }
 
-    return entryDest;
-	*/
+    //return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1093,54 +768,31 @@ void* logLoadInst(Addr src_addr, UInt dest) {
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* src_tsa = getSrcTSArray(0);
-	getGlobalTimes(src_addr, src_tsa);
-
-	TSArray* cdt_tsa = getSrcTSArray(1);
-	getCDTTSArray(cdt_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		dest_tsa->times[i] = MAX(src_tsa->times[i],cdt_tsa->times[i]) + LOAD_COST;
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entry0 = GTableGetTEntry(gTable, src_addr);
-    TEntry* entryDest = getLTEntry(dest);
-
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
 #ifdef EXTRA_STATS
     TEntryAllocAtLeastLevel(entry0, maxLevel);
 #endif
 
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    int i;
+    Level i;
     for (i = minLevel; i <= maxLevel; i++) {
         regionInfo[getLevelOffset(i)].loadCnt++;
-        UInt version = getVersion(i);
-        UInt64 cdt = getCdt(i,version);
-        UInt64 ts0 = getTimestamp(entry0, i, version);
-        UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-        UInt64 value = greater1 + LOAD_COST;
+        Timestamp cdt = getCurrentCdt(i);
+		Timestamp ts0 = memGetTimestamp(src_addr, i);
+        Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
+        Timestamp value = greater1 + LOAD_COST;
 
 #ifdef EXTRA_STATS
-        updateReadMemoryAccess(entry0, i, version, value);
+        updateReadMemoryAccess(entry0, i, getVersion(i), value);
 #endif
 
-        updateTimestamp(entryDest, i, version, value);
+        regSetTimestamp(value, dest, i);
         updateCP(value, i);
     }
 
-    return entryDest;
-	*/
+    //return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1155,64 +807,31 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* addr_tsa = getSrcTSArray(0);
-	TSArray* src_tsa = getSrcTSArray(1);
-
-	getGlobalTimes(src_addr, addr_tsa);
-	getLocalTimes(src1, src_tsa);
-
-	TSArray* cdt_tsa = getSrcTSArray(2);
-	getCDTTSArray(cdt_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		Timestamp tmp_max_ts = MAX(addr_tsa->times[i],src_tsa->times[i]);
-		dest_tsa->times[i] = MAX(tmp_max_ts,cdt_tsa->times[i]) + LOAD_COST;
-	}
 
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entrySrcAddr = GTableGetTEntry(gTable, src_addr);
-    TEntry* entrySrc1 = getLTEntry(src1);
-    TEntry* entryDest = getLTEntry(dest);
-
-    assert(entrySrcAddr != NULL);
-    assert(entrySrc1 != NULL);
-    assert(entryDest != NULL);
-    
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
-
-    int i;
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
+        Timestamp cdt = getCurrentCdt(i);
+		Timestamp ts_src_addr = memGetTimestamp(src1, i);
+		Timestamp ts_src1 = regGetTimestamp(src1, i);
 
-        UInt64 cdt = getCdt(i,version);
+        Timestamp max1 = (ts_src_addr > cdt) ? ts_src_addr : cdt;
+        Timestamp max2 = (max1 > ts_src1) ? max1 : ts_src1;
+		Timestamp value = max2 + LOAD_COST;
 
-        UInt64 ts_src_addr = getTimestamp(entrySrcAddr, i, version);
-        UInt64 ts_src1 = getTimestamp(entrySrc1, i, version);
-
-        UInt64 max1 = (ts_src_addr > cdt) ? ts_src_addr : cdt;
-        UInt64 max2 = (max1 > ts_src1) ? max1 : ts_src1;
-
-		UInt64 value = max2 + LOAD_COST;
-
-        updateTimestamp(entryDest, i, version, value);
+        //updateTimestamp(entryDest, i, version, value);
+        regSetTimestamp(value, dest, i);
         updateCP(value, i);
 
-        MSG(2, "logLoadInst1Src level %u version %u \n", i, version);
+        MSG(2, "logLoadInst1Src level %u version %u \n", i, getVersion(i));
         MSG(2, " src_addr 0x%x src1 %u dest %u\n", src_addr, src1, dest);
         MSG(2, " cdt %u ts_src_addr %u ts_src1 %u max %u\n", cdt, ts_src_addr, ts_src1, max2);
     }
 
-    return entryDest;
-	*/
+    //return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1234,53 +853,26 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* src_tsa = getSrcTSArray(0);
-	getLocalTimes(src, src_tsa);
-
-	TSArray* cdt_tsa = getSrcTSArray(1);
-	getCDTTSArray(cdt_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		dest_tsa->times[i] = MAX(src_tsa->times[i],cdt_tsa->times[i]) + STORE_COST;
-	}
-
-	updateGlobalTimes(dest_addr,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entry0 = getLTEntry(src);
-    TEntry* entryDest = GTableGetTEntry(gTable, dest_addr);
-
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     //fprintf(stderr, "\n\nstore ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
     int i;
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
-    //TEntryAllocAtLeastLevel(entryLine, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
         regionInfo[getLevelOffset(i)].storeCnt++;
-        UInt version = getVersion(i);
-        UInt64 cdt = getCdt(i,version);
-        UInt64 ts0 = getTimestamp(entry0, i, version);
-        UInt64 greater1 = (cdt > ts0) ? cdt : ts0;
-        UInt64 value = greater1 + STORE_COST;
-
+        Timestamp cdt = getCurrentCdt(i);
+		Timestamp ts0 = regGetTimestamp(src, i);
+        Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
+        Timestamp value = greater1 + STORE_COST;
 #ifdef EXTRA_STATS
-        updateWriteMemoryAccess(entryDest, i, version, value);
-      //  updateWriteMemoryLineAccess(entryLine, i, version, value);
+        updateWriteMemoryAccess(entryDest, i, getVersion(i), value);
 #endif
-
-        updateTimestamp(entryDest, i, version, value);
+		memSetTimestamp(value, dest_addr, i);
         updateCP(value, i);
     }
 
-    return entryDest;
-	*/
+    //return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1297,48 +889,29 @@ void* logStoreInstConst(Addr dest_addr) {
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* cdt_tsa = getSrcTSArray(0);
-	getCDTTSArray(cdt_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		dest_tsa->times[i] = cdt_tsa->times[i] + STORE_COST;
-	}
-
-	updateGlobalTimes(dest_addr,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entryDest = GTableGetTEntry(gTable, dest_addr);
-    assert(entryDest != NULL);
-
 #ifdef EXTRA_STATS
     TEntry* entryLine = getGTEntryCacheLine(dest_addr);
 #endif
     
     //fprintf(stderr, "\nstoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     int i;
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; ++i) {
-        UInt version = getVersion(i);
-        UInt64 cdt = getCdt(i,version);
-        UInt64 value = cdt + STORE_COST;
+        Timestamp cdt = getCurrentCdt(i);
+        Timestamp value = cdt + STORE_COST;
 #ifdef EXTRA_STATS
-        updateWriteMemoryAccess(entryDest, i, version, value);
-        updateWriteMemoryLineAccess(entryLine, i, version, value);
+        //updateWriteMemoryAccess(entryDest, i, version, value);
+        //updateWriteMemoryLineAccess(entryLine, i, version, value);
 #endif
-        updateTimestamp(entryDest, i, version, value);
+		memSetTimestamp(value, dest_addr, i);
         updateCP(value, i);
     }
 
-    return entryDest;
-	*/
+   // return entryDest;
+
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1373,8 +946,7 @@ void logFree(Addr addr) {
 
     Addr a;
     for(a = addr; a < addr + mem_size; a++) {
-		eraseGlobalTimes(a);
-        //GTableDeleteTEntry(gTable, a);
+        GTableDeleteTEntry(gTable, a);
 	}
 
     freeMEntry(addr);
@@ -1382,8 +954,8 @@ void logFree(Addr addr) {
 	addWork(FREE_COST);
 
 	// make sure CP is at least the time needed to complete the free
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
@@ -1537,8 +1109,8 @@ void logFuncReturnConst(void) {
 
 #ifndef WORK_ONLY
     int i;
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     // Assert there is a function context before the top.
     assert(FuncContextsSize(funcContexts) > 1);
@@ -1551,7 +1123,7 @@ void logFuncReturnConst(void) {
     TEntryAllocAtLeastLevel((*nextHead)->ret, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
         int version = getVersion(i);
-        UInt64 cdt = getCdt(i,version);
+        UInt64 cdt = getCurrentCdt(i);
 
         // Copy the return timestamp into the previous stack's return value.
         updateTimestamp((*nextHead)->ret, i, version, cdt);
@@ -1576,51 +1148,24 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
-
-	TSArray* src_tsa = getSrcTSArray(0);
-	TSArray* cd_tsa = getSrcTSArray(1);
-
-	getLocalTimes(src, src_tsa);
-	getLocalTimes(cd, cd_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		dest_tsa->times[i] = MAX(src_tsa->times[i],cd_tsa->times[i]);
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entrySrc = getLTEntry(src);
-    TEntry* entryCD = getLTEntry(cd);
-    TEntry* entryDest = getLTEntry(dest);
-
-    assert(entrySrc != NULL);
-    assert(entryCD != NULL);
-    assert(entryDest != NULL);
     
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     int i;
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 ts_src = getTimestamp(entrySrc, i, version);
-        UInt64 ts_cd = getTimestamp(entryCD, i, version);
-        UInt64 max = (ts_src > ts_cd) ? ts_src : ts_cd;
-        updateTimestamp(entryDest, i, version, max);
-        MSG(2, "logPhiNode1CD level %u version %u \n", i, version);
+		Timestamp ts_src = regGetTimestamp(src, i);
+		Timestamp ts_cd = regGetTimestamp(cd, i);
+        Timestamp max = (ts_src > ts_cd) ? ts_src : ts_cd;
+        //updateTimestamp(entryDest, i, version, max);
+		regSetTimestamp(max, dest, i);
+        MSG(2, "logPhiNode1CD level %u version %u \n", i, getVersion(i));
         MSG(2, " src %u cd %u dest %u\n", src, cd, dest);
         MSG(2, " ts_src %u ts_cd %u max %u\n", ts_src, ts_cd, max);
     }
 
-    return entryDest;
-	*/
+    //return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1633,60 +1178,28 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
-
-	TSArray* src_tsa = getSrcTSArray(0);
-	TSArray* cd1_tsa = getSrcTSArray(1);
-	TSArray* cd2_tsa = getSrcTSArray(2);
-
-	getLocalTimes(src, src_tsa);
-	getLocalTimes(cd1, cd1_tsa);
-	getLocalTimes(cd2, cd2_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		Timestamp tmp_max_ts = MAX(src_tsa->times[i],cd1_tsa->times[i]);
-		dest_tsa->times[i] = MAX(tmp_max_ts,cd2_tsa->times[i]);
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entrySrc = getLTEntry(src);
-    TEntry* entryCD1 = getLTEntry(cd1);
-    TEntry* entryCD2 = getLTEntry(cd2);
-    TEntry* entryDest = getLTEntry(dest);
-
-    assert(entrySrc != NULL);
-    assert(entryCD1 != NULL);
-    assert(entryCD2 != NULL);
-    assert(entryDest != NULL);
     
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     int i;
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 ts_src = getTimestamp(entrySrc, i, version);
-        UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
-        UInt64 ts_cd2 = getTimestamp(entryCD2, i, version);
-        UInt64 max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        UInt64 max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+		Timestamp ts_src = regGetTimestamp(src, i);
+		Timestamp ts_cd1 = regGetTimestamp(cd1, i);
+		Timestamp ts_cd2 = regGetTimestamp(cd2, i);
+        Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+        Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
 
-        updateTimestamp(entryDest, i, version, max2);
+		regSetTimestamp(max2, dest, i);
+        //updateTimestamp(entryDest, i, version, max2);
 
-        MSG(2, "logPhiNode2CD level %u version %u \n", i, version);
+        MSG(2, "logPhiNode2CD level %u version %u \n", i, getVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u dest %u\n", src, cd1, cd2, dest);
         MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u max %u\n", ts_src, ts_cd1, ts_cd2, max2);
     }
 
-    return entryDest;
-	*/
+    //return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1700,64 +1213,28 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* src_tsa = getSrcTSArray(0);
-	TSArray* cd1_tsa = getSrcTSArray(1);
-	TSArray* cd2_tsa = getSrcTSArray(2);
-	TSArray* cd3_tsa = getSrcTSArray(3);
-
-	getLocalTimes(src, src_tsa);
-	getLocalTimes(cd1, cd1_tsa);
-	getLocalTimes(cd2, cd2_tsa);
-	getLocalTimes(cd3, cd3_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		Timestamp tmp_max_ts = MAX(src_tsa->times[i],cd1_tsa->times[i]);
-		tmp_max_ts = MAX(tmp_max_ts,cd2_tsa->times[i]);
-		dest_tsa->times[i] = MAX(tmp_max_ts,cd3_tsa->times[i]);
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entrySrc = getLTEntry(src);
-    TEntry* entryCD1 = getLTEntry(cd1);
-    TEntry* entryCD2 = getLTEntry(cd2);
-    TEntry* entryCD3 = getLTEntry(cd3);
-    TEntry* entryDest = getLTEntry(dest);
-
-    assert(entrySrc != NULL);
-    assert(entryCD1 != NULL);
-    assert(entryCD2 != NULL);
-    assert(entryCD3 != NULL);
-    assert(entryDest != NULL);
-    
     int i = 0;
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 ts_src = getTimestamp(entrySrc, i, version);
-        UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
-        UInt64 ts_cd2 = getTimestamp(entryCD2, i, version);
-        UInt64 ts_cd3 = getTimestamp(entryCD3, i, version);
-        UInt64 max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        UInt64 max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        UInt64 max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
-        updateTimestamp(entryDest, i, version, max3);
-        MSG(2, "logPhiNode3CD level %u version %u \n", i, version);
+		Timestamp ts_src = regGetTimestamp(src, i);
+		Timestamp ts_cd1 = regGetTimestamp(cd1, i);
+		Timestamp ts_cd2 = regGetTimestamp(cd2, i);
+		Timestamp ts_cd3 = regGetTimestamp(cd3, i);
+        Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+        Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+        Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+
+		regSetTimestamp(max3, dest, i);
+
+        MSG(2, "logPhiNode3CD level %u version %u \n", i, getVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u dest %u\n", src, cd1, cd2, cd3, dest);
         MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u max %u\n", ts_src, ts_cd1, ts_cd2, ts_cd3, max3);
     }
 
-    return entryDest;
-	*/
+    //return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1771,64 +1248,30 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* src_tsa = getSrcTSArray(0);
-	TSArray* cd1_tsa = getSrcTSArray(1);
-	TSArray* cd2_tsa = getSrcTSArray(2);
-	TSArray* cd3_tsa = getSrcTSArray(3);
-	TSArray* cd4_tsa = getSrcTSArray(3);
-
-	getLocalTimes(src, src_tsa);
-	getLocalTimes(cd1, cd1_tsa);
-	getLocalTimes(cd2, cd2_tsa);
-	getLocalTimes(cd3, cd3_tsa);
-	getLocalTimes(cd4, cd4_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		Timestamp tmp_max_ts = MAX(src_tsa->times[i],cd1_tsa->times[i]);
-		Timestamp tmp2_max_ts = MAX(cd2_tsa->times[i],cd3_tsa->times[i]);
-		tmp_max_ts = MAX(tmp_max_ts,tmp2_max_ts);
-		dest_tsa->times[i] = MAX(tmp_max_ts,cd4_tsa->times[i]);
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entrySrc = getLTEntry(src);
-    TEntry* entryCD1 = getLTEntry(cd1);
-    TEntry* entryCD2 = getLTEntry(cd2);
-    TEntry* entryCD3 = getLTEntry(cd3);
-    TEntry* entryCD4 = getLTEntry(cd4);
-    TEntry* entryDest = getLTEntry(dest);
-
     int i = 0;
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 ts_src = getTimestamp(entrySrc, i, version);
-        UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
-        UInt64 ts_cd2 = getTimestamp(entryCD2, i, version);
-        UInt64 ts_cd3 = getTimestamp(entryCD3, i, version);
-        UInt64 ts_cd4 = getTimestamp(entryCD4, i, version);
-        UInt64 max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        UInt64 max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        UInt64 max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
-        UInt64 max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
-        updateTimestamp(entryDest, i, version, max4);
-        MSG(2, "logPhiNode4CD level %u version %u \n", i, version);
+		Timestamp ts_src = regGetTimestamp(src, i);
+		Timestamp ts_cd1 = regGetTimestamp(cd1, i);
+		Timestamp ts_cd2 = regGetTimestamp(cd2, i);
+		Timestamp ts_cd3 = regGetTimestamp(cd3, i);
+		Timestamp ts_cd4 = regGetTimestamp(cd4, i);
+        Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+        Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+        Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+        Timestamp max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
+
+		regSetTimestamp(max4, dest, i);
+
+        MSG(2, "logPhiNode4CD level %u version %u \n", i, getVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", src, cd1, cd2, cd3, cd4, dest);
         MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_src, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
     }
 
-    return entryDest;
-	*/
+    //return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1841,64 +1284,29 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
-
-	TSArray* src_tsa = getSrcTSArray(0);
-	TSArray* cd1_tsa = getSrcTSArray(1);
-	TSArray* cd2_tsa = getSrcTSArray(2);
-	TSArray* cd3_tsa = getSrcTSArray(3);
-	TSArray* cd4_tsa = getSrcTSArray(3);
-
-	getLocalTimes(dest, src_tsa);
-	getLocalTimes(cd1, cd1_tsa);
-	getLocalTimes(cd2, cd2_tsa);
-	getLocalTimes(cd3, cd3_tsa);
-	getLocalTimes(cd4, cd4_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		Timestamp tmp_max_ts = MAX(src_tsa->times[i],cd1_tsa->times[i]);
-		Timestamp tmp2_max_ts = MAX(cd2_tsa->times[i],cd3_tsa->times[i]);
-		tmp_max_ts = MAX(tmp_max_ts,tmp2_max_ts);
-		dest_tsa->times[i] = MAX(tmp_max_ts,cd4_tsa->times[i]);
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entryCD1 = getLTEntry(cd1);
-    TEntry* entryCD2 = getLTEntry(cd2);
-    TEntry* entryCD3 = getLTEntry(cd3);
-    TEntry* entryCD4 = getLTEntry(cd4);
-    TEntry* entryDest = getLTEntry(dest);
-
+	
     int i = 0;
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 ts_dest = getTimestamp(entryDest, i, version);
-        UInt64 ts_cd1 = getTimestamp(entryCD1, i, version);
-        UInt64 ts_cd2 = getTimestamp(entryCD2, i, version);
-        UInt64 ts_cd3 = getTimestamp(entryCD3, i, version);
-        UInt64 ts_cd4 = getTimestamp(entryCD4, i, version);
-        UInt64 max1 = (ts_dest > ts_cd1) ? ts_dest : ts_cd1;
-        UInt64 max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        UInt64 max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
-        UInt64 max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
-        updateTimestamp(entryDest, i, version, max4);
-        MSG(2, "log4CDToPhiNode4CD level %u version %u \n", i, version);
+        Timestamp ts_dest = regGetTimestamp(dest, i);
+		Timestamp ts_cd1 = regGetTimestamp(cd1, i);
+		Timestamp ts_cd2 = regGetTimestamp(cd2, i);
+		Timestamp ts_cd3 = regGetTimestamp(cd3, i);
+		Timestamp ts_cd4 = regGetTimestamp(cd4, i);
+        Timestamp max1 = (ts_dest > ts_cd1) ? ts_dest : ts_cd1;
+        Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+        Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+        Timestamp max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
+		regSetTimestamp(max4, dest, i);
+
+        MSG(2, "log4CDToPhiNode4CD level %u version %u \n", i, getVersion(i));
         MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", cd1, cd2, cd3, cd4, dest);
         MSG(2, " ts_dest %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_dest, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
     }
-
-    return entryDest;
-	*/
+   // return entryDest;
+    return NULL;
 #else
     return NULL;
 #endif
@@ -1906,7 +1314,7 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 
 #define MAX_ENTRY 10
 
-void logPhiNodeAddCondition(UInt dest, UInt src) {
+void* logPhiNodeAddCondition(UInt dest, UInt src) {
     if (!isKremlinOn()) return;
 
     MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
@@ -1914,49 +1322,21 @@ void logPhiNodeAddCondition(UInt dest, UInt src) {
 #ifndef WORK_ONLY
 	if(numActiveLevels == 0) return NULL;
 
-	TSArray* src_tsa = getSrcTSArray(0);
-	TSArray* orig_dest_tsa = getSrcTSArray(1);
-
-	getLocalTimes(src, src_tsa);
-	getLocalTimes(dest, orig_dest_tsa);
-
-	TSArray* dest_tsa = getDestTSArray();
-
-    int i;
-    for (i = 0; i < numActiveLevels; ++i) {
-		dest_tsa->times[i] = MAX(src_tsa->times[i],orig_dest_tsa->times[i]);
-	}
-
-	updateLocalTimes(dest,dest_tsa);
-
-    return dest_tsa;
-
-	/*
-    TEntry* entry0 = getLTEntry(src);
-    TEntry* entry1 = getLTEntry(dest);
-    TEntry* entryDest = entry1;
-    
-    assert(entry0 != NULL);
-    assert(entry1 != NULL);
-    assert(entryDest != NULL);
-
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
     int i = 0;
 
-    TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = getVersion(i);
-        UInt64 ts0 = getTimestamp(entry0, i, version);
-        UInt64 ts1 = getTimestamp(entry1, i, version);
-        UInt64 value = (ts0 > ts1) ? ts0 : ts1;
-        updateTimestamp(entryDest, i, version, value);
+		Timestamp ts0 = regGetTimestamp(src, i);
+		Timestamp ts1 = regGetTimestamp(dest, i);
+        Timestamp value = (ts0 > ts1) ? ts0 : ts1;
+		regSetTimestamp(value, dest, i);
         updateCP(value, i);
-        MSG(2, "logPhiAddCond level %u version %u \n", i, version);
+        MSG(2, "logPhiAddCond level %u version %u \n", i, getVersion(i));
         MSG(2, " src %u dest %u\n", src, dest);
         MSG(2, " ts0 %u ts1 %u value %u\n", ts0, ts1, value);
     }
-	*/
+	
 #endif
 }
 
@@ -1984,8 +1364,8 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
     }   
     va_end(ap);
 
-    int minLevel = __kremlin_min_level;
-    int maxLevel = MIN(__kremlin_max_profiled_level, getCurrentLevel());
+    int minLevel = getStartLevel();
+    int maxLevel = getEndLevel();
 
     TEntryAllocAtLeastLevel(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
@@ -2019,6 +1399,25 @@ void* logInductionVar(UInt dest) {
     return logAssignmentConst(dest);
 }
 
+static TEntry* mainReturn;
+void deinitStartFuncContext()
+{
+	popFuncContext();
+
+    assert(FuncContextsEmpty(funcContexts));
+    freeTEntry(mainReturn);
+    mainReturn = NULL;
+}
+
+void initStartFuncContext()
+{
+    assert(FuncContextsEmpty(funcContexts));
+
+    prepareCall(0, 0);
+	pushFuncContext();
+    (*FuncContextsLast(funcContexts))->ret = mainReturn = allocTEntry();
+}
+
 UInt isCpp = FALSE;
 UInt hasInitialized = 0;
 
@@ -2031,20 +1430,18 @@ int kremlinInit() {
 
     kremlinOn = TRUE;
 
-	if(__kremlin_debug) { fprintf(stderr,"[kremlin] debugging enabled at level %d\n", __kremlin_debug_level); }
+	if(getKremlinDebugFlag()) { 
+		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", getKremlinDebugLevel()); 
+	}
 
-#ifdef USE_UREGION
-    initializeUdr();
-#else
 	cregionInit();
-#endif
     levelNum = -1;
 
     InvokeRecordsCreate(&invokeRecords);
 
-    storageSize = (__kremlin_max_profiled_level - __kremlin_min_level)+1;
+    storageSize = (getMaxProfileLevel() - getMinReportLevel())+1;
     MSG(0, "minLevel = %d maxLevel (profiled) = %d storageSize = %d\n", 
-        __kremlin_min_level, __kremlin_max_profiled_level, storageSize);
+        getMinReportLevel(), getMaxProfileLevel(), storageSize);
 
     // Allocate a memory allocator.
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
@@ -2068,7 +1465,8 @@ int kremlinInit() {
     // Allocate the hash map to store dynamic region id counts.
     hash_map_sid_did_create(&sidToDid, sidHash, sidCompare, NULL, NULL);
 
-    GTableCreate(&gTable); // TODO: abstract this for new shadow mem imp
+	memShadowInit();
+    //GTableCreate(&gTable); // TODO: abstract this for new shadow mem imp
 
     allocDummyTEntry(); // TODO: abstract this for new shadow mem imp
 
@@ -2079,24 +1477,7 @@ int kremlinInit() {
     return TRUE;
 }
 
-static TEntry* mainReturn;
-void deinitStartFuncContext()
-{
-	popFuncContext();
 
-    assert(FuncContextsEmpty(funcContexts));
-    freeTEntry(mainReturn);
-    mainReturn = NULL;
-}
-
-void initStartFuncContext()
-{
-    assert(FuncContextsEmpty(funcContexts));
-
-    prepareCall(0, 0);
-	pushFuncContext();
-    (*FuncContextsLast(funcContexts))->ret = mainReturn = allocTEntry();
-}
 
 
 int kremlinDeinit() {
@@ -2110,12 +1491,8 @@ int kremlinDeinit() {
 
     deinitStartFuncContext();
 
-#ifdef USE_UREGION
-    finalizeUdr();
-#else
 	//cregionFinish("kremlin.bin");
-	cregionFinish(__kremlin_output_filename);
-#endif
+	cregionFinish(argGetOutputFileName());
     freeDummyTEntry();
 
     finalizeDataStructure();
@@ -2143,9 +1520,7 @@ int kremlinDeinit() {
 	deinitCDT();
 
     GTableDelete(&gTable); // TODO: abstract this for new shadow mem imp
-
     kremlinOn = FALSE;
-
     dumpTableMemAlloc(); // TODO: abstract this for new shadow mem imp
 
     return TRUE;
@@ -2178,109 +1553,3 @@ int sidCompare(UInt64 s1, UInt64 s2) {
 
 void printProfileData() {}
 
-int parseOptionInt(char* option_str) {
-	char *dbg_level_str = strtok(option_str,"= ");
-	dbg_level_str = strtok(NULL,"= ");
-
-	if(dbg_level_str) {
-		return atoi(dbg_level_str);
-	}
-	else {
-		fprintf(stderr,"ERROR: Couldn't parse int from option (%s)\n",option_str);
-	}
-}
-
-void createOutputFilename() {
-	__kremlin_output_filename[0] = '\0'; // "clear" the old name
-
-	strcat(__kremlin_output_filename,"kremlin-L");
-	char level_str[5];
-	//sprintf(level_str,"%d",__kremlin_level_to_log);
-	sprintf(level_str,"%d",__kremlin_min_level);
-	strcat(__kremlin_output_filename,level_str);
-
-	if(__kremlin_max_level != (__kremlin_min_level)) {
-		strcat(__kremlin_output_filename,"_");
-		level_str[0] - '\0';
-		sprintf(level_str,"%d",__kremlin_max_level);
-		strcat(__kremlin_output_filename,level_str);
-	}
-	
-	strcat(__kremlin_output_filename,".bin");
-}
-
-void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args) {
-	int num_true_args = 0;
-	char** true_args = malloc(argc*sizeof(char*));
-
-	int i;
-	for(i = 0; i < argc; ++i) {
-		//fprintf(stderr,"checking %s\n",argv[i]);
-		char *str_start;
-
-		str_start = strstr(argv[i],"kremlin-debug");
-
-		if(str_start) {
-			__kremlin_debug= 1;
-			__kremlin_debug_level = parseOptionInt(argv[i]);
-
-			continue;
-		}
-
-		str_start = strstr(argv[i],"kremlin-ltl");
-		if(str_start) {
-			__kremlin_level_to_log = parseOptionInt(argv[i]);
-			__kremlin_min_level = __kremlin_level_to_log;
-			__kremlin_max_level = __kremlin_level_to_log;
-			__kremlin_max_profiled_level = __kremlin_max_level + 1;
-
-			continue;
-		}
-
-		str_start = strstr(argv[i],"kremlin-min-level");
-		if(str_start) {
-			__kremlin_min_level = parseOptionInt(argv[i]);
-			continue;
-		}
-
-		str_start = strstr(argv[i],"kremlin-max-level");
-		if(str_start) {
-			__kremlin_max_level = parseOptionInt(argv[i]);
-			__kremlin_max_profiled_level = __kremlin_max_level + 1;
-			continue;
-		}
-		else {
-			true_args[num_true_args] = strdup(argv[i]);
-			num_true_args++;
-		}
-	}
-
-	createOutputFilename();
-
-	true_args = realloc(true_args,num_true_args*sizeof(char*));
-
-	*num_args = num_true_args;
-	*real_args = true_args;
-}
-
-// look for any kremlin specific inputs to the program
-int main(int argc, char* argv[]) {
-	int num_args = 0;;
-	char** real_args;
-
-	__kremlin_output_filename = malloc(20*sizeof(char));
-	strcat(__kremlin_output_filename,"kremlin.bin");
-
-	parseKremlinOptions(argc,argv,&num_args,&real_args);
-
-	if(__kremlin_level_to_log == -1) {
-    	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", __kremlin_min_level, __kremlin_max_level);
-	}
-	else {
-    	fprintf(stderr, "[kremlin] logging only level %d\n", __kremlin_level_to_log);
-	}
-
-	fprintf(stderr,"[kremlin] writing data to: %s\n",__kremlin_output_filename);
-
-	__main(argc,argv);
-}

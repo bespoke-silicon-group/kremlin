@@ -15,6 +15,5 @@ void log_write(File* log,                   /* Writes to a log file */
 
 void log_close(File* log);                  /* Closes a log file */
 
-void writeURegion(File* fp, URegion* region);
 
 #endif /* KREMLIN_LOG_H */
