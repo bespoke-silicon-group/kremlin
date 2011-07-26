@@ -33,7 +33,7 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 
 void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {}
 
-void logPhiNodeAddCondition(UInt dest, UInt src) {}
+void* logPhiNodeAddCondition(UInt dest, UInt src) {}
 
 void prepareInvoke(UInt64 x) {}
 void invokeThrew(UInt64 x) {}

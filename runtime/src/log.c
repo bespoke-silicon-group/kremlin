@@ -20,7 +20,7 @@
 
 #include <stdio.h>
 #include "defs.h"
-#include "udr.h"
+//#include "udr.h"
 
 /**
  * Opens the log file.
@@ -98,39 +98,3 @@ void log_close(File* log)
     fclose(log);
 }
 
-void writeURegion(File* fp, URegion* region) {
-	assert(fp != NULL);
-	fwrite(&region->uid, sizeof(Int64), 1, fp);
-	fwrite(&region->sid, sizeof(Int64), 1, fp);
-	fwrite(&region->field.work, sizeof(Int64), 1, fp);
-	fwrite(&region->field.cp, sizeof(Int64), 1, fp);
-	fwrite(&region->field.callSite, sizeof(Int64), 1, fp);
-
-#ifdef EXTRA_STATS
-	fwrite(&region->field.readCnt, sizeof(Int64), 1, fp);
-	fwrite(&region->field.writeCnt, sizeof(Int64), 1, fp);
-	fwrite(&region->field.readLineCnt, sizeof(Int64), 1, fp);
-	fwrite(&region->field.writeLineCnt, sizeof(Int64), 1, fp);
-#else
-	UInt64 tmp = 0;
-
-	fwrite(&tmp, sizeof(Int64), 1, fp);
-	fwrite(&tmp, sizeof(Int64), 1, fp);
-	fwrite(&tmp, sizeof(Int64), 1, fp);
-	fwrite(&tmp, sizeof(Int64), 1, fp);
-#endif
-
-	assert(region->cnt != 0);
-	//fprintf(stderr, "callSite: 0x%llx\n", region->field.callSite);
-	fwrite(&region->cnt, sizeof(Int64), 1, fp);
-	//fwrite(&region->pSid, sizeof(Int64), 1, fp);
-	fwrite(&region->childrenSize, sizeof(Int64), 1, fp);
-	//fprintf(stderr, "%lld %lld\n", &region->field.readLineCnt, &region->field.writeLineCnt);
-	
-	ChildInfo* current = region->cHeader;
-	while (current != NULL) {
-		fwrite(&current->uid, sizeof(Int64), 1, fp);	
-		fwrite(&current->cnt, sizeof(Int64), 1, fp);	
-		current = current->next;
-	}			
-}
