@@ -47,15 +47,16 @@ int _requireSetupTable;
 static Level levelNum = 0;
 
 // min and max level for instrumentation
-static Level __kremlin_min_level = 0;
-static Level __kremlin_max_level = 21;	 
+Level __kremlin_min_level = 0;
+Level __kremlin_max_level = 21;	 
 
 //void logLoopIteration() {}
-inline Level getCurrentLevel() {
+static inline Level getCurrentLevel() {
 	return levelNum;
 }
 
 
+/*
 inline Level getMinLevel() {
 	return __kremlin_min_level;	
 }
@@ -63,6 +64,7 @@ inline Level getMinLevel() {
 inline Level getMaxLevel() {
 	return __kremlin_max_level;	
 }
+*/
 
 inline void setMinLevel(Level level) {
 	__kremlin_min_level = level;	
@@ -73,23 +75,23 @@ inline void setMaxLevel(Level level) {
 }
 
 // what are lowest and highest levels to instrument now?
-inline Level getStartLevel() {
+static inline Level getStartLevel() {
 	return getMinLevel();
 }
 
-inline Level getEndLevel() {
+static inline Level getEndLevel() {
     return MIN(getMaxLevel(), getCurrentLevel());
 }
 
 
-static Bool _instrumentable;
+static Bool _instrumentable = TRUE;
 
-inline Bool isInstrumentable() {
+static inline Bool isInstrumentable() {
 	return _instrumentable;
 }
 
-inline Bool isLevelInstrumentable(Level level) {
-	if (levelNum >= getMinLevel() && levelNum <= getMaxLevel())
+static inline Bool isLevelInstrumentable(Level level) {
+	if (level >= getMinLevel() && level <= getMaxLevel())
 		return TRUE;
 	else 
 		return FALSE;
@@ -101,12 +103,12 @@ static inline void updateInstrumentable(Level level) {
 
 static inline void incrementRegionLevel() {
     levelNum++;
-	updateInstrumentable(getCurrentLevel);
+	updateInstrumentable(getCurrentLevel());
 }
 
 static inline void decrementRegionLevel() {
 	levelNum--; 
-	updateInstrumentable(getCurrentLevel);
+	updateInstrumentable(getCurrentLevel());
 }
 
 
@@ -120,9 +122,11 @@ static inline Level getIndex(Level level) {
 	return level - getMinLevel();
 }
 
+/*
 inline getIndexSize() {
 	return getMaxLevel() - getMinLevel() + 1;
 }
+*/
 
 
 
@@ -683,16 +687,18 @@ void logRegionEntry(SID regionId, RegionType regionType) {
     didNext(regionId);
     versionNext(level);
 
-	// If we exceed the maximum depth, we act like this region doesn't exist
-	if (!isInstrumentable()) {
-		 return; 
-	}
-
-    MSG(0, "[+++] region [%u, %d, %llu:%llu] start: %llu\n",
+	 MSG(0, "[+++] region [%u, %d, %llu:%llu] start: %llu\n",
         regionType, level, regionId, didGet(regionId), getTimetick());
     incIndentTab(); // only affects debug printing
 
-	Region* region = getRegion(level);
+
+	// If we exceed the maximum depth, we act like this region doesn't exist
+	if (!isInstrumentable()) {
+		MSG(0, "skip region level %d as we instrument [%d, %d]\n", level, getMinLevel(), getMaxLevel());
+		 return; 
+	}
+
+   	Region* region = getRegion(level);
 	regionInfoRestart(region, regionId, didGet(regionId),regionType, level);
 
 #ifndef WORK_ONLY
@@ -762,6 +768,7 @@ void logRegionExit(SID regionId, RegionType regionType) {
 	DID parentDid = 0;
     UInt64 work = getTimetick() - region->start;
 
+    decIndentTab(); // applies only to debug printing
     MSG(0, "[---] region [%u, %u, %llu:%llu] cp %llu work %llu\n",
         regionType, level, regionId, did, region->cp, work);
 
@@ -829,7 +836,6 @@ void logRegionExit(SID regionId, RegionType regionType) {
 	if (spWork > work) { spWork = work; }
 	if (tpWork > work) { tpWork = work; }
 
-    decIndentTab(); // applies only to debug printing
 
     /*
     if (regionType < RegionLoopBody)
@@ -1441,6 +1447,7 @@ void initStartFuncContext()
 static UInt hasInitialized = 0;
 
 Bool kremlinInit() {
+	DebugInit("kremlin.log");
     if(hasInitialized++) {
         MSG(0, "kremlinInit skipped\n");
         return FALSE;
@@ -1461,8 +1468,8 @@ Bool kremlinInit() {
 #endif
 
     storageSize = getIndexSize();
-    MSG(0, "minLevel = %d maxLevel (profiled) = %d storageSize = %d\n", 
-        getMinLevel(), getMaxLevel(), storageSize);
+    MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
+        getMinLevel(), getMaxLevel(), getIndexSize());
 
     // Allocate a memory allocator.
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
@@ -1504,8 +1511,8 @@ Bool kremlinDeinit() {
 
     deinitStartFuncContext();
 
-	//cregionFinish("kremlin.bin");
-	cregionFinish(argGetOutputFileName());
+	cregionFinish("kremlin.bin");
+	//cregionFinish(argGetOutputFileName());
     freeDummyTEntry();
 
 	RShadowFinalize();
@@ -1531,6 +1538,8 @@ Bool kremlinDeinit() {
     GTableDelete(&gTable); // TODO: abstract this for new shadow mem imp
     kremlinOn = FALSE;
     dumpTableMemAlloc(); // TODO: abstract this for new shadow mem imp
+
+	DebugDeinit();
 
     return TRUE;
 }

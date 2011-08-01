@@ -174,6 +174,17 @@ void cppExit();
 // setup local table. 
 void setupLocalTable(UInt maxVregNum);
 
+
+// utility functions
+extern Level __kremlin_min_level;
+extern Level __kremlin_max_level;
+
+#define getMinLevel() (__kremlin_min_level)
+#define getMaxLevel() (__kremlin_max_level)
+#define getIndexSize() (__kremlin_max_level - __kremlin_min_level + 1)
+
+
+
 #ifdef __cplusplus
 } // extern "C"
 #endif /* __cplusplus */

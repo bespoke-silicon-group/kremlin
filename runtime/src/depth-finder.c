@@ -1,6 +1,9 @@
 #include "defs.h"
 
 static unsigned int curr_level, max_level;
+Level __kremlin_min_level = 0;
+Level __kremlin_max_level = 21;
+
 
 
 void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {}

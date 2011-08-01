@@ -1,7 +1,6 @@
 // TODO: reference count pages properly and free them when no longer used.
 
 #include "GTable.h"
-#include "table.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

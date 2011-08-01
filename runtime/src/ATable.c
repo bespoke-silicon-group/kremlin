@@ -3,7 +3,6 @@
 #include "hash_map.h"
 #include "MemMapAllocator.h"
 
-#include "globals.h"
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 

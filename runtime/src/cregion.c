@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cregion.h"
-#include "globals.h"
+#include "kremlin.h"
 
 
 /*** file local global variables ***/
@@ -48,7 +48,8 @@ void cregionPutContext(UInt64 sid, UInt64 callSite) {
 	current = child;
 	if (root == NULL)
 		root = child;
-	//fprintf(stderr, "put context sid: 0x%llx, callSite: 0x%llx\n", sid, callSite);
+	
+	MSG(0, "CRegion: put context sid: 0x%llx, callSite: 0x%llx\n", sid, callSite);
 }
 
 // at the end of a region execution,
@@ -62,7 +63,7 @@ void cregionRemoveContext(RegionField* info) {
 		updateCRegion(current->region, info);
 	}
 	current = current->parent;	
-	//fprintf(stderr, "removing context \n");
+	MSG(0, "CRegion: move to parent \n");
 }
 
 /*** Local Functions */
@@ -84,6 +85,10 @@ static void emit(char* file) {
 	*/
 }
 
+static Bool isInstrumentedLevel(Level level) {
+	return level >= getMinLevel() && level <= getMaxLevel();
+}
+
 // recursive call
 static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	CRegion* region = node->region;
@@ -95,8 +100,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 
 	UInt64 size = node->childrenSize;
 
-	//if(__kremlin_level_to_log == -1) || level == __kremlin_level_to_log)
-	if (isLevelInstrumentable(level))
+	if (isInstrumentedLevel(level))
 	{
 		numEntries++;
 		if(size == 0) { numEntriesLeaf++; }
@@ -158,8 +162,8 @@ emitDOT(FILE* fp, CNode* node) {
 }
 
 static void updateCRegion(CRegion* region, RegionField* info) {
-//	fprintf(stderr, "update current region with info: csid(0x%llx), allSite(0x%llx), work(0x%llx), cp(%llx), tpWork(%llx), spWork(%llx)\n", 
-//			region->sid, info->callSite, info->work, info->cp, info->tpWork, info->spWork);
+	MSG(0, "CRegion: update current region with info: csid(0x%llx), allSite(0x%llx), work(0x%llx), cp(%llx), tpWork(%llx), spWork(%llx)\n", 
+			region->sid, info->callSite, info->work, info->cp, info->tpWork, info->spWork);
 	//fprintf(stderr, "current region: id(0x%llx), sid(0x%llx), callSite(0x%llx)\n", 
 	//		region->id, region->sid, region->callSite);
 	assert(region->callSite == info->callSite);
