@@ -74,7 +74,7 @@ int GTEntryDelete(GTEntry** e)
     {
         TEntry* tEntry = (*e)->array[i];
         if(tEntry)
-            freeTEntry(tEntry);
+            TEntryFree(tEntry);
     }
 
     free(*e);
@@ -84,7 +84,7 @@ int GTEntryDelete(GTEntry** e)
 int GTEntryDeleteTEntry(GTEntry* e, Addr addr)
 {
     TEntry** tEntry = GTEntryGet(e, addr);
-    freeTEntry(*tEntry);
+    TEntryFree(*tEntry);
     *tEntry = NULL;
 
     e->used--;
@@ -95,7 +95,7 @@ TEntry** GTEntryGet(GTEntry* e, Addr addr)
     TEntry** tEntry = e->array + GTEntryIndex(addr);
     if(!*tEntry)
     {
-        *tEntry = allocTEntry();
+        *tEntry = TEntryAlloc(getIndexSize());
         e->used++;
 		e->usedLine += 1;
 		// _tEntryGlobalCnt++;

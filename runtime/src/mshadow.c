@@ -88,7 +88,7 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
     if (prevTimestamp == 0LL) {
         regionInfo[region].writeLineCnt++;
     }
-    updateTimestamp(entry, inLevel, version, timestamp);
+    TEntryUpdate(entry, inLevel, version, timestamp);
 }
 #endif
 
@@ -102,17 +102,17 @@ UInt memShadowFinalize() {
 }
 
 
-Timestamp memGetTimestamp(Addr addr, Level level) {	
-	Version version = getVersion(level);
+Timestamp memGetTimestamp(Addr addr, Index index) {	
+	Version version = versionGet(index);
 	TEntry* entry = GTableGetTEntry(gTable, addr);
-	Timestamp ts = getTimestamp(entry, level, version);
+	Timestamp ts = TEntryGet(entry, index, version);
 	return ts;
 }
 
-void memSetTimestamp(Timestamp time, Addr addr, Level level) {
-	Version version = getVersion(level);
+void memSetTimestamp(Timestamp time, Addr addr, Index index) {
+	Version version = versionGet(index);
 	TEntry* entry = GTableGetTEntry(gTable, addr);
-	updateTimestamp(entry, level, version, time);
+	TEntryUpdate(entry, index, version, time);
 }
 
 

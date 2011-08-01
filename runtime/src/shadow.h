@@ -22,8 +22,10 @@ void   		memSetTimestamp(Timestamp time, Addr addr, Level level);
 UInt 		regShadowInit();			// initialize global shadow memory system
 UInt 		regShadowFinalize();		// free associated data structure
 
-Timestamp	regGetTimestamp(Reg reg, Level level);
-void   		regSetTimestamp(Timestamp time, Reg reg, Level level);
+Timestamp	regGetTimestamp(Reg reg, Index index);
+void   		regSetTimestamp(Timestamp time, Reg reg, Index index);
+void		regShadowToArg(Arg* dest, Reg src);
+void		regArgToShadow(Reg dest, Arg* src);
 
 
 

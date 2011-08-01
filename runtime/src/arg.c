@@ -1,27 +1,13 @@
 #include "arg.h"
 // These are the levels on which we are ``reporting'' (i.e. writing info out to the
 // .bin file)
-Level __kremlin_min_level = 0;
-Level __kremlin_max_level = 20;
-
 
 char * __kremlin_output_filename;
 int __kremlin_debug;
 int __kremlin_debug_level;
 int __kremlin_level_to_log = -1;
-UInt __kremlin_max_profiled_level = 21;
 
-Level getMaxProfileLevel() {
-	return __kremlin_max_profiled_level;
-}
 
-Level getMinReportLevel() {
-    return __kremlin_min_level;
-}
-
-Level getMaxReportLevel() {
-    return __kremlin_max_level;
-}
 
 char * argGetOutputFileName() {
 	return __kremlin_output_filename;
@@ -51,16 +37,16 @@ int parseOptionInt(char* option_str) {
 void createOutputFilename() {
 	__kremlin_output_filename[0] = '\0'; // "clear" the old name
 
-	strcat(__kremlin_output_filename,"kremlin-L");
+	strcat(__kremlin_output_filename, "kremlin-L");
 	char level_str[5];
 	//sprintf(level_str,"%d",__kremlin_level_to_log);
-	sprintf(level_str,"%d",__kremlin_min_level);
-	strcat(__kremlin_output_filename,level_str);
+	sprintf(level_str, "%d", getMinLevel());
+	strcat(__kremlin_output_filename, level_str);
 
-	if(__kremlin_max_level != (__kremlin_min_level)) {
+	if(getMaxLevel() != (getMinLevel())) {
 		strcat(__kremlin_output_filename,"_");
 		level_str[0] - '\0';
-		sprintf(level_str,"%d",__kremlin_max_level);
+		sprintf(level_str,"%d", getMaxLevel());
 		strcat(__kremlin_output_filename,level_str);
 	}
 	
@@ -88,23 +74,21 @@ void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_arg
 		str_start = strstr(argv[i],"kremlin-ltl");
 		if(str_start) {
 			__kremlin_level_to_log = parseOptionInt(argv[i]);
-			__kremlin_min_level = __kremlin_level_to_log;
-			__kremlin_max_level = __kremlin_level_to_log;
-			__kremlin_max_profiled_level = __kremlin_max_level + 1;
+			setMinLevel(__kremlin_level_to_log);
+			setMaxLevel(__kremlin_level_to_log + 1);
 
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-min-level");
 		if(str_start) {
-			__kremlin_min_level = parseOptionInt(argv[i]);
+			setMinLevel(parseOptionInt(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-max-level");
 		if(str_start) {
-			__kremlin_max_level = parseOptionInt(argv[i]);
-			__kremlin_max_profiled_level = __kremlin_max_level + 1;
+			setMaxLevel(parseOptionInt(argv[i])+1);
 			continue;
 		}
 		else {
@@ -132,7 +116,7 @@ int main(int argc, char* argv[]) {
 	parseKremlinOptions(argc,argv,&num_args,&real_args);
 
 	if(__kremlin_level_to_log == -1) {
-    	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", __kremlin_min_level, __kremlin_max_level);
+    	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", getMinLevel(), getMaxLevel());
 	}
 	else {
     	fprintf(stderr, "[kremlin] logging only level %d\n", __kremlin_level_to_log);

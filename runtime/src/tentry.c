@@ -1,14 +1,13 @@
 #include <assert.h>
 #include "tentry.h"
-#include "hash_map.h"
-#include "MemMapAllocator.h"
-
-#include "globals.h"
+//#include "hash_map.h"
+//#include "MemMapAllocator.h"
+//#include "globals.h"
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 
-HASH_MAP_DEFINE_PROTOTYPES(mt, Addr, size_t);
-HASH_MAP_DEFINE_FUNCTIONS(mt, Addr, size_t);
+//HASH_MAP_DEFINE_PROTOTYPES(mt, Addr, size_t);
+//HASH_MAP_DEFINE_FUNCTIONS(mt, Addr, size_t);
 
 
 /*
@@ -115,6 +114,16 @@ void TEntryFree(TEntry* entry) {
 	//PoolFree(tEntryPool, entry);
 }
 
+void TEntryCopy(TEntry* dest, TEntry* src) {
+	assert(dest != NULL);
+	assert(src != NULL);
+
+    TEntryRealloc(dest, 0); // level isn't used anymore, so we 0 it
+
+    assert(dest->depth >= src->depth);
+    memcpy(dest->version, src->version, src->depth * sizeof(Version));
+    memcpy(dest->time, src->time, src->depth * sizeof(Timestamp));
+}
 #if 0
 void createMEntry(Addr addr, size_t size) {
     hash_map_mt_put(mTable, addr, size, TRUE);
@@ -135,16 +144,7 @@ size_t getMEntry(Addr addr) {
     return *ret;
 }
 
-void copyTEntry(TEntry* dest, TEntry* src) {
-	assert(dest != NULL);
-	assert(src != NULL);
 
-    TEntryAllocAtLeastLevel(dest, 0); // level isn't used anymore, so we 0 it
-
-    assert(dest->depth >= src->depth);
-    memcpy(dest->version, src->version, src->depth * sizeof(Version));
-    memcpy(dest->time, src->time, src->depth * sizeof(Timestamp));
-}
 #endif
 
 /**

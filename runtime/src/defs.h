@@ -1,4 +1,7 @@
+#ifndef _DEFS_H
+#define _DEFS_H
 //#define NDEBUG
+
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */
@@ -36,12 +39,16 @@ typedef unsigned int		UInt;
 typedef signed int          Int;
 typedef unsigned long long  UInt64;
 typedef signed long long    Int64;
+typedef UInt32 				Bool;
 typedef void*               Addr;
 typedef FILE                File;
 typedef UInt64 				Timestamp;
 typedef UInt32 				Version;
 typedef UInt32 				Level;
-typedef UInt32 				Reg;
+typedef UInt32 				Index;
+typedef UInt 				Reg;
+typedef UInt64				DID;
+typedef UInt64				SID;
 
 
 // BEGIN New interface to shadow memory
@@ -77,6 +84,12 @@ typedef struct _RegionField_t {
 	UInt64 loadCnt;
 	UInt64 storeCnt;
 } RegionField;
+
+typedef struct _Arg {
+    Reg reg;
+    Timestamp* values;
+} Arg;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,15 +130,15 @@ void prepareInvoke(UInt64);
 void invokeThrew(UInt64);
 void invokeOkay(UInt64);
 
-void addControlDep(UInt cond);
+void addControlDep(Reg cond);
 void removeControlDep();
 
 void prepareCall(UInt64, UInt64);
-void addReturnValueLink(UInt dest);
-void logFuncReturn(UInt src); 
+void addReturnValueLink(Reg dest);
+void logFuncReturn(Reg src); 
 void logFuncReturnConst(void);
 
-void linkArgToLocal(UInt src); 
+void linkArgToLocal(Reg src); 
 void linkArgToConst(void);
 void transferAndUnlinkArg(UInt dest); 
 
@@ -164,5 +177,7 @@ void setupLocalTable(UInt maxVregNum);
 #ifdef __cplusplus
 } // extern "C"
 #endif /* __cplusplus */
+
+#endif
 
 #endif
