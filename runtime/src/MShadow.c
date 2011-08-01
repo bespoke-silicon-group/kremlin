@@ -21,7 +21,7 @@
 #define MAX_SRC_TSA_VAL	6
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 
-GTable*		gTable;
+static GTable* gTable;
 
 
 
@@ -92,13 +92,13 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
 }
 #endif
 
-UInt memShadowInit() {
+UInt MShadowInit() {
 	GTableCreate(&gTable);	
 }
 
 
-UInt memShadowFinalize() {
-		
+UInt MShadowFinalize() {
+	GTableDelete(&gTable);
 }
 
 
@@ -228,4 +228,5 @@ void updateGlobalTimes(Addr dest_addr, TSArray* src_tsa) {
 void eraseGlobalTimes(Addr addr) {
 	GTableDeleteTEntry(gTable, addr);
 }
+
 #endif

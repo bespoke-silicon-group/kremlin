@@ -21,14 +21,12 @@
 
 
 
-UInt32				storageSize = 0;
 CDT*                cdtHead = NULL;
 UInt64              loadCnt = 0llu;
 UInt64              storeCnt = 0llu;
-File*               fp = NULL;
+//File*               fp = NULL;
 UInt64              lastCallSiteId;
 UInt64              calledRegionId;
-extern GTable*		gTable; 		// dhjeon: remove when decoupling of gtable is done
 
 #ifdef MANAGE_BB_INFO
 UInt    __prevBB;
@@ -44,27 +42,19 @@ int _requireSetupTable;
  * Region Level Management 
  *****************************************************************/
 
-static Level levelNum = 0;
 
 // min and max level for instrumentation
 Level __kremlin_min_level = 0;
 Level __kremlin_max_level = 21;	 
 
 //void logLoopIteration() {}
+
+static Level levelNum = -1;
+
 static inline Level getCurrentLevel() {
 	return levelNum;
 }
 
-
-/*
-inline Level getMinLevel() {
-	return __kremlin_min_level;	
-}
-
-inline Level getMaxLevel() {
-	return __kremlin_max_level;	
-}
-*/
 
 inline void setMinLevel(Level level) {
 	__kremlin_min_level = level;	
@@ -112,7 +102,6 @@ static inline void decrementRegionLevel() {
 }
 
 
-
 /*************************************************************
  * Index Management
  * Index represents the offset in multi-value shadow memory
@@ -122,11 +111,6 @@ static inline Level getIndex(Level level) {
 	return level - getMinLevel();
 }
 
-/*
-inline getIndexSize() {
-	return getMaxLevel() - getMinLevel() + 1;
-}
-*/
 
 
 
@@ -161,18 +145,18 @@ static inline void addStore() {
  *************************************************************/
 static deque* argQueue;
 
-inline Arg* createArg() {
+static inline Arg* createArg() {
 	Arg* ret = malloc(sizeof(Arg));
 	ret->values = malloc(sizeof(Timestamp) * getIndexSize());
 	return ret;
 }
 
-inline void freeArg(Arg* arg) {
+static inline void freeArg(Arg* arg) {
 	free(arg->values);
 	free(arg);
 }
 
-inline void putArgTimestamp(Reg src) {
+static inline void putArgTimestamp(Reg src) {
 	Arg* arg = createArg();
 	if (src != -1) 
 		RShadowShadowToArg(arg, src);
@@ -182,11 +166,11 @@ inline void putArgTimestamp(Reg src) {
 	deque_push_back(argQueue, arg);
 }
 
-inline Arg* getArgTimestamp() {
+static inline Arg* getArgTimestamp() {
 	return deque_pop_front(argQueue);
 }
 
-inline void clearArgs() {
+static inline void clearArgs() {
 	deque_clear(argQueue);
 }
 
@@ -199,7 +183,7 @@ inline void clearArgs() {
 Region* regionInfo = NULL;
 
 static void regionInfoInit() {
-    regionInfo = (Region*) calloc(sizeof(Region), storageSize);
+    regionInfo = (Region*) calloc(sizeof(Region), getIndexSize());
     assert(regionInfo);
 }
 
@@ -209,30 +193,15 @@ static void regionInfoDeinit() {
     regionInfo = NULL;
 }
 
-/**
- * Updates (and returns) critical path length of region at specified level. If specified timestamp
- * is greater than current CP length, CP length is updated with this time.
- * @param value			Timestamp to update with.
- * @param level			Region level to update.
- * @return				Critical path length of specified level.
- */
-
-/*
-void regionInfoUpdateCp(Timestamp value, Level level) {
-	regionInfo[level].cp = MAX(value, regionInfo[level].cp);
-	return regionInfo[level].cp;
-}
-*/
-
-void regionInfoUpdateCp(Region* region, Timestamp value) {
+static inline void regionInfoUpdateCp(Region* region, Timestamp value) {
 	region->cp = MAX(value, region->cp);
 }
 
-Region* getRegion(Level level) {
+static inline Region* getRegion(Level level) {
 	return &regionInfo[level];
 }
 
-void regionInfoRestart(Region* region, SID sid, DID did, UInt regionType, Level level) {
+static inline void regionInfoRestart(Region* region, SID sid, DID did, UInt regionType, Level level) {
 	region->regionId = sid;
 	region->start = getTimetick();
 	region->did = did;
@@ -365,7 +334,7 @@ inline void didNext(SID sid) {
 
 // TODO: versions shouldn't be statically allocated to
 // DS_ALLOC_SIZE... this should be dynamic
-// Can we use storageSize instead?
+// Can we use getIndexSize() instead?
 
 static Version*  versions = NULL;
 
@@ -462,9 +431,9 @@ CDT* allocCDT() {
 		cdtSize += CDTSIZE;
 		cdtPool = realloc(cdtPool, sizeof(CDT) * cdtSize);
 		for (i=cdtSize-CDTSIZE; i<cdtSize; i++) {
-    		cdtPool[i].time = (UInt64*) calloc(storageSize, sizeof(UInt64));
-		    cdtPool[i].version = (UInt32*) calloc(storageSize, sizeof(UInt32));
-			cdtPool[i].size = storageSize;
+    		cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
+		    cdtPool[i].version = (UInt32*) calloc(getIndexSize(), sizeof(UInt32));
+			cdtPool[i].size = getIndexSize();
 		}
 	};
 	return ret;
@@ -483,9 +452,9 @@ void initCDT() {
 	cdtSize = CDTSIZE;
 
 	for (i=0; i<CDTSIZE; i++) {
-    	cdtPool[i].time = (UInt64*) calloc(storageSize, sizeof(UInt64));
-	    cdtPool[i].version = (UInt32*) calloc(storageSize, sizeof(UInt32));
-		cdtPool[i].size = storageSize;
+    	cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
+	    cdtPool[i].version = (UInt32*) calloc(getIndexSize(), sizeof(UInt32));
+		cdtPool[i].size = getIndexSize();
 
 		assert(cdtPool[i].time && cdtPool[i].version);
 		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
@@ -503,6 +472,7 @@ void deinitCDT() {
 		free(cdtPool[i].time);
 		free(cdtPool[i].version);
 	}
+	cdtHead = NULL;
 }
 
 void addControlDep(UInt cond) {
@@ -1446,6 +1416,30 @@ void initStartFuncContext()
 
 static UInt hasInitialized = 0;
 
+static void initInternals() {
+    FuncContextsCreate(&funcContexts);
+	versionInit();
+	regionInfoInit();
+    deque_create(&argQueue, NULL, NULL);
+	didInit();
+	allocDummyTEntry(); // TODO: abstract this for new shadow mem imp
+	initCDT();
+    initStartFuncContext();
+    MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
+}
+
+static void deinitInternals() {
+    deinitStartFuncContext();
+    FuncContextsDelete(&funcContexts);
+	deinitCDT();
+	freeDummyTEntry();
+    deque_delete(&argQueue);
+	didDeinit();
+    versionDeinit();
+	regionInfoDeinit();
+    MemMapAllocatorDelete(&memPool);
+}
+
 Bool kremlinInit() {
 	DebugInit("kremlin.log");
     if(hasInitialized++) {
@@ -1454,46 +1448,24 @@ Bool kremlinInit() {
     }
     MSG(0, "kremlinInit running\n");
 
-    kremlinOn = TRUE;
 
 	if(getKremlinDebugFlag()) { 
 		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", getKremlinDebugLevel()); 
 	}
 
-	cregionInit();
-    levelNum = -1;
-
 #if 0
     InvokeRecordsCreate(&invokeRecords);
 #endif
 
-    storageSize = getIndexSize();
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
         getMinLevel(), getMaxLevel(), getIndexSize());
 
-    // Allocate a memory allocator.
-    MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
-
-    // Emulates the call stack.
-    FuncContextsCreate(&funcContexts);
-
+	initInternals();
+	cregionInit();
 	RShadowInit(getIndexSize());
-	versionInit();
-	regionInfoInit();
+	MShadowInit();
 
-    // Allocate a deque to hold timestamps of args.
-    deque_create(&argQueue, NULL, NULL);
-
-    // Allocate the hash map to store dynamic region id counts.
-	didInit();
-
-	memShadowInit();
-    allocDummyTEntry(); // TODO: abstract this for new shadow mem imp
-
-	initCDT();
-    initStartFuncContext();
-    
-	turnOnProfiler();
+   	turnOnProfiler();
     return TRUE;
 }
 
@@ -1509,36 +1481,10 @@ Bool kremlinDeinit() {
 
 	turnOffProfiler();
 
-    deinitStartFuncContext();
-
 	cregionFinish("kremlin.bin");
-	//cregionFinish(argGetOutputFileName());
-    freeDummyTEntry();
-
+	deinitInternals();
 	RShadowFinalize();
-
-    // Deallocate the arg timestamp deque.
-    deque_delete(&argQueue);
-
-    // Deallocate the static id to dynamic id map.
-	didDeinit();
-
-    versionDeinit();
-	regionInfoDeinit();
-
-    cdtHead = NULL;
-
-    // Deallocate the memory allocator.
-    MemMapAllocatorDelete(&memPool);
-
-    // Emulates the call stack.
-    FuncContextsDelete(&funcContexts);
-	deinitCDT();
-
-    GTableDelete(&gTable); // TODO: abstract this for new shadow mem imp
-    kremlinOn = FALSE;
-    dumpTableMemAlloc(); // TODO: abstract this for new shadow mem imp
-
+	MShadowFinalize();
 	DebugDeinit();
 
     return TRUE;
