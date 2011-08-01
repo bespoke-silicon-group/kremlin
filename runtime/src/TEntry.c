@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "tentry.h"
+#include "TEntry.h"
 //#include "hash_map.h"
 //#include "MemMapAllocator.h"
 //#include "globals.h"

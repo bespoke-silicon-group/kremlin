@@ -1,7 +1,7 @@
-#include "table.h"
-#include "shadow.h"
+#include "RShadow.h"
 #include "kremlin.h"
 #include "MemMapAllocator.h"
+#include "Pool.h"
 
 static LTable*	lTable;
 static Pool* 	tEntryPool;

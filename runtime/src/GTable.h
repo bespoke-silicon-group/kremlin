@@ -1,7 +1,7 @@
 #ifndef GTABLE_H
 #define GTABLE_H
 
-#include "tentry.h"
+#include "TEntry.h"
 
 typedef struct GTable GTable;
 

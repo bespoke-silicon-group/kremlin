@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "table.h"
+#include "ATable.h"
 #include "hash_map.h"
 #include "MemMapAllocator.h"
 

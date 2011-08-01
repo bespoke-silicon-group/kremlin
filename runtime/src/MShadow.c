@@ -8,13 +8,13 @@
 #include "defs.h"
 #include "log.h"
 #include "debug.h"
-#include "table.h"
+//#include "table.h"
 #include "GTable.h"
 #include "kremlin_deque.h"
 #include "hash_map.h"
 #include "cregion.h"
 #include "Vector.h"
-#include "shadow.h"
+#include "MShadow.h"
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 #define DS_ALLOC_SIZE   100     // used for static data structures
