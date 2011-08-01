@@ -18,7 +18,6 @@
 #define MAX_SRC_TSA_VAL	6
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 
-static GTable* gTable;
 
 
 // Mask of the L1 table.
@@ -38,15 +37,36 @@ static GTable* gTable;
 
 #define L2_SHIFT 2
 
+
 /*
- * Typedefs
+ * Struct definitions
  */
-typedef struct GTEntry GTEntry;
+typedef struct _GTEntry {
+    unsigned short used; // number of entries that are in use
+    unsigned short usedLine; // number of entries that are in use
+    TEntry* array[L2_SIZE];
+    TEntry* lineArray[L2_SIZE >> CACHE_LINE_POWER_2];
+} GTEntry;
+
+/*  
+    GlobalTable:
+        global table is a hashtable with lower address as its primary key.
+*/
+typedef struct _GTable {
+    GTEntry* array[L1_SIZE];
+} GTable;
+
+static GTable* gTable;
 
 // TODO: reference count pages properly and free them when no longer used.
 /*
  * Prototypes
  */
+static int GTableCreate(GTable** t);
+static int GTableDelete(GTable** t);
+static TEntry* GTableGetTEntry(GTable* t, Addr addr);
+static int GTableDeleteTEntry(GTable* t, Addr addr);
+
 static int GTEntryCreate(GTEntry** e);
 static int GTEntryDelete(GTEntry** e);
 static int GTEntryDeleteTEntry(GTEntry*, Addr addr);
@@ -55,25 +75,8 @@ static GTEntry** GTableGetGTEntry(GTable* t, Addr addr);
 static UInt64 GTableIndex(Addr addr);
 static UInt64 GTEntryIndex(Addr addr);
 
-/*
- * Struct definitions
- */
-struct GTEntry {
-    unsigned short used; // number of entries that are in use
-    unsigned short usedLine; // number of entries that are in use
-    TEntry* array[L2_SIZE];
-    TEntry* lineArray[L2_SIZE >> CACHE_LINE_POWER_2];
-};
 
-/*  
-    GlobalTable:
-        global table is a hashtable with lower address as its primary key.
-*/
-struct GTable {
-    GTEntry* array[L1_SIZE];
-};
-
-int GTEntryCreate(GTEntry** e)
+static int GTEntryCreate(GTEntry** e)
 {
     if(!(*e = (GTEntry*)calloc(sizeof(GTEntry), 1)))
     {
@@ -83,7 +86,7 @@ int GTEntryCreate(GTEntry** e)
     return TRUE;
 }
 
-int GTEntryDelete(GTEntry** e)
+static int GTEntryDelete(GTEntry** e)
 {
     int i;
     for(i = 0; i < L2_SIZE; i++)
@@ -97,7 +100,7 @@ int GTEntryDelete(GTEntry** e)
     *e = NULL;
 }
 
-int GTEntryDeleteTEntry(GTEntry* e, Addr addr)
+static int GTEntryDeleteTEntry(GTEntry* e, Addr addr)
 {
     TEntry** tEntry = GTEntryGet(e, addr);
     TEntryFree(*tEntry);
@@ -106,7 +109,7 @@ int GTEntryDeleteTEntry(GTEntry* e, Addr addr)
     e->used--;
 }
 
-TEntry** GTEntryGet(GTEntry* e, Addr addr)
+static TEntry** GTEntryGet(GTEntry* e, Addr addr)
 {
     TEntry** tEntry = e->array + GTEntryIndex(addr);
     if(!*tEntry)
@@ -119,12 +122,12 @@ TEntry** GTEntryGet(GTEntry* e, Addr addr)
     return tEntry;
 }
 
-UInt64 GTEntryIndex(Addr addr)
+static UInt64 GTEntryIndex(Addr addr)
 {
     return ((UInt64)addr >> L2_SHIFT) & L2_MASK;
 }
 
-int GTableCreate(GTable** t)
+static int GTableCreate(GTable** t)
 {
     if(!(*t = (GTable*)calloc(1, sizeof(GTable))))
     {
@@ -134,7 +137,7 @@ int GTableCreate(GTable** t)
     return TRUE;
 }
 
-int GTableDelete(GTable** t) {
+static int GTableDelete(GTable** t) {
 	int i, j;
 	for (i = 0; i < L1_SIZE; i++) {
 		if ((*t)->array[i] != NULL) {
@@ -148,7 +151,7 @@ int GTableDelete(GTable** t) {
 
 // get TEntry for address addr in GTable t
 // FIXME: 64bit address?
-TEntry* GTableGetTEntry(GTable* t, Addr addr) 
+static TEntry* GTableGetTEntry(GTable* t, Addr addr) 
 {
 #ifndef WORK_ONLY
     GTEntry** entry = GTableGetGTEntry(t, addr);
@@ -159,7 +162,7 @@ TEntry* GTableGetTEntry(GTable* t, Addr addr)
 }
 
 // get GTEntry in GTable t at address addr
-GTEntry** GTableGetGTEntry(GTable* t, Addr addr)
+static GTEntry** GTableGetGTEntry(GTable* t, Addr addr)
 {
     UInt32 index = GTableIndex(addr);
 	GTEntry** entry = t->array + index;
@@ -168,17 +171,19 @@ GTEntry** GTableGetGTEntry(GTable* t, Addr addr)
     return entry;
 }
 
-int GTableDeleteTEntry(GTable* t, Addr addr)
+static int GTableDeleteTEntry(GTable* t, Addr addr)
 {
     GTEntry** entry = GTableGetGTEntry(t, addr);
     GTEntryDeleteTEntry(*entry, addr);
     return TRUE;
 }
 
-UInt64 GTableIndex(Addr addr)
+static UInt64 GTableIndex(Addr addr)
 {
 	return ((UInt64)addr >> L1_SHIFT) & L1_MASK;
 }
+
+
 #ifdef EXTRA_STATS
 UInt64 getReadTimestamp(TEntry* entry, UInt32 inLevel, UInt32 version) {
     int level = inLevel - __kremlin_min_level;
@@ -255,14 +260,14 @@ UInt MShadowFinalize() {
 }
 
 
-Timestamp memGetTimestamp(Addr addr, Index index) {	
+Timestamp MShadowGetTimestamp(Addr addr, Index index) {	
 	Version version = versionGet(index);
 	TEntry* entry = GTableGetTEntry(gTable, addr);
 	Timestamp ts = TEntryGet(entry, index, version);
 	return ts;
 }
 
-void memSetTimestamp(Timestamp time, Addr addr, Index index) {
+void MShadowSetTimestamp(Timestamp time, Addr addr, Index index) {
 	Version version = versionGet(index);
 	TEntry* entry = GTableGetTEntry(gTable, addr);
 	TEntryUpdate(entry, index, version, time);

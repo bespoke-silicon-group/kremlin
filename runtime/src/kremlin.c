@@ -959,7 +959,7 @@ void* logLoadInst(Addr src_addr, Reg dest) {
 		Index index = getIndex(i);
         region->loadCnt++;
         Timestamp cdt = getCurrentCdt(index);
-		Timestamp ts0 = memGetTimestamp(src_addr, index);
+		Timestamp ts0 = MShadowGetTimestamp(src_addr, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + LOAD_COST;
 
@@ -997,7 +997,7 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
 		Region* region = getRegion(i);
 		Index index = getIndex(i);
         Timestamp cdt = getCurrentCdt(i);
-		Timestamp ts_src_addr = memGetTimestamp(src1, index);
+		Timestamp ts_src_addr = MShadowGetTimestamp(src1, index);
 		Timestamp ts_src1 = RShadowGetTimestamp(src1, index);
 
         Timestamp max1 = (ts_src_addr > cdt) ? ts_src_addr : cdt;
@@ -1049,7 +1049,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 #ifdef EXTRA_STATS
         //updateWriteMemoryAccess(entryDest, i, versionGet(i), value);
 #endif
-		memSetTimestamp(value, dest_addr, i);
+		MShadowSetTimestamp(value, dest_addr, i);
         regionInfoUpdateCp(region, value);
     }
 
@@ -1086,7 +1086,7 @@ void* logStoreInstConst(Addr dest_addr) {
         //updateWriteMemoryAccess(entryDest, i, version, value);
         //updateWriteMemoryLineAccess(entryLine, i, version, value);
 #endif
-		memSetTimestamp(value, dest_addr, index);
+		MShadowSetTimestamp(value, dest_addr, index);
 		regionInfoUpdateCp(region, value);
     }
 #endif
