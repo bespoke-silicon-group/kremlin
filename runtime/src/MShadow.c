@@ -6,11 +6,8 @@
 #include <string.h>
 #include <sys/time.h>
 #include "defs.h"
-#include "log.h"
 #include "debug.h"
 //#include "table.h"
-#include "GTable.h"
-#include "kremlin_deque.h"
 #include "hash_map.h"
 #include "cregion.h"
 #include "Vector.h"

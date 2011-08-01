@@ -6,9 +6,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include "kremlin.h"
-#include "log.h"
 #include "debug.h"
-#include "GTable.h"
 #include "kremlin_deque.h"
 #include "cregion.h"
 
