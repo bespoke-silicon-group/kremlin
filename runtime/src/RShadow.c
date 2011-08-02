@@ -2,6 +2,30 @@
 #include "MemMapAllocator.h"
 #include "Pool.h"
 
+/*
+ * RShadow.c
+ *
+ * Implementation of register shadow. 
+ * We use a simple 2D array for RShadow table (LTable).
+ * 
+ * 1) Unlike MShadow, RShadow does not use versioining 
+ * becasue all register entries are going to be written 
+ * and they should be cleaned before reused.
+ * This allows low overhead shadow memory operation.
+ *
+ * 2) Unlike MShadow, RShaodw does not require dynamic resizing.
+ * The size of a RShadow Table (LTable) is determined by
+ * # of vregs and index depth - they are all available 
+ * when the LTable is created.
+ *
+ * 3) If further optimization is desirable, 
+ * it is possible to use a special memory allocator for 
+ * LTable so that we can reduce calloc time from critical path.
+ * However, I doubt if it will make a big impact,
+ * as LTable creation is not a common operation compared to others.
+ *
+ */
+
 static LTable*	lTable;
 static Pool* 	tEntryPool;
 
@@ -28,11 +52,12 @@ static void finalizeMemoryPool() {
     PoolDelete(&tEntryPool);
 }
 
+#if 0
 // preconditions: lTable != NULL
 TEntry* getLTEntry(Reg vreg) {
 #ifndef WORK_ONLY
-	if (vreg >= lTable->size) {
-		fprintf(stderr,"ERROR: vreg = %lu, lTable size = %d\n", vreg, lTable->size);
+	if (vreg >= lTable->entrySize) {
+		fprintf(stderr,"ERROR: vreg = %lu, lTable size = %d\n", vreg, lTable->entrySize);
 		assert(0);
 	}
 	//assert(vreg < lTable->size);
@@ -41,8 +66,7 @@ TEntry* getLTEntry(Reg vreg) {
 	return (TEntry*)1;
 #endif
 }
-
-
+#endif
 
 
 /*
@@ -60,13 +84,13 @@ UInt RShadowDeinit() {
 
 
 Time RShadowGet(Reg reg, Index index) {
-	TEntry* entry = getLTEntry(reg);
-	return TEntryGet(entry, index, 0);
+	int offset = lTable->indexSize * reg + index;
+	return lTable->array[offset];
 }
 
 void RShadowSet(Time time, Reg reg, Index index) {
-	TEntry* entry = getLTEntry(reg);
-	TEntryUpdate(entry, index, 0, time);
+	int offset = lTable->indexSize * reg + index;
+	lTable->array[offset] = time;
 }
 
 void RShadowExport(TArray* dest, Reg src) {
@@ -78,26 +102,17 @@ void RShadowExport(TArray* dest, Reg src) {
 
 void RShadowImport(Reg dest, TArray* src) {
 	Index i;
-	TEntry* entry = getLTEntry(dest);
-
 	for (i=0; i<getIndexSize(); i++) {
-		// how to handle versions?
-		TEntryUpdate(entry, i, 0, src->values[i]);
+		RShadowSet(src->values[i], dest, i);
 	}
 }
 
 LTable* RShadowCreateTable(int numEntry, Index depth) {
 	LTable* ret = (LTable*) malloc(sizeof(LTable));
-	ret->size = numEntry;
-	ret->array = (TEntry**) malloc(sizeof(TEntry*) * numEntry);
-
-	int i;	
-	for (i=0; i<numEntry; i++) {
-		ret->array[i] = TEntryAlloc(depth);
-	}
-	//_tEntryLocalCnt += numEntry;
-
-//	printf("Alloc LTable to 0x%x\n", ret);
+	ret->entrySize = numEntry;
+	ret->indexSize = depth;
+	// should be initialized with zero
+	ret->array = (Time*) calloc(numEntry * depth, sizeof(Time));
 	return ret;
 }
 
@@ -106,12 +121,6 @@ void RShadowFreeTable(LTable* table) {
 	assert(table != NULL);
 	assert(table->array != NULL);
 
-	int i;
-	for (i=0; i<table->size; i++) {
-		assert(table->array[i] != NULL);
-		TEntryFree(table->array[i]);
-	}
-	//_tEntryLocalCnt -= table->size;
 	free(table->array);
 	free(table);
 }

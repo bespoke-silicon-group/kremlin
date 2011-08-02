@@ -269,7 +269,7 @@ static CID	lastCallSiteId;
 
 typedef struct _FuncContext {
 	LTable* table;
-	Timestamp* ret;
+	TArray* ret;
 	CID callSiteId;
 } FuncContext;
 
@@ -289,7 +289,7 @@ static void RegionPushFunc(CID cid) {
     FuncContextsPushVal(funcContexts, funcContext);
     funcContext->table = NULL;
 	funcContext->callSiteId = cid;
-	funcContext->ret = NULL;
+	funcContext->ret = TArrayAlloc(getIndexSize());
 
 	//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 }
@@ -299,17 +299,19 @@ static void RegionPushFunc(CID cid) {
  * Removes context at the top of the function context stack.
  */
 static void RegionPopFunc() {
-    FuncContext* ret = FuncContextsPopVal(funcContexts);
-    assert(ret);
-    //assert(ret->table != NULL);
+    FuncContext* func = FuncContextsPopVal(funcContexts);
+    assert(func);
 
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
 
-    if (ret->table != NULL)
-        RShadowFreeTable(ret->table);
+    if (func->table != NULL)
+        RShadowFreeTable(func->table);
 
-    free(ret);  
+	assert(func->ret != NULL);
+	TArrayFree(func->ret);
+
+    free(func);  
 }
 
 static TEntry* mainReturn;
@@ -1147,8 +1149,9 @@ void addReturnValueLink(Reg dest) {
         return;
     MSG(1, "prepare return storage ts[%u]\n", dest);
 #ifndef WORK_ONLY
-    FuncContext* funcHead = *FuncContextsLast(funcContexts);
-    funcHead->ret = getLTEntry(dest);
+    //FuncContext* funcHead = *FuncContextsLast(funcContexts);
+	//RShadowExport(funcHead->ret, dest);
+    //funcHead->ret = getLTEntry(dest);
 #endif
 }
 
@@ -1160,7 +1163,7 @@ void logFuncReturn(Reg src) {
     MSG(1, "write return value ts[%u]\n", src);
 
 #ifndef WORK_ONLY
-    TEntry* srcEntry = getLTEntry(src);
+    //TEntry* srcEntry = getLTEntry(src);
 
     // Assert there is a function context before the top.
     assert(FuncContextsSize(funcContexts) > 1);
@@ -1172,7 +1175,8 @@ void logFuncReturn(Reg src) {
     if(!(*nextHead)->ret) return;
 
     // Copy the return timestamp into the previous stack's return value.
-    TEntryCopy((*nextHead)->ret, srcEntry);
+    //TEntryCopy((*nextHead)->ret, srcEntry);
+	RShadowExport((*nextHead)->ret, src);
 #endif
 }
 

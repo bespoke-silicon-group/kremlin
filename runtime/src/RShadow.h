@@ -14,8 +14,9 @@
 #include "TArray.h"
 
 typedef struct _LocalTable {
-	int          size;
-    TEntry**     array;
+	int         entrySize;
+	int         indexSize;
+    Time*		array;
 } LTable;
 
 UInt 		RShadowInit();			// initialize global shadow memory system
