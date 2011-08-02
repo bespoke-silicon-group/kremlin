@@ -3,7 +3,7 @@
 
 
 /*
- * Global Shadow Memory Interface
+ * Memory Shadow Interface
  *
  * djeon@cs.ucsd.edu
  */
@@ -18,8 +18,6 @@ UInt 		MShadowFinalize();		// free associated data structure
 
 Timestamp	MShadowGetTimestamp(Addr addr, Index index);
 void   		MShadowSetTimestamp(Timestamp time, Addr addr, Index index);
-
-
 
 
 #endif

@@ -7,7 +7,6 @@
 #include <sys/time.h>
 #include "defs.h"
 #include "debug.h"
-//#include "table.h"
 #include "hash_map.h"
 #include "cregion.h"
 #include "Vector.h"
@@ -34,7 +33,6 @@
 
 // The size of the L2 table. Since only word addressible, shift by 2
 #define L2_SIZE (L2_MASK + 1)
-
 #define L2_SHIFT 2
 
 

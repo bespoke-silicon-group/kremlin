@@ -5,10 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#include "kremlin.h"
+//#include "kremlin.h"
 #include "debug.h"
 #include "kremlin_deque.h"
 #include "cregion.h"
+#include "hash_map.h"
+#include "Vector.h"
+#include "RShadow.h"
+#include "MShadow.h"
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 #define DS_ALLOC_SIZE   100     // used for static data structures
@@ -17,19 +21,12 @@
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 
+#define isKremlinOn()		(kremlinOn == 1)
 
 
-CDT*                cdtHead = NULL;
 UInt64              loadCnt = 0llu;
 UInt64              storeCnt = 0llu;
-//File*               fp = NULL;
 UInt64              lastCallSiteId;
-UInt64              calledRegionId;
-
-#ifdef MANAGE_BB_INFO
-UInt    __prevBB;
-UInt    __currentBB;
-#endif
 
 
 UInt64 _regionFuncCnt;
@@ -142,6 +139,7 @@ static inline void addStore() {
  * allocate new Args 
  *************************************************************/
 static deque* argQueue;
+#define DUMMY_REG	-1
 
 static inline Arg* createArg() {
 	Arg* ret = malloc(sizeof(Arg));
@@ -156,10 +154,10 @@ static inline void freeArg(Arg* arg) {
 
 static inline void putArgTimestamp(Reg src) {
 	Arg* arg = createArg();
-	if (src != -1) 
+	if (src != DUMMY_REG) 
 		RShadowShadowToArg(arg, src);
 	else
-		arg->reg = -1;
+		arg->reg = DUMMY_REG;
 
 	deque_push_back(argQueue, arg);
 }
@@ -177,6 +175,25 @@ static inline void clearArgs() {
 /*****************************************************************
  * Region Info Management
  *****************************************************************/
+
+typedef struct _region_t {
+	UInt64 start;
+	UInt64 did;
+	UInt64 cp;
+	UInt64 regionId;
+	UInt64 childrenWork;
+	UInt64 childrenCP;
+	RegionType regionType;
+	UInt64 loadCnt;
+	UInt64 storeCnt;
+#ifdef EXTRA_STATS
+	UInt64 readCnt;
+	UInt64 writeCnt;
+	UInt64 readLineCnt;
+	UInt64 writeLineCnt;
+#endif
+} Region;
+
 
 Region* regionInfo = NULL;
 
@@ -360,12 +377,20 @@ void versionNext(Level level) {
  * CDT Management
  *
  * getCdt: get cdt for a specific level
- * getCurrentCdt: get cdt for the current level
+ * getCdt: get cdt for the current level
  * setCdt: set cdt for a specific level and version
  * fillCdt: copy timestamp from TEntry to CDT
  * 
  * 
  *****************************************************************/
+
+typedef struct _CDT_T {
+	UInt64* time;
+	UInt32 size;
+} CDT;
+
+
+CDT* cdtHead = NULL;
 
 /**
  * Returns timestamp of control dep at specified level with specified version.
@@ -374,13 +399,10 @@ void versionNext(Level level) {
  * @return			Timestamp of control dep.
  */
 // preconditions: cdtHead != NULL && level >= 0
-static inline Timestamp getCdt(Index index, Version version) {
+static inline Timestamp getCdt(Index index) {
     assert(cdtHead != NULL);
-    return (cdtHead->version[index] == version) ? cdtHead->time[index] : 0;
-}
-
-static inline Timestamp getCurrentCdt(Index index) {
-	return getCdt(index, versionGet(index));
+    //return (cdtHead->version[index] == version) ? cdtHead->time[index] : 0;
+	return cdtHead->time[index];
 }
 
 /**
@@ -389,31 +411,10 @@ static inline Timestamp getCurrentCdt(Index index) {
  * @param version	Version number to set.
  * @param time		Timestamp to set control dep to.
  */
-static inline void setCdt(int level, Version version, Timestamp time) {
-	Index index = getIndex(level);
+static inline void setCdt(Index index, Timestamp time) {
 	assert(index >= 0);
     cdtHead->time[index] = time;
-    cdtHead->version[index] = version;
-}
-
-/**
- * Copies data from table entry over to cdt.
- * @param cdt		Pointer to CDT to copy data to.
- * @param entry		Pointer to TEntry containing data to be copied.
- */
-static inline void fillCdt(CDT* cdt, TEntry* entry) {
-	// entry may not have data for all logged levels so we have to check timeArrayLength
-    Index i;
-    for (i = 0; i < getIndexSize(); i++) {
-		if(i < entry->depth) {
-        	cdt->time[i] = entry->time[i];
-        	cdt->version[i] = entry->version[i];
-		}
-		else {
-        	cdt->time[i] = 0;
-        	cdt->version[i] = 0;
-		}
-    }
+    //cdtHead->version[index] = version;
 }
 
 #define CDTSIZE	256
@@ -430,7 +431,6 @@ CDT* allocCDT() {
 		cdtPool = realloc(cdtPool, sizeof(CDT) * cdtSize);
 		for (i=cdtSize-CDTSIZE; i<cdtSize; i++) {
     		cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
-		    cdtPool[i].version = (UInt32*) calloc(getIndexSize(), sizeof(UInt32));
 			cdtPool[i].size = getIndexSize();
 		}
 	};
@@ -451,10 +451,9 @@ void initCDT() {
 
 	for (i=0; i<CDTSIZE; i++) {
     	cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
-	    cdtPool[i].version = (UInt32*) calloc(getIndexSize(), sizeof(UInt32));
 		cdtPool[i].size = getIndexSize();
 
-		assert(cdtPool[i].time && cdtPool[i].version);
+		//assert(cdtPool[i].time && cdtPool[i].version);
 		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
 		//fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
 	}
@@ -464,11 +463,7 @@ void initCDT() {
 void deinitCDT() {
 	int i=0;
 	for (i=0; i<cdtSize; i++) {
-		//fprintf(stderr,"deinit %d\n",i);
-		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
-		//fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
 		free(cdtPool[i].time);
-		free(cdtPool[i].version);
 	}
 	cdtHead = NULL;
 }
@@ -476,16 +471,18 @@ void deinitCDT() {
 void addControlDep(UInt cond) {
     MSG(2, "push ControlDep ts[%u]\n", cond);
 
+    if (!isKremlinOn()) {
+		return;
+	}
 #ifndef WORK_ONLY
     if(isInstrumentable()) { 
 		cdtHead = allocCDT(); 
 	}
-
-    if (isKremlinOn()) {
-        TEntry* entry = getLTEntry(cond);
-        fillCdt(cdtHead, entry);
-    }
 #endif
+	Index index;
+	for (index=0; index<getIndexSize(); index++) {
+        cdtHead->time[index] = RShadowGetTimestamp(cond, index);
+	}
 }
 
 void removeControlDep() {
@@ -500,6 +497,13 @@ void removeControlDep() {
  * Function Context Management
  * opt priority: low
  *****************************************************************/
+
+typedef struct _FuncContext {
+	LTable* table;
+	Timestamp* ret;
+	UInt64 callSiteId;
+} FuncContext;
+
 
 // A vector used to represent the call stack.
 VECTOR_DEFINE_PROTOTYPES(FuncContexts, FuncContext*);
@@ -519,11 +523,6 @@ void pushFuncContext() {
 	funcContext->callSiteId = lastCallSiteId;
 	funcContext->ret = NULL;
 
-#ifdef MANAGE_BB_INFO
-    funcContext->retBB = __currentBB;
-    funcContext->retPrevBB = __prevBB;
-    MSG(1, "[push] current = %u last = %u\n", __currentBB, __prevBB);
-#endif
 	//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 }
 
@@ -535,11 +534,6 @@ void popFuncContext() {
     FuncContext* ret = FuncContextsPopVal(funcContexts);
     assert(ret);
     //assert(ret->table != NULL);
-#ifdef MANAGE_BB_INFO
-    // restore currentBB and prevBB
-    __currentBB = ret->retBB;
-    __prevBB = ret->retPrevBB;
-#endif
 
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
@@ -619,12 +613,11 @@ void setupLocalTable(UInt maxVregNum) {
     assert(_requireSetupTable == 1);
 
     LTable* table = RShadowCreateTable(maxVregNum, getIndexSize());
-    assert(table != NULL);
-
     FuncContext* funcHead = *FuncContextsLast(funcContexts);
     assert(funcHead->table == NULL);
-
     funcHead->table = table;
+    assert(funcHead->table != NULL);
+
     RShadowSetActiveLTable(funcHead->table);
     _setupTableCnt++;
     _requireSetupTable = 0;
@@ -670,7 +663,7 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 	regionInfoRestart(region, regionId, didGet(regionId),regionType, level);
 
 #ifndef WORK_ONLY
-    setCdt(level, versionGet(level), 0);
+    setCdt(getIndex(level), 0);
 #endif
 }
 
@@ -853,7 +846,7 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
 		// CDT and shadow memory are index based
 		Region* region = getRegion(i);
 		Index index = getIndex(i);
-        Timestamp cdt = getCurrentCdt(index);
+        Timestamp cdt = getCdt(index);
         Timestamp ts0 = RShadowGetTimestamp(src0, index);
         Timestamp ts1 = RShadowGetTimestamp(src1, index);
         Timestamp greater0 = (ts0 > ts1) ? ts0 : ts1;
@@ -890,7 +883,7 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = getRegion(i);
 		Index index = getIndex(i);
-        Timestamp cdt = getCurrentCdt(index);
+        Timestamp cdt = getCdt(index);
         Timestamp ts0 = RShadowGetTimestamp(src, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + opCost;
@@ -934,7 +927,7 @@ void* logAssignmentConst(UInt dest) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = getRegion(i);
 		Index index = getIndex(i);
-        Timestamp cdt = getCurrentCdt(index);
+        Timestamp cdt = getCdt(index);
 		RShadowSetTimestamp(cdt, dest, index);
         regionInfoUpdateCp(region, cdt);
     }
@@ -958,7 +951,7 @@ void* logLoadInst(Addr src_addr, Reg dest) {
 		Region* region = getRegion(i);
 		Index index = getIndex(i);
         region->loadCnt++;
-        Timestamp cdt = getCurrentCdt(index);
+        Timestamp cdt = getCdt(index);
 		Timestamp ts0 = MShadowGetTimestamp(src_addr, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + LOAD_COST;
@@ -996,7 +989,7 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = getRegion(i);
 		Index index = getIndex(i);
-        Timestamp cdt = getCurrentCdt(i);
+        Timestamp cdt = getCdt(index);
 		Timestamp ts_src_addr = MShadowGetTimestamp(src1, index);
 		Timestamp ts_src1 = RShadowGetTimestamp(src1, index);
 
@@ -1041,15 +1034,16 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = getRegion(i);
+		Index index = getIndex(i);
         region->storeCnt++;
-        Timestamp cdt = getCurrentCdt(i);
-		Timestamp ts0 = RShadowGetTimestamp(src, i);
+        Timestamp cdt = getCdt(index);
+		Timestamp ts0 = RShadowGetTimestamp(src, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + STORE_COST;
 #ifdef EXTRA_STATS
         //updateWriteMemoryAccess(entryDest, i, versionGet(i), value);
 #endif
-		MShadowSetTimestamp(value, dest_addr, i);
+		MShadowSetTimestamp(value, dest_addr, index);
         regionInfoUpdateCp(region, value);
     }
 
@@ -1080,7 +1074,7 @@ void* logStoreInstConst(Addr dest_addr) {
     for (i = minLevel; i <= maxLevel; ++i) {
 		Region* region = getRegion(i);
 		Index index = getIndex(i);
-        Timestamp cdt = getCurrentCdt(index);
+        Timestamp cdt = getCdt(index);
         Timestamp value = cdt + STORE_COST;
 #ifdef EXTRA_STATS
         //updateWriteMemoryAccess(entryDest, i, version, value);
@@ -1150,8 +1144,9 @@ void logFuncReturnConst(void) {
 
     TEntryRealloc((*nextHead)->ret, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
+		Index index = getIndex(i);
         int version = versionGet(i);
-        UInt64 cdt = getCurrentCdt(i);
+        UInt64 cdt = getCdt(index);
 
         // Copy the return timestamp into the previous stack's return value.
         //RShadowSetTimestamp((*nextHead)->ret, i, version, cdt);
@@ -1611,7 +1606,7 @@ void logFree(Addr addr) {
 
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt64 value = getCurrentCdt(i) + FREE_COST;
+        UInt64 value = getCdt(i) + FREE_COST;
 
         updateCP(value, i);
     }
@@ -1665,6 +1660,11 @@ void cppEntry() {
 void cppExit() {
     kremlinDeinit();
 }
+
+typedef struct _InvokeRecord {
+	UInt64 id;
+	int stackHeight;
+} InvokeRecord;
 
 InvokeRecords*      invokeRecords;
 // A vector used to record invoked calls.
