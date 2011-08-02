@@ -54,33 +54,29 @@ UInt RShadowInit(Index depth) {
 
 }
 
-UInt RShadowFinalize() {
+UInt RShadowDeinit() {
 	finalizeMemoryPool();
 }
 
 
-Timestamp RShadowGetTimestamp(Reg reg, Index index) {
-	Version version = versionGet(index);
+Time RShadowGet(Reg reg, Index index) {
 	TEntry* entry = getLTEntry(reg);
-	return TEntryGet(entry, index, version);
+	return TEntryGet(entry, index, 0);
 }
 
-void RShadowSetTimestamp(Timestamp time, Reg reg, Index index) {
-	Version version = versionGet(index);
+void RShadowSet(Time time, Reg reg, Index index) {
 	TEntry* entry = getLTEntry(reg);
-	TEntryUpdate(entry, index, version, time);
+	TEntryUpdate(entry, index, 0, time);
 }
 
-void RShadowShadowToArg(Arg* dest, Reg src) {
+void RShadowExport(TArray* dest, Reg src) {
 	Index i;
-	dest->reg = src;	
 	for (i=0; i<getIndexSize(); i++)
-		// can be specialized with the shadow memory implemetnation
-		dest->values[i] = RShadowGetTimestamp(src, i);
+		dest->values[i] = RShadowGet(src, i);
 }
 
 
-void RShadowArgToShadow(Reg dest, Arg* src) {
+void RShadowImport(Reg dest, TArray* src) {
 	Index i;
 	TEntry* entry = getLTEntry(dest);
 
@@ -120,7 +116,7 @@ void RShadowFreeTable(LTable* table) {
 	free(table);
 }
 
-void RShadowSetActiveLTable(LTable* table) {
+void RShadowActivateTable(LTable* table) {
 //	printf("Set LTable to 0x%x\n", table);
 	lTable = table;
 }

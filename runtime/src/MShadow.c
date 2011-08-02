@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+
 #include "defs.h"
 #include "debug.h"
 #include "hash_map.h"
@@ -253,20 +254,18 @@ UInt MShadowInit() {
 }
 
 
-UInt MShadowFinalize() {
+UInt MShadowDeinit() {
 	GTableDelete(&gTable);
 }
 
 
-Timestamp MShadowGetTimestamp(Addr addr, Index index) {	
-	Version version = versionGet(index);
+Timestamp MShadowGet(Addr addr, Index index, Version version) {	
 	TEntry* entry = GTableGetTEntry(gTable, addr);
 	Timestamp ts = TEntryGet(entry, index, version);
 	return ts;
 }
 
-void MShadowSetTimestamp(Timestamp time, Addr addr, Index index) {
-	Version version = versionGet(index);
+void MShadowSet(Addr addr, Index index, Version version, Time time) {
 	TEntry* entry = GTableGetTEntry(gTable, addr);
 	TEntryUpdate(entry, index, version, time);
 }

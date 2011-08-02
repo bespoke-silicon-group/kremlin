@@ -14,10 +14,10 @@
 
 
 UInt 		MShadowInit();			// initialize global shadow memory system
-UInt 		MShadowFinalize();		// free associated data structure
+UInt 		MShadowDeinit();		// free associated data structure
 
-Timestamp	MShadowGetTimestamp(Addr addr, Index index);
-void   		MShadowSetTimestamp(Timestamp time, Addr addr, Index index);
+Time		MShadowGet(Addr addr, Index index, Version version);
+void   		MShadowSet(Addr addr, Index index, Version version, Time time);
 
 
 #endif

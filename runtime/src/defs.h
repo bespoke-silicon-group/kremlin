@@ -11,7 +11,6 @@
 #include <sys/time.h>
 #include "MemMapAllocator.h"
 
-
 #ifndef _KREMLIN_DEF
 #define _KREMLIN_DEF
 
@@ -43,52 +42,21 @@ typedef UInt32 				Bool;
 typedef void*               Addr;
 typedef FILE                File;
 typedef UInt64 				Timestamp;
+typedef UInt64 				Time;
 typedef UInt32 				Version;
 typedef UInt32 				Level;
 typedef UInt32 				Index;
 typedef UInt 				Reg;
-typedef UInt64				DID;
-typedef UInt64				SID;
+typedef UInt64				SID; 	// static region ID
+typedef UInt64				DID;	// dynamic region ID
+typedef UInt64				CID;	// callsite ID
 
 
-// BEGIN New interface to shadow memory
-
-typedef struct TSEntry {
-	Timestamp ts;
-	Version vn;
-} TSEntry;
-
-typedef struct TSArray {
-	Timestamp* times;
-	UInt32 size;
-} TSArray;
-
-// END New interface to shadow memory
 
 
 
 typedef enum RegionType {RegionFunc, RegionLoop, RegionLoopBody} RegionType;
 MemMapAllocator* memPool;
-
-typedef struct _RegionField_t {
-	UInt64 work;
-	UInt64 cp;
-	UInt64 callSite;
-	UInt64 spWork;
-	UInt64 tpWork;
-
-	UInt64 readCnt;
-	UInt64 writeCnt;
-	UInt64 readLineCnt;
-	UInt64 writeLineCnt;
-	UInt64 loadCnt;
-	UInt64 storeCnt;
-} RegionField;
-
-typedef struct _Arg {
-    Reg reg;
-    Timestamp* values;
-} Arg;
 
 
 #ifdef __cplusplus

@@ -33,6 +33,21 @@ struct _cnode_t {
 	CRegion* region;
 };
 
+typedef struct _RegionField_t {
+	UInt64 work;
+	UInt64 cp;
+	UInt64 callSite;
+	UInt64 spWork;
+	UInt64 tpWork;
+
+	UInt64 readCnt;
+	UInt64 writeCnt;
+	UInt64 readLineCnt;
+	UInt64 writeLineCnt;
+	UInt64 loadCnt;
+	UInt64 storeCnt;
+} RegionField;
+
 
 void cregionInit();
 void cregionFinish(char* file);

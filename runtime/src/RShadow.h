@@ -11,6 +11,7 @@
 
 #include "defs.h"
 #include "TEntry.h"
+#include "TArray.h"
 
 typedef struct _LocalTable {
 	int          size;
@@ -18,17 +19,17 @@ typedef struct _LocalTable {
 } LTable;
 
 UInt 		RShadowInit();			// initialize global shadow memory system
-UInt 		RShadowFinalize();		// free associated data structure
+UInt 		RShadowDeinit();		// free associated data structure
 
 LTable*		RShadowCreateTable(int numEntry, Index depth);
 void		RShadowFreeTable(LTable* table);
 
-Timestamp	RShadowGetTimestamp(Reg reg, Index index);
-void   		RShadowSetTimestamp(Timestamp time, Reg reg, Index index);
-void		RShadowShadowToArg(Arg* dest, Reg src);
-void		RShadowArgToShadow(Reg dest, Arg* src);
+Time		RShadowGet(Reg reg, Index index);
+void   		RShadowSet(Time time, Reg reg, Index index);
+void		RShadowExport(TArray* dest, Reg src);
+void		RShadowImport(Reg dest, TArray* src);
 
-void 		RShadowSetActiveLTable(LTable* table);
+void 		RShadowActiveTable(LTable* table);
 
 
 #endif

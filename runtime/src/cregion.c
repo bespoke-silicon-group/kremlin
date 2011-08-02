@@ -10,10 +10,10 @@ static CNode* current;
 
 /***  local functions ***/
 static void updateCRegion(CRegion* region, RegionField* info);
-static CNode* findChildNode(CNode* node, UInt64 sid, UInt64 callSite); 
+static CNode* findChildNode(CNode* node, SID sid, CID callSite); 
 static CNode* createCNode(CNode* parent, CRegion* region);
 static void deleteCNode(); 
-static CRegion* createCRegion(UInt64 sid, UInt64 callSite);
+static CRegion* createCRegion(SID sid, CID callSite);
 static void deleteCRegion(CRegion* region);
 static void emit(char* file);
 static void emitRegion(FILE* fp, CNode* node, UInt level);
@@ -37,7 +37,7 @@ void cregionFinish(char* file) {
 }
 
 // move the pointer to the right place 
-void cregionPutContext(UInt64 sid, UInt64 callSite) {
+void cregionPutContext(SID sid, CID callSite) {
 	CNode* child = NULL;
 	if (current != NULL)
 		child = findChildNode(current, sid, callSite);
