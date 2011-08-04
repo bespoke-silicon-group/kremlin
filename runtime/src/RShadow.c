@@ -95,16 +95,19 @@ void RShadowSet(Time time, Reg reg, Index index) {
 
 void RShadowExport(TArray* dest, Reg src) {
 	Index i;
+	/*
 	for (i=0; i<getIndexSize(); i++)
 		dest->values[i] = RShadowGet(src, i);
+		*/
 }
 
 
 void RShadowImport(Reg dest, TArray* src) {
 	Index i;
+	/*
 	for (i=0; i<getIndexSize(); i++) {
 		RShadowSet(src->values[i], dest, i);
-	}
+	}*/
 }
 
 LTable* RShadowCreateTable(int numEntry, Index depth) {

@@ -135,53 +135,57 @@ static inline void addStore() {
 /*************************************************************
  * Arg Management
  *
- * ToDo: use Arg Pool rather than dynamically 
- * allocate new Args 
+ * Function Arg Transfer Sequence
+ * 1) caller calls "prepareCall" to reset argFifo
+ * 2) for each arg, the caller calls linkArgToLocal or linkArgToConst
+ * 3) callee function enters with "logEnterRegion"
+ * 4) callee links each arg with transferAndUnlinkArg by 
+ * dequeing a register number from fifo,
+ * in the same order used in linkArgXXXX.
+ *
+ * FIFO size is conservatively set to 64, 
+ * which is already very large for # of args for a function call.
+ *
+ * Is single FIFO enough in Kremlin?
+ *   Yes, function args will be prepared and processed 
+ *   before and after logRegionEntry.
+ *   The fifo can be reused for the next function calls.
+ *   
+ * Why reset the queue every time?
+ *   uninstrumented functions (e.g. library) do not have 
+ *  "transferAndUnlinkArg" call, so there could be 
+ *  remaining args from previous function calls
+ *  
+ * 
  *************************************************************/
-static deque* argQueue;
-#define DUMMY_REG	-1
-//typedef TArray	Arg
-typedef struct _Arg {
-	TArray*	array;
-	Reg		reg;
-} Arg;
 
-
-static inline Arg* createArg() {
-	Arg* ret = malloc(sizeof(Arg));
-	ret->array = TArrayAlloc(getIndexSize());
-	return ret;
-}
-
-static inline void freeArg(Arg* arg) {
-	TArrayFree(arg->array);
-	free(arg);
-}
+#define ARG_SIZE		64
+static Reg  argFifo[ARG_SIZE];
+static Reg* argFifoReadPointer;
+static Reg* argFifoWritePointer;
 
 static inline void ArgFifoInit() {
-    deque_create(&argQueue, NULL, NULL);
+	argFifoReadPointer = argFifo;
+	argFifoWritePointer = argFifo;
 }
 
 static inline void ArgFifoDeinit() {
-    deque_delete(&argQueue);
+	// intentionally blank
 }
 
-//static inline void putArgTimestamp(Reg src) {
 static inline void ArgFifoPush(Reg src) {
-	Arg* arg = createArg();
-	if (src != DUMMY_REG) 
-		RShadowExport(arg->array, src);
-	arg->reg = src;
-
-	deque_push_back(argQueue, arg);
+	*argFifoWritePointer++ = src;
+	assert(argFifoWritePointer < argFifo + ARG_SIZE);
 }
 
-static inline Arg* ArgFifoPop() {
-	return deque_pop_front(argQueue);
+static inline Reg ArgFifoPop() {
+	assert(argFifoReadPointer < argFifoWritePointer);
+	return *argFifoReadPointer++;
 }
 
 static inline void ArgFifoClear() {
-	deque_clear(argQueue);
+	argFifoReadPointer = argFifo;
+	argFifoWritePointer = argFifo;
 }
 
 /*****************************************************************
@@ -323,7 +327,8 @@ static void RegionInitFunc()
 
     prepareCall(0, 0);
 	RegionPushFunc(lastCallSiteId);
-    (*FuncContextsLast(funcContexts))->ret = mainReturn = TEntryAlloc(getIndexSize());
+	mainReturn = TEntryAlloc(getIndexSize());
+    (*FuncContextsLast(funcContexts))->ret = mainReturn;
 }
 
 static void RegionDeinitFunc()
@@ -331,10 +336,11 @@ static void RegionDeinitFunc()
 	RegionPopFunc();
 
     assert(FuncContextsEmpty(funcContexts));
-    TEntryFree(mainReturn);
+    //TEntryFree(mainReturn);
     mainReturn = NULL;
     FuncContextsDelete(&funcContexts);
 }
+
 /*****************************************************************
  * Region Management
  *****************************************************************/
@@ -564,6 +570,7 @@ void prepareCall(CID callSiteId, UInt64 calledRegionId) {
     // Clear off any argument timestamps that have been left here before the
     // call. These are left on the deque because library calls never take
     // theirs off. 
+    MSG(1, "prepareCall\n");
     ArgFifoClear();
 	lastCallSiteId = callSiteId;
 }
@@ -601,10 +608,11 @@ void transferAndUnlinkArg(Reg dest) {
     if (!isKremlinOn())
         return;
 
-    MSG(1, "transfer arg data to ts[%u]\n", dest);
-	Arg* arg = ArgFifoPop();
-	if (arg->reg != DUMMY_ARG)
-		RShadowImport(dest, arg->array);
+	Reg src = ArgFifoPop();
+    MSG(1, "transfer arg data to ts[%u] src = %d\n", dest, src);
+	// copy parent's src timestamp into the currenf function's dest reg
+	if (src != DUMMY_ARG)
+		RShadowImport(dest, src);
 }
 
 
