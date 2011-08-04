@@ -82,6 +82,17 @@ UInt RShadowDeinit() {
 	finalizeMemoryPool();
 }
 
+Time RShadowGetWithTable(LTable* table, Reg reg, Index index) {
+	assert(table != NULL);
+	int offset = lTable->indexSize * reg + index;
+	return table->array[offset];
+}
+
+void RShadowSetWithTable(LTable* table, Time time, Reg reg, Index index) {
+	assert(table != NULL);
+	int offset = lTable->indexSize * reg + index;
+	table->array[offset] = time;
+}
 
 Time RShadowGet(Reg reg, Index index) {
 	int offset = lTable->indexSize * reg + index;
@@ -93,6 +104,24 @@ void RShadowSet(Time time, Reg reg, Index index) {
 	lTable->array[offset] = time;
 }
 
+/*
+ * Copy values of a register to another table
+ * It copies values for all indexes. 
+ */
+void RShadowCopy(LTable* destTable, Reg destReg, LTable* srcTable, Reg srcReg, Index start, Index size) {
+	assert(destTable != NULL);
+	assert(srcTable != NULL);
+	int indexDest = destTable->indexSize * destReg + start;
+	int indexSrc = srcTable->indexSize * srcReg + start;
+	assert(size > 0);
+	assert(start < destTable->indexSize);
+	assert(start < srcTable->indexSize);
+
+	memcpy(destTable + indexDest, srcTable + indexSrc, size * sizeof(Time));
+}
+
+
+#if 0
 void RShadowExport(TArray* dest, Reg src) {
 	Index i;
 	/*
@@ -109,6 +138,7 @@ void RShadowImport(Reg dest, TArray* src) {
 		RShadowSet(src->values[i], dest, i);
 	}*/
 }
+#endif
 
 LTable* RShadowCreateTable(int numEntry, Index depth) {
 	LTable* ret = (LTable*) malloc(sizeof(LTable));
@@ -132,5 +162,4 @@ void RShadowActivateTable(LTable* table) {
 //	printf("Set LTable to 0x%x\n", table);
 	lTable = table;
 }
-
 

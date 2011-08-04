@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cregion.h"
-//#include "kremlin.h"
 
 
 /*** file local global variables ***/
@@ -59,7 +58,10 @@ void cregionPutContext(SID sid, CID callSite) {
 void cregionRemoveContext(RegionField* info) {
 	// don't update if we didn't give it any info
 	// this happens when we are out of range for logging
+	MSG(0, "CRegion: remove context current CNode= 0x%x\n", current);
 	if(info != NULL) {
+		assert(current != NULL);
+		assert(current->region != NULL);
 		updateCRegion(current->region, info);
 	}
 	current = current->parent;	
@@ -162,6 +164,7 @@ emitDOT(FILE* fp, CNode* node) {
 }
 
 static void updateCRegion(CRegion* region, RegionField* info) {
+	assert(region != NULL);
 	MSG(0, "CRegion: update current region with info: csid(0x%llx), allSite(0x%llx), work(0x%llx), cp(%llx), tpWork(%llx), spWork(%llx)\n", 
 			region->sid, info->callSite, info->work, info->cp, info->tpWork, info->spWork);
 	//fprintf(stderr, "current region: id(0x%llx), sid(0x%llx), callSite(0x%llx)\n", 
@@ -200,6 +203,7 @@ static CNode* findChildNode(CNode* node, UInt64 sid, UInt64 callSite) {
 // create a CNode
 static CNode* createCNode(CNode* parent, CRegion* region) {
 	CNode* ret = (CNode*)malloc(sizeof(CNode));
+	assert(region != NULL);
 	ret->region = region;
 	ret->parent = parent;
 	ret->childrenSize = 0;
@@ -212,6 +216,8 @@ static CNode* createCNode(CNode* parent, CRegion* region) {
 		parent->childrenSize++;
 	}
 	
+	MSG(0, "CNode: created CNode at 0x%x\n", ret);
+	assert(ret->region != NULL);
 	return ret;	
 }
 
