@@ -48,7 +48,6 @@ typedef UInt32 				Level;
 typedef UInt32 				Index;
 typedef UInt 				Reg;
 typedef UInt64				SID; 	// static region ID
-typedef UInt64				DID;	// dynamic region ID
 typedef UInt64				CID;	// callsite ID
 
 

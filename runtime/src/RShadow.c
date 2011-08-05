@@ -85,40 +85,61 @@ UInt RShadowDeinit() {
 Time RShadowGetWithTable(LTable* table, Reg reg, Index index) {
 	assert(table != NULL);
 	int offset = lTable->indexSize * reg + index;
-	return table->array[offset];
+	Time ret = lTable->array[offset];
+	assert(ret < 1000);
+	return ret;
 }
 
 void RShadowSetWithTable(LTable* table, Time time, Reg reg, Index index) {
 	assert(table != NULL);
 	int offset = lTable->indexSize * reg + index;
 	table->array[offset] = time;
+	assert(time < 1000);
 }
 
 Time RShadowGet(Reg reg, Index index) {
+	assert(index < getIndexSize());
 	int offset = lTable->indexSize * reg + index;
-	return lTable->array[offset];
+	Time ret = lTable->array[offset];
+	assert(ret < 1000);
+	return ret;
 }
 
 void RShadowSet(Time time, Reg reg, Index index) {
+	assert(lTable != NULL);
+	assert(index < getIndexSize());
 	int offset = lTable->indexSize * reg + index;
 	lTable->array[offset] = time;
+	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
+		&(lTable->array[offset]), time, reg, index, offset);
+	assert(time < 1000);
 }
 
 /*
  * Copy values of a register to another table
- * It copies values for all indexes. 
  */
 void RShadowCopy(LTable* destTable, Reg destReg, LTable* srcTable, Reg srcReg, Index start, Index size) {
 	assert(destTable != NULL);
 	assert(srcTable != NULL);
 	int indexDest = destTable->indexSize * destReg + start;
 	int indexSrc = srcTable->indexSize * srcReg + start;
-	MSG(2, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
+	//MSG(0, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
 	assert(size > 0);
 	assert(start < destTable->indexSize);
 	assert(start < srcTable->indexSize);
 
-	memcpy((Time*)destTable + indexDest, (Time*)srcTable + indexSrc, size * sizeof(Time));
+	Time* srcAddr = (Time*)(srcTable->array) + indexSrc;
+	Time* destAddr = (Time*)(destTable->array) + indexDest;
+	memcpy(destAddr, srcAddr, size * sizeof(Time));
+	/*
+	int i;
+	for (i=0; i<size; i++) {
+		Time value = *srcAddr++;
+		*destAddr++ = value;
+		MSG(1, "\tCopying from 0x%x to 0x%x value = %d\n", 
+			srcAddr-1, destAddr-1, value);
+	}*/
+
 }
 
 
@@ -147,7 +168,8 @@ LTable* RShadowCreateTable(int numEntry, Index depth) {
 	ret->indexSize = depth;
 	// should be initialized with zero
 	ret->array = (Time*) calloc(numEntry * depth, sizeof(Time));
-	MSG(1, "RShadowCreateTable: ret = 0x%llx numEntry = %d, depth = %d\n", ret, numEntry, depth);
+	ret->code = 0xDEADBEEF;
+	//MSG(1, "RShadowCreateTable: ret = 0x%llx numEntry = %d, depth = %d\n", ret, numEntry, depth);
 	return ret;
 }
 
@@ -161,7 +183,14 @@ void RShadowFreeTable(LTable* table) {
 }
 
 void RShadowActivateTable(LTable* table) {
-//	printf("Set LTable to 0x%x\n", table);
+	//MSG(1, "Set LTable to 0x%x\n", table);
 	lTable = table;
+	assert(table->code == 0xDEADBEEF);
+	int i;
+	for (i=0; i<lTable->entrySize * lTable->indexSize; i++) {
+		if (lTable->array[i] > 1000) {
+			MSG(1, "\tElement %d is 0x%x\n", i, lTable->array[i]);
+		}
+	}
 }
 

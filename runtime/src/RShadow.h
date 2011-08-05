@@ -17,6 +17,7 @@ typedef struct _LocalTable {
 	int         entrySize;
 	int         indexSize;
     Time*		array;
+	UInt		code;
 } LTable;
 
 UInt 		RShadowInit();			// initialize global shadow memory system
@@ -27,8 +28,6 @@ void		RShadowFreeTable(LTable* table);
 
 Time		RShadowGet(Reg reg, Index index);
 void   		RShadowSet(Time time, Reg reg, Index index);
-//void		RShadowExport(TArray* dest, Reg src);
-//void		RShadowImport(Reg dest, TArray* src);
 
 void		RShadowCopy(LTable* destTable, Reg destReg, LTable* srcTable, Reg srcReg, 
 				Index start, Index size);

@@ -71,6 +71,11 @@ static inline Level getEndLevel() {
 static Bool _instrumentable = TRUE;
 
 static inline Bool isInstrumentable() {
+#if 0	
+    incIndentTab(); // only affects debug printing
+	MSG(1, "instrumentable = %d\n", _instrumentable);
+	decIndentTab();
+#endif
 	return _instrumentable;
 }
 
@@ -202,10 +207,11 @@ static Version*  versions = NULL;
 static void RegionVersionInit() {
     versions = (int*) calloc(sizeof(int), DS_ALLOC_SIZE);
     assert(versions);
+	MSG(0, "RegionVersionInit = 0x%x\n", versions);
 }
 
 static void RegionVersionDeinit() {
-	free(versions);
+	//free(versions);
 	versions = NULL;
 }
 
@@ -218,50 +224,8 @@ static void RegionIssueVersion(Level level) {
 	versions[level]++;
 }
 
-/*****************************************************************
- * Dynamic Region Id Management
- *
- * Opt Priority: low (only called in logRegionEntry)
- ****************************************************************/
-
-/*  HASH and VECTOR Library Declarations */
-HASH_MAP_DEFINE_PROTOTYPES(sid_did, UInt64, UInt64);
-HASH_MAP_DEFINE_FUNCTIONS(sid_did, UInt64, UInt64);
 
 
-static hash_map_sid_did*   sidToDid;
-
-static UInt64 sidHash(SID sid) {
-    return sid;
-}
-
-static int sidCompare(SID s1, SID s2) {
-    return s1 == s2;
-}
-
-static void RegionDidInit() {
-    hash_map_sid_did_create(&sidToDid, sidHash, sidCompare, NULL, NULL);
-}
-
-static void RegionDidDeinit() {
-    hash_map_sid_did_delete(&sidToDid);
-}
-
-/**
- * Returns a pointer to the dynamic id count.
- *
- * @param sid       The static id.
- * @return          The dynamic id count.
- */
-inline DID RegionGetDid(SID sid) {
-    UInt64* did;
-    if(!(did = hash_map_sid_did_get(sidToDid, sid))) {
-        hash_map_sid_did_put(sidToDid, sid, 0, TRUE);
-        did = hash_map_sid_did_get(sidToDid, sid);
-    }
-    assert(did);
-    return *did;
-}
 
 /*****************************************************************
  * Function Context Management
@@ -317,6 +281,7 @@ static void RegionPopFunc() {
         RShadowFreeTable(func->table);
 
     free(func);  
+	checkRegion();
 }
 
 static FuncContext* RegionGetFunc() {
@@ -360,7 +325,9 @@ static void RegionDeinitFunc()
 {
 	//RegionPopFunc();
     assert(FuncContextsEmpty(funcContexts));
+	MSG(0, "RegionDeinitFunc start\n");
     FuncContextsDelete(&funcContexts);
+	MSG(0, "RegionDeinitFunc end\n");
 }
 
 /*****************************************************************
@@ -369,7 +336,6 @@ static void RegionDeinitFunc()
 
 typedef struct _region_t {
 	SID	regionId;
-	DID	did;
 	RegionType regionType;
 	Timestamp start;
 	Timestamp cp;
@@ -397,7 +363,6 @@ static void RegionInit() {
 		regionInfo[i].code = 0xDEADBEEF;
 	checkRegion();
     assert(regionInfo);
-	RegionDidInit();
 	RegionVersionInit();
 	RegionInitFunc();
 
@@ -407,7 +372,6 @@ static void RegionInit() {
 static void RegionDeinit() {
 	RegionDeinitFunc();
 	RegionVersionDeinit();
-	RegionDidDeinit();
 	checkRegion();
 	assert(regionInfo != NULL);
     //free(regionInfo);
@@ -425,17 +389,23 @@ static inline Region* RegionGet(Level level) {
 
 void checkRegion() {
 	int i;
+	int bug = 0;
 	for (i=0; i<getIndexSize(); i++) {
 		Region* ret = &regionInfo[i];
 		assert(ret->code == 0xDEADBEEF);
+		if (ret->cp > 1000) {
+			fprintf(stderr, "problem at level %d\n", i); 
+			bug = 1;
+		}
 	}
+	if (bug > 0)
+		assert(0);
 }
 
-static inline void RegionRestart(Region* region, SID sid, DID did, UInt regionType, Level level) {
+static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level level) {
 	region->regionId = sid;
 	region->start = getTimetick();
-	region->did = did;
-	region->cp = 0LL;
+	region->cp = 0ULL;
 	region->childrenWork = 0LL;
 	region->childrenCP = 0LL;
 	region->regionType = regionType;
@@ -451,42 +421,24 @@ static inline void RegionRestart(Region* region, SID sid, DID did, UInt regionTy
 }
 
 
-/**
- * Increments the dynamic id count for a static region.
- *
- * @param sid       The static id.
- */
-inline void RegionIssueDid(SID sid) {
-	DID* did;
-    if(!(did = hash_map_sid_did_get(sidToDid, sid))) {
-        hash_map_sid_did_put(sidToDid, sid, 0, TRUE);
-        did = hash_map_sid_did_get(sidToDid, sid);
-    }
-    assert(did);
-
-    (*did)++;
-}
-
-
-
 /*****************************************************************
  * CDep Management
  *
- * getCdt: get cdt for a specific level
- * getCdt: get cdt for the current level
- * setCdt: set cdt for a specific level and version
- * fillCdt: copy timestamp from TEntry to CDT
+ * CDepGet: get cdt for a specific level
+ * CDepGet: get cdt for the current level
+ * CDepSet: set cdt for a specific level and version
+ * fillCdt: copy timestamp from TEntry to CDep
  * 
  * 
  *****************************************************************/
 
-//typedef TArray CDT;
-typedef struct _CDT {
+//typedef TArray CDep;
+typedef struct _CDep {
 	Timestamp* time;
 	int size;	
-} CDT;
+} CDep;
 
-CDT* cdtHead = NULL;
+CDep* cdepHead = NULL;
 
 /**
  * Returns timestamp of control dep at specified level with specified version.
@@ -494,9 +446,9 @@ CDT* cdtHead = NULL;
  * @param version	Version we are looking for.
  * @return			Timestamp of control dep.
  */
-static inline Timestamp getCdt(Index index) {
-    assert(cdtHead != NULL);
-	return cdtHead->time[index];
+static inline Timestamp CDepGet(Index index) {
+    assert(cdepHead != NULL);
+	return cdepHead->time[index];
 }
 
 /**
@@ -505,24 +457,24 @@ static inline Timestamp getCdt(Index index) {
  * @param version	Version number to set.
  * @param time		Timestamp to set control dep to.
  */
-static inline void setCdt(Index index, Timestamp time) {
+static inline void CDepSet(Index index, Timestamp time) {
 	assert(index >= 0);
-    cdtHead->time[index] = time;
+    cdepHead->time[index] = time;
 }
 
-#define CDTSIZE	256
-static CDT* cdtPool;
+#define CDEP_SIZE	256
+static CDep* cdtPool;
 static int cdtSize;
 static int cdtIndex;
 
-CDT* allocCDT() {
-	CDT* ret = &cdtPool[cdtIndex];
+static CDep* CDepAlloc() {
+	CDep* ret = &cdtPool[cdtIndex];
 	cdtIndex++;
 	if (cdtIndex == cdtSize) {
 		int i;
-		cdtSize += CDTSIZE;
-		cdtPool = realloc(cdtPool, sizeof(CDT) * cdtSize);
-		for (i=cdtSize-CDTSIZE; i<cdtSize; i++) {
+		cdtSize += CDEP_SIZE;
+		cdtPool = realloc(cdtPool, sizeof(CDep) * cdtSize);
+		for (i=cdtSize-CDEP_SIZE; i<cdtSize; i++) {
     		cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
 			cdtPool[i].size = getIndexSize();
 		}
@@ -530,19 +482,19 @@ CDT* allocCDT() {
 	return ret;
 }
 
-CDT* freeCDT(CDT* toFree) { 
+static CDep* CDepFree(CDep* toFree) { 
 	cdtIndex--;
 	return &cdtPool[cdtIndex]; 
 }
 
 void CDepInit() {
 	int i=0;
-	cdtPool = malloc(sizeof(CDT) * CDTSIZE);
+	cdtPool = malloc(sizeof(CDep) * CDEP_SIZE);
 
 	cdtIndex = 0;
-	cdtSize = CDTSIZE;
+	cdtSize = CDEP_SIZE;
 
-	for (i=0; i<CDTSIZE; i++) {
+	for (i=0; i<CDEP_SIZE; i++) {
     	cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
 		cdtPool[i].size = getIndexSize();
 
@@ -550,7 +502,7 @@ void CDepInit() {
 		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
 		//fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
 	}
-	cdtHead = allocCDT();
+	cdepHead = CDepAlloc();
 }
 
 void CDepDeinit() {
@@ -558,7 +510,7 @@ void CDepDeinit() {
 	for (i=0; i<cdtSize; i++) {
 		free(cdtPool[i].time);
 	}
-	cdtHead = NULL;
+	cdepHead = NULL;
 }
 
 
@@ -574,27 +526,25 @@ void CDepDeinit() {
  *****************************************************************/
 
 void addControlDep(Reg cond) {
-    MSG(2, "push ControlDep ts[%u]\n", cond);
+    MSG(1, "push ControlDep ts[%u]\n", cond);
 
     if (!isKremlinOn()) {
 		return;
 	}
 #ifndef WORK_ONLY
-    if (isInstrumentable()) { 
-		cdtHead = allocCDT(); 
-		Index index;
-		for (index=0; index<getIndexSize(); index++) {
-        	cdtHead->time[index] = RShadowGet(cond, index);
-		}
+	cdepHead = CDepAlloc(); 
+	Index index;
+	for (index=0; index<getIndexSize(); index++) {
+       	cdepHead->time[index] = RShadowGet(cond, index);
 	}
 #endif
 }
 
 void removeControlDep() {
-    MSG(2, "pop  ControlDep\n");
+    MSG(1, "pop  ControlDep\n");
 #ifndef WORK_ONLY
-    if (isInstrumentable()) {
-		 cdtHead = freeCDT(cdtHead); 
+    if (!isKremlinOn()) {
+		 cdepHead = CDepFree(cdepHead); 
 	}
 #endif
 }
@@ -605,21 +555,23 @@ void removeControlDep() {
 
 
 void prepareCall(CID callSiteId, UInt64 calledRegionId) {
-    if(!isKremlinOn()) { return; }
+    MSG(1, "prepareCall\n");
+    if(!isKremlinOn()) { 
+		return; 
+	}
 
     // Clear off any argument timestamps that have been left here before the
     // call. These are left on the deque because library calls never take
     // theirs off. 
-    MSG(1, "prepareCall\n");
     ArgFifoClear();
 	lastCallSiteId = callSiteId;
 }
 
 // TODO: need to think how to pass args without TEntry
 void linkArgToLocal(Reg src) {
+    MSG(1, "linkArgToLocal to ts[%u]\n", src);
     if (!isKremlinOn())
         return;
-    MSG(1, "linkArgToLocal to ts[%u]\n", src);
 	ArgFifoPush(src);
 }
 
@@ -627,21 +579,21 @@ void linkArgToLocal(Reg src) {
 
 // special case for constant arg
 void linkArgToConst() {
+    MSG(1, "linkArgToConst\n");
     if (!isKremlinOn())
         return;
 
-    MSG(1, "linkArgToConst\n");
 	ArgFifoPush(DUMMY_ARG); // dummy arg
 }
 
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
 void transferAndUnlinkArg(Reg dest) {
+    MSG(1, "transfer arg data to ts[%u] \n", dest);
     if (!isKremlinOn())
         return;
 
 	Reg src = ArgFifoPop();
-    MSG(1, "transfer arg data to ts[%u] src = %d\n", dest, src);
 	// copy parent's src timestamp into the currenf function's dest reg
 	if (src != DUMMY_ARG) {
 		FuncContext* caller = RegionGetCallerFunc();
@@ -657,9 +609,11 @@ void transferAndUnlinkArg(Reg dest) {
  * @param maxVregNum	Number of virtual registers to allocate.
  */
 void setupLocalTable(UInt maxVregNum) {
-    if(!isKremlinOn()) { return; }
-
     MSG(1, "setupLocalTable size %u \n", maxVregNum);
+    if(!isKremlinOn()) {
+		 return; 
+	}
+
 #ifndef WORK_ONLY
     assert(_requireSetupTable == 1);
 
@@ -725,16 +679,17 @@ void resumeProfiler() {
  *****************************************************************/
 
 void logRegionEntry(SID regionId, RegionType regionType) {
-    if (!isKremlinOn()) { return; }
+    if (!isKremlinOn()) { 
+		return; 
+	}
 
     incrementRegionLevel();
     Level level = getCurrentLevel();
-    RegionIssueDid(regionId);
     RegionIssueVersion(level);
 
 	MSG(0, "\n");
-	MSG(0, "[+++] region [%u, %d, %llu:%llu] start: %llu\n",
-        regionType, level, regionId, RegionGetDid(regionId), getTimetick());
+	MSG(0, "[+++] region [type %u, level %d, sid 0x%llx] start: %llu\n",
+        regionType, level, regionId, getTimetick());
     incIndentTab(); // only affects debug printing
 
 
@@ -748,17 +703,12 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
 	CRegionEnter(regionId, callSiteId);
 
-	// If we exceed the maximum depth, we act like this region doesn't exist
-	if (!isInstrumentable()) {
-		MSG(0, "skip region level %d as we instrument [%d, %d]\n", level, getMinLevel(), getMaxLevel());
-		 return; 
-	}
-
-   	Region* region = RegionGet(level);
-	RegionRestart(region, regionId, RegionGetDid(regionId),regionType, level);
+	Region* region = RegionGet(level);
+	RegionRestart(region, regionId, regionType, level);
 
 #ifndef WORK_ONLY
-    setCdt(getIndex(level), 0);
+	if (isInstrumentable())	
+    	CDepSet(getIndex(level), 0);
 #endif
 	MSG(0, "\n");
 }
@@ -766,19 +716,18 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 /**
  * Does the clean up work when exiting a function region.
  */
-void handleFuncRegionExit() {
+static void handleFuncRegionExit() {
 	RegionPopFunc();
 
-	if (FuncContextsSize(funcContexts) == 0)
+	// root function
+	if (FuncContextsSize(funcContexts) == 0) {
+		assert(getCurrentLevel() == 0); 
 		return;
+	}
 
 	FuncContext* funcHead = RegionGetFunc();
-	if (funcHead == NULL) {
-		assert(getCurrentLevel() == 0); 
-
-	} else { 
-		RShadowActivateTable(funcHead->table); 
-	}
+	assert(funcHead != NULL);
+	RShadowActivateTable(funcHead->table); 
 }
 
 
@@ -816,45 +765,62 @@ RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWor
  */
 
 void logRegionExit(SID regionId, RegionType regionType) {
-    if (!isKremlinOn()) { return; }
+    if (!isKremlinOn()) { 
+		return; 
+	}
 
     Level level = getCurrentLevel();
 	Region* region = RegionGet(level);
     SID sid = regionId;
-    DID did = region->did;
 	SID parentSid = 0;
-	DID parentDid = 0;
     UInt64 work = getTimetick() - region->start;
 	decIndentTab(); // applies only to debug printing
 	MSG(0, "\n");
-    MSG(0, "[---] region [%u, %u, %llu:%llu] cp %llu work %llu\n",
-        regionType, level, regionId, did, region->cp, work);
+    MSG(0, "[---] region [%u, %u, 0x%llx] cp %llu work %llu\n",
+        regionType, level, regionId, region->cp, work);
 
 
+	checkRegion();
 
 	// If we are outside range of levels, 
 	// handle function stack then exit
+#if 0
 	if (!isInstrumentable()) {
-		assert(0);
 #ifndef WORK_ONLY
 		if (regionType == RegionFunc) {
 			 handleFuncRegionExit(); 
 		}
 #endif
+    	MSG(0, "Skip - level %d is out of instrumentation range (%d, %d)\n",
+			level, getMinLevel(), getMaxLevel());
     	decrementRegionLevel();
 		CRegionLeave(NULL);
 		return;
 	}
+#endif
 
+	assert(region->regionId == regionId);
+#if 0
     if (region->regionId != regionId) {
 		fprintf(stderr, "mismatch in regionID. expected %llu, got %llu. level = %d\n", 
 				region->regionId, regionId, level);
 		assert(0);
 	}
+#endif
 
     UInt64 cp = region->cp;
-	assert(work >= cp);
-	assert(work >= region->childrenWork);
+	if (work < cp) {
+		fprintf(stderr, "work = %llu\n", work);
+		fprintf(stderr, "cp = %llu\n", cp);
+		checkRegion();
+		assert(0);
+	}
+	if (level < getMaxLevel() && level >= getMinLevel()) {
+		assert(work >= cp);
+		assert(work >= region->childrenWork);
+		assert(work < 100000);
+		assert(cp < 100000);
+	}
 
 	// Only update parent region's childrenWork and childrenCP 
 	// when we are logging the parent
@@ -865,25 +831,23 @@ void logRegionExit(SID regionId, RegionType regionType) {
 	if (level > getMinLevel()) {
 		Region* parent_region = RegionGet(level - 1);
     	parentSid = parent_region->regionId;
-		parentDid = parent_region->did;
 		parent_region->childrenWork += work;
 		parent_region->childrenCP += cp;
 	} 
 
 	// Check that cp is positive if work is positive.
 	// This only applies when the current level gets instrumented (otherwise this condition always holds)
-    if (cp == 0 && work > 0) {
+    if (isInstrumentable() && cp == 0 && work > 0) {
         fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
-        fprintf(stderr, "region [type: %u, level: %u, id: %llu:%llu] parent [%llu:%llu] cp %llu work %llu\n",
-            regionType, level, regionId, did, parentSid, parentDid, 
-            region->cp, work);
+        fprintf(stderr, "region [type: %u, level: %u, sid: %llu] parent [%llu] cp %llu work %llu\n",
+            regionType, level, regionId,  parentSid,  region->cp, work);
         assert(0);
     }
 
 	double spTemp = (work - region->childrenWork + region->childrenCP) / (double)cp;
 	double sp = (work > 0) ? spTemp : 1.0;
 
-	if (sp < 1.0) {
+	if (level < getMaxLevel() && sp < 1.0) {
 		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu childrenCP=%lld\n", sid, work,
 			region->childrenWork, region->childrenCP);
 		assert(0);
@@ -914,7 +878,7 @@ void logRegionExit(SID regionId, RegionType regionType) {
 		handleFuncRegionExit(); 
 	}
 
-        decrementRegionLevel();
+    decrementRegionLevel();
 
 	MSG(0, "\n");
 }
@@ -926,19 +890,20 @@ void logRegionExit(SID regionId, RegionType regionType) {
 
 
 void* logReductionVar(UInt opCost, Reg dest) {
+    MSG(1, "logReductionVar ts[%u] with cost = %d\n", dest, opCost);
+    if (!isKremlinOn() || !isInstrumentable())
+		return;
+
     addWork(opCost);
     return NULL;
 }
 
 void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
+    MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
     if (!isKremlinOn())
         return NULL;
 
-    MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
     addWork(opCost);
-
-	if (!isInstrumentable()) 
-		return NULL;
 
 #ifndef WORK_ONLY
     Level minLevel = getStartLevel();
@@ -946,10 +911,10 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
 
     Level i;
     for (i = minLevel; i <= maxLevel; ++i) {
-		// CDT and shadow memory are index based
+		// CDep and shadow memory are index based
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-        Timestamp cdt = getCdt(index);
+        Timestamp cdt = CDepGet(index);
         Timestamp ts0 = RShadowGet(src0, index);
         Timestamp ts1 = RShadowGet(src1, index);
         Timestamp greater0 = (ts0 > ts1) ? ts0 : ts1;
@@ -969,16 +934,13 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
 }
 
 void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
+    MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
     if (!isKremlinOn())
         return NULL;
 
-    MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
     addWork(opCost);
 
 #ifndef WORK_ONLY
-	if (!isInstrumentable()) 
-		return NULL;
-
     Level minLevel = getStartLevel();
     Level maxLevel = getEndLevel();
 
@@ -986,7 +948,7 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-        Timestamp cdt = getCdt(index);
+        Timestamp cdt = CDepGet(index);
         Timestamp ts0 = RShadowGet(src, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + opCost;
@@ -1008,21 +970,20 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
 
 
 void* logAssignment(Reg src, Reg dest) {
-    if (!isKremlinOn()) return NULL;
+    MSG(1, "logAssignment ts[%u] <- ts[%u]\n", dest, src);
+    if (!isKremlinOn())
+    	return NULL;
     
     return logBinaryOpConst(0, src, dest);
 }
 
 void* logAssignmentConst(UInt dest) {
+    MSG(1, "logAssignmentConst ts[%u]\n", dest);
     if (!isKremlinOn())
         return NULL;
 
-    MSG(1, "logAssignmentConst ts[%u]\n", dest);
 
 #ifndef WORK_ONLY
-	if (!isInstrumentable())
-		return NULL;
-    
     Level minLevel = getStartLevel();
     Level maxLevel = getEndLevel();
 
@@ -1030,7 +991,7 @@ void* logAssignmentConst(UInt dest) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-        Timestamp cdt = getCdt(index);
+        Timestamp cdt = CDepGet(index);
 		RShadowSet(cdt, dest, index);
         RegionUpdateCp(region, cdt);
     }
@@ -1039,14 +1000,13 @@ void* logAssignmentConst(UInt dest) {
 }
 
 void* logLoadInst(Addr src_addr, Reg dest) {
-    if (!isKremlinOn()) return NULL;
-
     MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
+    if (!isKremlinOn())
+    	return NULL;
+
     addWork(LOAD_COST);
 
 #ifndef WORK_ONLY
-	if (!isInstrumentable())
-		return NULL;
     Level minLevel = getStartLevel();
     Level maxLevel = getEndLevel();
     Level i;
@@ -1055,7 +1015,7 @@ void* logLoadInst(Addr src_addr, Reg dest) {
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
         region->loadCnt++;
-        Timestamp cdt = getCdt(index);
+        Timestamp cdt = CDepGet(index);
 		Timestamp ts0 = MShadowGet(src_addr, index, version);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + LOAD_COST;
@@ -1063,7 +1023,6 @@ void* logLoadInst(Addr src_addr, Reg dest) {
 #ifdef EXTRA_STATS
         //updateReadMemoryAccess(entry0, i, RegionGetVersion(i), value);
 #endif
-
         RShadowSet(value, dest, index);
         RegionUpdateCp(region, value);
     }
@@ -1076,15 +1035,13 @@ void* logLoadInst(Addr src_addr, Reg dest) {
 }
 
 void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
-    if (!isKremlinOn()) return NULL;
-
     MSG(1, "load ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, src_addr, src1, LOAD_COST);
+    if (!isKremlinOn())
+		return NULL;
+
     addWork(LOAD_COST);
 
 #ifndef WORK_ONLY
-	if (!isInstrumentable()) return NULL;
-
-
     Level minLevel = getStartLevel();
     Level maxLevel = getEndLevel();
 
@@ -1094,7 +1051,7 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
-        Timestamp cdt = getCdt(index);
+        Timestamp cdt = CDepGet(index);
 		Timestamp ts_src_addr = MShadowGet(src1, index, version);
 		Timestamp ts_src1 = RShadowGet(src1, index);
 
@@ -1124,15 +1081,13 @@ void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4,
 
 
 void* logStoreInst(UInt src, Addr dest_addr) {
-    if (!isKremlinOn()) return NULL;
-
     MSG(1, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
+    if (!isKremlinOn())
+    	return NULL;
 
     addWork(STORE_COST);
 
 #ifndef WORK_ONLY
-	if(!isInstrumentable()) return NULL;
-
     Level minLevel = getStartLevel();
     Level maxLevel = getEndLevel();
     Level i;
@@ -1142,7 +1097,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
         region->storeCnt++;
-        Timestamp cdt = getCdt(index);
+        Timestamp cdt = CDepGet(index);
 		Timestamp ts0 = RShadowGet(src, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + STORE_COST;
@@ -1160,14 +1115,13 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 
 
 void* logStoreInstConst(Addr dest_addr) {
+    MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
     if (!isKremlinOn())
         return NULL;
 
-    MSG(1, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
     addWork(STORE_COST);
 
 #ifndef WORK_ONLY
-	if (!isInstrumentable()) return NULL;
 
 #ifdef EXTRA_STATS
     //TEntry* entryLine = getGTEntryCacheLine(dest_addr);
@@ -1181,7 +1135,7 @@ void* logStoreInstConst(Addr dest_addr) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
-        Timestamp cdt = getCdt(index);
+        Timestamp cdt = CDepGet(index);
         Timestamp value = cdt + STORE_COST;
 #ifdef EXTRA_STATS
         //updateWriteMemoryAccess(entryDest, i, version, value);
@@ -1200,9 +1154,9 @@ void* logStoreInstConst(Addr dest_addr) {
 // Save the return register name in caller's context
 
 void addReturnValueLink(Reg dest) {
+    MSG(1, "prepare return storage ts[%u]\n", dest);
     if (!isKremlinOn())
         return;
-    MSG(1, "prepare return storage ts[%u]\n", dest);
 #ifndef WORK_ONLY
 	FuncContext* caller = RegionGetFunc();
 	caller->ret = dest;	
@@ -1214,9 +1168,9 @@ void addReturnValueLink(Reg dest) {
 // update the caller register that will hold the return value
 //
 void logFuncReturn(Reg src) {
+    MSG(1, "write return value ts[%u]\n", src);
     if (!isKremlinOn())
         return;
-    MSG(1, "write return value ts[%u]\n", src);
 
 #ifndef WORK_ONLY
     FuncContext* callee = RegionGetFunc();
@@ -1235,9 +1189,9 @@ void logFuncReturn(Reg src) {
 }
 
 void logFuncReturnConst(void) {
+    MSG(1, "logFuncReturnConst\n");
     if (!isKremlinOn())
         return;
-    MSG(1, "logFuncReturnConst\n");
 
 #ifndef WORK_ONLY
     int i;
@@ -1256,12 +1210,13 @@ void logFuncReturnConst(void) {
 
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
-        UInt64 cdt = getCdt(index);
+        UInt64 cdt = CDepGet(index);
 		RShadowSetWithTable(caller->table, cdt, caller->ret, index);
     }
 #endif
 }
 
+#if 0
 void logBBVisit(UInt bb_id) {
     if (!isKremlinOn()) return;
 
@@ -1271,11 +1226,14 @@ void logBBVisit(UInt bb_id) {
     __currentBB = bb_id;
 #endif
 }
+#endif
 
 // this function is the same as logAssignmentConst but helps to quickly
 // identify induction variables in the source code
 void* logInductionVar(UInt dest) {
-    if (!isKremlinOn()) return NULL;
+    MSG(1, "logInductionVar to %u\n", dest);
+    if (!isKremlinOn())
+		return NULL;
     return logAssignmentConst(dest);
 }
 
@@ -1287,23 +1245,23 @@ void* logInductionVar(UInt dest) {
  ******************************************************************/
 
 void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
-    if (!isKremlinOn()) return NULL;
-
     MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
+    if (!isKremlinOn())
+		return NULL;
+
 
 #ifndef WORK_ONLY
-	if(!isInstrumentable()) return NULL;
-    
     int minLevel = getStartLevel();
     int maxLevel = getEndLevel();
 
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
-		Timestamp ts_src = RShadowGet(src, i);
-		Timestamp ts_cd = RShadowGet(cd, i);
+		Index index = getIndex(i);
+		Timestamp ts_src = RShadowGet(src, index);
+		Timestamp ts_cd = RShadowGet(cd, index);
         Timestamp max = (ts_src > ts_cd) ? ts_src : ts_cd;
         //updateTimestamp(entryDest, i, version, max);
-		RShadowSet(max, dest, i);
+		RShadowSet(max, dest, index);
         MSG(2, "logPhiNode1CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd %u dest %u\n", src, cd, dest);
         MSG(2, " ts_src %u ts_cd %u max %u\n", ts_src, ts_cd, max);
@@ -1317,25 +1275,24 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 }
 
 void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
-    if (!isKremlinOn()) return NULL;
-
     MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
+    if (!isKremlinOn())
+    	return NULL;
 
 #ifndef WORK_ONLY
-	if(!isInstrumentable()) return NULL;
-    
     int minLevel = getStartLevel();
     int maxLevel = getEndLevel();
 
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
-		Timestamp ts_src = RShadowGet(src, i);
-		Timestamp ts_cd1 = RShadowGet(cd1, i);
-		Timestamp ts_cd2 = RShadowGet(cd2, i);
+		Index index = getIndex(i);
+		Timestamp ts_src = RShadowGet(src, index);
+		Timestamp ts_cd1 = RShadowGet(cd1, index);
+		Timestamp ts_cd2 = RShadowGet(cd2, index);
         Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
         Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
 
-		RShadowSet(max2, dest, i);
+		RShadowSet(max2, dest, index);
 
         MSG(2, "logPhiNode2CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u dest %u\n", src, cd1, cd2, dest);
@@ -1350,27 +1307,29 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 }
 
 void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
-    if (!isKremlinOn()) return NULL;
-
     MSG(1, "logPhiNode3CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
 
+    if (!isKremlinOn())
+    	return NULL;
+
+
 #ifndef WORK_ONLY
-	if(!isInstrumentable()) return NULL;
 
     int i = 0;
     int minLevel = getStartLevel();
     int maxLevel = getEndLevel();
 
     for (i = minLevel; i <= maxLevel; i++) {
-		Timestamp ts_src = RShadowGet(src, i);
-		Timestamp ts_cd1 = RShadowGet(cd1, i);
-		Timestamp ts_cd2 = RShadowGet(cd2, i);
-		Timestamp ts_cd3 = RShadowGet(cd3, i);
+		Index index = getIndex(i);
+		Timestamp ts_src = RShadowGet(src, index);
+		Timestamp ts_cd1 = RShadowGet(cd1, index);
+		Timestamp ts_cd2 = RShadowGet(cd2, index);
+		Timestamp ts_cd3 = RShadowGet(cd3, index);
         Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
         Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
         Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
 
-		RShadowSet(max3, dest, i);
+		RShadowSet(max3, dest, index);
 
         MSG(2, "logPhiNode3CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u dest %u\n", src, cd1, cd2, cd3, dest);
@@ -1385,29 +1344,30 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 }
 
 void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
-    if (!isKremlinOn()) return NULL;
+    MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
+		dest, src, cd1, cd2, cd3, cd4);
 
-    MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3, cd4);
+    if (!isKremlinOn())
+    	return NULL;
 
 #ifndef WORK_ONLY
-	if(!isInstrumentable()) return NULL;
-
     int i = 0;
     int minLevel = getStartLevel();
     int maxLevel = getEndLevel();
 
     for (i = minLevel; i <= maxLevel; i++) {
-		Timestamp ts_src = RShadowGet(src, i);
-		Timestamp ts_cd1 = RShadowGet(cd1, i);
-		Timestamp ts_cd2 = RShadowGet(cd2, i);
-		Timestamp ts_cd3 = RShadowGet(cd3, i);
-		Timestamp ts_cd4 = RShadowGet(cd4, i);
+		Index index = getIndex(i);
+		Timestamp ts_src = RShadowGet(src, index);
+		Timestamp ts_cd1 = RShadowGet(cd1, index);
+		Timestamp ts_cd2 = RShadowGet(cd2, index);
+		Timestamp ts_cd3 = RShadowGet(cd3, index);
+		Timestamp ts_cd4 = RShadowGet(cd4, index);
         Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
         Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
         Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
         Timestamp max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
 
-		RShadowSet(max4, dest, i);
+		RShadowSet(max4, dest, index);
 
         MSG(2, "logPhiNode4CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", src, cd1, cd2, cd3, cd4, dest);
@@ -1421,31 +1381,32 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 #endif
 }
 
-void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
-    if (!isKremlinOn()) return NULL;
+void* log4CDepoPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+    MSG(1, "log4CDepoPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
+		dest, dest, cd1, cd2, cd3, cd4);
 
-    MSG(1, "log4CDToPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, dest, cd1, cd2, cd3, cd4);
+    if (!isKremlinOn())
+		return NULL;
 
 #ifndef WORK_ONLY
-	if(!isInstrumentable()) return NULL;
-	
     int i = 0;
     int minLevel = getStartLevel();
     int maxLevel = getEndLevel();
 
     for (i = minLevel; i <= maxLevel; i++) {
-        Timestamp ts_dest = RShadowGet(dest, i);
-		Timestamp ts_cd1 = RShadowGet(cd1, i);
-		Timestamp ts_cd2 = RShadowGet(cd2, i);
-		Timestamp ts_cd3 = RShadowGet(cd3, i);
-		Timestamp ts_cd4 = RShadowGet(cd4, i);
+		Index index = getIndex(i);
+        Timestamp ts_dest = RShadowGet(dest, index);
+		Timestamp ts_cd1 = RShadowGet(cd1, index);
+		Timestamp ts_cd2 = RShadowGet(cd2, index);
+		Timestamp ts_cd3 = RShadowGet(cd3, index);
+		Timestamp ts_cd4 = RShadowGet(cd4, index);
         Timestamp max1 = (ts_dest > ts_cd1) ? ts_dest : ts_cd1;
         Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
         Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
         Timestamp max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
-		RShadowSet(max4, dest, i);
+		RShadowSet(max4, dest, index);
 
-        MSG(2, "log4CDToPhiNode4CD level %u version %u \n", i, RegionGetVersion(i));
+        MSG(2, "log4CDepoPhiNode4CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", cd1, cd2, cd3, cd4, dest);
         MSG(2, " ts_dest %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_dest, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
     }
@@ -1459,23 +1420,23 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 #define MAX_ENTRY 10
 
 void* logPhiNodeAddCondition(UInt dest, UInt src) {
-    if (!isKremlinOn()) return;
-
     MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
 
-#ifndef WORK_ONLY
-	if(!isInstrumentable()) return NULL;
+    if (!isKremlinOn())
+    	return;
 
+#ifndef WORK_ONLY
     int minLevel = getStartLevel();
     int maxLevel = getEndLevel();
     int i = 0;
 
     for (i = minLevel; i <= maxLevel; i++) {
+		Index index = getIndex(i);
 		Region* region = RegionGet(i);
-		Timestamp ts0 = RShadowGet(src, i);
-		Timestamp ts1 = RShadowGet(dest, i);
+		Timestamp ts0 = RShadowGet(src, index);
+		Timestamp ts1 = RShadowGet(dest, index);
         Timestamp value = (ts0 > ts1) ? ts0 : ts1;
-		RShadowSet(value, dest, i);
+		RShadowSet(value, dest, index);
         RegionUpdateCp(region, value);
         MSG(2, "logPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u dest %u\n", src, dest);
@@ -1540,20 +1501,17 @@ Bool kremlinDeinit() {
         MSG(0, "kremlinDeinit skipped\n");
         return FALSE;
     }
-    MSG(0, "kremlinDeinit running\n");
 
 	turnOffProfiler();
-
 	CRegionDeinit("kremlin.bin");
 	RShadowDeinit();
 	MShadowDeinit();
-	DebugDeinit();
-
 	CDepDeinit();
 	ArgFifoDeinit();
 	RegionDeinit();
     MemMapAllocatorDelete(&memPool);
 
+	DebugDeinit();
     return TRUE;
 }
 
@@ -1680,7 +1638,7 @@ void logFree(Addr addr) {
 
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt64 value = getCdt(i) + FREE_COST;
+        UInt64 value = CDepGet(i) + FREE_COST;
 
         updateCP(value, i);
     }
@@ -1707,11 +1665,13 @@ void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
  ************************************************/
 
 void* logInsertValue(UInt src, UInt dest) {
+	assert(0);
     //printf("Warning: logInsertValue not correctly implemented\n");
     return logAssignment(src, dest);
 }
 
 void* logInsertValueConst(UInt dest) {
+	assert(0);
     //printf("Warning: logInsertValueConst not correctly implemented\n");
     return logAssignmentConst(dest);
 }

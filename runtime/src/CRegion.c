@@ -18,6 +18,7 @@ static void emit(char* file);
 static void emitRegion(FILE* fp, CNode* node, UInt level);
 
 
+
 /*** public functions ***/
 
 
@@ -71,12 +72,13 @@ void CRegionLeave(RegionField* info) {
 /*** Local Functions */
 static int numEntries = 0;
 static int numEntriesLeaf = 0;
+static int numCreated = 0;
 
 static void emit(char* file) {
 	FILE* fp = fopen(file, "w");
 	emitRegion(fp, root, 0);
 	fclose(fp);
-	fprintf(stderr, "[kremlin] Emitted %d total regions to file, %d leaves.\n", numEntries, numEntriesLeaf);
+	fprintf(stderr, "[kremlin] Created %d Emitted (all %d leaves %d)\n", numCreated, numEntries, numEntriesLeaf);
 
 	fp = fopen("kremlin_region_graph.dot","w");
 	/*
@@ -87,8 +89,8 @@ static void emit(char* file) {
 	*/
 }
 
-static Bool isInstrumentedLevel(Level level) {
-	return level >= getMinLevel() && level <= getMaxLevel();
+static Bool isEmittable(Level level) {
+	return level >= getMinLevel() && level < getMaxLevel();
 }
 
 // recursive call
@@ -102,7 +104,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 
 	UInt64 size = node->childrenSize;
 
-	if (isInstrumentedLevel(level))
+	if (isEmittable(level))
 	{
 		numEntries++;
 		if(size == 0) { numEntriesLeaf++; }
@@ -147,7 +149,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	assert(current == NULL);
 }
 
-emitDOT(FILE* fp, CNode* node) {
+void emitDOT(FILE* fp, CNode* node) {
 	CRegion* region = node->region;
 	fprintf(stderr,"DOT: visiting %llu\n",region->id);
 
@@ -219,6 +221,7 @@ static CNode* createCNode(CNode* parent, CRegion* region) {
 	
 	MSG(3, "CNode: created CNode at 0x%x\n", ret);
 	assert(ret->region != NULL);
+	numCreated++;
 	return ret;	
 }
 
