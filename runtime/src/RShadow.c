@@ -113,11 +113,12 @@ void RShadowCopy(LTable* destTable, Reg destReg, LTable* srcTable, Reg srcReg, I
 	assert(srcTable != NULL);
 	int indexDest = destTable->indexSize * destReg + start;
 	int indexSrc = srcTable->indexSize * srcReg + start;
+	MSG(2, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
 	assert(size > 0);
 	assert(start < destTable->indexSize);
 	assert(start < srcTable->indexSize);
 
-	memcpy(destTable + indexDest, srcTable + indexSrc, size * sizeof(Time));
+	memcpy((Time*)destTable + indexDest, (Time*)srcTable + indexSrc, size * sizeof(Time));
 }
 
 
@@ -146,6 +147,7 @@ LTable* RShadowCreateTable(int numEntry, Index depth) {
 	ret->indexSize = depth;
 	// should be initialized with zero
 	ret->array = (Time*) calloc(numEntry * depth, sizeof(Time));
+	MSG(1, "RShadowCreateTable: ret = 0x%llx numEntry = %d, depth = %d\n", ret, numEntry, depth);
 	return ret;
 }
 

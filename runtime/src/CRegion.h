@@ -49,9 +49,9 @@ typedef struct _RegionField_t {
 } RegionField;
 
 
-void cregionInit();
-void cregionFinish(char* file);
-void cregionPutContext(UInt64 sid, UInt64 callSite);
-void cregionRemoveContext(RegionField* info);
+void CRegionInit();
+void CRegionFinish(char* file);
+void CRegionEnter(SID sid, CID callSite);
+void CRegionLeave(RegionField* info);
 
 #endif

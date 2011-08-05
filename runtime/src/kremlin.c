@@ -7,7 +7,7 @@
 #include <sys/time.h>
 #include "debug.h"
 #include "kremlin_deque.h"
-#include "cregion.h"
+#include "CRegion.h"
 #include "hash_map.h"
 #include "Vector.h"
 #include "RShadow.h"
@@ -282,7 +282,7 @@ VECTOR_DEFINE_PROTOTYPES(FuncContexts, FuncContext*);
 VECTOR_DEFINE_FUNCTIONS(FuncContexts, FuncContext*, VECTOR_COPY, VECTOR_NO_DELETE);
 
 static FuncContexts*       funcContexts;
-static int funcContextCount = 0;
+//static int funcContextCount = 0;
 #define DUMMY_RET		-1
 
 /**
@@ -298,7 +298,7 @@ static void RegionPushFunc(CID cid) {
 	funcContext->ret = DUMMY_RET;
 	funcContext->code = 0xDEADBEEF;
 
-    MSG(1, "RegionPushFunc at 0x%x\n", funcContext);
+    MSG(1, "RegionPushFunc at 0x%x CID 0x%x\n", funcContext, cid);
 	//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 }
 
@@ -308,7 +308,7 @@ static void RegionPushFunc(CID cid) {
 static void RegionPopFunc() {
     FuncContext* func = FuncContextsPopVal(funcContexts);
     assert(func);
-    MSG(1, "RegionPopFunc at 0x%x\n", func);
+    MSG(1, "RegionPopFunc at 0x%x CID 0x%x\n", func, func->callSiteId);
 
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
@@ -321,18 +321,25 @@ static void RegionPopFunc() {
 
 static FuncContext* RegionGetFunc() {
     FuncContext** func = FuncContextsLast(funcContexts);
-	if (func == NULL)
+	if (func == NULL) {
+    	MSG(3, "RegionGetFunc  NULL\n");
 		return NULL;
+	}
 
-	//assert((*func)->code == 0xDEADBEEF);
+    MSG(3, "RegionGetFunc  0x%x CID 0x%x\n", *func, (*func)->callSiteId);
+	assert((*func)->code == 0xDEADBEEF);
 	return *func;
 }
 
 static FuncContext* RegionGetCallerFunc() {
     //assert(FuncContextsSize(funcContexts) > 1);
-	if (FuncContextsSize(funcContexts) == 1)
+	if (FuncContextsSize(funcContexts) == 1) {
+    	MSG(3, "RegionGetCallerFunc  No Caller Context\n");
 		return NULL;
+	}
     FuncContext** func = FuncContextsLast(funcContexts) - 1;
+    MSG(3, "RegionGetCallerFunc  0x%x CID 0x%x\n", *func, (*func)->callSiteId);
+	assert((*func)->code == 0xDEADBEEF);
 	//assert((*func)->table != NULL);
 	return *func;
 }
@@ -615,15 +622,6 @@ void linkArgToLocal(Reg src) {
     MSG(1, "linkArgToLocal to ts[%u]\n", src);
 	ArgFifoPush(src);
 }
-#if 0
-static TEntry*	dummyEntry = NULL;
-static void 	allocDummyTEntry() { dummyEntry = TEntryAlloc(getIndexSize()); }
-static TEntry*	getDummyTEntry() { return dummyEntry; }
-static void		freeDummyTEntry() {
-   free(dummyEntry); // dummy will always have NULL for time/version
-   dummyEntry = NULL;
-}
-#endif
 
 #define DUMMY_ARG		-1
 
@@ -697,8 +695,6 @@ void setupLocalTable(UInt maxVregNum) {
 void turnOnProfiler() {
     kremlinOn = 1;
     MSG(0, "turnOnProfiler\n");
-    //logRegionEntry(0, RegionFunc); // root region (SID, Type) = (0, Loop)
-	//setupLocalTable(123);
 	fprintf(stderr, "[kremlin] Logging started.\n");
 }
 
@@ -708,7 +704,6 @@ void turnOnProfiler() {
  * pop the root region pushed in turnOnProfiler()
  */
 void turnOffProfiler() {
-    //logRegionExit(0, RegionLoop);
     kremlinOn = 0;
     MSG(0, "turnOffProfiler\n");
 	fprintf(stderr, "[kremlin] Logging stopped.\n");
@@ -737,6 +732,7 @@ void logRegionEntry(SID regionId, RegionType regionType) {
     RegionIssueDid(regionId);
     RegionIssueVersion(level);
 
+	MSG(0, "\n");
 	MSG(0, "[+++] region [%u, %d, %llu:%llu] start: %llu\n",
         regionType, level, regionId, RegionGetDid(regionId), getTimetick());
     incIndentTab(); // only affects debug printing
@@ -750,7 +746,7 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 
     FuncContext* funcHead = RegionGetFunc();
 	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
-	cregionPutContext(regionId, callSiteId);
+	CRegionEnter(regionId, callSiteId);
 
 	// If we exceed the maximum depth, we act like this region doesn't exist
 	if (!isInstrumentable()) {
@@ -764,6 +760,7 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 #ifndef WORK_ONLY
     setCdt(getIndex(level), 0);
 #endif
+	MSG(0, "\n");
 }
 
 /**
@@ -828,24 +825,27 @@ void logRegionExit(SID regionId, RegionType regionType) {
 	SID parentSid = 0;
 	DID parentDid = 0;
     UInt64 work = getTimetick() - region->start;
-
-    decIndentTab(); // applies only to debug printing
+	decIndentTab(); // applies only to debug printing
+	MSG(0, "\n");
     MSG(0, "[---] region [%u, %u, %llu:%llu] cp %llu work %llu\n",
         regionType, level, regionId, did, region->cp, work);
+
+
 
 	// If we are outside range of levels, 
 	// handle function stack then exit
 	if (!isInstrumentable()) {
+		assert(0);
 #ifndef WORK_ONLY
 		if (regionType == RegionFunc) {
 			 handleFuncRegionExit(); 
 		}
 #endif
     	decrementRegionLevel();
-    	decIndentTab(); // applies only to debug printing
-		cregionRemoveContext(NULL);
+		CRegionLeave(NULL);
 		return;
 	}
+
     if (region->regionId != regionId) {
 		fprintf(stderr, "mismatch in regionID. expected %llu, got %llu. level = %d\n", 
 				region->regionId, regionId, level);
@@ -889,7 +889,6 @@ void logRegionExit(SID regionId, RegionType regionType) {
 		assert(0);
 	}
 
-	FuncContext* func = RegionGetFunc();
 	UInt64 spWork = (UInt64)((double)work / sp);
 	UInt64 tpWork = cp;
 
@@ -906,17 +905,18 @@ void logRegionExit(SID regionId, RegionType regionType) {
                 region.cp, work);
     */
 
-    RegionField field = fillRegionField(work, cp, RegionGetFunc()->callSiteId, 
+	CID cid = RegionGetFunc()->callSiteId;
+    RegionField field = fillRegionField(work, cp, cid, 
 						spWork, tpWork, region);
-	cregionRemoveContext(&field);
+	CRegionLeave(&field);
         
-#ifndef WORK_ONLY
     if (regionType == RegionFunc) { 
 		handleFuncRegionExit(); 
 	}
-#endif
 
-    decrementRegionLevel();
+        decrementRegionLevel();
+
+	MSG(0, "\n");
 }
 
 
@@ -1219,11 +1219,6 @@ void logFuncReturn(Reg src) {
     MSG(1, "write return value ts[%u]\n", src);
 
 #ifndef WORK_ONLY
-    //TEntry* srcEntry = getLTEntry(src);
-
-    // Assert there is a function context before the top.
-
-    // Assert that its return value has been set.
     FuncContext* callee = RegionGetFunc();
     FuncContext* caller = RegionGetCallerFunc();
 
@@ -1231,10 +1226,11 @@ void logFuncReturn(Reg src) {
 	if (caller == NULL)
 		return;
 
-	
 	assert(caller->ret >= 0);
 	int indexSize = caller->table->indexSize;
 	RShadowCopy(caller->table, caller->ret, callee->table, src, 0, indexSize);
+	
+    MSG(1, "end write return value 0x%x\n", RegionGetFunc());
 #endif
 }
 
@@ -1528,7 +1524,7 @@ Bool kremlinInit() {
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
 	ArgFifoInit();
 	CDepInit();
-	cregionInit();
+	CRegionInit();
 	RShadowInit(getIndexSize());
 	MShadowInit();
 	RegionInit();
@@ -1548,7 +1544,7 @@ Bool kremlinDeinit() {
 
 	turnOffProfiler();
 
-	cregionFinish("kremlin.bin");
+	CRegionDeinit("kremlin.bin");
 	RShadowDeinit();
 	MShadowDeinit();
 	DebugDeinit();

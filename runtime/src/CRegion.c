@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "cregion.h"
+#include "CRegion.h"
 
 
 /*** file local global variables ***/
@@ -22,7 +22,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level);
 
 
 // initialize CRegion system
-void cregionInit() {
+void CRegionInit() {
 	//fprintf(stderr, "cregionInit..");
 	//CRegion* region = createCRegion(0, 0);
 	//root = createCNode(NULL, region);
@@ -31,12 +31,12 @@ void cregionInit() {
 	//fprintf(stderr, "done!..\n");
 }
 
-void cregionFinish(char* file) {
+void CRegionDeinit(char* file) {
 	emit(file);
 }
 
 // move the pointer to the right place 
-void cregionPutContext(SID sid, CID callSite) {
+void CRegionEnter(SID sid, CID callSite) {
 	CNode* child = NULL;
 	if (current != NULL)
 		child = findChildNode(current, sid, callSite);
@@ -48,24 +48,24 @@ void cregionPutContext(SID sid, CID callSite) {
 	if (root == NULL)
 		root = child;
 	
-	MSG(0, "CRegion: put context sid: 0x%llx, callSite: 0x%llx\n", sid, callSite);
+	MSG(3, "CRegion: put context sid: 0x%llx, callSite: 0x%llx\n", sid, callSite);
 }
 
 // at the end of a region execution,
 // pass the region exec info.
 // update the passed info and 
 // set current pointer to one level higher
-void cregionRemoveContext(RegionField* info) {
+void CRegionLeave(RegionField* info) {
 	// don't update if we didn't give it any info
 	// this happens when we are out of range for logging
-	MSG(0, "CRegion: remove context current CNode= 0x%x\n", current);
+	MSG(3, "CRegion: remove context current CNode= 0x%x\n", current);
 	if(info != NULL) {
 		assert(current != NULL);
 		assert(current->region != NULL);
 		updateCRegion(current->region, info);
 	}
 	current = current->parent;	
-	MSG(0, "CRegion: move to parent \n");
+	MSG(3, "CRegion: move to parent \n");
 }
 
 /*** Local Functions */
@@ -165,10 +165,11 @@ emitDOT(FILE* fp, CNode* node) {
 
 static void updateCRegion(CRegion* region, RegionField* info) {
 	assert(region != NULL);
-	MSG(0, "CRegion: update current region with info: csid(0x%llx), allSite(0x%llx), work(0x%llx), cp(%llx), tpWork(%llx), spWork(%llx)\n", 
+	assert(info != NULL);
+	MSG(3, "CRegion: update current region with info: csid(0x%llx), callSite(0x%llx), work(0x%llx), cp(%llx), tpWork(%llx), spWork(%llx)\n", 
 			region->sid, info->callSite, info->work, info->cp, info->tpWork, info->spWork);
-	//fprintf(stderr, "current region: id(0x%llx), sid(0x%llx), callSite(0x%llx)\n", 
-	//		region->id, region->sid, region->callSite);
+	MSG(3, "current region: id(0x%llx), sid(0x%llx), callSite(0x%llx)\n", 
+			region->id, region->sid, region->callSite);
 	assert(region->callSite == info->callSite);
 	double sp = (double)info->work / (double)info->spWork;
 	if (region->minSP > sp) region->minSP = sp;
@@ -216,7 +217,7 @@ static CNode* createCNode(CNode* parent, CRegion* region) {
 		parent->childrenSize++;
 	}
 	
-	MSG(0, "CNode: created CNode at 0x%x\n", ret);
+	MSG(3, "CNode: created CNode at 0x%x\n", ret);
 	assert(ret->region != NULL);
 	return ret;	
 }
