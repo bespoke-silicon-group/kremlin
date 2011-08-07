@@ -23,9 +23,9 @@
 #define isKremlinOn()		(kremlinOn == 1)
 
 
-static Bool kremlinOn = 0;
-UInt64              loadCnt = 0llu;
-UInt64              storeCnt = 0llu;
+static Bool 	kremlinOn = 0;
+static UInt64	loadCnt = 0llu;
+static UInt64	storeCnt = 0llu;
 
 
 UInt64 _regionFuncCnt;
@@ -48,7 +48,6 @@ static Level levelNum = -1;
 static inline Level getCurrentLevel() {
 	return levelNum;
 }
-
 
 inline void setMinLevel(Level level) {
 	__kremlin_min_level = level;	
@@ -109,9 +108,6 @@ static inline void decrementRegionLevel() {
 static inline Level getIndex(Level level) {
 	return level - getMinLevel();
 }
-
-
-
 
 /*************************************************************
  * Global Timestamp Management
@@ -195,10 +191,9 @@ static inline void ArgFifoClear() {
 
 /*****************************************************************
  * Function Context Management
- * opt priority: low
  *****************************************************************/
 
-static CID	lastCallSiteId;
+static CID lastCallSiteId;
 
 typedef struct _FuncContext {
 	LTable* table;
@@ -262,7 +257,6 @@ static FuncContext* RegionGetFunc() {
 }
 
 static FuncContext* RegionGetCallerFunc() {
-    //assert(FuncContextsSize(funcContexts) > 1);
 	if (FuncContextsSize(funcContexts) == 1) {
     	MSG(3, "RegionGetCallerFunc  No Caller Context\n");
 		return NULL;
@@ -270,29 +264,31 @@ static FuncContext* RegionGetCallerFunc() {
     FuncContext** func = FuncContextsLast(funcContexts) - 1;
     MSG(3, "RegionGetCallerFunc  0x%x CID 0x%x\n", *func, (*func)->callSiteId);
 	assert((*func)->code == 0xDEADBEEF);
-	//assert((*func)->table != NULL);
 	return *func;
 }
 
+inline static void RegionSetRetReg(FuncContext* func, Reg reg) {
+	func->ret = reg;	
+}
 
-//static TEntry* mainReturn;
+inline static Reg RegionGetRetReg(FuncContext* func) {
+	return func->ret;
+}
+
+inline static LTable* RegionGetTable(FuncContext* func) {
+	return func->table;
+}
+
 static void RegionInitFunc()
 {
     FuncContextsCreate(&funcContexts);
     assert(FuncContextsEmpty(funcContexts));
-	//RegionPushFunc(lastCallSiteId);
-	//FuncContext* func = RegionGetFunc();
-    //func->ret = DUMMY_RET;
-    //prepareCall(0, 0);
 }
 
 static void RegionDeinitFunc()
 {
-	//RegionPopFunc();
     assert(FuncContextsEmpty(funcContexts));
-	MSG(0, "RegionDeinitFunc start\n");
     FuncContextsDelete(&funcContexts);
-	MSG(0, "RegionDeinitFunc end\n");
 }
 
 /*****************************************************************
@@ -320,20 +316,48 @@ typedef struct _region_t {
 
 
 Region* regionInfo = NULL;
+static int regionSize;
 
-static void RegionInit() {
-    regionInfo = (Region*) malloc(sizeof(Region) * getIndexSize());
+static int RegionSize() {
+	return regionSize;
+}
+
+static void RegionInit(int size) {
+    regionInfo = (Region*) malloc(sizeof(Region) * size);
+	regionSize = size;
 	assert(regionInfo != NULL);
+	MSG(0, "RegionInit at 0x%x\n", regionInfo);
+
 	int i;
-	for (i=0; i<getIndexSize(); i++) {
+	for (i=0; i<size; i++) {
 		regionInfo[i].code = 0xDEADBEEF;
 		regionInfo[i].version = 0;
 	}
 	checkRegion();
     assert(regionInfo);
-	//RegionVersionInit();
 	RegionInitFunc();
+}
 
+static void RegionRealloc() {
+	int oldRegionSize = RegionSize();
+	Region* oldRegionInfo = regionInfo;
+	regionSize *= 2;
+	MSG(0, "RegionRealloc from %d to %d\n", oldRegionSize, regionSize);
+
+	// bug in glibc? or a memory bug in kremlin? 
+	// free causes an error
+
+	//regionInfo = (Region*) realloc(regionInfo, sizeof(Region) * RegionSize());
+	regionInfo = (Region*) malloc(sizeof(Region) * regionSize);
+	memcpy(regionInfo, oldRegionInfo, sizeof(Region) * oldRegionSize);
+	free(oldRegionInfo);
+	
+	MSG(0, "RegionRealloc new addr = 0x%x\n", regionInfo);
+	int i;
+	for (i=oldRegionSize; i<regionSize; i++) {
+		regionInfo[i].code = 0xDEADBEEF;
+		regionInfo[i].version = 0;
+	}
 }
 
 
@@ -363,9 +387,13 @@ static Version RegionGetVersion(Level level) {
 void checkRegion() {
 	int i;
 	int bug = 0;
-	for (i=0; i<getIndexSize(); i++) {
+	for (i=0; i<RegionSize(); i++) {
 		Region* ret = &regionInfo[i];
-		assert(ret->code == 0xDEADBEEF);
+		if (ret->code != 0xDEADBEEF) {
+			MSG(0, "Region Error at index %d\n", i);	
+			assert(0);
+			assert(ret->code == 0xDEADBEEF);
+		}
 		if (ret->cp > 1000) {
 			fprintf(stderr, "problem at level %d\n", i); 
 			bug = 1;
@@ -570,8 +598,10 @@ void transferAndUnlinkArg(Reg dest) {
 	if (src != DUMMY_ARG) {
 		FuncContext* caller = RegionGetCallerFunc();
 		FuncContext* callee = RegionGetFunc();
-		int indexSize = caller->table->indexSize;
-		RShadowCopy(callee->table, dest, caller->table, src, 0, caller->table->indexSize);
+		LTable* callerT = RegionGetTable(caller);
+		LTable* calleeT = RegionGetTable(callee);
+		int indexSize = callerT->indexSize;
+		RShadowCopy(calleeT, dest, callerT, src, 0, indexSize);
 	}
 }
 
@@ -657,6 +687,10 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 
     incrementRegionLevel();
     Level level = getCurrentLevel();
+	if (level == RegionSize()) {
+		RegionRealloc();
+	}
+	
 	Region* region = RegionGet(level);
 	RegionRestart(region, regionId, regionType, level);
 
@@ -1130,7 +1164,7 @@ void addReturnValueLink(Reg dest) {
         return;
 #ifndef WORK_ONLY
 	FuncContext* caller = RegionGetFunc();
-	caller->ret = dest;	
+	RegionSetRetReg(caller, dest);
 #endif
 }
 
@@ -1151,9 +1185,10 @@ void logFuncReturn(Reg src) {
 	if (caller == NULL)
 		return;
 
-	assert(caller->ret >= 0);
+	Reg ret = RegionGetRetReg(caller);
+	assert(ret >= 0);
 	int indexSize = caller->table->indexSize;
-	RShadowCopy(caller->table, caller->ret, callee->table, src, 0, indexSize);
+	RShadowCopy(caller->table, ret, callee->table, src, 0, indexSize);
 	
     MSG(1, "end write return value 0x%x\n", RegionGetFunc());
 #endif
@@ -1176,13 +1211,10 @@ void logFuncReturnConst(void) {
 	if (caller == NULL)
 		return;
 
-    // Skip of the caller did not set up a return value location (i.e. lib functions).
-    //if(!(*nextHead)->ret) return;
-
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
         UInt64 cdt = CDepGet(index);
-		RShadowSetWithTable(caller->table, cdt, caller->ret, index);
+		RShadowSetWithTable(caller->table, cdt, RegionGetRetReg(caller), index);
     }
 #endif
 }
@@ -1425,11 +1457,7 @@ void* logPhiNodeAddCondition(UInt dest, UInt src) {
 
 static UInt hasInitialized = 0;
 
-static void initInternals() {
-	}
-
-static void deinitInternals() {
-	}
+#define REGION_INIT_SIZE	64
 
 Bool kremlinInit() {
 	DebugInit("kremlin.log");
@@ -1440,9 +1468,7 @@ Bool kremlinInit() {
 
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
         getMinLevel(), getMaxLevel(), getIndexSize());
-
     MSG(0, "kremlinInit running....");
-
 
 	if(getKremlinDebugFlag()) { 
 		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", getKremlinDebugLevel()); 
@@ -1459,7 +1485,7 @@ Bool kremlinInit() {
 	CRegionInit();
 	RShadowInit(getIndexSize());
 	MShadowInit();
-	RegionInit();
+	RegionInit(REGION_INIT_SIZE);
    	turnOnProfiler();
     return TRUE;
 }

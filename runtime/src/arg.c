@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
 	int num_args = 0;;
 	char** real_args;
 
-	__kremlin_output_filename = malloc(20*sizeof(char));
+	__kremlin_output_filename = calloc(sizeof(char), 20);
 	strcat(__kremlin_output_filename,"kremlin.bin");
 
 	parseKremlinOptions(argc,argv,&num_args,&real_args);
