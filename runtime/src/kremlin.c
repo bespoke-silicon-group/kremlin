@@ -310,9 +310,10 @@ void CDepAlloc(CDep* dep) {
 }
 
 void CDepRealloc(CDep* dep) {
+	int oldSize = dep->size;
+	assert(dep->nextWriteIndex == oldSize);
 	dep->size *= 2;
-	dep->nextWriteIndex = 0;
-	dep->time = realloc(dep->time, dep->size);
+	dep->time = realloc(dep->time, sizeof(Time) * dep->size);
 }
 
 void CDepFree(CDep* dep) {
@@ -444,10 +445,10 @@ static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level
 
 void RegionPushCDep(Region* region, Time time) {
 	CDep* dep = &(region->cDepStack);
-	assert(dep->size > dep->nextWriteIndex);
 	if (dep->nextWriteIndex == dep->size) {
 		CDepRealloc(dep);
 	}
+	assert(dep->size > dep->nextWriteIndex);
 	dep->time[dep->nextWriteIndex++] = time;
 }
 
@@ -788,8 +789,6 @@ void logRegionExit(SID regionId, RegionType regionType) {
 	if (level < getMaxLevel() && level >= getMinLevel()) {
 		assert(work >= cp);
 		assert(work >= region->childrenWork);
-		assert(work < 100000);
-		assert(cp < 100000);
 	}
 
 	// Only update parent region's childrenWork and childrenCP 
@@ -1443,10 +1442,8 @@ Bool kremlinInit() {
     InvokeRecordsCreate(&invokeRecords);
 #endif
 
-
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
 	ArgFifoInit();
-	//CDepInit();
 	CRegionInit();
 	RShadowInit(getIndexSize());
 	MShadowInit();
@@ -1468,7 +1465,6 @@ Bool kremlinDeinit() {
 	CRegionDeinit("kremlin.bin");
 	RShadowDeinit();
 	MShadowDeinit();
-	//CDepDeinit();
 	ArgFifoDeinit();
 	RegionDeinit();
     MemMapAllocatorDelete(&memPool);

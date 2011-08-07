@@ -86,7 +86,6 @@ Time RShadowGetWithTable(LTable* table, Reg reg, Index index) {
 	assert(table != NULL);
 	int offset = lTable->indexSize * reg + index;
 	Time ret = lTable->array[offset];
-	assert(ret < 1000);
 	return ret;
 }
 
@@ -94,14 +93,12 @@ void RShadowSetWithTable(LTable* table, Time time, Reg reg, Index index) {
 	assert(table != NULL);
 	int offset = lTable->indexSize * reg + index;
 	table->array[offset] = time;
-	assert(time < 1000);
 }
 
 Time RShadowGet(Reg reg, Index index) {
 	assert(index < getIndexSize());
 	int offset = lTable->indexSize * reg + index;
 	Time ret = lTable->array[offset];
-	assert(ret < 1000);
 	return ret;
 }
 
@@ -112,7 +109,6 @@ void RShadowSet(Time time, Reg reg, Index index) {
 	lTable->array[offset] = time;
 	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
 		&(lTable->array[offset]), time, reg, index, offset);
-	assert(time < 1000);
 }
 
 /*
@@ -186,11 +182,13 @@ void RShadowActivateTable(LTable* table) {
 	//MSG(1, "Set LTable to 0x%x\n", table);
 	lTable = table;
 	assert(table->code == 0xDEADBEEF);
+#if 0
 	int i;
 	for (i=0; i<lTable->entrySize * lTable->indexSize; i++) {
 		if (lTable->array[i] > 1000) {
 			MSG(1, "\tElement %d is 0x%x\n", i, lTable->array[i]);
 		}
 	}
+#endif
 }
 
