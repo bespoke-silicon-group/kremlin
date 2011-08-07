@@ -294,16 +294,42 @@ static void RegionDeinitFunc()
 /*****************************************************************
  * Region Management
  *****************************************************************/
+typedef struct _CDep {
+	Time* time;
+	int size;	
+	int nextWriteIndex;
+} CDep;
+
+
+#define CDEP_INIT_SIZE	64
+
+void CDepAlloc(CDep* dep) {
+	dep->size = CDEP_INIT_SIZE;
+	dep->nextWriteIndex = 0;
+	dep->time = malloc(sizeof(Time) * dep->size);
+}
+
+void CDepRealloc(CDep* dep) {
+	dep->size *= 2;
+	dep->nextWriteIndex = 0;
+	dep->time = realloc(dep->time, dep->size);
+}
+
+void CDepFree(CDep* dep) {
+	free(dep->time);
+}
+
 
 typedef struct _region_t {
 	UInt32 code;
 	Version version;
 	SID	regionId;
 	RegionType regionType;
-	Timestamp start;
-	Timestamp cp;
-	Timestamp childrenWork;
-	Timestamp childrenCP;
+	Time start;
+	Time cp;
+	Time childrenWork;
+	Time childrenCP;
+	CDep	cDepStack;
 #ifdef EXTRA_STATS
 	UInt64 loadCnt;
 	UInt64 storeCnt;
@@ -332,6 +358,7 @@ static void RegionInit(int size) {
 	for (i=0; i<size; i++) {
 		regionInfo[i].code = 0xDEADBEEF;
 		regionInfo[i].version = 0;
+		CDepAlloc(&regionInfo[i].cDepStack);
 	}
 	checkRegion();
     assert(regionInfo);
@@ -343,35 +370,14 @@ static void RegionRealloc() {
 	Region* oldRegionInfo = regionInfo;
 	regionSize *= 2;
 	MSG(0, "RegionRealloc from %d to %d\n", oldRegionSize, regionSize);
-
-	// bug in glibc? or a memory bug in kremlin? 
-	// free causes an error
-
-	//regionInfo = (Region*) realloc(regionInfo, sizeof(Region) * RegionSize());
-	regionInfo = (Region*) malloc(sizeof(Region) * regionSize);
-	memcpy(regionInfo, oldRegionInfo, sizeof(Region) * oldRegionSize);
-	free(oldRegionInfo);
+	regionInfo = (Region*) realloc(regionInfo, sizeof(Region) * RegionSize());
 	
-	MSG(0, "RegionRealloc new addr = 0x%x\n", regionInfo);
 	int i;
 	for (i=oldRegionSize; i<regionSize; i++) {
 		regionInfo[i].code = 0xDEADBEEF;
 		regionInfo[i].version = 0;
+		CDepAlloc(&regionInfo[i].cDepStack);
 	}
-}
-
-
-static void RegionDeinit() {
-	RegionDeinitFunc();
-	//RegionVersionDeinit();
-	checkRegion();
-	assert(regionInfo != NULL);
-    //free(regionInfo);
-    regionInfo = NULL;
-}
-
-static inline void RegionUpdateCp(Region* region, Timestamp value) {
-	region->cp = MAX(value, region->cp);
 }
 
 static inline Region* RegionGet(Level level) {
@@ -381,6 +387,24 @@ static inline Region* RegionGet(Level level) {
 
 static Version RegionGetVersion(Level level) {
 	return RegionGet(level)->version;
+}
+
+static void RegionDeinit() {
+	RegionDeinitFunc();
+	//RegionVersionDeinit();
+	checkRegion();
+	Level i;
+	for (i=0; i<regionSize; i++) {
+		Region* region = RegionGet(i);
+		CDepFree(&(region->cDepStack));	
+	}
+	assert(regionInfo != NULL);
+    //free(regionInfo);
+    regionInfo = NULL;
+}
+
+static inline void RegionUpdateCp(Region* region, Timestamp value) {
+	region->cp = MAX(value, region->cp);
 }
 
 
@@ -393,10 +417,6 @@ void checkRegion() {
 			MSG(0, "Region Error at index %d\n", i);	
 			assert(0);
 			assert(ret->code == 0xDEADBEEF);
-		}
-		if (ret->cp > 1000) {
-			fprintf(stderr, "problem at level %d\n", i); 
-			bug = 1;
 		}
 	}
 	if (bug > 0)
@@ -422,94 +442,26 @@ static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level
 	
 }
 
-
-/*****************************************************************
- * CDep Management
- *
- * CDepGet: get cdt for a specific level
- * CDepGet: get cdt for the current level
- * CDepSet: set cdt for a specific level and version
- * fillCdt: copy timestamp from TEntry to CDep
- * 
- * 
- *****************************************************************/
-
-//typedef TArray CDep;
-typedef struct _CDep {
-	Timestamp* time;
-	int size;	
-} CDep;
-
-CDep* cdepHead = NULL;
-
-/**
- * Returns timestamp of control dep at specified level with specified version.
- * @param level 	Level at which to look for control dep.
- * @param version	Version we are looking for.
- * @return			Timestamp of control dep.
- */
-static inline Timestamp CDepGet(Index index) {
-    assert(cdepHead != NULL);
-	return cdepHead->time[index];
-}
-
-/**
- * Sets the control dep at specified level to specified (version,time) pair
- * @param level		Level to set.
- * @param version	Version number to set.
- * @param time		Timestamp to set control dep to.
- *
- */
-static inline void CDepSet(Index index, Timestamp time) {
-	assert(index >= 0);
-    cdepHead->time[index] = time;
-}
-
-#define CDEP_SIZE	256
-static CDep* cdtPool;
-static int cdtSize;
-static int cdtIndex;
-
-static CDep* CDepAlloc() {
-	CDep* ret = &cdtPool[cdtIndex];
-	cdtIndex++;
-	if (cdtIndex == cdtSize) {
-		int i;
-		cdtSize += CDEP_SIZE;
-		cdtPool = realloc(cdtPool, sizeof(CDep) * cdtSize);
-		for (i=cdtSize-CDEP_SIZE; i<cdtSize; i++) {
-    		cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
-			cdtPool[i].size = getIndexSize();
-		}
-	};
-	return ret;
-}
-
-static CDep* CDepFree(CDep* toFree) { 
-	cdtIndex--;
-	return &cdtPool[cdtIndex]; 
-}
-
-void CDepInit() {
-	int i=0;
-	cdtPool = malloc(sizeof(CDep) * CDEP_SIZE);
-
-	cdtIndex = 0;
-	cdtSize = CDEP_SIZE;
-
-	for (i=0; i<CDEP_SIZE; i++) {
-    	cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
-		cdtPool[i].size = getIndexSize();
+void RegionPushCDep(Region* region, Time time) {
+	CDep* dep = &(region->cDepStack);
+	assert(dep->size > dep->nextWriteIndex);
+	if (dep->nextWriteIndex == dep->size) {
+		CDepRealloc(dep);
 	}
-	cdepHead = CDepAlloc();
+	dep->time[dep->nextWriteIndex++] = time;
 }
 
-void CDepDeinit() {
-	int i=0;
-	for (i=0; i<cdtSize; i++) {
-		free(cdtPool[i].time);
-	}
-	cdepHead = NULL;
+Time RegionPopCDep(Region* region) {
+	CDep* dep = &(region->cDepStack);
+	assert(dep->nextWriteIndex > 0);
+	dep->nextWriteIndex--;
+	return dep->time[dep->nextWriteIndex];
+}
+
+Time RegionGetCDep(Region* region) {
+	CDep* dep = &(region->cDepStack);
+	assert(dep->nextWriteIndex > 0);
+	return dep->time[dep->nextWriteIndex-1];
 }
 
 
@@ -531,10 +483,15 @@ void addControlDep(Reg cond) {
 		return;
 	}
 #ifndef WORK_ONLY
-	cdepHead = CDepAlloc(); 
-	Index index;
-	for (index=0; index<getIndexSize(); index++) {
-		CDepSet(index, RShadowGet(cond, index));
+
+    Level minLevel = getStartLevel();
+    Level maxLevel = getEndLevel();
+
+    Level i;
+    for (i = minLevel; i <= maxLevel; i++) {
+		Index index = getIndex(i);
+		Region* region = RegionGet(i);
+		RegionPushCDep(region, RShadowGet(cond, index));
 	}
 #endif
 }
@@ -545,7 +502,15 @@ void removeControlDep() {
 		return;
 	}
 #ifndef WORK_ONLY
-	cdepHead = CDepFree(cdepHead); 
+    Level minLevel = getStartLevel();
+    Level maxLevel = getEndLevel();
+
+    Level i;
+    for (i = minLevel; i <= maxLevel; i++) {
+		Index index = getIndex(i);
+		Region* region = RegionGet(i);
+		RegionPopCDep(region);
+	}
 #endif
 }
 
@@ -713,7 +678,7 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 
 #ifndef WORK_ONLY
 	if (isInstrumentable())	
-    	CDepSet(getIndex(level), 0);
+    	RegionPushCDep(region, 0);
 #endif
 	MSG(0, "\n");
 }
@@ -919,7 +884,7 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
 		// CDep and shadow memory are index based
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-        Timestamp cdt = CDepGet(index);
+        Timestamp cdt = RegionGetCDep(region);
         Timestamp ts0 = RShadowGet(src0, index);
         Timestamp ts1 = RShadowGet(src1, index);
         Timestamp greater0 = (ts0 > ts1) ? ts0 : ts1;
@@ -953,7 +918,7 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-        Timestamp cdt = CDepGet(index);
+        Timestamp cdt = RegionGetCDep(region);
         Timestamp ts0 = RShadowGet(src, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + opCost;
@@ -996,7 +961,7 @@ void* logAssignmentConst(UInt dest) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-        Timestamp cdt = CDepGet(index);
+        Timestamp cdt = RegionGetCDep(region);
 		RShadowSet(cdt, dest, index);
         RegionUpdateCp(region, cdt);
     }
@@ -1019,7 +984,7 @@ void* logLoadInst(Addr src_addr, Reg dest) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
-        Timestamp cdt = CDepGet(index);
+        Timestamp cdt = RegionGetCDep(region);
 		Timestamp ts0 = MShadowGet(src_addr, index, version);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + LOAD_COST;
@@ -1056,7 +1021,7 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
-        Timestamp cdt = CDepGet(index);
+        Timestamp cdt = RegionGetCDep(region);
 		Timestamp ts_src_addr = MShadowGet(src1, index, version);
 		Timestamp ts_src1 = RShadowGet(src1, index);
 
@@ -1101,7 +1066,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
-        Timestamp cdt = CDepGet(index);
+        Timestamp cdt = RegionGetCDep(region);
 		Timestamp ts0 = RShadowGet(src, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + STORE_COST;
@@ -1140,7 +1105,7 @@ void* logStoreInstConst(Addr dest_addr) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
-        Timestamp cdt = CDepGet(index);
+        Timestamp cdt = RegionGetCDep(region);
         Timestamp value = cdt + STORE_COST;
 #ifdef EXTRA_STATS
         //updateWriteMemoryAccess(entryDest, i, version, value);
@@ -1213,7 +1178,7 @@ void logFuncReturnConst(void) {
 
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
-        UInt64 cdt = CDepGet(index);
+        Time cdt = RegionGetCDep(index);
 		RShadowSetWithTable(caller->table, cdt, RegionGetRetReg(caller), index);
     }
 #endif
@@ -1481,7 +1446,7 @@ Bool kremlinInit() {
 
     MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
 	ArgFifoInit();
-	CDepInit();
+	//CDepInit();
 	CRegionInit();
 	RShadowInit(getIndexSize());
 	MShadowInit();
@@ -1503,7 +1468,7 @@ Bool kremlinDeinit() {
 	CRegionDeinit("kremlin.bin");
 	RShadowDeinit();
 	MShadowDeinit();
-	CDepDeinit();
+	//CDepDeinit();
 	ArgFifoDeinit();
 	RegionDeinit();
     MemMapAllocatorDelete(&memPool);
