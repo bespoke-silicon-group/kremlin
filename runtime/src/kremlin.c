@@ -192,40 +192,6 @@ static inline void ArgFifoClear() {
 	argFifoWritePointer = argFifo;
 }
 
-/*****************************************************************
- * Version Management
- *
- * Opt priority: versionGet should be quick
- ****************************************************************/
-
-// TODO: versions shouldn't be statically allocated to
-// DS_ALLOC_SIZE... this should be dynamic
-// Can we use getIndexSize() instead?
-
-static Version*  versions = NULL;
-
-static void RegionVersionInit() {
-    versions = (int*) calloc(sizeof(int), DS_ALLOC_SIZE);
-    assert(versions);
-	MSG(0, "RegionVersionInit = 0x%x\n", versions);
-}
-
-static void RegionVersionDeinit() {
-	//free(versions);
-	versions = NULL;
-}
-
-static Version RegionGetVersion(Level level) {
-	assert(level >= 0 && level < DS_ALLOC_SIZE);
-	return versions[level];
-}
-
-static void RegionIssueVersion(Level level) {
-	versions[level]++;
-}
-
-
-
 
 /*****************************************************************
  * Function Context Management
@@ -246,7 +212,6 @@ VECTOR_DEFINE_PROTOTYPES(FuncContexts, FuncContext*);
 VECTOR_DEFINE_FUNCTIONS(FuncContexts, FuncContext*, VECTOR_COPY, VECTOR_NO_DELETE);
 
 static FuncContexts*       funcContexts;
-//static int funcContextCount = 0;
 #define DUMMY_RET		-1
 
 /**
@@ -335,16 +300,17 @@ static void RegionDeinitFunc()
  *****************************************************************/
 
 typedef struct _region_t {
+	UInt32 code;
+	Version version;
 	SID	regionId;
 	RegionType regionType;
 	Timestamp start;
 	Timestamp cp;
 	Timestamp childrenWork;
 	Timestamp childrenCP;
+#ifdef EXTRA_STATS
 	UInt64 loadCnt;
 	UInt64 storeCnt;
-	UInt32 code;
-#ifdef EXTRA_STATS
 	UInt64 readCnt;
 	UInt64 writeCnt;
 	UInt64 readLineCnt;
@@ -359,11 +325,13 @@ static void RegionInit() {
     regionInfo = (Region*) malloc(sizeof(Region) * getIndexSize());
 	assert(regionInfo != NULL);
 	int i;
-	for (i=0; i<getIndexSize(); i++)
+	for (i=0; i<getIndexSize(); i++) {
 		regionInfo[i].code = 0xDEADBEEF;
+		regionInfo[i].version = 0;
+	}
 	checkRegion();
     assert(regionInfo);
-	RegionVersionInit();
+	//RegionVersionInit();
 	RegionInitFunc();
 
 }
@@ -371,7 +339,7 @@ static void RegionInit() {
 
 static void RegionDeinit() {
 	RegionDeinitFunc();
-	RegionVersionDeinit();
+	//RegionVersionDeinit();
 	checkRegion();
 	assert(regionInfo != NULL);
     //free(regionInfo);
@@ -386,6 +354,11 @@ static inline Region* RegionGet(Level level) {
 	Region* ret = &regionInfo[level];
 	return ret;
 }
+
+static Version RegionGetVersion(Level level) {
+	return RegionGet(level)->version;
+}
+
 
 void checkRegion() {
 	int i;
@@ -403,15 +376,16 @@ void checkRegion() {
 }
 
 static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level level) {
+	region->version++;
 	region->regionId = sid;
 	region->start = getTimetick();
 	region->cp = 0ULL;
 	region->childrenWork = 0LL;
 	region->childrenCP = 0LL;
 	region->regionType = regionType;
+#ifdef EXTRA_STATS
 	region->loadCnt = 0LL;
 	region->storeCnt = 0LL;
-#ifdef EXTRA_STATS
     region->readCnt = 0LL;
     region->writeCnt = 0LL;
     region->readLineCnt = 0LL;
@@ -456,6 +430,7 @@ static inline Timestamp CDepGet(Index index) {
  * @param level		Level to set.
  * @param version	Version number to set.
  * @param time		Timestamp to set control dep to.
+ *
  */
 static inline void CDepSet(Index index, Timestamp time) {
 	assert(index >= 0);
@@ -497,10 +472,6 @@ void CDepInit() {
 	for (i=0; i<CDEP_SIZE; i++) {
     	cdtPool[i].time = (UInt64*) calloc(getIndexSize(), sizeof(UInt64));
 		cdtPool[i].size = getIndexSize();
-
-		//assert(cdtPool[i].time && cdtPool[i].version);
-		//fprintf(stderr,"cdtPool[%d].time = %p\n",i,cdtPool[i].time);
-		//fprintf(stderr,"cdtPool[%d].version = %p\n",i,cdtPool[i].version);
 	}
 	cdepHead = CDepAlloc();
 }
@@ -535,17 +506,18 @@ void addControlDep(Reg cond) {
 	cdepHead = CDepAlloc(); 
 	Index index;
 	for (index=0; index<getIndexSize(); index++) {
-       	cdepHead->time[index] = RShadowGet(cond, index);
+		CDepSet(index, RShadowGet(cond, index));
 	}
 #endif
 }
 
 void removeControlDep() {
     MSG(1, "pop  ControlDep\n");
-#ifndef WORK_ONLY
     if (!isKremlinOn()) {
-		 cdepHead = CDepFree(cdepHead); 
+		return;
 	}
+#ifndef WORK_ONLY
+	cdepHead = CDepFree(cdepHead); 
 #endif
 }
 
@@ -685,7 +657,8 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 
     incrementRegionLevel();
     Level level = getCurrentLevel();
-    RegionIssueVersion(level);
+	Region* region = RegionGet(level);
+	RegionRestart(region, regionId, regionType, level);
 
 	MSG(0, "\n");
 	MSG(0, "[+++] region [type %u, level %d, sid 0x%llx] start: %llu\n",
@@ -703,8 +676,6 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
 	CRegionEnter(regionId, callSiteId);
 
-	Region* region = RegionGet(level);
-	RegionRestart(region, regionId, regionType, level);
 
 #ifndef WORK_ONLY
 	if (isInstrumentable())	
@@ -743,9 +714,9 @@ RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWor
 	field.spWork = spWork;
 	field.tpWork = tpWork;
 
+#ifdef EXTRA_STATS
     field.loadCnt = region_info->loadCnt;
     field.storeCnt = region_info->storeCnt;
-#ifdef EXTRA_STATS
     field.readCnt = region_info->readCnt;
     field.writeCnt = region_info->writeCnt;
     field.readLineCnt = region_info->readLineCnt;
@@ -1014,13 +985,13 @@ void* logLoadInst(Addr src_addr, Reg dest) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
-        region->loadCnt++;
         Timestamp cdt = CDepGet(index);
 		Timestamp ts0 = MShadowGet(src_addr, index, version);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + LOAD_COST;
 
 #ifdef EXTRA_STATS
+        region->loadCnt++;
         //updateReadMemoryAccess(entry0, i, RegionGetVersion(i), value);
 #endif
         RShadowSet(value, dest, index);
@@ -1096,12 +1067,12 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
 		Version version = RegionGetVersion(i);
-        region->storeCnt++;
         Timestamp cdt = CDepGet(index);
 		Timestamp ts0 = RShadowGet(src, index);
         Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
         Timestamp value = greater1 + STORE_COST;
 #ifdef EXTRA_STATS
+        region->storeCnt++;
         //updateWriteMemoryAccess(entryDest, i, RegionGetVersion(i), value);
 #endif
 		MShadowSet(dest_addr, index, version, value);
