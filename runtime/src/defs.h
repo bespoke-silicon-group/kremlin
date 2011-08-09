@@ -1,6 +1,7 @@
 #ifndef _DEFS_H
 #define _DEFS_H
-//#define NDEBUG
+#define NDEBUG
+//#define KREMLIN_DEBUG
 
 #include <assert.h>
 #include <limits.h>

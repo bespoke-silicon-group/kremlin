@@ -45,11 +45,11 @@ static void initMemoryPool(Index depth) {
     spaceToAlloc += readVersionSize + readTimeSize;
 #endif
 #endif
-	PoolCreate(&tEntryPool, spaceToAlloc, memPool, (void*(*)(void*, size_t))MemMapAllocatorMalloc);
+	//PoolCreate(&tEntryPool, spaceToAlloc, memPool, (void*(*)(void*, size_t))MemMapAllocatorMalloc);
 }
 
 static void finalizeMemoryPool() {
-    PoolDelete(&tEntryPool);
+    //PoolDelete(&tEntryPool);
 }
 
 #if 0
@@ -82,50 +82,63 @@ UInt RShadowDeinit() {
 	finalizeMemoryPool();
 }
 
-Time RShadowGetWithTable(LTable* table, Reg reg, Index index) {
+inline int RShadowGetOffset(LTable* table, Reg reg, Index index) {
+	int offset = table->indexSize * reg + index;
+	return offset;
+}
+
+inline Time* RShadowGetElementAddr(LTable* table, Reg reg, Index index) {
+	int offset = RShadowGetOffset(table, reg, index);
+	return &(table->array[offset]);
+}
+
+inline Time RShadowGetWithTable(LTable* table, Reg reg, Index index) {
 	assert(table != NULL);
-	int offset = lTable->indexSize * reg + index;
-	Time ret = lTable->array[offset];
+	int offset = RShadowGetOffset(table, reg, index);
+	Time ret = table->array[offset];
 	return ret;
 }
 
-void RShadowSetWithTable(LTable* table, Time time, Reg reg, Index index) {
+inline void RShadowSetWithTable(LTable* table, Time time, Reg reg, Index index) {
 	assert(table != NULL);
-	int offset = lTable->indexSize * reg + index;
+	int offset = RShadowGetOffset(table, reg, index);
 	table->array[offset] = time;
 }
 
-Time RShadowGet(Reg reg, Index index) {
+inline Time RShadowGet(Reg reg, Index index) {
 	assert(index < getIndexSize());
-	int offset = lTable->indexSize * reg + index;
+	int offset = RShadowGetOffset(lTable, reg, index);
 	Time ret = lTable->array[offset];
 	return ret;
 }
 
-void RShadowSet(Time time, Reg reg, Index index) {
-	assert(lTable != NULL);
-	assert(index < getIndexSize());
-	int offset = lTable->indexSize * reg + index;
-	lTable->array[offset] = time;
+inline void RShadowSet(Time time, Reg reg, Index index) {
+	int offset = RShadowGetOffset(lTable, reg, index);
 	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
 		&(lTable->array[offset]), time, reg, index, offset);
+	assert(lTable != NULL);
+	assert(index < getIndexSize());
+	assert(reg < lTable->entrySize);
+	lTable->array[offset] = time;
 }
 
 /*
  * Copy values of a register to another table
  */
-void RShadowCopy(LTable* destTable, Reg destReg, LTable* srcTable, Reg srcReg, Index start, Index size) {
+inline void RShadowCopy(LTable* destTable, Reg destReg, LTable* srcTable, Reg srcReg, Index start, Index size) {
 	assert(destTable != NULL);
 	assert(srcTable != NULL);
-	int indexDest = destTable->indexSize * destReg + start;
-	int indexSrc = srcTable->indexSize * srcReg + start;
-	//MSG(0, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
-	assert(size > 0);
+	int indexDest = RShadowGetOffset(destTable, destReg, start);
+	int indexSrc = RShadowGetOffset(srcTable, srcReg, start);
+	MSG(0, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
+	if (size == 0)
+		return;
+	assert(size >= 0);
 	assert(start < destTable->indexSize);
 	assert(start < srcTable->indexSize);
 
-	Time* srcAddr = (Time*)(srcTable->array) + indexSrc;
-	Time* destAddr = (Time*)(destTable->array) + indexDest;
+	Time* srcAddr = (Time*)&(srcTable->array[indexSrc]);
+	Time* destAddr = (Time*)&(destTable->array[indexDest]);
 	memcpy(destAddr, srcAddr, size * sizeof(Time));
 	/*
 	int i;
@@ -165,7 +178,7 @@ LTable* RShadowCreateTable(int numEntry, Index depth) {
 	// should be initialized with zero
 	ret->array = (Time*) calloc(numEntry * depth, sizeof(Time));
 	ret->code = 0xDEADBEEF;
-	//MSG(1, "RShadowCreateTable: ret = 0x%llx numEntry = %d, depth = %d\n", ret, numEntry, depth);
+	MSG(1, "RShadowCreateTable: ret = 0x%llx numEntry = %d, depth = %d\n", ret, numEntry, depth);
 	return ret;
 }
 
@@ -178,7 +191,7 @@ void RShadowFreeTable(LTable* table) {
 	free(table);
 }
 
-void RShadowActivateTable(LTable* table) {
+inline void RShadowActivateTable(LTable* table) {
 	//MSG(1, "Set LTable to 0x%x\n", table);
 	lTable = table;
 	assert(table->code == 0xDEADBEEF);
@@ -192,3 +205,14 @@ void RShadowActivateTable(LTable* table) {
 #endif
 }
 
+inline void RShadowRestartIndex(Index index) {
+	Reg i;
+	assert(lTable != NULL);
+	for (i=0; i<lTable->entrySize; i++) {
+		RShadowSet(0ULL, i, index);
+	}
+}
+
+inline LTable* RShadowGetTable() {
+	return lTable;
+}

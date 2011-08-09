@@ -9,7 +9,7 @@
 #include "defs.h"
 #include "debug.h"
 #include "hash_map.h"
-#include "cregion.h"
+#include "CRegion.h"
 #include "Vector.h"
 #include "MShadow.h"
 
@@ -260,14 +260,19 @@ UInt MShadowDeinit() {
 
 
 Timestamp MShadowGet(Addr addr, Index index, Version version) {	
+#if 1
 	TEntry* entry = GTableGetTEntry(gTable, addr);
 	Timestamp ts = TEntryGet(entry, index, version);
 	return ts;
+#endif
+	//return 0;
 }
 
 void MShadowSet(Addr addr, Index index, Version version, Time time) {
+#if 1
 	TEntry* entry = GTableGetTEntry(gTable, addr);
 	TEntryUpdate(entry, index, version, time);
+#endif
 }
 
 

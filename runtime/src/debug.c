@@ -3,7 +3,7 @@
 #include "debug.h"
 
 int	__kremlin_debug = 1;
-int  __kremlin_debug_level = 1;
+int  __kremlin_debug_level = 0;
 
 static char tabString[2000];
 static int tabLevel = 0;
@@ -18,11 +18,11 @@ void DebugDeinit() {
 }
 
 
+#ifdef KREMLIN_DEBUG
 void MSG(int level, char* format, ...) {
     if (!__kremlin_debug || level > __kremlin_debug_level) {
         return;
     }
-
     fprintf(stream, "%s", tabString);
     va_list args;
     va_start(args, format);
@@ -49,3 +49,4 @@ void decIndentTab() {
     tabLevel--;
     updateTabString();
 }
+#endif
