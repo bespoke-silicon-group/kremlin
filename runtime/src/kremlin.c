@@ -43,7 +43,6 @@ int _requireSetupTable;
 Level __kremlin_min_level = 0;
 Level __kremlin_max_level = 21;	 
 
-//void logLoopIteration() {}
 
 static Level levelNum = -1;
 
@@ -133,6 +132,57 @@ static inline void addLoad() {
 static inline void addStore() {
 	storeCnt++; 
 }
+
+/*************************************************************
+ * VArray / TArray Management
+ *************************************************************/
+
+static int arraySize = 512;
+static Version* vArray;
+static Time* tArray;
+
+static void RegionInitVersion() {
+	vArray = (Version*) calloc(sizeof(Version), arraySize); 
+}
+
+static void RegionInitTArray() {
+	tArray = (Time*) calloc(sizeof(Time), arraySize); 
+}
+
+static inline Time* RegionGetTArray() {
+	return &tArray[0];
+}
+
+
+static inline Version* RegionGetVArray(Level level) {
+	return &vArray[level];
+}
+
+static inline void RegionIssueVersion(Level level) {
+	vArray[level]++;	
+}
+
+static inline Version RegionGetVersion(Level level) {
+	return vArray[level];
+}
+
+#if 0
+static void RegionReallocArrays(int newSize) {
+	if (arraySize >= newSize) {
+		return;
+	}
+	int oldArraySize = arraySize;
+	arraySize *= 2;
+
+	Version* old = vArray;
+	vArray = (Version*) calloc(sizeof(Version), arraySize); 
+	memcpy(vArray, old, sizeof(Version), oldArraySize);
+	tArray = (Time*) calloc(sizeof(Time), arraySize); 
+}
+#endif
+
+
+
 
 
 /*************************************************************
@@ -244,7 +294,6 @@ static void RegionPopFunc() {
         RShadowFreeTable(func->table);
 
     free(func);  
-	checkRegion();
 }
 
 static FuncContext* RegionGetFunc() {
@@ -297,6 +346,7 @@ static void RegionDeinitFunc()
 /*****************************************************************
  * Region Management
  *****************************************************************/
+#if 0
 typedef struct _CDep {
 	Time* time;
 	int size;	
@@ -323,7 +373,7 @@ void CDepRealloc(CDep* dep) {
 void CDepFree(CDep* dep) {
 	free(dep->time);
 }
-
+#endif
 
 typedef struct _region_t {
 	UInt32 code;
@@ -334,7 +384,6 @@ typedef struct _region_t {
 	Time cp;
 	Time childrenWork;
 	Time childrenCP;
-	CDep	cDepStack;
 #ifdef EXTRA_STATS
 	UInt64 loadCnt;
 	UInt64 storeCnt;
@@ -363,10 +412,10 @@ static void RegionInit(int size) {
 	for (i=0; i<size; i++) {
 		regionInfo[i].code = 0xDEADBEEF;
 		regionInfo[i].version = 0;
-		CDepAlloc(&regionInfo[i].cDepStack);
 	}
-	checkRegion();
     assert(regionInfo);
+	RegionInitVersion();
+	RegionInitTArray();
 	RegionInitFunc();
 }
 
@@ -381,7 +430,6 @@ static void RegionRealloc() {
 	for (i=oldRegionSize; i<regionSize; i++) {
 		regionInfo[i].code = 0xDEADBEEF;
 		regionInfo[i].version = 0;
-		CDepAlloc(&regionInfo[i].cDepStack);
 	}
 }
 
@@ -390,21 +438,19 @@ static inline Region* RegionGet(Level level) {
 	return ret;
 }
 
+#if 0
 static Version RegionGetVersion(Level level) {
 	return RegionGet(level)->version;
 }
+#endif
 
 static void RegionDeinit() {
 	RegionDeinitFunc();
-	//RegionVersionDeinit();
-	checkRegion();
 	Level i;
 	for (i=0; i<regionSize; i++) {
 		Region* region = RegionGet(i);
-		CDepFree(&(region->cDepStack));	
 	}
 	assert(regionInfo != NULL);
-    //free(regionInfo);
     regionInfo = NULL;
 }
 
@@ -432,7 +478,8 @@ void checkRegion() {
 }
 
 static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level level) {
-	region->version++;
+	//region->version++;
+	RegionIssueVersion(level);
 	region->regionId = sid;
 	region->start = getTimetick();
 	region->cp = 0ULL;
@@ -451,56 +498,22 @@ static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level
 	
 }
 
-#if 0
-inline void RegionPushCDep(Region* region, Time time) {
-	CDep* dep = &(region->cDepStack);
-	if (dep->nextWriteIndex == dep->size) {
-		CDepRealloc(dep);
-	}
-	assert(dep->size > dep->nextWriteIndex);
-	dep->current = &dep->time[dep->nextWriteIndex];
-	dep->time[dep->nextWriteIndex++] = time;
-}
-
-inline Time RegionPopCDep(Region* region) {
-	CDep* dep = &(region->cDepStack);
-	assert(dep->nextWriteIndex > 0);
-	dep->nextWriteIndex--;
-	dep->current--;
-	return dep->time[dep->nextWriteIndex];
-}
-
-inline Time RegionGetCDep(Region* region) {
-	CDep* dep = &(region->cDepStack);
-	/*
-	assert(dep->nextWriteIndex > 0);
-	Time ret = dep->time[dep->nextWriteIndex-1];
-	MSG(1, "\tRegionGetCDep: %llu\n", ret);
-	return ret;
-	*/
-	return *(dep->current);
-}
-#endif
-
 LTable* cTable;
 int cTableReadPtr = 0;
 Time* cTableCurrentBase;
 
+#define CDEP_INIT_ENTRY	256
+#define CDEP_INIT_INDEX	64
+
 inline void CDepInit() {
 	cTableReadPtr = 0;
-	cTable = RShadowCreateTable(256, 41);
-	//cTableCurrentBase = RShadowGetElementAddr(cTable, cTableReadPtr, 0);
+	cTable = RShadowCreateTable(CDEP_INIT_ENTRY, CDEP_INIT_INDEX);
 }
 
 inline void CDepDeinit() {
 	RShadowFreeTable(cTable);
 }
 
-#if 0
-inline void CDepSet(Index index, Time time) {
-	RShadowSetWithTable(cTable, time, cTableReadPtr, index);
-}
-#endif
 inline void CDepInitRegion(Index index) {
 	assert(cTable != NULL);
 	MSG(0, "CDepInitRegion ReadPtr = %d, Index = %d\n", cTableReadPtr, index);
@@ -513,15 +526,6 @@ inline Time CDepGet(Index index) {
 	assert(cTableReadPtr >=  0);
 	return *(cTableCurrentBase + index);
 }
-
-#if 0
-inline Time RegionPopCDep(Region* region) {
-}
-
-inline Time RegionGetCDep(Region* region) {
-	
-}
-#endif
 
 /****************************************************************
  *
@@ -541,25 +545,26 @@ void addControlDep(Reg cond) {
 	}
 #ifndef WORK_ONLY
 	cTableReadPtr++;
-	LTable* ltable = RShadowGetTable();
 	int indexSize = getEndLevel() - getStartLevel() + 1;
+
+// TODO: rarely, ctable could require resizing..not implemented yet
+	if (cTableReadPtr == cTable->entrySize) {
+		fprintf(stderr, "CDep Table requires entry resizing..\n");
+		assert(0);	
+	}
+
+	if (cTable->indexSize < indexSize) {
+		fprintf(stderr, "CDep Table requires index resizing..\n");
+		assert(0);	
+	}
+
+	LTable* ltable = RShadowGetTable();
 	assert(lTable->indexSize >= indexSize);
 	assert(cTable->indexSize >= indexSize);
+
 	RShadowCopy(cTable, cTableReadPtr, lTable, cond, 0, indexSize);
 	cTableCurrentBase = RShadowGetElementAddr(cTable, cTableReadPtr, 0);
 	assert(cTableReadPtr < cTable->entrySize);
-
-#if 0
-    Level minLevel = getStartLevel();
-    Level maxLevel = getEndLevel();
-
-    Level i;
-    for (i = minLevel; i <= maxLevel; i++) {
-		Index index = getIndex(i);
-		Region* region = RegionGet(i);
-		RegionPushCDep(region, RShadowGet(cond, index));
-	}
-#endif
 #endif
 }
 
@@ -571,17 +576,6 @@ void removeControlDep() {
 #ifndef WORK_ONLY
 	cTableReadPtr--;
 	cTableCurrentBase = RShadowGetElementAddr(cTable, cTableReadPtr, 0);
-#if 0
-    Level minLevel = getStartLevel();
-    Level maxLevel = getEndLevel();
-
-    Level i;
-    for (i = minLevel; i <= maxLevel; i++) {
-		Index index = getIndex(i);
-		Region* region = RegionGet(i);
-		RegionPopCDep(region);
-	}
-#endif
 #endif
 }
 
@@ -831,16 +825,18 @@ void logRegionExit(SID regionId, RegionType regionType) {
 
 	assert(region->regionId == regionId);
     UInt64 cp = region->cp;
+
+#ifdef KREMLIN_DEBUG
 	if (work < cp) {
 		fprintf(stderr, "work = %llu\n", work);
 		fprintf(stderr, "cp = %llu\n", cp);
-		checkRegion();
 		assert(0);
 	}
 	if (level < getMaxLevel() && level >= getMinLevel()) {
 		assert(work >= cp);
 		assert(work >= region->childrenWork);
 	}
+#endif
 
 	// Only update parent region's childrenWork and childrenCP 
 	// when we are logging the parent
@@ -855,6 +851,10 @@ void logRegionExit(SID regionId, RegionType regionType) {
 		parent_region->childrenCP += cp;
 	} 
 
+	double spTemp = (work - region->childrenWork + region->childrenCP) / (double)cp;
+	double sp = (work > 0) ? spTemp : 1.0;
+
+#ifdef KREMLIN_DEBUG
 	// Check that cp is positive if work is positive.
 	// This only applies when the current level gets instrumented (otherwise this condition always holds)
     if (isInstrumentable() && cp == 0 && work > 0) {
@@ -864,14 +864,12 @@ void logRegionExit(SID regionId, RegionType regionType) {
         assert(0);
     }
 
-	double spTemp = (work - region->childrenWork + region->childrenCP) / (double)cp;
-	double sp = (work > 0) ? spTemp : 1.0;
-
 	if (level < getMaxLevel() && sp < 1.0) {
 		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu childrenCP=%lld\n", sid, work,
 			region->childrenWork, region->childrenCP);
 		assert(0);
 	}
+#endif
 
 	UInt64 spWork = (UInt64)((double)work / sp);
 	UInt64 tpWork = cp;
@@ -1011,7 +1009,6 @@ void* logAssignmentConst(UInt dest) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-        //Timestamp cdt = RegionGetCDep(region);
 		Time cdt = CDepGet(index);
 		RShadowSet(cdt, dest, index);
         RegionUpdateCp(region, cdt);
@@ -1020,8 +1017,8 @@ void* logAssignmentConst(UInt dest) {
     return NULL;
 }
 
-void* logLoadInst(Addr src_addr, Reg dest) {
-    MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, src_addr, LOAD_COST);
+void* logLoadInst(Addr addr, Reg dest) {
+    MSG(1, "load ts[%u] = ts[0x%x] + %u\n", dest, addr, LOAD_COST);
     if (!isKremlinOn())
     	return NULL;
 
@@ -1031,16 +1028,16 @@ void* logLoadInst(Addr src_addr, Reg dest) {
     Level minLevel = getStartLevel();
     Level maxLevel = getEndLevel();
     Level i;
+	Time* tArray = RegionGetTArray();
+	MShadowGet(addr, getIndexSize(), RegionGetVArray(minLevel), tArray);
+
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-		Version version = RegionGetVersion(i);
-        //Timestamp cdt = RegionGetCDep(region);
 		Time cdt = CDepGet(index);
-		//Timestamp ts0 = MShadowGet(src_addr, index, version);
-		Time ts0 = 0ULL;
-        Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
-        Timestamp value = greater1 + LOAD_COST;
+		Time ts0 = tArray[index];
+        Time greater1 = (cdt > ts0) ? cdt : ts0;
+        Time value = greater1 + LOAD_COST;
 
 #ifdef EXTRA_STATS
         region->loadCnt++;
@@ -1057,8 +1054,8 @@ void* logLoadInst(Addr src_addr, Reg dest) {
 #endif
 }
 
-void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
-    MSG(1, "load ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, src_addr, src1, LOAD_COST);
+void* logLoadInst1Src(Addr addr, UInt src1, UInt dest) {
+    MSG(1, "load ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
     if (!isKremlinOn())
 		return NULL;
 
@@ -1069,27 +1066,26 @@ void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest) {
     Level maxLevel = getEndLevel();
 
     Level i;
+	Time* tArray = RegionGetTArray();
+	MShadowGet(addr, getIndexSize(), RegionGetVArray(minLevel), tArray);
 
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-		Version version = RegionGetVersion(i);
-        //Timestamp cdt = RegionGetCDep(region);
 		Time cdt = CDepGet(index);
-		//Timestamp ts_src_addr = MShadowGet(src1, index, version);
-		Time ts_src_addr = 0ULL;
-		Timestamp ts_src1 = RShadowGet(src1, index);
+		Time tsAddr = tArray[index];
+		Time tsSrc1 = RShadowGet(src1, index);
 
-        Timestamp max1 = (ts_src_addr > cdt) ? ts_src_addr : cdt;
-        Timestamp max2 = (max1 > ts_src1) ? max1 : ts_src1;
-		Timestamp value = max2 + LOAD_COST;
+        Time max1 = (tsAddr > cdt) ? tsAddr : cdt;
+        Time max2 = (max1 > tsSrc1) ? max1 : tsSrc1;
+		Time value = max2 + LOAD_COST;
 
         RShadowSet(value, dest, index);
         RegionUpdateCp(region, value);
 
         MSG(2, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
-        MSG(2, " src_addr 0x%x src1 %u dest %u\n", src_addr, src1, dest);
-        MSG(2, " cdt %u ts_src_addr %u ts_src1 %u max %u\n", cdt, ts_src_addr, ts_src1, max2);
+        MSG(2, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
+        MSG(2, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
     }
 
     //return entryDest;
@@ -1117,23 +1113,24 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     Level maxLevel = getEndLevel();
     Level i;
 
+	Time* tArray = RegionGetTArray();
+
     for (i = minLevel; i <= maxLevel; i++) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-		Version version = RegionGetVersion(i);
-        //Timestamp cdt = RegionGetCDep(region);
 		Time cdt = CDepGet(index);
-		Timestamp ts0 = RShadowGet(src, index);
-        Timestamp greater1 = (cdt > ts0) ? cdt : ts0;
-        Timestamp value = greater1 + STORE_COST;
+		Time ts0 = RShadowGet(src, index);
+        Time greater1 = (cdt > ts0) ? cdt : ts0;
+        Time value = greater1 + STORE_COST;
+		tArray[index] = value;
 #ifdef EXTRA_STATS
         region->storeCnt++;
         //updateWriteMemoryAccess(entryDest, i, RegionGetVersion(i), value);
 #endif
-		//MShadowSet(dest_addr, index, version, value);
         RegionUpdateCp(region, value);
     }
 
+	MShadowSet(dest_addr, getIndexSize(), RegionGetVArray(minLevel), tArray);
 #endif
     //return entryDest;
     return NULL;
@@ -1157,20 +1154,21 @@ void* logStoreInstConst(Addr dest_addr) {
     Level minLevel = getStartLevel();
     Level maxLevel = getEndLevel();
     Level i;
+	Time* tArray = RegionGetTArray();
+
     for (i = minLevel; i <= maxLevel; ++i) {
 		Region* region = RegionGet(i);
 		Index index = getIndex(i);
-		Version version = RegionGetVersion(i);
-        //Timestamp cdt = RegionGetCDep(region);
 		Time cdt = CDepGet(index);
-        Timestamp value = cdt + STORE_COST;
+        Time value = cdt + STORE_COST;
+		tArray[index] = value;
 #ifdef EXTRA_STATS
         //updateWriteMemoryAccess(entryDest, i, version, value);
         //updateWriteMemoryLineAccess(entryLine, i, version, value);
 #endif
-		MShadowSet(dest_addr, index, version, value);
 		RegionUpdateCp(region, value);
     }
+	MShadowSet(dest_addr, getIndexSize(), RegionGetVArray(minLevel), tArray);
 #endif
     return NULL;
 }
@@ -1235,7 +1233,6 @@ void logFuncReturnConst(void) {
 
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
-        //Time cdt = RegionGetCDep(index);
 		Time cdt = CDepGet(index);
 		RShadowSetWithTable(caller->table, cdt, RegionGetRetReg(caller), index);
     }
@@ -1283,10 +1280,9 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
-		Timestamp ts_src = RShadowGet(src, index);
-		Timestamp ts_cd = RShadowGet(cd, index);
-        Timestamp max = (ts_src > ts_cd) ? ts_src : ts_cd;
-        //updateTimestamp(entryDest, i, version, max);
+		Time ts_src = RShadowGet(src, index);
+		Time ts_cd = RShadowGet(cd, index);
+        Time max = (ts_src > ts_cd) ? ts_src : ts_cd;
 		RShadowSet(max, dest, index);
         MSG(3, "logPhiNode1CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " src %u cd %u dest %u\n", src, cd, dest);
@@ -1312,11 +1308,11 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
-		Timestamp ts_src = RShadowGet(src, index);
-		Timestamp ts_cd1 = RShadowGet(cd1, index);
-		Timestamp ts_cd2 = RShadowGet(cd2, index);
-        Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+		Time ts_src = RShadowGet(src, index);
+		Time ts_cd1 = RShadowGet(cd1, index);
+		Time ts_cd2 = RShadowGet(cd2, index);
+        Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+        Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
 
 		RShadowSet(max2, dest, index);
 
@@ -1347,13 +1343,13 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
-		Timestamp ts_src = RShadowGet(src, index);
-		Timestamp ts_cd1 = RShadowGet(cd1, index);
-		Timestamp ts_cd2 = RShadowGet(cd2, index);
-		Timestamp ts_cd3 = RShadowGet(cd3, index);
-        Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+		Time ts_src = RShadowGet(src, index);
+		Time ts_cd1 = RShadowGet(cd1, index);
+		Time ts_cd2 = RShadowGet(cd2, index);
+		Time ts_cd3 = RShadowGet(cd3, index);
+        Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+        Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+        Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
 
 		RShadowSet(max3, dest, index);
 
@@ -1383,15 +1379,15 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
-		Timestamp ts_src = RShadowGet(src, index);
-		Timestamp ts_cd1 = RShadowGet(cd1, index);
-		Timestamp ts_cd2 = RShadowGet(cd2, index);
-		Timestamp ts_cd3 = RShadowGet(cd3, index);
-		Timestamp ts_cd4 = RShadowGet(cd4, index);
-        Timestamp max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
-        Timestamp max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
+		Time ts_src = RShadowGet(src, index);
+		Time ts_cd1 = RShadowGet(cd1, index);
+		Time ts_cd2 = RShadowGet(cd2, index);
+		Time ts_cd3 = RShadowGet(cd3, index);
+		Time ts_cd4 = RShadowGet(cd4, index);
+        Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
+        Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+        Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+        Time max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
 
 		RShadowSet(max4, dest, index);
 
@@ -1421,15 +1417,15 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
-        Timestamp ts_dest = RShadowGet(dest, index);
-		Timestamp ts_cd1 = RShadowGet(cd1, index);
-		Timestamp ts_cd2 = RShadowGet(cd2, index);
-		Timestamp ts_cd3 = RShadowGet(cd3, index);
-		Timestamp ts_cd4 = RShadowGet(cd4, index);
-        Timestamp max1 = (ts_dest > ts_cd1) ? ts_dest : ts_cd1;
-        Timestamp max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        Timestamp max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
-        Timestamp max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
+        Time ts_dest = RShadowGet(dest, index);
+		Time ts_cd1 = RShadowGet(cd1, index);
+		Time ts_cd2 = RShadowGet(cd2, index);
+		Time ts_cd3 = RShadowGet(cd3, index);
+		Time ts_cd4 = RShadowGet(cd4, index);
+        Time max1 = (ts_dest > ts_cd1) ? ts_dest : ts_cd1;
+        Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+        Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+        Time max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
 		RShadowSet(max4, dest, index);
 
         MSG(2, "log4CDepoPhiNode4CD level %u version %u \n", i, RegionGetVersion(i));
@@ -1459,9 +1455,9 @@ void* logPhiNodeAddCondition(UInt dest, UInt src) {
     for (i = minLevel; i <= maxLevel; i++) {
 		Index index = getIndex(i);
 		Region* region = RegionGet(i);
-		Timestamp ts0 = RShadowGet(src, index);
-		Timestamp ts1 = RShadowGet(dest, index);
-        Timestamp value = (ts0 > ts1) ? ts0 : ts1;
+		Time ts0 = RShadowGet(src, index);
+		Time ts1 = RShadowGet(dest, index);
+        Time value = (ts0 > ts1) ? ts0 : ts1;
 		RShadowSet(value, dest, index);
         RegionUpdateCp(region, value);
         MSG(2, "logPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
