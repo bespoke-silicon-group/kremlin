@@ -972,8 +972,6 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
     addWork(opCost);
 
 #ifndef WORK_ONLY
-    Level minLevel = getStartLevel();
-    Level maxLevel = getEndLevel();
 	LTable* table = RShadowGetTable();
 	Time* base = table->array; 
 	int unit = table->indexSize;
@@ -1039,10 +1037,9 @@ void* logLoadInst(Addr addr, Reg dest) {
 
 #ifndef WORK_ONLY
 	Index index;
-	Time* tArray = RegionGetTArray();
 	Index depth = getIndexDepth();
 	Level minLevel = getLevel(0);
-	MShadowGet(addr, depth, RegionGetVArray(minLevel), tArray);
+	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel));
 
     for (index = 0; index < depth; index++) {
 		Level i = getLevel(i);
@@ -1076,11 +1073,9 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest) {
 
 #ifndef WORK_ONLY
     Level minLevel = getStartLevel();
-    Level maxLevel = getEndLevel();
 
 	Index index;
-	Time* tArray = RegionGetTArray();
-	MShadowGet(addr, maxLevel - minLevel + 1, RegionGetVArray(minLevel), tArray);
+	Time* tArray = MShadowGet(addr, getIndexDepth(), RegionGetVArray(minLevel));
 
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);

@@ -524,13 +524,16 @@ UInt MShadowInit() {
 UInt MShadowDeinit() {
 	//GTableDelete(&gTable);
 	printMemStat();
+	STableDeinit();
 }
 
-void MShadowGet(Addr addr, Index size, Version* vArray, Time* tArray) {
+static Time array[128];
+Time* MShadowGet(Addr addr, Index size, Version* vArray) {
 	Index i;
 	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
 	for (i=0; i<size; i++)
-		tArray[i] = getTime(addr, i, vArray[i]);
+		array[i] = getTime(addr, i, vArray[i]);
+	return array;
 }
 
 void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
