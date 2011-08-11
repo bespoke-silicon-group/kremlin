@@ -268,7 +268,7 @@ static inline void ArgFifoClear() {
 static CID lastCallSiteId;
 
 typedef struct _FuncContext {
-	LTable* table;
+	Table* table;
 	Reg ret;
 	CID callSiteId;
 	UInt32 code;
@@ -310,7 +310,7 @@ static void RegionPopFunc() {
     assert(_requireSetupTable == 0);
 
     if (func->table != NULL)
-        RShadowFreeTable(func->table);
+        TableFree(func->table);
 
     free(func);  
 }
@@ -346,7 +346,7 @@ inline static Reg RegionGetRetReg(FuncContext* func) {
 	return func->ret;
 }
 
-inline static LTable* RegionGetTable(FuncContext* func) {
+inline static Table* RegionGetTable(FuncContext* func) {
 	return func->table;
 }
 
@@ -517,7 +517,7 @@ static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level
 	
 }
 
-LTable* cTable;
+Table* cTable;
 int cTableReadPtr = 0;
 Time* cTableCurrentBase;
 
@@ -526,18 +526,18 @@ Time* cTableCurrentBase;
 
 inline void CDepInit() {
 	cTableReadPtr = 0;
-	cTable = RShadowCreateTable(CDEP_INIT_ENTRY, CDEP_INIT_INDEX);
+	cTable = TableCreate(CDEP_INIT_ENTRY, CDEP_INIT_INDEX);
 }
 
 inline void CDepDeinit() {
-	RShadowFreeTable(cTable);
+	TableFree(cTable);
 }
 
 inline void CDepInitRegion(Index index) {
 	assert(cTable != NULL);
 	MSG(0, "CDepInitRegion ReadPtr = %d, Index = %d\n", cTableReadPtr, index);
-	RShadowSetWithTable(cTable, 0ULL, cTableReadPtr, index);
-	cTableCurrentBase = RShadowGetElementAddr(cTable, cTableReadPtr, 0);
+	TableSetValue(cTable, 0ULL, cTableReadPtr, index);
+	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
 }
 
 inline Time CDepGet(Index index) {
@@ -567,22 +567,22 @@ void addControlDep(Reg cond) {
 	int indexSize = getIndexDepth();
 
 // TODO: rarely, ctable could require resizing..not implemented yet
-	if (cTableReadPtr == cTable->entrySize) {
+	if (cTableReadPtr == TableGetRow(cTable)) {
 		fprintf(stderr, "CDep Table requires entry resizing..\n");
 		assert(0);	
 	}
 
-	if (cTable->indexSize < indexSize) {
+	if (TableGetCol(cTable) < indexSize) {
 		fprintf(stderr, "CDep Table requires index resizing..\n");
 		assert(0);	
 	}
 
-	LTable* ltable = RShadowGetTable();
+	Table* ltable = RShadowGetTable();
 	assert(lTable->indexSize >= indexSize);
 	assert(cTable->indexSize >= indexSize);
 
-	RShadowCopy(cTable, cTableReadPtr, lTable, cond, 0, indexSize);
-	cTableCurrentBase = RShadowGetElementAddr(cTable, cTableReadPtr, 0);
+	TableCopy(cTable, cTableReadPtr, lTable, cond, 0, indexSize);
+	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
 	assert(cTableReadPtr < cTable->entrySize);
 #endif
 }
@@ -594,7 +594,7 @@ void removeControlDep() {
 	}
 #ifndef WORK_ONLY
 	cTableReadPtr--;
-	cTableCurrentBase = RShadowGetElementAddr(cTable, cTableReadPtr, 0);
+	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
 #endif
 }
 
@@ -647,13 +647,13 @@ void transferAndUnlinkArg(Reg dest) {
 	if (src != DUMMY_ARG) {
 		FuncContext* caller = RegionGetCallerFunc();
 		FuncContext* callee = RegionGetFunc();
-		LTable* callerT = RegionGetTable(caller);
-		LTable* calleeT = RegionGetTable(callee);
+		Table* callerT = RegionGetTable(caller);
+		Table* calleeT = RegionGetTable(callee);
 
 		// decrement one as the current level should not be copied
 		int indexSize = getIndexDepth() - 1;
 		assert(getCurrentLevel() >= 1);
-		RShadowCopy(calleeT, dest, callerT, src, 0, indexSize);
+		TableCopy(calleeT, dest, callerT, src, 0, indexSize);
 	}
     MSG(0, "\n", dest);
 }
@@ -672,7 +672,7 @@ void setupLocalTable(UInt maxVregNum) {
 #ifndef WORK_ONLY
     assert(_requireSetupTable == 1);
 
-    LTable* table = RShadowCreateTable(maxVregNum, getIndexSize());
+    Table* table = TableCreate(maxVregNum, getIndexSize());
     FuncContext* funcHead = RegionGetFunc();
 	assert(funcHead != NULL);
     assert(funcHead->table == NULL);
@@ -972,9 +972,8 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
     addWork(opCost);
 
 #ifndef WORK_ONLY
-	LTable* table = RShadowGetTable();
+	Table* table = RShadowGetTable();
 	Time* base = table->array; 
-	int unit = table->indexSize;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1216,7 +1215,7 @@ void logFuncReturn(Reg src) {
 
 	// current level time does not need to be copied
 	int indexSize = getIndexDepth() - 1;
-	RShadowCopy(caller->table, ret, callee->table, src, 0, indexSize);
+	TableCopy(caller->table, ret, callee->table, src, 0, indexSize);
 	
     MSG(1, "end write return value 0x%x\n", RegionGetFunc());
 #endif
@@ -1239,7 +1238,7 @@ void logFuncReturnConst(void) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Time cdt = CDepGet(index);
-		RShadowSetWithTable(caller->table, cdt, RegionGetRetReg(caller), index);
+		TableSetValue(caller->table, cdt, RegionGetRetReg(caller), index);
     }
 #endif
 }

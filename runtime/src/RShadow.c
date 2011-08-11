@@ -1,3 +1,4 @@
+#include "Table.h"
 #include "RShadow.h"
 #include "MemMapAllocator.h"
 #include "Pool.h"
@@ -26,7 +27,7 @@
  *
  */
 
-static LTable*	lTable;
+static Table*	lTable;
 static Pool* 	tEntryPool;
 
 static void initMemoryPool(Index depth) {
@@ -82,38 +83,16 @@ UInt RShadowDeinit() {
 	finalizeMemoryPool();
 }
 
-inline int RShadowGetOffset(LTable* table, Reg reg, Index index) {
-	int offset = table->indexSize * reg + index;
-	return offset;
-}
-
-inline Time* RShadowGetElementAddr(LTable* table, Reg reg, Index index) {
-	int offset = RShadowGetOffset(table, reg, index);
-	return &(table->array[offset]);
-}
-
-inline Time RShadowGetWithTable(LTable* table, Reg reg, Index index) {
-	assert(table != NULL);
-	int offset = RShadowGetOffset(table, reg, index);
-	Time ret = table->array[offset];
-	return ret;
-}
-
-inline void RShadowSetWithTable(LTable* table, Time time, Reg reg, Index index) {
-	assert(table != NULL);
-	int offset = RShadowGetOffset(table, reg, index);
-	table->array[offset] = time;
-}
 
 inline Time RShadowGet(Reg reg, Index index) {
 	assert(index < getIndexSize());
-	int offset = RShadowGetOffset(lTable, reg, index);
+	int offset = TableGetOffset(lTable, reg, index);
 	Time ret = lTable->array[offset];
 	return ret;
 }
 
 inline void RShadowSet(Time time, Reg reg, Index index) {
-	int offset = RShadowGetOffset(lTable, reg, index);
+	int offset = TableGetOffset(lTable, reg, index);
 	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
 		&(lTable->array[offset]), time, reg, index, offset);
 	assert(lTable != NULL);
@@ -122,78 +101,10 @@ inline void RShadowSet(Time time, Reg reg, Index index) {
 	lTable->array[offset] = time;
 }
 
-/*
- * Copy values of a register to another table
- */
-inline void RShadowCopy(LTable* destTable, Reg destReg, LTable* srcTable, Reg srcReg, Index start, Index size) {
-	assert(destTable != NULL);
-	assert(srcTable != NULL);
-	int indexDest = RShadowGetOffset(destTable, destReg, start);
-	int indexSrc = RShadowGetOffset(srcTable, srcReg, start);
-	MSG(0, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
-	if (size == 0)
-		return;
-	assert(size >= 0);
-	assert(start < destTable->indexSize);
-	assert(start < srcTable->indexSize);
-
-	Time* srcAddr = (Time*)&(srcTable->array[indexSrc]);
-	Time* destAddr = (Time*)&(destTable->array[indexDest]);
-	memcpy(destAddr, srcAddr, size * sizeof(Time));
-	//bzero(destAddr + size, (destTable->indexSize - size) * sizeof(Time));
-	/*
-	int i;
-	for (i=0; i<size; i++) {
-		Time value = *srcAddr++;
-		*destAddr++ = value;
-		MSG(1, "\tCopying from 0x%x to 0x%x value = %d\n", 
-			srcAddr-1, destAddr-1, value);
-	}*/
-
-}
 
 
-#if 0
-void RShadowExport(TArray* dest, Reg src) {
-	Index i;
-	/*
-	for (i=0; i<getIndexSize(); i++)
-		dest->values[i] = RShadowGet(src, i);
-		*/
-}
-
-
-void RShadowImport(Reg dest, TArray* src) {
-	Index i;
-	/*
-	for (i=0; i<getIndexSize(); i++) {
-		RShadowSet(src->values[i], dest, i);
-	}*/
-}
-#endif
-
-LTable* RShadowCreateTable(int numEntry, Index depth) {
-	LTable* ret = (LTable*) malloc(sizeof(LTable));
-	ret->entrySize = numEntry;
-	ret->indexSize = depth;
-	// should be initialized with zero
-	ret->array = (Time*) calloc(numEntry * depth, sizeof(Time));
-	ret->code = 0xDEADBEEF;
-	MSG(1, "RShadowCreateTable: ret = 0x%llx numEntry = %d, depth = %d\n", ret, numEntry, depth);
-	return ret;
-}
-
-
-void RShadowFreeTable(LTable* table) {
-	assert(table != NULL);
-	assert(table->array != NULL);
-
-	free(table->array);
-	free(table);
-}
-
-inline void RShadowActivateTable(LTable* table) {
-	//MSG(1, "Set LTable to 0x%x\n", table);
+inline void RShadowActivateTable(Table* table) {
+	//MSG(1, "Set Table to 0x%x\n", table);
 	lTable = table;
 	assert(table->code == 0xDEADBEEF);
 #if 0
@@ -209,11 +120,11 @@ inline void RShadowActivateTable(LTable* table) {
 inline void RShadowRestartIndex(Index index) {
 	Reg i;
 	assert(lTable != NULL);
-	for (i=0; i<lTable->entrySize; i++) {
+	for (i=0; i<lTable->row; i++) {
 		RShadowSet(0ULL, i, index);
 	}
 }
 
-inline LTable* RShadowGetTable() {
+inline Table* RShadowGetTable() {
 	return lTable;
 }

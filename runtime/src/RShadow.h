@@ -10,8 +10,7 @@
 
 
 #include "defs.h"
-#include "TEntry.h"
-#include "TArray.h"
+#include "Table.h"
 
 typedef struct _LocalTable {
 	int         entrySize;
