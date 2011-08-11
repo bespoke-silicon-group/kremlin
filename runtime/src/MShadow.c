@@ -36,6 +36,35 @@
 #define L2_SIZE (L2_MASK + 1)
 #define L2_SHIFT 2
 
+/*
+ * MemStat
+ */
+typedef struct _MemStat {
+	int nSTableEntry;
+
+	int nSegTableAllocated;
+	int nSegTableActive;
+	int nSegTableActiveMax;
+
+	int nTimeTableAllocated;
+	int nTimeTableActive;
+	int nTimeTableActiveMax;
+
+} MemStat;
+
+static MemStat stat;
+
+void printMemStat() {
+	fprintf(stderr, "nSTableEntry = %d\n\n", stat.nSTableEntry);
+
+	fprintf(stderr, "nSegTableAllocated = %d\n", stat.nSegTableAllocated);
+	fprintf(stderr, "nSegTableActive = %d\n", stat.nSegTableActive);
+	fprintf(stderr, "nSegTableActiveMax = %d\n\n", stat.nSegTableActiveMax);
+
+	fprintf(stderr, "nTimeTableAllocated = %d\n", stat.nTimeTableAllocated);
+	fprintf(stderr, "nTimeTableActive = %d\n", stat.nTimeTableActive);
+	fprintf(stderr, "nTimeTableActiveMax = %d\n\n", stat.nTimeTableActiveMax);
+}
 
 /*
  * Struct definitions
@@ -57,6 +86,164 @@ typedef struct _GTable {
 
 static GTable* gTable;
 
+
+
+
+
+
+/*
+ * TimeTable: simple array of Time with L2_SIZE elements
+ *
+ */ 
+
+typedef struct _TimeTable {
+	Time array[L2_SIZE];
+} TimeTable;
+
+TimeTable* TimeTableAlloc() {
+	stat.nTimeTableAllocated++;
+	stat.nTimeTableActive++;
+	if (stat.nTimeTableActive > stat.nTimeTableActiveMax)
+		stat.nTimeTableActiveMax++;
+	return (TimeTable*) calloc(sizeof(Time), L2_SIZE);
+}
+
+void TimeTableFree(TimeTable* table) {
+	stat.nTimeTableActive--;
+	free(table);
+}
+
+static int TimeTableGetIndex(Addr addr) {
+    int ret = ((UInt64)addr >> L2_SHIFT) & L2_MASK;
+	assert(ret < L2_SIZE);
+	return ret;
+}
+
+static Time TimeTableGet(TimeTable* table, Addr addr) {
+	int index = TimeTableGetIndex(addr);
+	return table->array[index];
+}
+
+static void TimeTableSet(TimeTable* table, Addr addr, Time time) {
+	int index = TimeTableGetIndex(addr);
+	table->array[index] = time;
+}
+
+
+/*
+ * SegTable:
+ *
+ */ 
+
+typedef struct _SegEntry {
+	TimeTable* table;
+	Version version;
+} SegEntry;
+
+
+typedef struct _Segment {
+	SegEntry entry[L1_SIZE];
+} SegTable;
+
+
+
+SegTable* SegTableAlloc() {
+	SegTable* ret = (SegTable*) calloc(sizeof(SegEntry), L1_SIZE);
+	stat.nSegTableAllocated++;
+	stat.nSegTableActive++;
+	if (stat.nSegTableActive > stat.nSegTableActiveMax)
+		stat.nSegTableActiveMax++;
+	return ret;	
+}
+
+void SegTableFree(SegTable* table) {
+	int i;
+	for (i=0; i<L1_SIZE; i++) {
+		if (table->entry[i].table != NULL) {
+			TimeTableFree(table->entry[i].table);	
+		}
+	}
+	stat.nSegTableActive--;
+	free(table);
+}
+
+static int SegTableGetIndex(Addr addr) {
+	return ((UInt64)addr >> L1_SHIFT) & L1_MASK;
+}
+
+
+TimeTable* SegTableGetTimeTable(SegTable* segTable, Addr addr, Version version) {
+	TimeTable* ret = NULL;
+	int index = SegTableGetIndex(addr);
+	SegEntry* entry = &(segTable->entry[index]);
+	MSG(2, "SegTableGetTimeTable: addr = 0x%llx, version [prev, current] =[%d, %d]\n", 
+		addr, entry->version, version);
+
+	if (entry->table == NULL || entry->version != version) {
+		ret = TimeTableAlloc();
+		if (entry->table != NULL) {
+			MSG(0, "\tFree Prev TimeTable with version %d\n", entry->version);
+			TimeTableFree(entry->table);
+		}
+		entry->table = ret;
+		entry->version = version;
+	}
+
+	return entry->table;
+}
+
+/*
+ * ITable - Index Table
+ *
+ */
+
+typedef struct _ITable {
+	SegTable** table;
+} ITable;
+
+static int iTableSize = 64;
+
+ITable* ITableAlloc() {
+	ITable* ret = malloc(sizeof(ITable));
+	ret->table = (SegTable*) calloc(sizeof(SegTable*), iTableSize);
+	return ret;
+}
+
+void ITableRealloc(ITable* iTable, int newSize) {
+	SegTable** oldTable = iTable->table;
+	iTable->table = (SegTable*) calloc(sizeof(SegTable*), newSize);
+	memcpy(iTable->table, oldTable, sizeof(SegTable*) * iTableSize);
+
+	iTableSize = newSize;
+	return NULL;
+}
+
+void ITableFree(ITable* iTable) {
+	assert(iTable != NULL);
+
+	int i;
+	for (i=0; i<iTableSize; i++) {
+		if (iTable->table[i] != (SegTable*)NULL)
+			SegTableFree(iTable->table[i]);
+	}
+	free(iTable);
+}
+
+static SegTable* ITableGetSegTable(ITable* iTable, Index index) {
+	assert(iTable != NULL);
+	if (index >= iTableSize) {
+		ITableRealloc(iTable, iTableSize * 2); 
+		assert(0);
+	}
+
+	SegTable* ret = iTable->table[index];
+	if (ret == NULL) {
+		iTable->table[index] = SegTableAlloc();
+	}
+	return iTable->table[index];
+}
+
+
 /*
  * STable: sparse table that tracks 4GB memory chunks being used
  *
@@ -71,13 +258,70 @@ typedef struct _SEntry {
 	ITable* iTable;
 } SEntry;
 
-// 128GB addr space will be enough
+#define STABLE_SIZE		32		// 128GB addr space will be enough
+
 typedef struct _STable {
-	SEntry entry[32];	
+	SEntry entry[STABLE_SIZE];	
+	int writePtr;
 } STable;
 
 
+static STable sTable;
 
+void STableInit() {
+	sTable.writePtr = 0;
+}
+
+void STableDeinit() {
+	int i;
+
+	for (i=0; i<sTable.writePtr; i++) {
+		ITableFree(sTable.entry[i].iTable);		
+	}
+}
+
+ITable* STableGetITable(Addr addr) {
+	UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
+
+	// walk-through STable
+	int i;
+	for (i=0; i<sTable.writePtr; i++) {
+		if (sTable.entry[i].addrHigh == highAddr) {
+			//MSG(0, "STable Found an existing entry..\n");
+			return sTable.entry[i].iTable;	
+		}
+	}
+
+	// not found - create an entry
+	MSG(0, "STable Creating a new Entry..\n");
+	stat.nSTableEntry++;
+
+	ITable* ret = ITableAlloc();
+	sTable.entry[sTable.writePtr].addrHigh = highAddr;
+	sTable.entry[sTable.writePtr].iTable = ret;
+	sTable.writePtr++;
+	return ret;
+}
+
+static Time getTime(Addr addr, Index index, Version version) {
+	ITable* iTable = STableGetITable(addr);
+	assert(iTable != NULL);
+	SegTable* segTable = ITableGetSegTable(iTable, index);
+	assert(segTable != NULL);
+	TimeTable* tTable = SegTableGetTimeTable(segTable, addr, version);
+	assert(tTable != NULL);
+	return TimeTableGet(tTable, addr);	
+}
+
+static void setTime(Addr addr, Index index, Version version, Time time) {
+	ITable* iTable = STableGetITable(addr);
+	assert(iTable != NULL);
+	SegTable* segTable = ITableGetSegTable(iTable, index);
+	assert(segTable != NULL);
+	TimeTable* tTable = SegTableGetTimeTable(segTable, addr, version);
+	assert(tTable != NULL);
+	TimeTableSet(tTable, addr, time);	
+}
 
 // TODO: reference count pages properly and free them when no longer used.
 /*
@@ -272,22 +516,28 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
 #endif
 
 UInt MShadowInit() {
-	GTableCreate(&gTable);	
+	//GTableCreate(&gTable);	
+	STableInit();
 }
 
 
 UInt MShadowDeinit() {
-	GTableDelete(&gTable);
+	//GTableDelete(&gTable);
+	printMemStat();
 }
 
 void MShadowGet(Addr addr, Index size, Version* vArray, Time* tArray) {
 	Index i;
+	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
 	for (i=0; i<size; i++)
-		tArray[i] = 0ULL;
+		tArray[i] = getTime(addr, i, vArray[i]);
 }
 
 void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
-	return;
+	Index i;
+	MSG(0, "MShadowSet 0x%llx, size %d\n", addr, size);
+	for (i=0; i<size; i++)
+		setTime(addr, i, vArray[i], tArray[i]);
 }
 
 #if 0

@@ -140,6 +140,7 @@ inline void RShadowCopy(LTable* destTable, Reg destReg, LTable* srcTable, Reg sr
 	Time* srcAddr = (Time*)&(srcTable->array[indexSrc]);
 	Time* destAddr = (Time*)&(destTable->array[indexDest]);
 	memcpy(destAddr, srcAddr, size * sizeof(Time));
+	//bzero(destAddr + size, (destTable->indexSize - size) * sizeof(Time));
 	/*
 	int i;
 	for (i=0; i<size; i++) {

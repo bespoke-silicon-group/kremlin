@@ -150,6 +150,7 @@ extern Level __kremlin_max_level;
 #define getMinLevel() (__kremlin_min_level)
 #define getMaxLevel() (__kremlin_max_level)
 #define getIndexSize() (__kremlin_max_level - __kremlin_min_level + 1)
+#define getLevel(index) (index + __kremlin_min_level)
 
 
 

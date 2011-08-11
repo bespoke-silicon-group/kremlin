@@ -3,7 +3,7 @@
 #include "debug.h"
 
 int	__kremlin_debug = 1;
-int  __kremlin_debug_level = 0;
+int  __kremlin_debug_level = 1;
 
 static char tabString[2000];
 static int tabLevel = 0;
