@@ -453,6 +453,7 @@ static void RegionRealloc() {
 }
 
 static inline Region* RegionGet(Level level) {
+	assert(level < RegionSize());
 	Region* ret = &regionInfo[level];
 	return ret;
 }
@@ -480,7 +481,7 @@ static inline void RegionUpdateCp(Region* region, Timestamp value) {
 
 
 void checkRegion() {
-#if 0
+#if 1
 	int i;
 	int bug = 0;
 	for (i=0; i<RegionSize(); i++) {
@@ -558,7 +559,7 @@ inline Time CDepGet(Index index) {
 
 void addControlDep(Reg cond) {
     MSG(1, "push ControlDep ts[%u]\n", cond);
-
+checkRegion();
     if (!isKremlinOn()) {
 		return;
 	}
@@ -578,13 +579,14 @@ void addControlDep(Reg cond) {
 	}
 
 	Table* ltable = RShadowGetTable();
-	assert(lTable->indexSize >= indexSize);
-	assert(cTable->indexSize >= indexSize);
+	assert(lTable->col >= indexSize);
+	assert(cTable->col >= indexSize);
 
 	TableCopy(cTable, cTableReadPtr, lTable, cond, 0, indexSize);
 	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
-	assert(cTableReadPtr < cTable->entrySize);
+	assert(cTableReadPtr < cTable->row);
 #endif
+checkRegion();
 }
 
 void removeControlDep() {
@@ -836,6 +838,8 @@ void logRegionExit(SID regionId, RegionType regionType) {
 	}
 
     Level level = getCurrentLevel();
+	MShadowL1Refresh(getIndex(level));
+
 	Region* region = RegionGet(level);
     SID sid = regionId;
 	SID parentSid = 0;
@@ -1028,10 +1032,12 @@ void* logAssignmentConst(UInt dest) {
 }
 
 void* logLoadInst(Addr addr, Reg dest) {
+	checkRegion();
     MSG(0, "load ts[%u] = ts[0x%x] + %u\n", dest, addr, LOAD_COST);
     if (!isKremlinOn())
     	return NULL;
 
+	incIndentTab();
     addWork(LOAD_COST);
 
 #ifndef WORK_ONLY
@@ -1041,10 +1047,12 @@ void* logLoadInst(Addr addr, Reg dest) {
 	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel));
 
     for (index = 0; index < depth; index++) {
-		Level i = getLevel(i);
+		Level i = getLevel(index);
 		Region* region = RegionGet(i);
+    	MSG(0, "%d 1 cp = %d\n", index, region->cp);
 		Time cdt = CDepGet(index);
-		Time ts0 = tArray[index];
+		//Time ts0 = tArray[index];
+		Time ts0 = 0ULL;
         Time greater1 = (cdt > ts0) ? cdt : ts0;
         Time value = greater1 + LOAD_COST;
 
@@ -1056,6 +1064,8 @@ void* logLoadInst(Addr addr, Reg dest) {
         RegionUpdateCp(region, value);
     }
 
+	decIndentTab();
+    MSG(0, "load ts[%u] over\n\n");
     //return entryDest;
     return NULL;
 #else

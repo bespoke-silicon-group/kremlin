@@ -303,7 +303,7 @@ ITable* STableGetITable(Addr addr) {
 	return ret;
 }
 
-static Time getTime(Addr addr, Index index, Version version) {
+Time MShadowGetTime(Addr addr, Index index, Version version) {
 	ITable* iTable = STableGetITable(addr);
 	assert(iTable != NULL);
 	SegTable* segTable = ITableGetSegTable(iTable, index);
@@ -313,7 +313,8 @@ static Time getTime(Addr addr, Index index, Version version) {
 	return TimeTableGet(tTable, addr);	
 }
 
-static void setTime(Addr addr, Index index, Version version, Time time) {
+void MShadowSetTime(Addr addr, Index index, Version version, Time time) {
+	MSG(0, "MShadowSetTime index %d version %d time %d\n", index, version, time);
 	ITable* iTable = STableGetITable(addr);
 	assert(iTable != NULL);
 	SegTable* segTable = ITableGetSegTable(iTable, index);
@@ -322,6 +323,7 @@ static void setTime(Addr addr, Index index, Version version, Time time) {
 	assert(tTable != NULL);
 	TimeTableSet(tTable, addr, time);	
 }
+
 
 // TODO: reference count pages properly and free them when no longer used.
 /*
@@ -518,6 +520,7 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
 UInt MShadowInit() {
 	//GTableCreate(&gTable);	
 	STableInit();
+	MShadowL1Init();
 }
 
 
@@ -525,23 +528,33 @@ UInt MShadowDeinit() {
 	//GTableDelete(&gTable);
 	printMemStat();
 	STableDeinit();
+	MShadowL1Deinit();
 }
 
+void MShadowSetFromCache(Addr addr, Index size, Version* vArray, Time* tArray) {
+	Index i;
+	MSG(0, "MShadowSetFromCache 0x%llx, size %d vArray = 0x%llx tArray = 0x%llx\n", addr, size, vArray, tArray);
+	assert(vArray != NULL);
+	assert(tArray != NULL);
+	for (i=0; i<size; i++)
+		MShadowSetTime(addr, i, vArray[i], tArray[i]);
+}
+
+
+#if 0
 static Time array[128];
 Time* MShadowGet(Addr addr, Index size, Version* vArray) {
 	Index i;
 	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
 	for (i=0; i<size; i++)
-		array[i] = getTime(addr, i, vArray[i]);
+		array[i] = MShadowGetTime(addr, i, vArray[i]);
 	return array;
 }
 
 void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
-	Index i;
-	MSG(0, "MShadowSet 0x%llx, size %d\n", addr, size);
-	for (i=0; i<size; i++)
-		setTime(addr, i, vArray[i], tArray[i]);
+	MShadowSetFromCache(addr, size, vArray, tArray);
 }
+#endif
 
 #if 0
 Timestamp MShadowGet(Addr addr, Index index, Version version) {	

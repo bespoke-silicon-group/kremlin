@@ -97,7 +97,7 @@ inline void RShadowSet(Time time, Reg reg, Index index) {
 		&(lTable->array[offset]), time, reg, index, offset);
 	assert(lTable != NULL);
 	assert(index < getIndexSize());
-	assert(reg < lTable->entrySize);
+	assert(reg < lTable->row);
 	lTable->array[offset] = time;
 }
 
@@ -106,7 +106,6 @@ inline void RShadowSet(Time time, Reg reg, Index index) {
 inline void RShadowActivateTable(Table* table) {
 	//MSG(1, "Set Table to 0x%x\n", table);
 	lTable = table;
-	assert(table->code == 0xDEADBEEF);
 #if 0
 	int i;
 	for (i=0; i<lTable->entrySize * lTable->indexSize; i++) {
