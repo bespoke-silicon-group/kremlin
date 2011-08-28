@@ -92,6 +92,7 @@ static void emit(char* file) {
 
 static Bool isEmittable(Level level) {
 	return level >= getMinLevel() && level < getMaxLevel();
+	//return TRUE;
 }
 
 // recursive call

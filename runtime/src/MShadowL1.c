@@ -1,15 +1,24 @@
 #include "defs.h"
+
+#ifndef USE_MSHADOW_BASE
+
 #include "debug.h"
 #include "Table.h"
 #include "RShadow.h"
 
+//#define BYPASS_CACHE
+#define CACHE_WITH_VERSION
+
 #define INIT_LEVEL		16	// max index depth
 #define WORD_SIZE_SHIFT 2	// 32bit word
+
+#if 0
 #define LINE_SIZE_SHIFT	3
 #define LINE_SIZE		(1 << LINE_SIZE_SHIFT)
 #define LINE_SIZE_MASK	(LINE_SIZE - 1)
+#endif
 
-#define NUM_LINE_SHIFT	12
+#define NUM_LINE_SHIFT	24
 #define NUM_LINE		(1 << NUM_LINE_SHIFT)
 #define NUM_LINE_MASK	(NUM_LINE - 1)
 
@@ -60,7 +69,9 @@ static inline void printStat() {
 }
 
 
+// forward declarations
 void MShadowSetFromCache(Addr addr, Index size, Version* vArray, Time* tArray);
+void MShadowSetTimeEvict(Addr addr, Index index, Version version, Time time);
 
 // addr[1:0] word offset
 // addr[4:2] line offset (8 words / line)
@@ -79,7 +90,8 @@ typedef struct _MShadowL1 {
 } MShadowL1;
 
 static MShadowL1 tagTable;
-static LTable* valueTable;
+static Table* valueTable;
+static Table* versionTable;
 
 static inline Bool isValid(L1Entry* entry) {
 	return entry->status & STATUS_VALID;
@@ -102,25 +114,68 @@ static inline void resetDirty(L1Entry* entry) {
 }
 
 static inline Bool hasExpired(L1Entry* entry, Index index) {
+	MSG(0, "\texpire word = 0x%x\n", entry->expire);
 	return entry->expire & (1 << index);
 }
 
 static inline void setExpired(L1Entry* entry, Index index) {
-	entry->expire | (1 << index);
+	UInt64 mask = ~(((UInt64)1 << index) - 1);
+	//entry->expire |= (1 << index);
+	entry->expire |= mask;
 }
 
 static inline void clearExpired(L1Entry* entry, Index index) {
-	entry->expire & ~(1 << index);
+	entry->expire &= ~(1 << index);
 }
 
 static inline int getTag(Addr addr) {
-	int nShift = WORD_SIZE_SHIFT + LINE_SIZE_SHIFT + NUM_LINE_SHIFT;
+	int nShift = WORD_SIZE_SHIFT + NUM_LINE_SHIFT;
 	UInt64 mask = ~((1 << nShift) - 1);
 	return (UInt64)addr & mask;
 }
 
 static inline void setTag(L1Entry* entry, Addr addr) {
 	entry->tag = getTag(addr);
+}
+
+static inline Time* getTimeAddr(int row, int index) {
+	return TableGetElementAddr(valueTable, row, index);
+}
+
+static inline Version* getVersionAddr(int row, int index) {
+	return TableGetElementAddr(versionTable, row, index);
+}
+
+static inline Version getVersion(int row, int index) {
+	return *TableGetElementAddr(versionTable, row, index);
+}
+
+static inline Addr getLineBaseAddr(Addr addr) {
+	int mask = 1 << (WORD_SIZE_SHIFT);
+	return (Addr)((UInt64)addr & ~(mask - 1));
+}
+
+// what's the line index in cache?
+static inline int getLineIndex(Addr addr) {
+	int nShift = WORD_SIZE_SHIFT;
+	int ret = (((UInt64)addr) >> nShift) & NUM_LINE_MASK;
+	assert(ret >= 0 && ret < NUM_LINE);
+	return ret;
+}
+
+static inline Bool matchVersion(Addr addr, Index index, Version version) {
+	int row = getLineIndex(addr);
+	return getVersion(row, index) == version;
+}
+
+static inline void setVersion(Addr addr, Index index, Version version) {
+	int row = getLineIndex(addr);
+	*TableGetElementAddr(versionTable, row, index) = version;
+}
+
+static inline void setTimestamp(Addr addr, Index index, Time time) {
+	int row = getLineIndex(addr);
+	*TableGetElementAddr(valueTable, row, index) = time;
 }
 
 static inline Bool isHit(L1Entry* entry, Addr addr) {
@@ -130,33 +185,14 @@ static inline Bool isHit(L1Entry* entry, Addr addr) {
 	return isValid(entry) && (entry->tag == getTag(addr));
 }
 
-static inline Bool requiresEviction(L1Entry* entry, Addr addr) {
-	return !isHit(entry, addr) && isDirty(entry); 
-}
-
-static inline Time* getTimeAddr(int row, int col) {
-	return TableGetElementAddr(valueTable, row, col * INIT_LEVEL);
-}
-
-static inline Addr getLineBaseAddr(Addr addr) {
-	int mask = 1 << (WORD_SIZE_SHIFT + LINE_SIZE_SHIFT);
-	return (Addr)((UInt64)addr & ~(mask - 1));
-}
-
-// what's the line index in cache?
-static inline int getLineIndex(Addr addr) {
-	int nShift = WORD_SIZE_SHIFT + LINE_SIZE_SHIFT;
-	int ret = (((UInt64)addr) >> nShift) & NUM_LINE_MASK;
-	assert(ret >= 0 && ret < NUM_LINE);
-	return ret;
-}
-
 // what's the word offset in a line? 
+#if 0
 static inline int getLineOffset(Addr addr) {
 	int nShift = WORD_SIZE_SHIFT;
-	int ret = (((UInt64)addr) >> nShift) & LINE_SIZE_MASK;
+	int ret = (((UInt64)addr) >> nShift);
 	return ret;
 }
+#endif
 
 static inline L1Entry* getEntry(int index) {
 	assert(index < NUM_LINE);
@@ -169,31 +205,18 @@ void MShadowL1Init() {
 		tagTable.entry[i].status = 0x0;
 		tagTable.entry[i].tag = 0x0;
 	}
-	valueTable = TableCreate(NUM_LINE, INIT_LEVEL * LINE_SIZE);
+	valueTable = TableCreate(NUM_LINE, INIT_LEVEL);
+	versionTable = TableCreate(NUM_LINE, INIT_LEVEL);
+
 	MSG(0, "MShadowL1Init: value Table created row %d col %d at addr 0x%x\n", 
-		NUM_LINE, INIT_LEVEL * LINE_SIZE, valueTable->array);
+		NUM_LINE, INIT_LEVEL, valueTable->array);
 }
 
 void MShadowL1Deinit() {
 	int i = 0;
 	printStat();
-}
-
-void MShadowLineRefresh(L1Entry* entry, int row, int maxIndex) {
-	int index;
-	int col;
-
-	for (index=maxIndex; index>=0; index--) {
-		if (hasExpired(entry, index)) {
-			for (col=0; col<LINE_SIZE; col++) {
-				Time* tArray = getTimeAddr(row, col);
-				tArray[index] = 0ULL;
-			}
-			clearExpired(entry, index);
-		} else {
-			break;
-		}
-	}
+	TableFree(valueTable);
+	TableFree(versionTable);
 }
 
 L1Entry* MShadowL1Evict(Addr addr, int row, int size, Version* vArray) {
@@ -201,80 +224,35 @@ L1Entry* MShadowL1Evict(Addr addr, int row, int size, Version* vArray) {
 		addr, row, size, vArray);
 
 	L1Entry* entry = getEntry(row);
-	MShadowLineRefresh(entry, row, size-1);
-		
+	assert(isDirty(entry));
+
 	// copy timestamps to the target TimeTable
 	// if 2nd cache is used, different scheme required		
 	int i;
-	for (i=0; i<LINE_SIZE; i++) {
-		Time* tArray = getTimeAddr(row, i);
-		MShadowSetFromCache(addr, size, vArray, tArray);
+	Time* tArray = getTimeAddr(row, 0);
+	//MShadowSetFromCache(addr, size, vArray, tArray);
+	for (i=size-1; i>=0; i--) {
+		if (matchVersion(addr, i, vArray[i])) {
+			// write to MShadow
+			MShadowSetTimeEvict(addr, i, vArray[i], tArray[i]);
+		}
 	}
+	
 	return entry;
 }
 
-#if 0
-Time* MShadowL1Get(Addr addr, int row, int col) {
-	MSG(0, "MShadowL1Get 0x%llx, row %d, col %d\n", 
-		addr, row, col);
-
-	L1Entry* entry = getEntry(row);
-
-	if (isValid(entry) && isHit(entry, addr)) {
-		MSG(0, "\t Cache Hit\n");
-		// cache hit
-		Time* ret = TableGetElementAddr(valueTable, row, col);
-		assert(ret != NULL);
-		return ret;	
-
-	} else {  
-		// cache miss		
-		MSG(0, "\t Cache Miss\n");
-		return NULL;
-	}
-}
-#endif
-
-#if 0
-void MShadowL1Set(Addr addr, Index size, Time* tArray) {
-	Time* array = MShadowL1Get(addr, size);	
-	int i;
-	for (i=0; i<size; i++) {
-		array[i] = tArray[i];
-	}
-}
-#endif
-
-// when a new region enters, 
-// the timestamp from the previous regions must be set to "0"
-// MShadowRefresh is called from logRegionExit 
-// so that it sets time stamp to "0"
-
-void MShadowL1Refresh(Index index) {
-	int i, j;
-	for (i=0; i<NUM_LINE; i++) {
-		L1Entry* entry = getEntry(i);
-		setExpired(entry, index);
-#if 0
-		if (isDirty(entry)) {
-			for (j=0; j<LINE_SIZE; j++) {
-				Time* destAddr = getTimeAddr(i, j);
-				destAddr[index] = 0ULL;
-			}
-		}
-#endif
-	}
-}
-
 void MShadowFetchLine(L1Entry* entry, Addr addr, Index size, Version* vArray) {
-	int col, index;
+	int index;
 	int row = getLineIndex(addr);
-	Time* baseAddr = (Time*) getLineBaseAddr(addr);
-	for (col=0; col<LINE_SIZE; col++) {
-		Time* destAddr = getTimeAddr(row, col);
-		for (index=0; index<size; index++) {
-			*(destAddr + index) = MShadowGetTime(baseAddr + col, index, vArray[index]);
-		}
+
+	// copy version
+	Version* versionAddr = (Version*) getVersionAddr(row, 0);
+	memcpy(versionAddr, vArray, sizeof(Version) * size);
+
+	// bring MShadow data
+	Time* destAddr = getTimeAddr(row, 0);
+	for (index=0; index<size; index++) {
+		*(destAddr + index) = MShadowGetTime(addr, index, vArray[index]);
 	}
 
 	entry->tag = getTag(addr);
@@ -282,51 +260,76 @@ void MShadowFetchLine(L1Entry* entry, Addr addr, Index size, Version* vArray) {
 	resetDirty(entry);
 }
 
-Time* MShadowGet(Addr addr, Index size, Version* vArray) {
+#ifdef BYPASS_CACHE
 
-#if 1
+Time tempArray[1000];
+Time* MShadowGet(Addr addr, Index size, Version* vArray) {
+	Index i;
+	for (i=0; i<size; i++)
+		tempArray[i] = MShadowGetTime(addr, i, vArray[i]);
+	return tempArray;	
+}
+
+void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
+	MShadowSetFromCache(addr, size, vArray, tArray);
+}
+
+#else
+
+Time* MShadowGet(Addr addr, Index size, Version* vArray) {
 	int row = getLineIndex(addr);
-	int col = getLineOffset(addr);
+	int i;
+
 	MSG(0, "MShadowGet 0x%llx, size %d vArray = 0x%llx \n", addr, size, vArray);
-	MSG(0, "\t row = %d col = %d\n", row, col);
 	eventRead();
 
 	L1Entry* entry = getEntry(row);
-	Time* destAddr = getTimeAddr(row, col);
+	Time* destAddr = getTimeAddr(row, 0);
 	if (isHit(entry, addr)) {
 		eventReadHit();
 		MSG(0, "\t cache hit at 0x%llx \n", destAddr);
 		MSG(0, "\t value0 %d value1 %d \n", destAddr[0], destAddr[1]);
-		MShadowLineRefresh(entry, row, size-1);
-		return destAddr;
-	}
-	
-	// Unfortunately, this access results in a miss
-	// 1. evict a line	
-	if (requiresEviction(entry, addr)) {
-		MSG(0, "\t eviction required \n", destAddr);
-		eventReadEvict();
-		MShadowL1Evict(addr, row, size, vArray);
+		
+	} else {
+		// Unfortunately, this access results in a miss
+		// 1. evict a line	
+		if (isDirty(entry)) {
+			MSG(0, "\t eviction required \n", destAddr);
+			eventReadEvict();
+			MShadowL1Evict(addr, row, size, vArray);
+		}
+
+		// 2. read line from MShadow to the evicted line
+		MSG(0, "\t write values to cache \n", destAddr);
+		MShadowFetchLine(entry, addr, size, vArray);
 	}
 
-	
-	// 2. read line from MShadow to the evicted line
-	int i;
-	MSG(0, "\t write values to cache \n", destAddr);
-	MShadowFetchLine(entry, addr, size, vArray);
+	// check versions and if outdated, set to 0
+	MSG(0, "\t checking versions \n", destAddr);
+	Version* vAddr = (Version*) getVersionAddr(row, 0);
+
+	for (i=size-1; i>=0; i--) {
+		if (vAddr[i] ==  vArray[i]) {
+			// no need to check next iterations
+			break;
+
+		} else {
+			// update version number 	
+			// and set timestamp to zero
+			vAddr[i] = vArray[i];
+			destAddr[i] = 0ULL;
+		}
+	}
+
 	return destAddr;
-#endif
 }
 
 void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
 	MSG(0, "MShadowSet 0x%llx, size %d vArray = 0x%llx tArray = 0x%llx\n", addr, size, vArray, tArray);
 	int row = getLineIndex(addr);
-	int col = getLineOffset(addr);
-	MSG(0, "\t row = %d col = %d\n", row, col);
 	eventWrite();
 
 	L1Entry* entry = getEntry(row);
-	Time* destAddr = getTimeAddr(row, col);
 
 	assert(row < NUM_LINE);
 
@@ -334,21 +337,24 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
 		eventWriteHit();
 
 	} else {
-		if (requiresEviction(entry, addr)) {
-			MSG(0, "\t eviction required\n", row, col);
+		if (isDirty(entry)) {
+			MSG(0, "\t eviction required\n", row, 0);
 			eventWriteEvict();
 			MShadowL1Evict(addr, row, size, vArray);
 		}
-		// bring the cache line 
-		MShadowFetchLine(entry, addr, size, vArray);
 	} 		
 
-	// write tArray values to cache line
-	MSG(0, "\t write %d elements to cache at 0x%llx\n", size, destAddr);
-	int i;
-	for (i=0; i<size; i++) {
-		*(destAddr + i) = tArray[i];
-	}
+
+	// copy Timestamps
+	Time* destAddr = getTimeAddr(row, 0);
+	memcpy(destAddr, tArray, sizeof(Time) * size);
+
+	// copy Versions
+	Version* versionAddr = (Version*) getVersionAddr(row, 0);
+	memcpy(versionAddr, vArray, sizeof(Version) * size);
+
 	setDirty(entry);
 }
+#endif
 
+#endif

@@ -84,14 +84,14 @@ UInt RShadowDeinit() {
 }
 
 
-inline Time RShadowGet(Reg reg, Index index) {
+inline Time RShadowGetItem(Reg reg, Index index) {
 	assert(index < getIndexSize());
 	int offset = TableGetOffset(lTable, reg, index);
 	Time ret = lTable->array[offset];
 	return ret;
 }
 
-inline void RShadowSet(Time time, Reg reg, Index index) {
+inline void RShadowSetItem(Time time, Reg reg, Index index) {
 	int offset = TableGetOffset(lTable, reg, index);
 	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
 		&(lTable->array[offset]), time, reg, index, offset);
@@ -101,6 +101,23 @@ inline void RShadowSet(Time time, Reg reg, Index index) {
 	lTable->array[offset] = time;
 }
 
+
+#if 0
+inline Time* RShadowGet(Reg reg, Index size) {
+	int offset = TableGetOffset(lTable, reg, 0);
+	assert(index < getIndexSize());
+	return &lTable->array[offset];
+}
+
+inline void RShadowSet(Reg reg, Index size, Time* tArray) {
+	int offset = TableGetOffset(lTable, reg, 0);
+	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
+		&(lTable->array[offset]), time, reg, index, offset);
+	assert(lTable != NULL);
+	assert(reg < lTable->row);
+	memcpy(&lTable->array[offset], tArray, sizeof(Time) * size);
+}
+#endif
 
 
 inline void RShadowActivateTable(Table* table) {
@@ -120,7 +137,7 @@ inline void RShadowRestartIndex(Index index) {
 	Reg i;
 	assert(lTable != NULL);
 	for (i=0; i<lTable->row; i++) {
-		RShadowSet(0ULL, i, index);
+		RShadowSetItem(0ULL, i, index);
 	}
 }
 

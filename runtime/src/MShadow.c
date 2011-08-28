@@ -1,3 +1,7 @@
+#include "defs.h"
+
+#ifndef USE_MSHADOW_BASE
+
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */
@@ -6,12 +10,14 @@
 #include <string.h>
 #include <sys/time.h>
 
-#include "defs.h"
 #include "debug.h"
 #include "hash_map.h"
 #include "CRegion.h"
 #include "Vector.h"
 #include "MShadow.h"
+#include "MemAlloc.h"
+
+#define USE_VERSION_TABLE
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 #define DS_ALLOC_SIZE   100     // used for static data structures
@@ -21,16 +27,16 @@
 
 
 // Mask of the L1 table.
-#define L1_MASK 0xffff
+#define L1_MASK 0xfffff
 
 // Size of the L1 table.
 #define L1_SIZE (L1_MASK + 1)
 
 // Bits to shift right before the mask
-#define L1_SHIFT 16
+#define L1_SHIFT 12
 
 // Mask of the L2 table.
-#define L2_MASK 0x3fff
+#define L2_MASK 0x3ff
 
 // The size of the L2 table. Since only word addressible, shift by 2
 #define L2_SIZE (L2_MASK + 1)
@@ -47,6 +53,7 @@ typedef struct _MemStat {
 	int nSegTableActiveMax;
 
 	int nTimeTableAllocated;
+	int nTimeTableFreed;
 	int nTimeTableActive;
 	int nTimeTableActiveMax;
 
@@ -62,6 +69,7 @@ void printMemStat() {
 	fprintf(stderr, "nSegTableActiveMax = %d\n\n", stat.nSegTableActiveMax);
 
 	fprintf(stderr, "nTimeTableAllocated = %d\n", stat.nTimeTableAllocated);
+	fprintf(stderr, "nTimeTableFreed = %d\n", stat.nTimeTableFreed);
 	fprintf(stderr, "nTimeTableActive = %d\n", stat.nTimeTableActive);
 	fprintf(stderr, "nTimeTableActiveMax = %d\n\n", stat.nTimeTableActiveMax);
 }
@@ -100,17 +108,21 @@ typedef struct _TimeTable {
 	Time array[L2_SIZE];
 } TimeTable;
 
+
 TimeTable* TimeTableAlloc() {
 	stat.nTimeTableAllocated++;
 	stat.nTimeTableActive++;
 	if (stat.nTimeTableActive > stat.nTimeTableActiveMax)
 		stat.nTimeTableActiveMax++;
-	return (TimeTable*) calloc(sizeof(Time), L2_SIZE);
+	//return (TimeTable*) calloc(sizeof(Time), L2_SIZE);
+	return (TimeTable*) MemAlloc();
 }
 
 void TimeTableFree(TimeTable* table) {
 	stat.nTimeTableActive--;
-	free(table);
+	stat.nTimeTableFreed++;
+	//free(table);
+	MemFree(table);
 }
 
 static int TimeTableGetIndex(Addr addr) {
@@ -126,6 +138,9 @@ static Time TimeTableGet(TimeTable* table, Addr addr) {
 
 static void TimeTableSet(TimeTable* table, Addr addr, Time time) {
 	int index = TimeTableGetIndex(addr);
+
+	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &(table->array[index]), index);
+	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", table, &(table->array[0]));
 	table->array[index] = time;
 }
 
@@ -137,7 +152,9 @@ static void TimeTableSet(TimeTable* table, Addr addr, Time time) {
 
 typedef struct _SegEntry {
 	TimeTable* table;
+	TimeTable* vTable;
 	Version version;
+	int type;
 } SegEntry;
 
 
@@ -149,6 +166,12 @@ typedef struct _Segment {
 
 SegTable* SegTableAlloc() {
 	SegTable* ret = (SegTable*) calloc(sizeof(SegEntry), L1_SIZE);
+
+	int i;
+	for (i=0; i<L1_SIZE; i++) {
+		ret->entry[i].type = 0;
+	}
+
 	stat.nSegTableAllocated++;
 	stat.nSegTableActive++;
 	if (stat.nSegTableActive > stat.nSegTableActiveMax)
@@ -161,6 +184,9 @@ void SegTableFree(SegTable* table) {
 	for (i=0; i<L1_SIZE; i++) {
 		if (table->entry[i].table != NULL) {
 			TimeTableFree(table->entry[i].table);	
+#ifdef USE_VERSION_TABLE
+			TimeTableFree(table->entry[i].vTable);	
+#endif
 		}
 	}
 	stat.nSegTableActive--;
@@ -171,18 +197,41 @@ static int SegTableGetIndex(Addr addr) {
 	return ((UInt64)addr >> L1_SHIFT) & L1_MASK;
 }
 
-
-TimeTable* SegTableGetTimeTable(SegTable* segTable, Addr addr, Version version) {
+#if 0
+#ifdef USE_VERSION_TABLE
+TimeTable* SegTableGetVersionTableNoVersion(SegTable* segTable, Addr addr) {
 	TimeTable* ret = NULL;
 	int index = SegTableGetIndex(addr);
 	SegEntry* entry = &(segTable->entry[index]);
-	MSG(2, "SegTableGetTimeTable: addr = 0x%llx, version [prev, current] =[%d, %d]\n", 
-		addr, entry->version, version);
+	MSG(0, "SegTableGetTimeTable: index = %d addr = 0x%llx, version [prev, current] =[%d, %d]\n", 
+		index, addr, entry->version, version);
 
 	if (entry->table == NULL || entry->version != version) {
 		ret = TimeTableAlloc();
 		if (entry->table != NULL) {
-			MSG(0, "\tFree Prev TimeTable with version %d\n", entry->version);
+			MSG(0, "\tFree Prev TimeTable 0x%llx with version %d\n", entry->table, entry->version);
+			TimeTableFree(entry->table);
+			TimeTableFree(entry->vTable);
+		}
+		entry->table = ret;
+		entry->vTable = TimeTableAlloc();
+	}
+
+	return entry->table;
+}
+
+#else
+TimeTable* SegTableGetTimeTable(SegTable* segTable, Addr addr, Version version) {
+	TimeTable* ret = NULL;
+	int index = SegTableGetIndex(addr);
+	SegEntry* entry = &(segTable->entry[index]);
+	MSG(0, "SegTableGetTimeTable: index = %d addr = 0x%llx, version [prev, current] =[%d, %d]\n", 
+		index, addr, entry->version, version);
+
+	if (entry->table == NULL || entry->version != version) {
+		ret = TimeTableAlloc();
+		if (entry->table != NULL) {
+			MSG(0, "\tFree Prev TimeTable 0x%llx with version %d\n", entry->table, entry->version);
 			TimeTableFree(entry->table);
 		}
 		entry->table = ret;
@@ -190,6 +239,90 @@ TimeTable* SegTableGetTimeTable(SegTable* segTable, Addr addr, Version version) 
 	}
 
 	return entry->table;
+}
+#endif
+#endif
+
+static Bool isType0TimeTable(SegEntry* entry) {
+	//return entry->vTable == NULL;
+	//return FALSE;
+	return entry->type == 0;
+	//return TRUE;
+}
+
+void SegTableSetTime(SegTable* segTable, Addr addr, Version version, Time time) {
+	int index = SegTableGetIndex(addr);
+	SegEntry* entry = &(segTable->entry[index]);
+
+	// determine if this is type 0 (no version) or type 1 (with version)
+	if (isType0TimeTable(entry)) {
+		if (entry->table == NULL) {
+			entry->table = TimeTableAlloc();
+			entry->version = version;
+			TimeTableSet(entry->table, addr, time);	
+
+		} else if (entry->version == version) {
+			TimeTableSet(entry->table, addr, time);	
+
+		} else {
+#if 0
+			TimeTableFree(entry->table);
+			entry->table = TimeTableAlloc();
+			entry->version = version;
+			TimeTableSet(entry->table, addr, time);	
+#endif
+			// transform into type 1
+			entry->type = 1;
+			entry->vTable = TimeTableAlloc();
+			TimeTableSet(entry->vTable, addr, version);
+			TimeTableSet(entry->table, addr, time);
+		}
+
+	}  else {
+		// type 1 
+#if 1
+		if (entry->table == NULL) {
+			entry->table = TimeTableAlloc();
+			entry->vTable = TimeTableAlloc();
+		}
+#endif
+
+		// set version and time
+		assert(entry->type == 1);
+		TimeTableSet(entry->vTable, addr, version);
+		TimeTableSet(entry->table, addr, time);
+	}
+}
+
+Time SegTableGetTime(SegTable* segTable, Addr addr, Version version) {
+	int index = SegTableGetIndex(addr);
+	SegEntry* entry = &(segTable->entry[index]);
+	
+	// determine if this is type 0 (no version) or type 1 (with version)
+	if (isType0TimeTable(entry)) {
+		if (entry->table == NULL || entry->version != version) {
+			if (entry->table != NULL)
+					TimeTableFree(entry->table);
+			
+			entry->table = TimeTableAlloc();
+			entry->version = version;
+		}
+		return TimeTableGet(entry->table, addr);	
+			
+	} else {
+		if (entry->table == NULL) {
+			entry->table = TimeTableAlloc();
+			entry->vTable = TimeTableAlloc();
+		}
+
+		// set version and time
+		Version oldVersion = (Version)TimeTableGet(entry->vTable, addr);
+		MSG(0, "\t\t version = [%d, %d]\n", oldVersion, version);
+		if (oldVersion != version)
+			return 0;
+		else
+			return TimeTableGet(entry->table, addr);
+	}
 }
 
 /*
@@ -308,9 +441,13 @@ Time MShadowGetTime(Addr addr, Index index, Version version) {
 	assert(iTable != NULL);
 	SegTable* segTable = ITableGetSegTable(iTable, index);
 	assert(segTable != NULL);
-	TimeTable* tTable = SegTableGetTimeTable(segTable, addr, version);
-	assert(tTable != NULL);
-	return TimeTableGet(tTable, addr);	
+	//TimeTable* tTable = SegTableGetTimeTable(segTable, addr, version);
+	//assert(tTable != NULL);
+	//return TimeTableGet(tTable, addr);	
+	Time ret = SegTableGetTime(segTable, addr, version);
+	MSG(0, "\tMShadowGetTime at 0x%llx index %d, version %d = %llu\n", 
+		addr, index, version, ret);
+	return ret;
 }
 
 void MShadowSetTime(Addr addr, Index index, Version version, Time time) {
@@ -319,11 +456,21 @@ void MShadowSetTime(Addr addr, Index index, Version version, Time time) {
 	assert(iTable != NULL);
 	SegTable* segTable = ITableGetSegTable(iTable, index);
 	assert(segTable != NULL);
-	TimeTable* tTable = SegTableGetTimeTable(segTable, addr, version);
-	assert(tTable != NULL);
-	TimeTableSet(tTable, addr, time);	
+	//TimeTable* tTable = SegTableGetTimeTable(segTable, addr, version);
+	//assert(tTable != NULL);
+	//TimeTableSet(tTable, addr, time);	
+	SegTableSetTime(segTable, addr, version, time);
 }
 
+
+void MShadowSetTimeEvict(Addr addr, Index index, Version version, Time time) {
+	MSG(0, "MShadowSetTime index %d version %d time %d\n", index, version, time);
+	ITable* iTable = STableGetITable(addr);
+	assert(iTable != NULL);
+	SegTable* segTable = ITableGetSegTable(iTable, index);
+	assert(segTable != NULL);
+	SegTableSetTime(segTable, addr, version, time);
+}
 
 // TODO: reference count pages properly and free them when no longer used.
 /*
@@ -520,6 +667,7 @@ void updateWriteMemoryLineAccess(TEntry* entry, UInt32 inLevel, UInt32 version, 
 UInt MShadowInit() {
 	//GTableCreate(&gTable);	
 	STableInit();
+	MemAllocInit(sizeof(TimeTable));
 	MShadowL1Init();
 }
 
@@ -528,6 +676,7 @@ UInt MShadowDeinit() {
 	//GTableDelete(&gTable);
 	printMemStat();
 	STableDeinit();
+	MemAllocDeinit();
 	MShadowL1Deinit();
 }
 
@@ -574,3 +723,4 @@ void MShadowSet(Addr addr, Index index, Version version, Time time) {
 }
 #endif
 
+#endif

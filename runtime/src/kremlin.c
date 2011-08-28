@@ -41,7 +41,7 @@ int _requireSetupTable;
 
 // min and max level for instrumentation
 Level __kremlin_min_level = 0;
-Level __kremlin_max_level = 21;	 
+Level __kremlin_max_level = 20;	 
 
 
 static Level levelNum = -1;
@@ -442,6 +442,7 @@ static void RegionRealloc() {
 	int oldRegionSize = RegionSize();
 	Region* oldRegionInfo = regionInfo;
 	regionSize *= 2;
+	fprintf(stderr, "Region Realloc..new size = %d\n", regionSize);
 	MSG(0, "RegionRealloc from %d to %d\n", oldRegionSize, regionSize);
 	regionInfo = (Region*) realloc(regionInfo, sizeof(Region) * RegionSize());
 	
@@ -455,6 +456,7 @@ static void RegionRealloc() {
 static inline Region* RegionGet(Level level) {
 	assert(level < RegionSize());
 	Region* ret = &regionInfo[level];
+	assert(ret->code == 0xDEADBEEF);
 	return ret;
 }
 
@@ -474,9 +476,25 @@ static void RegionDeinit() {
     regionInfo = NULL;
 }
 
+static inline void checkTimestamp(Region* region, Timestamp value) {
+#ifndef NDEBUG
+	if (value > getTimetick() - region->start) {
+		fprintf(stderr, "value = %lld, getTimetick() = %lld, region start = %lld\n", 
+		value, getTimetick(), region->start);
+		assert(0);
+	}
+#endif
+}
+
 static inline void RegionUpdateCp(Region* region, Timestamp value) {
 	region->cp = MAX(value, region->cp);
-	assert(value <= getTimetick() - region->start);
+	assert(region->code == 0xDEADBEEF);
+	//assert(value <= getTimetick() - region->start);
+	if (value > getTimetick() - region->start) {
+		fprintf(stderr, "value = %lld, getTimetick() = %lld, region start = %lld\n", 
+		value, getTimetick(), region->start);
+		assert(0);
+	}
 }
 
 
@@ -646,7 +664,7 @@ void transferAndUnlinkArg(Reg dest) {
 
 	Reg src = ArgFifoPop();
 	// copy parent's src timestamp into the currenf function's dest reg
-	if (src != DUMMY_ARG) {
+	if (src != DUMMY_ARG && getIndexDepth() > 0) {
 		FuncContext* caller = RegionGetCallerFunc();
 		FuncContext* callee = RegionGetFunc();
 		Table* callerT = RegionGetTable(caller);
@@ -838,7 +856,6 @@ void logRegionExit(SID regionId, RegionType regionType) {
 	}
 
     Level level = getCurrentLevel();
-	MShadowL1Refresh(getIndex(level));
 
 	Region* region = RegionGet(level);
     SID sid = regionId;
@@ -939,6 +956,11 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
         return NULL;
 
     addWork(opCost);
+	Index depth = getIndexDepth();
+	
+	//Time* tArray0 = RShadowGet(src0, depth);
+	//Time* tArray1 = RShadowGet(src1, depth);
+	//Time* outArray = RegionGetTArray();
 
 #ifndef WORK_ONLY
 	Index index;
@@ -947,21 +969,24 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
 		// CDep and shadow memory are index based
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-        //Time cdt = RegionGetCDep(region);
 		Time cdt = CDepGet(index);
 		assert(cdt <= getTimetick() - region->start);
-        Time ts0 = RShadowGet(src0, index);
-        Time ts1 = RShadowGet(src1, index);
+        Time ts0 = RShadowGetItem(src0, index);
+        Time ts1 = RShadowGetItem(src1, index);
+		//Time ts0 = tArray0[index];
+		//Time ts1 = tArray1[index];
+
         Time greater0 = (ts0 > ts1) ? ts0 : ts1;
         Time greater1 = (cdt > greater0) ? cdt : greater0;
         Time value = greater1 + opCost;
-		RShadowSet(value, dest, index);
+		RShadowSetItem(value, dest, index);
 
+        MSG(0, "binOp[%u] level %u version %u \n", opCost, i, RegionGetVersion(i));
+        MSG(0, " src0 %u src1 %u dest %u\n", src0, src1, dest);
+        MSG(0, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
+		checkTimestamp(region, ts0);
+		checkTimestamp(region, ts1);
 		// region info is level based
-		
-        MSG(3, "binOp[%u] level %u version %u \n", opCost, i, RegionGetVersion(i));
-        MSG(3, " src0 %u src1 %u dest %u\n", src0, src1, dest);
-        MSG(3, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
         RegionUpdateCp(region, value);
     }
 #endif
@@ -985,14 +1010,14 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
 		Region* region = RegionGet(i);
 		Time cdt = CDepGet(index);
 		assert(cdt <= getTimetick() - region->start);
-        Time ts0 = RShadowGet(src, index);
+        Time ts0 = RShadowGetItem(src, index);
         Time greater1 = (cdt > ts0) ? cdt : ts0;
         Time value = greater1 + opCost;
-		RShadowSet(value, dest, index);
+		RShadowSetItem(value, dest, index);
 
-        MSG(1, "binOpConst[%u] level %u version %u \n", opCost, i, RegionGetVersion(i));
-	    MSG(1, " src %u dest %u\n", src, dest);
-   	    MSG(1, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
+        MSG(3, "binOpConst[%u] level %u version %u \n", opCost, i, RegionGetVersion(i));
+	    MSG(3, " src %u dest %u\n", src, dest);
+   	    MSG(3, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
 		RegionUpdateCp(region, value);
     }
 
@@ -1024,7 +1049,7 @@ void* logAssignmentConst(UInt dest) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
 		Time cdt = CDepGet(index);
-		RShadowSet(cdt, dest, index);
+		RShadowSetItem(cdt, dest, index);
         RegionUpdateCp(region, cdt);
     }
 #endif
@@ -1049,18 +1074,21 @@ void* logLoadInst(Addr addr, Reg dest) {
     for (index = 0; index < depth; index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-    	MSG(0, "%d 1 cp = %d\n", index, region->cp);
+    	//MSG(0, "%d 1 cp = %d\n", index, region->cp);
 		Time cdt = CDepGet(index);
-		//Time ts0 = tArray[index];
-		Time ts0 = 0ULL;
+		Time ts0 = tArray[index];
         Time greater1 = (cdt > ts0) ? cdt : ts0;
         Time value = greater1 + LOAD_COST;
 
+        MSG(0, "logLoadInst level %u version %u \n", i, RegionGetVersion(i));
+        MSG(0, " addr 0x%x dest %u\n", addr, dest);
+        MSG(0, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
+		checkTimestamp(region, ts0);
 #ifdef EXTRA_STATS
         region->loadCnt++;
         //updateReadMemoryAccess(entry0, i, RegionGetVersion(i), value);
 #endif
-        RShadowSet(value, dest, index);
+        RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
     }
 
@@ -1074,7 +1102,7 @@ void* logLoadInst(Addr addr, Reg dest) {
 }
 
 void* logLoadInst1Src(Addr addr, UInt src1, UInt dest) {
-    MSG(0, "load ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
+    MSG(0, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
     if (!isKremlinOn())
 		return NULL;
 
@@ -1091,18 +1119,18 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest) {
 		Region* region = RegionGet(i);
 		Time cdt = CDepGet(index);
 		Time tsAddr = tArray[index];
-		Time tsSrc1 = RShadowGet(src1, index);
+		Time tsSrc1 = RShadowGetItem(src1, index);
 
         Time max1 = (tsAddr > cdt) ? tsAddr : cdt;
         Time max2 = (max1 > tsSrc1) ? max1 : tsSrc1;
 		Time value = max2 + LOAD_COST;
 
-        RShadowSet(value, dest, index);
+        MSG(0, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
+        MSG(0, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
+        MSG(0, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
+        RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
 
-        MSG(2, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
-        MSG(2, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
-        MSG(2, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
     }
 
     //return entryDest;
@@ -1133,7 +1161,7 @@ void* logStoreInst(UInt src, Addr dest_addr) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
 		Time cdt = CDepGet(index);
-		Time ts0 = RShadowGet(src, index);
+		Time ts0 = RShadowGetItem(src, index);
         Time greater1 = (cdt > ts0) ? cdt : ts0;
         Time value = greater1 + STORE_COST;
 		tArray[index] = value;
@@ -1225,7 +1253,8 @@ void logFuncReturn(Reg src) {
 
 	// current level time does not need to be copied
 	int indexSize = getIndexDepth() - 1;
-	TableCopy(caller->table, ret, callee->table, src, 0, indexSize);
+	if (indexSize > 0)
+		TableCopy(caller->table, ret, callee->table, src, 0, indexSize);
 	
     MSG(1, "end write return value 0x%x\n", RegionGetFunc());
 #endif
@@ -1291,10 +1320,10 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Time ts_src = RShadowGet(src, index);
-		Time ts_cd = RShadowGet(cd, index);
+		Time ts_src = RShadowGetItem(src, index);
+		Time ts_cd = RShadowGetItem(cd, index);
         Time max = (ts_src > ts_cd) ? ts_src : ts_cd;
-		RShadowSet(max, dest, index);
+		RShadowSetItem(max, dest, index);
         MSG(3, "logPhiNode1CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " src %u cd %u dest %u\n", src, cd, dest);
         MSG(3, " ts_src %u ts_cd %u max %u\n", ts_src, ts_cd, max);
@@ -1317,13 +1346,13 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Time ts_src = RShadowGet(src, index);
-		Time ts_cd1 = RShadowGet(cd1, index);
-		Time ts_cd2 = RShadowGet(cd2, index);
+		Time ts_src = RShadowGetItem(src, index);
+		Time ts_cd1 = RShadowGetItem(cd1, index);
+		Time ts_cd2 = RShadowGetItem(cd2, index);
         Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
         Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
 
-		RShadowSet(max2, dest, index);
+		RShadowSetItem(max2, dest, index);
 
         MSG(2, "logPhiNode2CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u dest %u\n", src, cd1, cd2, dest);
@@ -1349,15 +1378,15 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Time ts_src = RShadowGet(src, index);
-		Time ts_cd1 = RShadowGet(cd1, index);
-		Time ts_cd2 = RShadowGet(cd2, index);
-		Time ts_cd3 = RShadowGet(cd3, index);
+		Time ts_src = RShadowGetItem(src, index);
+		Time ts_cd1 = RShadowGetItem(cd1, index);
+		Time ts_cd2 = RShadowGetItem(cd2, index);
+		Time ts_cd3 = RShadowGetItem(cd3, index);
         Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
         Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
         Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
 
-		RShadowSet(max3, dest, index);
+		RShadowSetItem(max3, dest, index);
 
         MSG(2, "logPhiNode3CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u dest %u\n", src, cd1, cd2, cd3, dest);
@@ -1383,17 +1412,17 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Time ts_src = RShadowGet(src, index);
-		Time ts_cd1 = RShadowGet(cd1, index);
-		Time ts_cd2 = RShadowGet(cd2, index);
-		Time ts_cd3 = RShadowGet(cd3, index);
-		Time ts_cd4 = RShadowGet(cd4, index);
+		Time ts_src = RShadowGetItem(src, index);
+		Time ts_cd1 = RShadowGetItem(cd1, index);
+		Time ts_cd2 = RShadowGetItem(cd2, index);
+		Time ts_cd3 = RShadowGetItem(cd3, index);
+		Time ts_cd4 = RShadowGetItem(cd4, index);
         Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
         Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
         Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
         Time max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
 
-		RShadowSet(max4, dest, index);
+		RShadowSetItem(max4, dest, index);
 
         MSG(2, "logPhiNode4CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", src, cd1, cd2, cd3, cd4, dest);
@@ -1418,16 +1447,16 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-        Time ts_dest = RShadowGet(dest, index);
-		Time ts_cd1 = RShadowGet(cd1, index);
-		Time ts_cd2 = RShadowGet(cd2, index);
-		Time ts_cd3 = RShadowGet(cd3, index);
-		Time ts_cd4 = RShadowGet(cd4, index);
+        Time ts_dest = RShadowGetItem(dest, index);
+		Time ts_cd1 = RShadowGetItem(cd1, index);
+		Time ts_cd2 = RShadowGetItem(cd2, index);
+		Time ts_cd3 = RShadowGetItem(cd3, index);
+		Time ts_cd4 = RShadowGetItem(cd4, index);
         Time max1 = (ts_dest > ts_cd1) ? ts_dest : ts_cd1;
         Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
         Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
         Time max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
-		RShadowSet(max4, dest, index);
+		RShadowSetItem(max4, dest, index);
 
         MSG(2, "log4CDepoPhiNode4CD level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", cd1, cd2, cd3, cd4, dest);
@@ -1454,10 +1483,10 @@ void* logPhiNodeAddCondition(UInt dest, UInt src) {
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time ts0 = RShadowGet(src, index);
-		Time ts1 = RShadowGet(dest, index);
+		Time ts0 = RShadowGetItem(src, index);
+		Time ts1 = RShadowGetItem(dest, index);
         Time value = (ts0 > ts1) ? ts0 : ts1;
-		RShadowSet(value, dest, index);
+		RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
         MSG(2, "logPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u dest %u\n", src, dest);

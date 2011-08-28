@@ -3,6 +3,8 @@
 #define NDEBUG
 //#define KREMLIN_DEBUG
 
+#define USE_MSHADOW_BASE
+
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */
@@ -44,7 +46,7 @@ typedef void*               Addr;
 typedef FILE                File;
 typedef UInt64 				Timestamp;
 typedef UInt64 				Time;
-typedef UInt32 				Version;
+typedef UInt64 				Version;
 typedef UInt32 				Level;
 typedef UInt32 				Index;
 typedef UInt 				Reg;
