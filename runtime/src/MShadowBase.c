@@ -17,7 +17,7 @@
 #include "MShadow.h"
 #include "MemAlloc.h"
 
-#define USE_VERSION_TABLE
+#define USE_CACHE
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 #define DS_ALLOC_SIZE   100     // used for static data structures
@@ -165,9 +165,7 @@ static SegEntry* SegTableGetEntry(SegTable* segTable, Addr addr) {
 	return entry;
 }
 
-void SegTableSetTime(SegTable* segTable, Addr addr, Index size, Version* vArray, Time* tArray) {
-	SegEntry* entry = SegTableGetEntry(segTable, addr);
-
+void SegTableSetTime(SegEntry* entry, Addr addr, Index size, Version* vArray, Time* tArray) {
 	if (entry->tTable == NULL) {
 		entry->tTable = TimeTableAlloc(entry->depth);
 		entry->vTable = TimeTableAlloc(entry->depth);
@@ -177,12 +175,19 @@ void SegTableSetTime(SegTable* segTable, Addr addr, Index size, Version* vArray,
 	Time* tAddr = TimeTableGetAddr(entry->tTable, addr, entry->depth);
 	memcpy(tAddr, tArray, sizeof(Time) * size);
 	Time* vAddr = TimeTableGetAddr(entry->vTable, addr, entry->depth);
-	memcpy(vAddr, vArray, sizeof(Time) * size);
+	int i;
+	for (i=size-1; i>=0; i--) {
+		if (vAddr[i] != vArray[i]) {
+			//memcpy(vAddr, vArray, sizeof(Time) * size);
+			vAddr[i] = vArray[i];
+			
+		} else {
+			break;
+		}
+	}
 }
 
-Time* SegTableGetTime(SegTable* segTable, Addr addr, Index size, Version* vArray) {
-	SegEntry* entry = SegTableGetEntry(segTable, addr);
-	
+Time* SegTableGetTime(SegEntry* entry, Addr addr, Index size, Version* vArray) {
 	if (entry->tTable == NULL) {
 		entry->tTable = TimeTableAlloc(entry->depth);
 		entry->vTable = TimeTableAlloc(entry->depth);
@@ -191,12 +196,13 @@ Time* SegTableGetTime(SegTable* segTable, Addr addr, Index size, Version* vArray
 	Time* tAddr = TimeTableGetAddr(entry->tTable, addr, entry->depth);
 	Time* vAddr = TimeTableGetAddr(entry->vTable, addr, entry->depth);
 	int i;
-	for (i=0; i<size; i++) {
+	for (i=size-1; i>=0; i--) {
 		Version oldVersion = (Version)vAddr[i];
 		if (oldVersion != vArray[i]) {
 			tAddr[i] = 0ULL;
 			vAddr[i] = vArray[i];
-		}
+		} else
+			break;
 	}
 	return tAddr;
 }
@@ -263,6 +269,75 @@ SegTable* STableGetSegTable(Addr addr) {
 }
 
 
+#define WORD_SHIFT		2
+
+#define TABLE_SHIFT		10	
+
+#define LINE_SHIFT	20
+#define NUM_LINE		(1 << LINE_SHIFT)
+#define NUM_LINE_MASK	(NUM_LINE - 1)
+
+#define STATUS_VALID	1
+
+
+typedef struct _L1Entry {
+	UInt64 tag;
+	SegEntry* segEntry;
+	UInt32 status;
+
+} L1Entry;
+
+typedef struct _MShadowL1 {
+	L1Entry entry[NUM_LINE];
+} MShadowL1;
+
+static MShadowL1	cache;
+
+static inline UInt64 getTag(Addr addr) {
+	int nShift = WORD_SHIFT + TABLE_SHIFT + LINE_SHIFT;
+	UInt64 mask = ~((1 << nShift) - 1);
+	return (UInt64)addr & mask;
+}
+
+static inline int getLineIndex(Addr addr) {
+	int nShift = WORD_SHIFT + TABLE_SHIFT;
+	int ret = (((UInt64)addr) >> nShift ) & NUM_LINE_MASK;
+	return ret;
+}
+
+static inline void setValid(L1Entry* entry) {
+	entry->status |= STATUS_VALID;
+}
+
+static inline Bool isValid(L1Entry* entry) {
+	return entry->status & STATUS_VALID;
+}
+
+static inline void setTag(L1Entry* entry, UInt64 tag) {
+	entry->tag = tag;
+}
+
+static inline Bool isHit(L1Entry* entry, Addr addr) {
+	return isValid(entry) && (entry->tag == getTag(addr));
+}
+
+static inline L1Entry* getEntry(Addr addr) {
+	int index = getLineIndex(addr);
+	L1Entry* entry = &(cache.entry[index]);
+
+	if (isHit(entry, addr) == FALSE) {
+		// bring the cache line
+		SegTable* segTable = STableGetSegTable(addr);
+		SegEntry* segEntry = SegTableGetEntry(segTable, addr);
+		entry->segEntry = segEntry;
+		setValid(entry);
+		setTag(entry, getTag(addr));
+	}
+	return entry;
+}
+
+
+
 UInt MShadowInit() {
 	//GTableCreate(&gTable);	
 	STableInit();
@@ -279,19 +354,33 @@ UInt MShadowDeinit() {
 	//MShadowL1Deinit();
 }
 
-
-
-static Time array[128];
 Time* MShadowGet(Addr addr, Index size, Version* vArray) {
-	Index i;
 	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
+	SegEntry* segEntry = NULL;
+#ifdef USE_CACHE
+	L1Entry* entry = getEntry(addr);
+	assert(entry->segEntry != NULL);
+	segEntry = entry->segEntry;
+#else	
 	SegTable* segTable = STableGetSegTable(addr);
-	return SegTableGetTime(segTable, addr, size, vArray);
+	segEntry = SegTableGetEntry(segTable, addr);
+#endif
+	return SegTableGetTime(segEntry, addr, size, vArray);
 }
 
 void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
+	SegEntry* segEntry = NULL;
+#ifdef USE_CACHE
+	L1Entry* entry = getEntry(addr);
+	assert(entry->segEntry != NULL);
+	segEntry = entry->segEntry;
+#else	
 	SegTable* segTable = STableGetSegTable(addr);
-	return SegTableSetTime(segTable, addr, size, vArray, tArray);
+	segEntry = SegTableGetEntry(segTable, addr);
+	assert(entry->segEntry != NULL);
+#endif
+
+	SegTableSetTime(segEntry, addr, size, vArray, tArray);
 }
 
 

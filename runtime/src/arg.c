@@ -80,6 +80,12 @@ void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_arg
 			continue;
 		}
 
+		str_start = strstr(argv[i],"cache-size");
+		if(str_start) {
+			setCacheSize(parseOptionInt(argv[i]));
+			continue;
+		}
+
 		str_start = strstr(argv[i],"kremlin-min-level");
 		if(str_start) {
 			setMinLevel(parseOptionInt(argv[i]));

@@ -33,6 +33,11 @@ static UInt64	storeCnt = 0llu;
 UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
 int _requireSetupTable;
+int _cacheSize = 4;
+
+void setCacheSize(int nMB) {
+	_cacheSize = nMB;
+}
 
 /*****************************************************************
  * Region Level Management 
@@ -1516,7 +1521,6 @@ Bool kremlinInit() {
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
         getMinLevel(), getMaxLevel(), getIndexSize());
     MSG(0, "kremlinInit running....");
-
 	if(getKremlinDebugFlag()) { 
 		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", getKremlinDebugLevel()); 
 	}
@@ -1530,7 +1534,8 @@ Bool kremlinInit() {
 	CDepInit();
 	CRegionInit();
 	RShadowInit(getIndexSize());
-	MShadowInit();
+
+	MShadowInit(_cacheSize);
 	RegionInit(REGION_INIT_SIZE);
    	turnOnProfiler();
     return TRUE;

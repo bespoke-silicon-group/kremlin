@@ -18,7 +18,7 @@
 #define LINE_SIZE_MASK	(LINE_SIZE - 1)
 #endif
 
-#define NUM_LINE_SHIFT	24
+#define NUM_LINE_SHIFT	10
 #define NUM_LINE		(1 << NUM_LINE_SHIFT)
 #define NUM_LINE_MASK	(NUM_LINE - 1)
 
@@ -128,7 +128,7 @@ static inline void clearExpired(L1Entry* entry, Index index) {
 	entry->expire &= ~(1 << index);
 }
 
-static inline int getTag(Addr addr) {
+static inline UInt64 getTag(Addr addr) {
 	int nShift = WORD_SIZE_SHIFT + NUM_LINE_SHIFT;
 	UInt64 mask = ~((1 << nShift) - 1);
 	return (UInt64)addr & mask;
@@ -351,7 +351,14 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
 
 	// copy Versions
 	Version* versionAddr = (Version*) getVersionAddr(row, 0);
-	memcpy(versionAddr, vArray, sizeof(Version) * size);
+	int i;
+	for (i=size-1; i>=0; i--) {
+		if (versionAddr[i] == vArray[i])
+			break;
+		else
+			versionAddr[i] = vArray[i];
+	}
+	//memcpy(versionAddr, vArray, sizeof(Version) * size);
 
 	setDirty(entry);
 }

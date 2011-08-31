@@ -2,8 +2,7 @@
 #define _DEFS_H
 #define NDEBUG
 //#define KREMLIN_DEBUG
-
-#define USE_MSHADOW_BASE
+//#define USE_MSHADOW_BASE
 
 #include <assert.h>
 #include <limits.h>
