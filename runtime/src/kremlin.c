@@ -33,10 +33,16 @@ static UInt64	storeCnt = 0llu;
 UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
 int _requireSetupTable;
-int _cacheSize = 4;
+static int _cacheSize = 4;
+static int _tableType = 2;
+
 
 void setCacheSize(int nMB) {
 	_cacheSize = nMB;
+}
+
+void setTableType(int type) {
+	_tableType = type;
 }
 
 /*****************************************************************
@@ -1535,7 +1541,7 @@ Bool kremlinInit() {
 	CRegionInit();
 	RShadowInit(getIndexSize());
 
-	MShadowInit(_cacheSize);
+	MShadowInit(_cacheSize, _tableType);
 	RegionInit(REGION_INIT_SIZE);
    	turnOnProfiler();
     return TRUE;

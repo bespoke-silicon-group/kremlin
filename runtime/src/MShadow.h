@@ -10,14 +10,11 @@
 
 
 #include "defs.h"
-#include "TEntry.h"
 
 
-UInt 		MShadowInit(int);			// initialize global shadow memory system
+UInt 		MShadowInit(int, int);	// initialize global shadow memory system
 UInt 		MShadowDeinit();		// free associated data structure
 
-//Time		MShadowGet(Addr addr, Index index, Version version);
-//void   		MShadowSet(Addr addr, Index index, Version version, Time time);
 
 Time		MShadowGetTime(Addr addr, Index size, Version version);
 void		MShadowSetTime(Addr addr, Index size, Version version, Time time);

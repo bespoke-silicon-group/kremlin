@@ -339,19 +339,15 @@ static inline L1Entry* getEntry(Addr addr) {
 
 
 UInt MShadowInit() {
-	//GTableCreate(&gTable);	
 	STableInit();
 	MemAllocInit(sizeof(TimeTable));
-	//MShadowL1Init();
 }
 
 
 UInt MShadowDeinit() {
-	//GTableDelete(&gTable);
 	printMemStat();
 	STableDeinit();
 	MemAllocDeinit();
-	//MShadowL1Deinit();
 }
 
 Time* MShadowGet(Addr addr, Index size, Version* vArray) {

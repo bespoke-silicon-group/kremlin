@@ -35,9 +35,11 @@ static void initMemoryPool(Index depth) {
 	//maxRegionLevel = depth;
 
 	// Set TEntry Size
+#if 0
     size_t versionSize = sizeof(Version) * depth;
     size_t timeSize = sizeof(Timestamp) * depth;
     size_t spaceToAlloc = sizeof(TEntry) + versionSize + timeSize;
+#endif
 
 #ifdef EXTRA_STATS
 #if 0
