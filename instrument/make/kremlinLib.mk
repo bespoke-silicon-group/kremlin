@@ -21,10 +21,11 @@ COMMON_SOURCES = kremlin_deque.c hash_map.c vector.c
 COMMON_SOURCES_WITH_PATH = $(addprefix $(KREMLIN_COMMON_SRC)/, $(COMMON_SOURCES))
 
 # All the kremlin runtime source files.
-KREMLIN_SOURCES = debug.c log.c kremlin.c table.c udr.c MemMapAllocator.c Pool.c cregion.c GTable.c
+KREMLIN_SOURCES = debug.c kremlin.c ATable.c MemMapAllocator.c Pool.c CRegion.c arg.c MemAlloc.c MShadowBase.c MShadowLowMem.c
 KREMLIN_SOURCES_WITH_PATH = $(addprefix $(KREMLIN_RUNTIME_SRC_DIR)/, $(KREMLIN_SOURCES))
 
 # All the max depth finder files
+#DF_SOURCES = depth-finder.c
 DF_SOURCES = depth-finder.c
 DF_SOURCES_WITH_PATH = $(addprefix $(KREMLIN_RUNTIME_SRC_DIR)/, $(DF_SOURCES))
 
@@ -44,7 +45,8 @@ ALL_DF_OBJECTS_IN_LIB = $(patsubst %, $(DF_LIB)(%), $(ALL_DF_OBJECTS_WITH_PATH))
 # ---------------------------------------------------------------------------
 
 # Compiles the kremlin runtime
-$(ALL_KREMLIN_OBJECTS_WITH_PATH): CFLAGS += -I$(KREMLIN_COMMON_SRC) $(KREMLIB_EXTRA_FLAGS)
+#$(ALL_KREMLIN_OBJECTS_WITH_PATH): CFLAGS += -O3  -pg -I$(KREMLIN_COMMON_SRC) $(KREMLIB_EXTRA_FLAGS)
+$(ALL_KREMLIN_OBJECTS_WITH_PATH): CFLAGS += -O3  -I$(KREMLIN_COMMON_SRC) $(KREMLIB_EXTRA_FLAGS)
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): CC = cc
 $(ALL_KREMLIN_OBJECTS_WITH_PATH): %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
