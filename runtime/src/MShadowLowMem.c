@@ -1,5 +1,6 @@
 #include "defs.h"
 
+//#define DUMMY_SHADOW
 #ifndef USE_MSHADOW_BASE
 
 #include <assert.h>
@@ -23,11 +24,14 @@
 
 // SEGTABLE Parameters
 #define SEGTABLE_MASK 	0xfffff
-#define SEGTABLE_SIZE 	(SEGTABLE_MASK + 1)
 #define SEGTABLE_SHIFT	12
+//#define SEGTABLE_MASK 	0xffff
+//#define SEGTABLE_SHIFT	16
+#define SEGTABLE_SIZE 	(SEGTABLE_MASK + 1)
 
 // TimeTable Parameters
 #define TIMETABLE_MASK 0x3ff
+//#define TIMETABLE_MASK 0x3fff
 #define TIMETABLE_SIZE (TIMETABLE_MASK + 1)
 #define WORD_SHIFT 2
 
@@ -45,66 +49,183 @@
 
 static int timetableType;
 
+typedef struct _TimeTable {
+	Time array[TIMETABLE_SIZE];
+} TimeTable;
+
+typedef struct _SegEntry {
+	TimeTable* table;
+	TimeTable* vTable;
+	Version version;
+	int type;
+	int counter;
+} SegEntry;
+
+
+typedef struct _Segment {
+	SegEntry entry[SEGTABLE_SIZE];
+	int level;
+} SegTable;
+
+
 /*
  * MemStat
  */
 typedef struct _MemStat {
-	int nSTableEntry;
+	UInt64 nSTableEntry;
 
-	int nSegTableAllocated;
-	int nSegTableActive;
-	int nSegTableActiveMax;
+	UInt64 nSegTableAllocated;
+	UInt64 nSegTableActive;
+	UInt64 nSegTableActiveMax;
 
-	int nTimeTableAllocated;
-	int nVersionTableAllocated;
-	int nTimeTableFreed;
-	int nTimeTableActive;
-	int nTimeTableActiveMax;
-	int nTimeTableNewAlloc[100];
-	int nTimeTableConvert[100];
-	int nTimeTableRealloc[100];
+	UInt64 nTimeTableAllocated;
+	UInt64 nVersionTableAllocated;
+	UInt64 nTimeTableFreed;
+	UInt64 nTimeTableActive;
+	UInt64 nTimeTableActiveMax;
+	UInt64 nSegTableNewAlloc[100];
+	UInt64 nTimeTableNewAlloc[100];
+	UInt64 nTimeTableConvert[100];
+	UInt64 nTimeTableRealloc[100];
+	UInt64 nTimeTableReallocTotal;
+	UInt64 nEvict[100];
+	UInt64 nEvictTotal;
+	UInt64 nCacheEvictLevelTotal;
+	UInt64 nCacheEvictLevelEffective;
+	UInt64 nCacheEvict;
 
 } MemStat;
 
 static MemStat stat;
+/*
+ * CacheStat
+ */
 
-void printMemStat() {
-	fprintf(stderr, "TimeTable Type = %d\n", timetableType);
-	fprintf(stderr, "nSTableEntry = %d\n", stat.nSTableEntry);
+typedef struct _L1Stat {
+	UInt64 nRead;
+	UInt64 nReadHit;
+	UInt64 nReadEvict;
+	UInt64 nWrite;
+	UInt64 nWriteHit;
+	UInt64 nWriteEvict;
+} L1Stat;
 
-	fprintf(stderr, "nSegTableAllocated = %d\n", stat.nSegTableAllocated);
-	fprintf(stderr, "nSegTableActive = %d\n", stat.nSegTableActive);
-	fprintf(stderr, "nSegTableActiveMax = %d\n", stat.nSegTableActiveMax);
+L1Stat cacheStat;
 
-	fprintf(stderr, "nTimeTableAllocated = %d\n", stat.nTimeTableAllocated);
-	fprintf(stderr, "nVersionTableAllocated = %d\n", stat.nVersionTableAllocated);
-	fprintf(stderr, "nTimeTableFreed = %d\n", stat.nTimeTableFreed);
-	fprintf(stderr, "nTimeTableActive = %d\n", stat.nTimeTableActive);
-	fprintf(stderr, "nTimeTableActiveMax = %d\n\n", stat.nTimeTableActiveMax);
-	
+
+double getSizeMB(UInt64 nUnit, UInt64 size) {
+	return (nUnit * size) / (1024.0 * 1024.0);	
+}
+
+/*
+ * Cache size when a specific # of levels are used
+ */
+static int cacheMB;
+double getCacheSize(int level) {
+	return (double)(cacheMB * 2.0 + level * cacheMB * 4);
+}
+
+static void printCacheStat() {
+	fprintf(stderr, "\nShadow Memory Cache Stat\n");	
+	fprintf(stderr, "\tread  all / hit / evict = %lld / %lld / %lld\n", 
+		cacheStat.nRead, cacheStat.nReadHit, cacheStat.nReadEvict);
+	fprintf(stderr, "\twrite all / hit / evict = %lld / %lld / %lld\n", 
+		cacheStat.nWrite, cacheStat.nWriteHit, cacheStat.nWriteEvict);
+	double hitRead = cacheStat.nReadHit * 100.0 / cacheStat.nRead;
+	double hitWrite = cacheStat.nWriteHit * 100.0 / cacheStat.nWrite;
+	double hit = (cacheStat.nReadHit + cacheStat.nWriteHit) * 100.0 / (cacheStat.nRead + cacheStat.nWrite);
+	fprintf(stderr, "\tCache hit (read / write / overall) = %.2f / %.2f / %.2f\n", 
+		hitRead, hitWrite, hit);
+	fprintf(stderr, "\tEvict (total / levelAvg / levelEffective) = %d / %.2f / %.2f\n\n", 
+		stat.nCacheEvict, 
+		(double)stat.nCacheEvictLevelTotal / stat.nCacheEvict, 
+		(double)stat.nCacheEvictLevelEffective / stat.nCacheEvict);
+}
+
+
+static void printMemReqStat() {
+	//fprintf(stderr, "Overall allocated = %d, converted = %d, realloc = %d\n", 
+	//	totalAlloc, totalConvert, totalRealloc);
+	double segSize = getSizeMB(stat.nSegTableActiveMax, sizeof(SegTable));
+	double tTableSize = getSizeMB(stat.nTimeTableActiveMax, sizeof(TimeTable));
+	double vTableSize = getSizeMB(stat.nVersionTableAllocated, sizeof(TimeTable));
+	double cacheSize = getCacheSize(getMaxActiveLevel());
+	double totalSize = segSize + tTableSize + vTableSize + cacheSize;
+	//minTotal += getCacheSize(2);
+	fprintf(stderr, "\nRequired Memory Analysis\n");
+	fprintf(stderr, "\tShadowMemory (SegTable / TTable / VTable) = %.2f / %.2f / %.2f\n",
+		segSize, tTableSize, vTableSize);
+	fprintf(stderr, "\tReqMemSize (Total / Cache / Shadow) = %.2f / %.2f / %.2f \n",
+		totalSize, cacheSize, segSize + tTableSize + vTableSize);  
+}
+
+static void printLevelStat() {
 	int i;
 	int totalAlloc = 0;
 	int totalConvert = 0;
 	int totalRealloc = 0;
-	for (i=0; i<100; i++) {
-		if (stat.nTimeTableNewAlloc[i] == 0)
-			break;
+	double minTotal = 0;
 
+	fprintf(stderr, "\nLevel Specific Statistics\n");
+
+	for (i=0; i<=getMaxActiveLevel(); i++) {
 		totalAlloc += stat.nTimeTableNewAlloc[i];
 		totalConvert += stat.nTimeTableConvert[i];
 		totalRealloc += stat.nTimeTableRealloc[i];
-		fprintf(stderr, "Level [%2d] allocated = %d, converted = %d, realloc = %d\n", 
-			i, stat.nTimeTableNewAlloc[i], stat.nTimeTableConvert[i], stat.nTimeTableRealloc[i]);
-	}
 
-	fprintf(stderr, "Overall allocated = %d, converted = %d, realloc = %d\n", 
-		totalAlloc, totalConvert, totalRealloc);
+		double sizeSegTable = getSizeMB(stat.nSegTableNewAlloc[i], sizeof(SegTable));
+		double sizeTimeTable = getSizeMB(stat.nTimeTableNewAlloc[i], sizeof(TimeTable));
+		double sizeVersionTable = getSizeMB(stat.nTimeTableConvert[i], sizeof(TimeTable));
+		double sizeLevel = sizeSegTable + sizeTimeTable + sizeVersionTable;
+		double reallocPercent = (double)stat.nTimeTableRealloc[i] * 100.0 / (double)stat.nEvict[i];
+
+		if (i < 2)
+			minTotal += sizeLevel;
+		
+
+		fprintf(stderr, "\tLevel [%2d] SegTable=%.2f, TTable=%.2f, VTable=%.2f Sum=%.2f MB\n", 
+			i, sizeSegTable, sizeTimeTable, sizeVersionTable, sizeLevel, sizeLevel);
+		fprintf(stderr, "\t\tReallocPercent=%.2f, Evict=%lld, Realloc=%lld\n",
+			reallocPercent, stat.nEvict[i], stat.nTimeTableRealloc[i]);
+			
+		//fprintf(stderr, "Level [%2d] allocated = %d, converted = %d, realloc = %d evict = %d\n", 
+		//	i, stat.nTimeTableNewAlloc[i], stat.nTimeTableConvert[i], 
+		//	stat.nTimeTableRealloc[i], stat.nEvict[i]);
+	}
+}
+
+static void printMemStatAllocation() {
+	fprintf(stderr, "\nShadow Memory Allocation Stats\n");
+	fprintf(stderr, "\tnSTableEntry = %d\n", stat.nSTableEntry);
+	fprintf(stderr, "\tnSegTable: Alloc / Active / ActiveMax = %lld / %lld / %lld\n",
+		 stat.nSegTableAllocated, stat.nSegTableActive, stat.nSegTableActiveMax);
+	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax= %lld / %lld / %lld\n",
+		 timetableType, stat.nTimeTableAllocated, stat.nTimeTableFreed, stat.nTimeTableActiveMax);
+	fprintf(stderr, "\tnVersionTable: Alloc = %lld\n", stat.nVersionTableAllocated);
+	fprintf(stderr, "\tnTotal Evict: %lld, Realloc: %lld\n", 
+		stat.nEvictTotal, stat.nTimeTableReallocTotal);
+	fprintf(stderr, "\tRealloc / Evict Percentage: %.2f %%\n", 
+		(double)stat.nTimeTableReallocTotal * 100.0 / stat.nEvictTotal);
+	fprintf(stderr, "\tNewAlloc / Evict Percentage: %.2f %%\n", 
+		(double)stat.nTimeTableAllocated * 100.0 / stat.nEvictTotal);
+}
+
+static void printMemStat() {
+	printMemStatAllocation();
+	printLevelStat();
+	printCacheStat();
+	printMemReqStat();
+}
+
+static inline void eventCacheEvict(int total, int effective) {
+	stat.nCacheEvictLevelTotal += total;
+	stat.nCacheEvictLevelEffective += effective;
+	stat.nCacheEvict++;
 }
 
 static inline void eventTimeTableNewAlloc(int level) {
 	stat.nTimeTableNewAlloc[level]++;
 }
-
 
 static inline void eventTimeTableConvert(int level) {
 	stat.nTimeTableConvert[level]++;
@@ -112,23 +233,13 @@ static inline void eventTimeTableConvert(int level) {
 
 static inline void eventTimeTableRealloc(int level) {
 	stat.nTimeTableRealloc[level]++;
+	stat.nTimeTableReallocTotal++;
 }
 
-/*
- * CacheStat
- */
-
-typedef struct _L1Stat {
-	int nRead;
-	int nReadHit;
-	int nReadEvict;
-	int nWrite;
-	int nWriteHit;
-	int nWriteEvict;
-} L1Stat;
-
-L1Stat cacheStat;
-
+static inline void eventEvict(int level) {
+	stat.nEvict[level]++;
+	stat.nEvictTotal++;
+}
 static inline void eventRead() {
 	cacheStat.nRead++;
 }
@@ -153,22 +264,10 @@ static inline void eventWriteEvict() {
 	cacheStat.nWriteEvict++;
 }
 
-static inline void printStat() {
-	fprintf(stderr, "L1 Cache Stat\n");	
-	fprintf(stderr, "read  all / hit / evict = %d / %d / %d\n", cacheStat.nRead, cacheStat.nReadHit, cacheStat.nReadEvict);
-	fprintf(stderr, "write all / hit / evict = %d / %d / %d\n", cacheStat.nWrite, cacheStat.nWriteHit, cacheStat.nWriteEvict);
-	double hit = (cacheStat.nReadHit + cacheStat.nWriteHit) * 100.0 / (cacheStat.nRead + cacheStat.nWrite);
-	fprintf(stderr, "overall hit ratio = %.2f\n", hit);
-}
-
 /*
  * TimeTable: simple array of Time with TIMETABLE_SIZE elements
  *
  */ 
-
-typedef struct _TimeTable {
-	Time array[TIMETABLE_SIZE];
-} TimeTable;
 
 
 TimeTable* TimeTableAlloc() {
@@ -178,6 +277,9 @@ TimeTable* TimeTableAlloc() {
 		stat.nTimeTableActiveMax++;
 	//return (TimeTable*) calloc(sizeof(Time), TIMETABLE_SIZE);
 	return (TimeTable*) MemAlloc();
+	//TimeTable* ret = malloc(sizeof(TimeTable));
+	//bzero(ret, sizeof(TimeTable));
+	//return ret;
 }
 
 
@@ -223,20 +325,6 @@ static inline void TimeTableSet(TimeTable* table, Addr addr, Time time) {
  *
  */ 
 
-typedef struct _SegEntry {
-	TimeTable* table;
-	TimeTable* vTable;
-	Version version;
-	int type;
-	int counter;
-} SegEntry;
-
-
-typedef struct _Segment {
-	SegEntry entry[SEGTABLE_SIZE];
-	int level;
-} SegTable;
-
 
 static inline int getTimeTableType(SegEntry* entry) {
 	return entry->type;
@@ -255,6 +343,7 @@ SegTable* SegTableAlloc(int level) {
 	}
 
 	stat.nSegTableAllocated++;
+	stat.nSegTableNewAlloc[level]++;
 	stat.nSegTableActive++;
 	if (stat.nSegTableActive > stat.nSegTableActiveMax)
 		stat.nSegTableActiveMax++;
@@ -292,6 +381,7 @@ static inline Bool needConvert(SegEntry* entry) {
 void SegTableSetTime(SegTable* segTable, Addr addr, Version version, Time time) {
 	int index = SegTableGetIndex(addr);
 	SegEntry* entry = &(segTable->entry[index]);
+	eventEvict(segTable->level);
 	entry->counter++;
 
 	// determine if this is type 0 (no version) or type 1 (with version)
@@ -311,7 +401,7 @@ void SegTableSetTime(SegTable* segTable, Addr addr, Version version, Time time) 
 				// convert into TYPE_VERSION
 				eventTimeTableConvert(segTable->level);
 				entry->type = TYPE_VERSION;
-				entry->vTable = TimeTableAlloc();
+				entry->vTable = VersionTableAlloc();
 				TimeTableSet(entry->vTable, addr, version);
 				TimeTableSet(entry->table, addr, time);
 
@@ -320,6 +410,7 @@ void SegTableSetTime(SegTable* segTable, Addr addr, Version version, Time time) 
 				eventTimeTableRealloc(segTable->level);
 				TimeTableFree(entry->table);
 				entry->table = TimeTableAlloc();
+				//bzero(entry->table, sizeof(TimeTable));
 				entry->version = version;
 				TimeTableSet(entry->table, addr, time);	
 			}
@@ -331,7 +422,7 @@ void SegTableSetTime(SegTable* segTable, Addr addr, Version version, Time time) 
 		if (entry->table == NULL) {
 			eventTimeTableNewAlloc(segTable->level);
 			entry->table = TimeTableAlloc();
-			entry->vTable = TimeTableAlloc();
+			entry->vTable = VersionTableAlloc();
 		}
 
 		// set version and time
@@ -558,7 +649,6 @@ void MShadowSetFromCache(Addr addr, Index size, Version* vArray, Time* tArray);
 
 typedef struct _L1Entry {
 	UInt64 tag;  
-	UInt64 expire;
 	UInt32 status;	
 
 } L1Entry;
@@ -683,7 +773,7 @@ void MShadowCacheDeinit() {
 	if (bypassCache == 1)
 		return;
 
-	printStat();
+	//printStat();
 	free(tagTable);
 	TableFree(valueTable);
 	TableFree(versionTable);
@@ -708,6 +798,7 @@ L1Entry* MShadowCacheEvict(Addr addr, int row, int size, Version* vArray) {
 			break;
 		}
 	}
+	eventCacheEvict(size, i);
 	
 	return entry;
 }
@@ -742,18 +833,28 @@ Time* MShadowGetNoCache(Addr addr, Index size, Version* vArray) {
 }
 
 void MShadowSetNoCache(Addr addr, Index size, Version* vArray, Time* tArray) {
-	MShadowSetTime(addr, size, vArray, tArray);
+	Index i;
+	for (i=0; i<size; i++)
+		MShadowSetTime(addr, i, vArray[i], tArray[i]);
 }
 
+#ifdef DUMMY_SHADOW
+
+Time* MShadowGet(Addr addr, Index size, Version* vArray) {
+	return tempArray;
+}
+
+void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
+}
+#else
 
 Time* MShadowGet(Addr addr, Index size, Version* vArray) {
 	MSG(0, "MShadowGet 0x%llx, size %d vArray = 0x%llx \n", addr, size, vArray);
-	eventRead();
-
 	if (bypassCache == 1) {
 		return MShadowGetNoCache(addr, size, vArray);
 	}
 
+	eventRead();
 	int row = getLineIndex(addr);
 
 
@@ -840,13 +941,17 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
 	setDirty(entry);
 	entry->tag = getTag(addr);
 }
+#endif
 
 
 /*
  * Init / Deinit
  */
 UInt MShadowInit(int cacheSizeMB, int type) {
+	fprintf("[kremlin] MShadow Init with cache % MB, TimeTableType = %d, TimeTableSize = %d\n",
+		cacheSizeMB, type, sizeof(TimeTable));
 	timetableType = type;
+	cacheMB = cacheSizeMB;
 	STableInit();
 	MemAllocInit(sizeof(TimeTable));
 	MShadowCacheInit(cacheSizeMB);

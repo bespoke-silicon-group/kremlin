@@ -34,7 +34,7 @@ UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
 int _requireSetupTable;
 static int _cacheSize = 4;
-static int _tableType = 2;
+static int _tableType = 0;
 
 
 void setCacheSize(int nMB) {
@@ -53,12 +53,22 @@ void setTableType(int type) {
 // min and max level for instrumentation
 Level __kremlin_min_level = 0;
 Level __kremlin_max_level = 20;	 
+Level __kremlin_max_active_level = 0;	 
 
 
 static Level levelNum = -1;
 
 static inline Level getCurrentLevel() {
 	return levelNum;
+}
+
+inline void updateMaxActiveLevel(Level level) {
+	if (level > __kremlin_max_active_level)
+		__kremlin_max_active_level = level;
+}
+
+Level getMaxActiveLevel() {
+	return __kremlin_max_active_level;
 }
 
 inline void setMinLevel(Level level) {
@@ -783,6 +793,7 @@ void logRegionEntry(SID regionId, RegionType regionType) {
         regionType, level, regionId, getTimetick());
     incIndentTab(); // only affects debug printing
 
+	updateMaxActiveLevel(level);
 
 	// func region allocates a new RShadow Table.
 	// for other region types, it needs to "clean" previous region's timestamps
@@ -1556,6 +1567,8 @@ Bool kremlinDeinit() {
         return FALSE;
     }
 
+	fprintf(stderr,"[kremlin] max active level = %d\n", 
+		getMaxActiveLevel());	
 	turnOffProfiler();
 	CRegionDeinit("kremlin.bin");
 	RShadowDeinit();

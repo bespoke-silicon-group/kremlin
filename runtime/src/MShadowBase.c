@@ -40,20 +40,36 @@
 #define L2_SIZE (L2_MASK + 1)
 #define L2_SHIFT 2
 
+typedef struct _TimeTable {
+	Time array[L2_SIZE];
+} TimeTable;
+
+
+typedef struct _SegEntry {
+	TimeTable* tTable;
+	TimeTable* vTable;
+	int depth;
+} SegEntry;
+
+
+typedef struct _Segment {
+	SegEntry entry[L1_SIZE];
+} SegTable;
+
+
 /*
  * MemStat
  */
 typedef struct _MemStat {
-	int nSTableEntry;
+	UInt64 nSTableEntry;
+	UInt64 nSegTableAllocated;
+	UInt64 nSegTableActive;
+	UInt64 nSegTableActiveMax;
 
-	int nSegTableAllocated;
-	int nSegTableActive;
-	int nSegTableActiveMax;
-
-	int nTimeTableAllocated;
-	int nTimeTableFreed;
-	int nTimeTableActive;
-	int nTimeTableActiveMax;
+	UInt64 nTimeTableAllocated;
+	UInt64 nTimeTableFreed;
+	UInt64 nTimeTableActive;
+	UInt64 nTimeTableActiveMax;
 
 } MemStat;
 
@@ -70,18 +86,24 @@ void printMemStat() {
 	fprintf(stderr, "nTimeTableFreed = %d\n", stat.nTimeTableFreed);
 	fprintf(stderr, "nTimeTableActive = %d\n", stat.nTimeTableActive);
 	fprintf(stderr, "nTimeTableActiveMax = %d\n\n", stat.nTimeTableActiveMax);
-}
 
+	double segTableSize = sizeof(SegTable) * stat.nSegTableAllocated / (1024.0 * 1024.0);
+
+	int timeTableEach = sizeof(Time) * L2_SIZE * getMaxActiveLevel();
+	double timeTableSize = timeTableEach * stat.nTimeTableActiveMax / (1024.0 * 1024.0 * 2);
+	double versionTableSize = timeTableSize;
+	fprintf(stderr, "SegTable size = %.2f MB\n", segTableSize); 
+	fprintf(stderr, "TimeTable size = %.2f MB\n", timeTableSize); 
+	fprintf(stderr, "VersionTable size = %.2f MB\n", versionTableSize);
+	fprintf(stderr, "Total Mem size = %.2f MB\n", 
+		segTableSize + timeTableSize + versionTableSize);
+}
 
 
 /*
  * TimeTable: simple array of Time with L2_SIZE elements
  *
  */ 
-
-typedef struct _TimeTable {
-	Time array[L2_SIZE];
-} TimeTable;
 
 
 TimeTable* TimeTableAlloc(int depth) {
@@ -114,18 +136,6 @@ static Time* TimeTableGetAddr(TimeTable* table, Addr addr, int depth) {
  * SegTable:
  *
  */ 
-
-typedef struct _SegEntry {
-	TimeTable* tTable;
-	TimeTable* vTable;
-	int depth;
-} SegEntry;
-
-
-typedef struct _Segment {
-	SegEntry entry[L1_SIZE];
-} SegTable;
-
 
 
 SegTable* SegTableAlloc() {
@@ -337,8 +347,8 @@ static inline L1Entry* getEntry(Addr addr) {
 }
 
 
-
-UInt MShadowInit() {
+UInt MShadowInit(int a, int b) {
+	fprintf(stderr, "[kremlin] MShadow Base Init\n");
 	STableInit();
 	MemAllocInit(sizeof(TimeTable));
 }
