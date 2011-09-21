@@ -55,10 +55,10 @@ typedef struct _TimeTable {
 
 typedef struct _SegEntry {
 	TimeTable* table;
-	TimeTable* vTable;
 	Version version;
-	int type;
-	int counter;
+	//TimeTable* vTable;
+	//int type;
+	//int counter;
 } SegEntry;
 
 
@@ -66,6 +66,12 @@ typedef struct _Segment {
 	SegEntry entry[SEGTABLE_SIZE];
 	int level;
 } SegTable;
+
+#if 0
+typedef struct _VTable {
+	Version version[SEGTABLE_SIZE];
+} VTable;
+#endif
 
 
 /*
@@ -122,7 +128,7 @@ double getSizeMB(UInt64 nUnit, UInt64 size) {
  */
 static int cacheMB;
 double getCacheSize(int level) {
-	return (double)(cacheMB * 2.0 + level * cacheMB * 4);
+	return (double)(cacheMB * 4.0 + level * cacheMB * 2);
 }
 
 static void printCacheStat() {
@@ -182,7 +188,6 @@ static void printLevelStat() {
 		if (i < 2)
 			minTotal += sizeLevel;
 		
-
 		fprintf(stderr, "\tLevel [%2d] SegTable=%.2f, TTable=%.2f, VTable=%.2f Sum=%.2f MB\n", 
 			i, sizeSegTable, sizeTimeTable, sizeVersionTable, sizeLevel, sizeLevel);
 		fprintf(stderr, "\t\tReallocPercent=%.2f, Evict=%lld, Realloc=%lld\n",
@@ -325,22 +330,25 @@ static inline void TimeTableSet(TimeTable* table, Addr addr, Time time) {
  *
  */ 
 
-
+#if 0
 static inline int getTimeTableType(SegEntry* entry) {
 	return entry->type;
 }
+#endif
 
 SegTable* SegTableAlloc(int level) {
 	SegTable* ret = (SegTable*) calloc(sizeof(SegEntry), SEGTABLE_SIZE);
 	ret->level = level;
 
 	int i;
+#if 0
 	for (i=0; i<SEGTABLE_SIZE; i++) {
 		if (timetableType == TYPE_VERSION)
 			ret->entry[i].type = TYPE_VERSION;
 		else
 			ret->entry[i].type = TYPE_NOVERSION;
 	}
+#endif
 
 	stat.nSegTableAllocated++;
 	stat.nSegTableNewAlloc[level]++;
@@ -355,8 +363,8 @@ void SegTableFree(SegTable* table) {
 	for (i=0; i<SEGTABLE_SIZE; i++) {
 		if (table->entry[i].table != NULL) {
 			TimeTableFree(table->entry[i].table);	
-			if (getTimeTableType(&(table->entry[i])) == TYPE_VERSION)
-				TimeTableFree(table->entry[i].vTable);	
+			//if (getTimeTableType(&(table->entry[i])) == TYPE_VERSION)
+			//	TimeTableFree(table->entry[i].vTable);	
 		}
 	}
 	stat.nSegTableActive--;
@@ -367,7 +375,7 @@ static inline int SegTableGetIndex(Addr addr) {
 	return ((UInt64)addr >> SEGTABLE_SHIFT) & SEGTABLE_MASK;
 }
 
-
+#if 0
 static inline Bool needConvert(SegEntry* entry) {
 	if (timetableType == TYPE_NOVERSION)
 		return FALSE;
@@ -390,7 +398,7 @@ void SegTableSetTime(SegTable* segTable, Addr addr, Version version, Time time) 
 		if (entry->table == NULL) {
 			eventTimeTableNewAlloc(segTable->level);
 			entry->table = TimeTableAlloc();
-			entry->version = version;
+			//entry->version = version;
 			TimeTableSet(entry->table, addr, time);	
 
 		} else if (entry->version == version) {
@@ -431,26 +439,47 @@ void SegTableSetTime(SegTable* segTable, Addr addr, Version version, Time time) 
 		TimeTableSet(entry->table, addr, time);
 	}
 }
+#endif
 
-Time SegTableGetTime(SegTable* segTable, Addr addr, Version version) {
-	int index = SegTableGetIndex(addr);
-	SegEntry* entry = &(segTable->entry[index]);
-	entry->counter++;
 
+void SegEntrySetTimeAllocate(SegEntry* entry, Addr addr, Time time, int level) {
+	assert(entry != NULL);
+	if (entry->table == NULL) {
+		eventTimeTableNewAlloc(level);
+
+	} else {
+		eventTimeTableRealloc(level);
+		TimeTableFree(entry->table);
+	}
+	entry->table = TimeTableAlloc();
+	TimeTableSet(entry->table, addr, time);	
+}
+
+void SegEntrySetTimeNoAllocate(SegEntry* entry, Addr addr, Time time, int level) {
+	assert(entry != NULL);
+	if (entry->table == NULL) {
+		eventTimeTableNewAlloc(level);
+		entry->table = TimeTableAlloc();
+	}
+	TimeTableSet(entry->table, addr, time);	
+}
+
+Time SegEntryGetTime(SegEntry* entry, Addr addr) {
+	assert(entry != NULL);
+
+	if (entry->table == NULL) {
+		return 0ULL;
+	} else {
+		return TimeTableGet(entry->table, addr);
+	}
+#if 0
 	// determine if this is type 0 (no version) or type 1 (with version)
 	if (getTimeTableType(entry) == TYPE_NOVERSION) {
-		if (entry->table == NULL || entry->version != version) {
-			return 0ULL;
-
-		} else {
-			return TimeTableGet(entry->table, addr);	
-		}
+		return TimeTableGet(entry->table, addr);	
 			
 	} else {
-		if (entry->table == NULL) {
-			return 0ULL;
-		}
-
+		return 0ULL;
+	
 		Version oldVersion = (Version)TimeTableGet(entry->vTable, addr);
 		MSG(0, "\t\t version = [%d, %d]\n", oldVersion, version);
 		if (oldVersion != version)
@@ -458,6 +487,7 @@ Time SegTableGetTime(SegTable* segTable, Addr addr, Version version) {
 		else
 			return TimeTableGet(entry->table, addr);
 	}
+#endif
 }
 
 /*
@@ -560,7 +590,7 @@ ITable* STableGetITable(Addr addr) {
 	}
 
 	// not found - create an entry
-	MSG(0, "STable Creating a new Entry..\n");
+	//MSG(0, "STable Creating a new Entry..\n");
 	stat.nSTableEntry++;
 
 	ITable* ret = ITableAlloc();
@@ -570,92 +600,42 @@ ITable* STableGetITable(Addr addr) {
 	return ret;
 }
 
-Time MShadowGetTime(Addr addr, Index index, Version version) {
-	ITable* iTable = STableGetITable(addr);
-	assert(iTable != NULL);
-	SegTable* segTable = ITableGetSegTable(iTable, index);
-	assert(segTable != NULL);
-	//TimeTable* tTable = SegTableGetTimeTable(segTable, addr, version);
-	//assert(tTable != NULL);
-	//return TimeTableGet(tTable, addr);	
-	MSG(0, "\tMShadowGetTime at 0x%llx index %d, version %d \n", 
-		addr, index, version);
-	Time ret = SegTableGetTime(segTable, addr, version);
-	MSG(0, "\tMShadowGetTime at 0x%llx index %d, version %d = %llu\n", 
-		addr, index, version, ret);
+SEntry* STableGetSEntry(Addr addr) {
+	UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
+
+	// walk-through STable
+	int i;
+	for (i=0; i<sTable.writePtr; i++) {
+		if (sTable.entry[i].addrHigh == highAddr) {
+			//MSG(0, "STable Found an existing entry..\n");
+			return &sTable.entry[i];	
+		}
+	}
+
+	// not found - create an entry
+	MSG(0, "STable Creating a new Entry..\n");
+	stat.nSTableEntry++;
+
+	SEntry* ret = &sTable.entry[sTable.writePtr];
+	ITable* iTable = ITableAlloc();
+	ret->addrHigh = highAddr;
+	ret->iTable = iTable;
+	sTable.writePtr++;
 	return ret;
+
 }
-
-void MShadowSetTime(Addr addr, Index index, Version version, Time time) {
-	MSG(0, "MShadowSetTime index %d version %d time %d\n", index, version, time);
-	ITable* iTable = STableGetITable(addr);
-	assert(iTable != NULL);
-	SegTable* segTable = ITableGetSegTable(iTable, index);
-	assert(segTable != NULL);
-	SegTableSetTime(segTable, addr, version, time);
-}
-
-#if 0
-void MShadowSetFromCache(Addr addr, Index size, Version* vArray, Time* tArray) {
-	Index i;
-	MSG(0, "MShadowSetFromCache 0x%llx, size %d vArray = 0x%llx tArray = 0x%llx\n", addr, size, vArray, tArray);
-	assert(vArray != NULL);
-	assert(tArray != NULL);
-	for (i=0; i<size; i++)
-		MShadowSetTime(addr, i, vArray[i], tArray[i]);
-}
-#endif
-
-
-#if 0
-static Time array[128];
-Time* MShadowGet(Addr addr, Index size, Version* vArray) {
-	Index i;
-	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
-	for (i=0; i<size; i++)
-		array[i] = MShadowGetTime(addr, i, vArray[i]);
-	return array;
-}
-
-void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
-	MShadowSetFromCache(addr, size, vArray, tArray);
-}
-#endif
-
-#if 0
-Timestamp MShadowGet(Addr addr, Index index, Version version) {	
-#if 1
-	TEntry* entry = GTableGetTEntry(gTable, addr);
-	Timestamp ts = TEntryGet(entry, index, version);
-	return ts;
-#endif
-	//return 0;
-}
-
-void MShadowSet(Addr addr, Index index, Version version, Time time) {
-#if 1
-	TEntry* entry = GTableGetTEntry(gTable, addr);
-	TEntryUpdate(entry, index, version, time);
-#endif
-}
-#endif
-
-
-
-
-// forward declarations
-void MShadowSetFromCache(Addr addr, Index size, Version* vArray, Time* tArray);
 
 
 typedef struct _L1Entry {
 	UInt64 tag;  
+	Version version;
+	int lastSize;
 	UInt32 status;	
 
 } L1Entry;
 
 static L1Entry* tagTable;
 static Table* valueTable;
-static Table* versionTable;
 static int lineNum;
 static int lineShift;
 static int lineMask;
@@ -681,34 +661,11 @@ static inline void clearDirty(L1Entry* entry) {
 	entry->status &= ~STATUS_DIRTY;
 }
 
-
-
-
-
-static inline UInt64 getTag(Addr addr) {
-	int nShift = WORD_SHIFT + lineShift;
-	UInt64 mask = ~((1 << nShift) - 1);
-	return (UInt64)addr & mask;
-}
-
-static inline void setTag(L1Entry* entry, Addr addr) {
-	entry->tag = getTag(addr);
-}
-
 static inline Time* getTimeAddr(int row, int index) {
 	return TableGetElementAddr(valueTable, row, index);
 }
 
-static inline Version* getVersionAddr(int row, int index) {
-	return TableGetElementAddr(versionTable, row, index);
-}
 
-static inline Version getVersion(int row, int index) {
-	return *TableGetElementAddr(versionTable, row, index);
-}
-
-
-//static inline int getLineIndex(Addr addr) {
 static int getLineIndex(Addr addr) {
 	int nShift = WORD_SHIFT;
 	int ret = (((UInt64)addr) >> nShift) & lineMask;
@@ -716,16 +673,11 @@ static int getLineIndex(Addr addr) {
 	return ret;
 }
 
-static inline Bool matchVersion(Addr addr, Index index, Version version) {
-	int row = getLineIndex(addr);
-	return getVersion(row, index) == version;
-}
-
 static inline Bool isHit(L1Entry* entry, Addr addr) {
-	MSG(0, "isHit addr = 0x%llx, tag = 0x%llx, entry tag = 0x%llx\n",
-		addr, getTag(addr), entry->tag);
+	MSG(3, "isHit addr = 0x%llx, tag = 0x%llx, entry tag = 0x%llx\n",
+		addr, entry->tag, entry->tag);
 
-	return isValid(entry) && (entry->tag == getTag(addr));
+	return isValid(entry) && (entry->tag == addr);
 }
 
 static inline L1Entry* getEntry(int index) {
@@ -763,9 +715,8 @@ void MShadowCacheInit(int cacheSizeMB) {
 		tagTable[i].tag = 0x0;
 	}
 	valueTable = TableCreate(lineNum, INIT_LEVEL);
-	versionTable = TableCreate(lineNum, INIT_LEVEL);
 
-	MSG(0, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
+	MSG(3, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
 		lineNum, INIT_LEVEL, valueTable->array);
 }
 
@@ -776,66 +727,161 @@ void MShadowCacheDeinit() {
 	//printStat();
 	free(tagTable);
 	TableFree(valueTable);
-	TableFree(versionTable);
 }
 
-L1Entry* MShadowCacheEvict(Addr addr, int row, int size, Version* vArray) {
-	MSG(0, "MShadowCacheEvict 0x%llx, row=%d size=%d vArray = 0x%llx\n", 
-		addr, row, size, vArray);
+static inline Bool isValidVersion(Version prev, Version current) {
+	if (current <= prev)
+		return TRUE;
+	else
+		return FALSE;
+}
 
-	L1Entry* entry = getEntry(row);
-	assert(isDirty(entry));
+#define MIN(a, b) ((a) < (b))? a : b
 
-	int i;
+L1Entry* MShadowEvict(L1Entry* cacheEntry, Addr addr, int size, Version* vArray) {
+	MSG(0, "\tMShadowEvict 0x%llx, size=%d \n", 
+		addr, size);
+
+	int row = getLineIndex(addr);
 	Time* tArray = getTimeAddr(row, 0);
-	for (i=0; i<size; i++) {
-		if (matchVersion(addr, i, vArray[i])) {
-			// version is up to date, write to MShadow
-			MShadowSetTime(addr, i, vArray[i], tArray[i]);
+	assert(isDirty(cacheEntry));
+
+	SEntry* sEntry = STableGetSEntry(addr);
+	ITable* iTable = sEntry->iTable;
+	assert(iTable != NULL);
+
+	int segIndex = SegTableGetIndex(addr);
+	
+	int index;
+	int startInvalid = size - 1;
+	int debug = 0;
+	for (index=0; index<size; index++) {
+		if (isValidVersion(cacheEntry->version, vArray[index])) {
+			// evict if the version in cache line is valid
+			SegTable* segTable = ITableGetSegTable(iTable, index);
+			eventEvict(segTable->level);
+			SegEntry* segEntry = &(segTable->entry[segIndex]);
+			Version mshadowVersion = segEntry->version;
+
+			// reallocation required?
+			if (isValidVersion(mshadowVersion, vArray[index])) {
+				SegEntrySetTimeNoAllocate(segEntry, addr, tArray[index], segTable->level); 
+
+			} else {
+				// reallocate table
+				SegEntrySetTimeAllocate(segEntry, addr, tArray[index], segTable->level); 
+			}
+			segEntry->version = vArray[size-1];
+				
 		} else {
 			// once the version number is out-of-date,
 			// no need to check upper levels
+			startInvalid = index;
 			break;
 		}
 	}
-	eventCacheEvict(size, i);
-	
-	return entry;
+
+				if (debug) 
+					fprintf(stderr, "\n");
+	eventCacheEvict(size, index);
+	return cacheEntry;
 }
 
-void MShadowFetchLine(L1Entry* entry, Addr addr, Index size, Version* vArray) {
+void MShadowFetch(L1Entry* entry, Addr addr, Index size, Version* vArray, Time* destAddr) {
+	MSG(0, "\tMShadowFetch 0x%llx, size %d \n", addr, size);
+
+	SEntry* sEntry = STableGetSEntry(addr);
+	ITable* iTable = sEntry->iTable;
+	assert(iTable != NULL);
+	int segIndex = SegTableGetIndex(addr);
+
+	clearDirty(entry);
 	int index;
-	int row = getLineIndex(addr);
-
-	// copy version
-	Version* versionAddr = (Version*) getVersionAddr(row, 0);
-	memcpy(versionAddr, vArray, sizeof(Version) * size);
-
-	// bring MShadow data
-	Time* destAddr = getTimeAddr(row, 0);
+	int startInvalid = -1;
 	for (index=0; index<size; index++) {
-		*(destAddr + index) = MShadowGetTime(addr, index, vArray[index]);
+		SegTable* segTable = ITableGetSegTable(iTable, index);
+		SegEntry* segEntry = &(segTable->entry[segIndex]);
+		Version version = segEntry->version;
+
+		if (isValidVersion(version, vArray[index])) {
+			Time time = SegEntryGetTime(segEntry, addr);
+			destAddr[index] = time;
+
+		} else {
+			if (startInvalid == -1)
+				startInvalid = index;
+			destAddr[index] = 0ULL;
+			setDirty(entry);
+			//break;
+		}
 	}
 
-	entry->tag = getTag(addr);
+#if 0
+	for (index=1; index<size; index++) {
+		if (destAddr[index] > destAddr[index-1]) {
+			fprintf(stderr, "\naddr = 0x%x, size = %d, version = %d, startInvalid = %d\n", 
+				addr, size, version, startInvalid);
+
+			int i;
+			for (i=0; i<=index; i++) {
+				fprintf(stderr, "level [%d]: value = %lld, version = %lld\n", 
+					i, destAddr[i], vArray[i]);	
+			}
+			assert(0);
+		}
+	}
+#endif
+
+	entry->tag = addr;
+	entry->version = vArray[size-1];
+	entry->lastSize = size;
 	setValid(entry);
-	clearDirty(entry);
 }
 
 
 
 static Time tempArray[1000];
 Time* MShadowGetNoCache(Addr addr, Index size, Version* vArray) {
+	SEntry* sEntry = STableGetSEntry(addr);
+	ITable* iTable = sEntry->iTable;
+	int segIndex = SegTableGetIndex(addr);
+
 	Index i;
-	for (i=0; i<size; i++)
-		tempArray[i] = MShadowGetTime(addr, i, vArray[i]);
+	for (i=0; i<size; i++) {
+		SegTable* segTable = ITableGetSegTable(iTable, i);
+		SegEntry* segEntry = &(segTable->entry[segIndex]);
+		Version version = segEntry->version;
+
+		if (version < vArray[i]) {
+			Time time = SegEntryGetTime(segEntry, addr);
+			tempArray[i] = time;
+		} else {
+			tempArray[i] = 0ULL;
+		}
+	}
+
 	return tempArray;	
 }
 
 void MShadowSetNoCache(Addr addr, Index size, Version* vArray, Time* tArray) {
+	SEntry* sEntry = STableGetSEntry(addr);
+	ITable* iTable = sEntry->iTable;
+	int segIndex = SegTableGetIndex(addr);
 	Index i;
-	for (i=0; i<size; i++)
-		MShadowSetTime(addr, i, vArray[i], tArray[i]);
+	for (i=0; i<size; i++) {
+		SegTable* segTable = ITableGetSegTable(iTable, i);
+		SegEntry* segEntry = &(segTable->entry[segIndex]);
+		Version version = segEntry->version;
+		// version is up to date, write to MShadow
+		// reallocation required?
+		if (version < vArray[i]) {
+			// reallocate table
+			SegEntrySetTimeAllocate(segEntry, addr, tArray[i], segTable->level); 
+		} else {
+			SegEntrySetTimeNoAllocate(segEntry, addr, tArray[i], segTable->level); 
+		}
+		segEntry->version = vArray[size-1];
+	}
 }
 
 #ifdef DUMMY_SHADOW
@@ -849,68 +895,71 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
 #else
 
 Time* MShadowGet(Addr addr, Index size, Version* vArray) {
-	MSG(0, "MShadowGet 0x%llx, size %d vArray = 0x%llx \n", addr, size, vArray);
+	MSG(0, "MShadowGet 0x%llx, size %d \n", addr, size);
 	if (bypassCache == 1) {
 		return MShadowGetNoCache(addr, size, vArray);
 	}
 
 	eventRead();
 	int row = getLineIndex(addr);
-
-
-	L1Entry* entry = getEntry(row);
 	Time* destAddr = getTimeAddr(row, 0);
+	L1Entry* entry = getEntry(row);
+
 	if (isHit(entry, addr)) {
 		eventReadHit();
-		MSG(0, "\t cache hit at 0x%llx \n", destAddr);
-		MSG(0, "\t value0 %d value1 %d \n", destAddr[0], destAddr[1]);
+		MSG(3, "\t cache hit at 0x%llx \n", destAddr);
+		MSG(3, "\t value0 %d value1 %d \n", destAddr[0], destAddr[1]);
 		
 	} else {
 		// Unfortunately, this access results in a miss
 		// 1. evict a line	
 		if (isDirty(entry)) {
-			MSG(0, "\t eviction required \n", destAddr);
+			MSG(3, "\t eviction required \n", destAddr);
 			eventReadEvict();
-			MShadowCacheEvict(addr, row, size, vArray);
+			//Addr evictAddr = getAddrFromTag(entry->tag, row);
+			MShadowEvict(entry, entry->tag, entry->lastSize, vArray);
 		}
 
 		// 2. read line from MShadow to the evicted line
-		MSG(0, "\t write values to cache \n", destAddr);
-		MShadowFetchLine(entry, addr, size, vArray);
+		MSG(3, "\t write values to cache \n", destAddr);
+		MShadowFetch(entry, addr, size, vArray, destAddr);
+		return destAddr;
 	}
 
 	// check versions and if outdated, set to 0
-	MSG(0, "\t checking versions \n", destAddr);
-	Version* vAddr = (Version*) getVersionAddr(row, 0);
+	MSG(3, "\t checking versions \n", destAddr);
+	Version version = entry->version;
 
 	int i;
 	for (i=size-1; i>=0; i--) {
-		if (vAddr[i] ==  vArray[i]) {
-			// no need to check next iterations
-			break;
+		if (entry->lastSize <= i || 
+			!isValidVersion(version, vArray[i])) {
+			destAddr[i] = 0ULL;
+			setDirty(entry);
 
 		} else {
-			// update version number 	
-			// and set timestamp to zero
-			vAddr[i] = vArray[i];
-			destAddr[i] = 0ULL;
-		}
-	}
+			// if version is larger, the level is still valid
+			break;
 
+		} 	
+	}
+	entry->version = vArray[size-1];
+	entry->lastSize = size;
 	return destAddr;
 }
 
 void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
-	MSG(0, "MShadowSet 0x%llx, size %d vArray = 0x%llx tArray = 0x%llx\n", addr, size, vArray, tArray);
+	MSG(0, "MShadowSet 0x%llx, size %d \n",
+		addr, size);
+	
+	eventWrite();
 	if (bypassCache == 1) {
 		MShadowSetNoCache(addr, size, vArray, tArray);
 		return;
 	}
+
 	int row = getLineIndex(addr);
-	eventWrite();
-
 	L1Entry* entry = getEntry(row);
-
 	assert(row < lineNum);
 
 	if (isHit(entry, addr)) {
@@ -918,28 +967,20 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
 
 	} else {
 		if (isDirty(entry)) {
-			MSG(0, "\t eviction required\n", row, 0);
 			eventWriteEvict();
-			MShadowCacheEvict(addr, row, size, vArray);
+			MShadowEvict(entry, entry->tag, entry->lastSize, vArray);
 		}
 	} 		
 
 	// copy Timestamps
 	Time* destAddr = getTimeAddr(row, 0);
 	memcpy(destAddr, tArray, sizeof(Time) * size);
-
-	// copy Versions
-	Version* versionAddr = (Version*) getVersionAddr(row, 0);
-	int i;
-	for (i=size-1; i>=0; i--) {
-		if (versionAddr[i] == vArray[i])
-			break;
-		else
-			versionAddr[i] = vArray[i];
-	}
 	setValid(entry);
 	setDirty(entry);
-	entry->tag = getTag(addr);
+	//entry->tag = getTag(addr);
+	entry->tag = addr;
+	entry->version = vArray[size-1];
+	entry->lastSize = size;
 }
 #endif
 

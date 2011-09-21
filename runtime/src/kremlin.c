@@ -180,6 +180,7 @@ static inline void addStore() {
 static int arraySize = 512;
 static Version* vArray;
 static Time* tArray;
+static Version nextVersion = 0;
 
 static void RegionInitVersion() {
 	vArray = (Version*) calloc(sizeof(Version), arraySize); 
@@ -199,7 +200,7 @@ static inline Version* RegionGetVArray(Level level) {
 }
 
 static inline void RegionIssueVersion(Level level) {
-	vArray[level]++;	
+	vArray[level] = nextVersion++;	
 }
 
 static inline Version RegionGetVersion(Level level) {
@@ -315,7 +316,7 @@ static void RegionPushFunc(CID cid) {
 	funcContext->ret = DUMMY_RET;
 	funcContext->code = 0xDEADBEEF;
 
-    MSG(0, "RegionPushFunc at 0x%x CID 0x%x\n", funcContext, cid);
+    MSG(3, "RegionPushFunc at 0x%x CID 0x%x\n", funcContext, cid);
 	//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
 }
 
@@ -325,7 +326,7 @@ static void RegionPushFunc(CID cid) {
 static void RegionPopFunc() {
     FuncContext* func = FuncContextsPopVal(funcContexts);
     assert(func);
-    MSG(0, "RegionPopFunc at 0x%x CID 0x%x\n", func, func->callSiteId);
+    MSG(3, "RegionPopFunc at 0x%x CID 0x%x\n", func, func->callSiteId);
 
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
@@ -446,7 +447,7 @@ static void RegionInit(int size) {
     regionInfo = (Region*) malloc(sizeof(Region) * size);
 	regionSize = size;
 	assert(regionInfo != NULL);
-	MSG(0, "RegionInit at 0x%x\n", regionInfo);
+	MSG(3, "RegionInit at 0x%x\n", regionInfo);
 
 	int i;
 	for (i=0; i<size; i++) {
@@ -464,7 +465,7 @@ static void RegionRealloc() {
 	Region* oldRegionInfo = regionInfo;
 	regionSize *= 2;
 	fprintf(stderr, "Region Realloc..new size = %d\n", regionSize);
-	MSG(0, "RegionRealloc from %d to %d\n", oldRegionSize, regionSize);
+	MSG(3, "RegionRealloc from %d to %d\n", oldRegionSize, regionSize);
 	regionInfo = (Region*) realloc(regionInfo, sizeof(Region) * RegionSize());
 	
 	int i;
@@ -510,17 +511,19 @@ static inline void checkTimestamp(Region* region, Timestamp value) {
 static inline void RegionUpdateCp(Region* region, Timestamp value) {
 	region->cp = MAX(value, region->cp);
 	assert(region->code == 0xDEADBEEF);
+#ifndef NDEBUG
 	//assert(value <= getTimetick() - region->start);
 	if (value > getTimetick() - region->start) {
 		fprintf(stderr, "value = %lld, getTimetick() = %lld, region start = %lld\n", 
 		value, getTimetick(), region->start);
 		assert(0);
 	}
+#endif
 }
 
 
 void checkRegion() {
-#if 1
+#ifndef NDEBUG
 	int i;
 	int bug = 0;
 	for (i=0; i<RegionSize(); i++) {
@@ -575,7 +578,7 @@ inline void CDepDeinit() {
 
 inline void CDepInitRegion(Index index) {
 	assert(cTable != NULL);
-	MSG(0, "CDepInitRegion ReadPtr = %d, Index = %d\n", cTableReadPtr, index);
+	MSG(3, "CDepInitRegion ReadPtr = %d, Index = %d\n", cTableReadPtr, index);
 	TableSetValue(cTable, 0ULL, cTableReadPtr, index);
 	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
 }
@@ -679,7 +682,7 @@ void linkArgToConst() {
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
 void transferAndUnlinkArg(Reg dest) {
-    MSG(0, "transfer arg data to ts[%u] \n", dest);
+    MSG(3, "transfer arg data to ts[%u] \n", dest);
     if (!isKremlinOn())
         return;
 
@@ -696,7 +699,7 @@ void transferAndUnlinkArg(Reg dest) {
 		assert(getCurrentLevel() >= 1);
 		TableCopy(calleeT, dest, callerT, src, 0, indexSize);
 	}
-    MSG(0, "\n", dest);
+    MSG(3, "\n", dest);
 }
 
 
@@ -929,7 +932,7 @@ void logRegionExit(SID regionId, RegionType regionType) {
         assert(0);
     }
 
-	if (level < getMaxLevel() && sp < 1.0) {
+	if (level < getMaxLevel() && sp < 0.999) {
 		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu childrenCP=%lld\n", sid, work,
 			region->childrenWork, region->childrenCP);
 		assert(0);
@@ -964,7 +967,7 @@ void logRegionExit(SID regionId, RegionType regionType) {
 
 
 void* logReductionVar(UInt opCost, Reg dest) {
-    MSG(1, "logReductionVar ts[%u] with cost = %d\n", dest, opCost);
+    MSG(3, "logReductionVar ts[%u] with cost = %d\n", dest, opCost);
     if (!isKremlinOn() || !isInstrumentable())
 		return;
 
@@ -973,7 +976,7 @@ void* logReductionVar(UInt opCost, Reg dest) {
 }
 
 void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
-    MSG(1, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
+    MSG(3, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
     if (!isKremlinOn())
         return NULL;
 
@@ -1003,11 +1006,11 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
         Time value = greater1 + opCost;
 		RShadowSetItem(value, dest, index);
 
-        MSG(0, "binOp[%u] level %u version %u \n", opCost, i, RegionGetVersion(i));
-        MSG(0, " src0 %u src1 %u dest %u\n", src0, src1, dest);
-        MSG(0, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
-		checkTimestamp(region, ts0);
-		checkTimestamp(region, ts1);
+        MSG(3, "binOp[%u] level %u version %u \n", opCost, i, RegionGetVersion(i));
+        MSG(3, " src0 %u src1 %u dest %u\n", src0, src1, dest);
+        MSG(3, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
+		//checkTimestamp(region, ts0);
+		//checkTimestamp(region, ts1);
 		// region info is level based
         RegionUpdateCp(region, value);
     }
@@ -1078,9 +1081,9 @@ void* logAssignmentConst(UInt dest) {
     return NULL;
 }
 
-void* logLoadInst(Addr addr, Reg dest) {
-	checkRegion();
+void* logLoadInst(Addr addr, Reg dest, UInt32 size) {
     MSG(0, "load ts[%u] = ts[0x%x] + %u\n", dest, addr, LOAD_COST);
+	checkRegion();
     if (!isKremlinOn())
     	return NULL;
 
@@ -1091,7 +1094,7 @@ void* logLoadInst(Addr addr, Reg dest) {
 	Index index;
 	Index depth = getIndexDepth();
 	Level minLevel = getLevel(0);
-	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel));
+	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel), size);
 
     for (index = 0; index < depth; index++) {
 		Level i = getLevel(index);
@@ -1102,20 +1105,16 @@ void* logLoadInst(Addr addr, Reg dest) {
         Time greater1 = (cdt > ts0) ? cdt : ts0;
         Time value = greater1 + LOAD_COST;
 
-        MSG(0, "logLoadInst level %u version %u \n", i, RegionGetVersion(i));
-        MSG(0, " addr 0x%x dest %u\n", addr, dest);
-        MSG(0, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
+        MSG(3, "logLoadInst level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " addr 0x%x dest %u\n", addr, dest);
+        MSG(3, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
 		checkTimestamp(region, ts0);
-#ifdef EXTRA_STATS
-        region->loadCnt++;
-        //updateReadMemoryAccess(entry0, i, RegionGetVersion(i), value);
-#endif
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
     }
 
 	decIndentTab();
-    MSG(0, "load ts[%u] over\n\n");
+    MSG(3, "load ts[%u] over\n\n");
     //return entryDest;
     return NULL;
 #else
@@ -1123,7 +1122,7 @@ void* logLoadInst(Addr addr, Reg dest) {
 #endif
 }
 
-void* logLoadInst1Src(Addr addr, UInt src1, UInt dest) {
+void* logLoadInst1Src(Addr addr, UInt src1, UInt dest, UInt32 size) {
     MSG(0, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
     if (!isKremlinOn())
 		return NULL;
@@ -1134,7 +1133,7 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest) {
     Level minLevel = getStartLevel();
 
 	Index index;
-	Time* tArray = MShadowGet(addr, getIndexDepth(), RegionGetVArray(minLevel));
+	Time* tArray = MShadowGet(addr, getIndexDepth(), RegionGetVArray(minLevel), size);
 
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
@@ -1147,9 +1146,10 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest) {
         Time max2 = (max1 > tsSrc1) ? max1 : tsSrc1;
 		Time value = max2 + LOAD_COST;
 
-        MSG(0, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
-        MSG(0, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
-        MSG(0, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
+        MSG(3, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
+        MSG(3, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
+		checkTimestamp(region, tsAddr);
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
 
@@ -1163,12 +1163,14 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest) {
 }
 
 // TODO: implement these
+#if 0
 void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest) { return logLoadInst(src_addr,dest); }
 void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest) { return logLoadInst(src_addr,dest); }
 void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest) { return logLoadInst(src_addr,dest); }
+#endif
 
 
-void* logStoreInst(UInt src, Addr dest_addr) {
+void* logStoreInst(UInt src, Addr dest_addr, UInt32 size) {
     MSG(0, "store ts[0x%x] = ts[%u] + %u\n", dest_addr, src, STORE_COST);
     if (!isKremlinOn())
     	return NULL;
@@ -1195,14 +1197,14 @@ void* logStoreInst(UInt src, Addr dest_addr) {
     }
 
 	Level minLevel = getLevel(0);
-	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray);
+	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
 #endif
     //return entryDest;
     return NULL;
 }
 
 
-void* logStoreInstConst(Addr dest_addr) {
+void* logStoreInstConst(Addr dest_addr, UInt32 size) {
     MSG(0, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
     if (!isKremlinOn())
         return NULL;
@@ -1210,12 +1212,6 @@ void* logStoreInstConst(Addr dest_addr) {
     addWork(STORE_COST);
 
 #ifndef WORK_ONLY
-
-#ifdef EXTRA_STATS
-    //TEntry* entryLine = getGTEntryCacheLine(dest_addr);
-#endif
-    
-    //fprintf(stderr, "\nstoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
 	Index index;
 	Time* tArray = RegionGetTArray();
 
@@ -1226,14 +1222,10 @@ void* logStoreInstConst(Addr dest_addr) {
 		Time cdt = CDepGet(index);
         Time value = cdt + STORE_COST;
 		tArray[index] = value;
-#ifdef EXTRA_STATS
-        //updateWriteMemoryAccess(entryDest, i, version, value);
-        //updateWriteMemoryLineAccess(entryLine, i, version, value);
-#endif
 		RegionUpdateCp(region, value);
     }
 	Level minLevel = getLevel(0);
-	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray);
+	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
 #endif
     return NULL;
 }
