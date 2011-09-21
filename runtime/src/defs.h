@@ -74,13 +74,13 @@ void* logAssignmentConst(UInt dest);
 void* logInsertValue(UInt src, UInt dest); 
 void* logInsertValueConst(UInt dest); 
 
-void* logLoadInst(Addr src_addr, UInt dest); 
-void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest);
-void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest);
-void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest);
-void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest);
-void* logStoreInst(UInt src, Addr dest_addr); 
-void* logStoreInstConst(Addr dest_addr); 
+void* logLoadInst(Addr src_addr, UInt dest, UInt32 size); 
+void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest, UInt32 size);
+void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 size);
+void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 size);
+void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 size);
+void* logStoreInst(UInt src, Addr dest_addr, UInt32 size); 
+void* logStoreInstConst(Addr dest_addr, UInt32 size); 
 
 void logMalloc(Addr addr, size_t size, UInt dest);
 void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest);
