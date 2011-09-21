@@ -125,6 +125,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	// funcs with args other than just Int32Ty
 	args.push_back(types.i32()); 
 	args.push_back(types.pi8()); // void*
+	args.push_back(types.i32());
 	FunctionType* uint_pvoid = FunctionType::get(types.voidTy(), args, false);
 
 	addFunc("logStoreInst", uint_pvoid);
@@ -133,8 +134,8 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	args.push_back(types.pi8()); // void*
 	FunctionType* pvoid = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logStoreInstConst", pvoid);
 	args.push_back(types.i32());
+	addFunc("logStoreInstConst", pvoid);
 	args.clear();
 
 	args.push_back(types.pi8()); // void*
