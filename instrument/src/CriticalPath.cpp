@@ -1265,6 +1265,46 @@ namespace {
 			return temp;
 		}
 
+		unsigned getTypeSizeInBytes(Value* val) {
+			//LOG_DEBUG() << "getting type of: " << *val << "\n";
+			const Type* ty = val->getType();
+
+			unsigned type_size = 4; // default to 4 bytes (32 bit)
+			
+			if(ty->isIntegerTy()) {
+				//LOG_DEBUG() << "type is int\n";
+				const IntegerType* ity = cast<IntegerType>(ty);
+
+				unsigned bitwidth = ity->getBitWidth();
+				//LOG_DEBUG() << "bit width = " << bitwidth << "\n";
+				type_size = bitwidth / 8;
+
+				if(bitwidth % 8 != 0) {
+					LOG_WARN() << "non-standard integer width: " << bitwidth << "\n";
+					type_size++; // round up the nearest byte
+				}
+			}
+			else if(ty->isFloatTy()) { 
+				//LOG_DEBUG() << "type is float\n";
+				type_size = 4;
+			}
+			else if(ty->isDoubleTy()) { 
+				//LOG_DEBUG() << "type is double\n";
+				type_size = 8;
+			}
+			else if(ty->isPointerTy()) {
+				//LOG_DEBUG() << "type is pointer\n";
+				type_size = 8; 
+			}
+			else {
+				LOG_DEBUG() << "unknown type: " << *val << "\n";
+			}
+
+			//LOG_DEBUG() << "size of type is: " << type_size << "\n";
+
+			return type_size;
+		}
+
 
 		void instrumentNonPHIInsts(BasicBlock* blk, std::set<PHINode*>& canon_indvs, std::set<Instruction*> canon_incs, std::set<Instruction*> red_var_ops, std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& inst_calls_begin, InstrumentationCalls& inst_calls_end) {
 			LLVMTypes types(blk->getContext());
@@ -1570,6 +1610,9 @@ namespace {
 								args.push_back(CastInst::CreatePointerCast(ci->getArgOperand(idx),types.pi8(),"fscanf_arg_recast",blk->getTerminator()));
 							}
 
+							// TODO: figure out what to actually do here...
+							args.push_back(ConstantInt::get(types.i32(),4));
+
 							inst_calls_end.addCallInst(i,"logStoreInstConst",args);
 							args.clear();
 						}
@@ -1680,6 +1723,10 @@ namespace {
 					// the dest is already in ptr form so we simply use that
 					args.push_back(CastInst::CreatePointerCast(si->getPointerOperand(),types.pi8(),"inst_arg_ptr",blk->getTerminator())); // dest addr
 
+					unsigned width = getTypeSizeInBytes(si->getValueOperand());
+					args.push_back(ConstantInt::get(types.i32(),width)); // size
+
+
 					if(isa<Constant>(si->getOperand(0))) {
 						inst_calls_end.addCallInst(i,"logStoreInstConst",args);
 					}
@@ -1747,6 +1794,10 @@ namespace {
 						default:
 							assert(0 && "Cannot handle more than 4 deps for load insts for now");
 					}
+
+					// add in the size of the access
+					unsigned width = getTypeSizeInBytes(li);
+					args.push_back(ConstantInt::get(types.i32(),width));
 
 					inst_calls_end.addCallInst(i,inst_op_name,args);
 

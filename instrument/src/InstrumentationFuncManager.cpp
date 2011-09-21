@@ -134,6 +134,10 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	FunctionType* pvoid = FunctionType::get(types.voidTy(), args, false);
 
 	addFunc("logStoreInstConst", pvoid);
+	args.push_back(types.i32());
+	args.clear();
+
+	args.push_back(types.pi8()); // void*
 
 	// Look before declaration of free before adding logFree (if it doesn't exist, we shouldn't bother with it)
 	if(Function* f = module.getFunction("free")) 
@@ -141,6 +145,8 @@ void InstrumentationFuncManager::initializeDefaultValues()
 		LOG_DEBUG() << "adding free because we located this function: " << *f;
 		addFunc("logFree", pvoid);
 	}
+
+	args.push_back(types.i32()); 
 
 	args.push_back(types.i32()); 
 	FunctionType* pvoid_uint = FunctionType::get(types.voidTy(), args, false);
