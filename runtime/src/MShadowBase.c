@@ -360,7 +360,7 @@ UInt MShadowDeinit() {
 	MemAllocDeinit();
 }
 
-Time* MShadowGet(Addr addr, Index size, Version* vArray) {
+Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
 	SegEntry* segEntry = NULL;
 #ifdef USE_CACHE
@@ -374,7 +374,7 @@ Time* MShadowGet(Addr addr, Index size, Version* vArray) {
 	return SegTableGetTime(segEntry, addr, size, vArray);
 }
 
-void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
+void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	SegEntry* segEntry = NULL;
 #ifdef USE_CACHE
 	L1Entry* entry = getEntry(addr);

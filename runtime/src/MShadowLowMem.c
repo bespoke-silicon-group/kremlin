@@ -886,7 +886,7 @@ void MShadowSetNoCache(Addr addr, Index size, Version* vArray, Time* tArray) {
 
 #ifdef DUMMY_SHADOW
 
-Time* MShadowGet(Addr addr, Index size, Version* vArray) {
+Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	return tempArray;
 }
 
@@ -894,7 +894,7 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
 }
 #else
 
-Time* MShadowGet(Addr addr, Index size, Version* vArray) {
+Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d \n", addr, size);
 	if (bypassCache == 1) {
 		return MShadowGetNoCache(addr, size, vArray);
@@ -948,7 +948,7 @@ Time* MShadowGet(Addr addr, Index size, Version* vArray) {
 	return destAddr;
 }
 
-void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray) {
+void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(0, "MShadowSet 0x%llx, size %d \n",
 		addr, size);
 	
