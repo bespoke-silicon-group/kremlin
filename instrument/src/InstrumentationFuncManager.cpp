@@ -132,9 +132,9 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 	args.clear();
 	args.push_back(types.pi8()); // void*
+	args.push_back(types.i32());
 	FunctionType* pvoid = FunctionType::get(types.voidTy(), args, false);
 
-	args.push_back(types.i32());
 	addFunc("logStoreInstConst", pvoid);
 	args.clear();
 
