@@ -1083,6 +1083,7 @@ void* logAssignmentConst(UInt dest) {
 
 void* logLoadInst(Addr addr, Reg dest, UInt32 size) {
     MSG(0, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
+	assert(size <= 8);
 	checkRegion();
     if (!isKremlinOn())
     	return NULL;
@@ -1163,14 +1164,13 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest, UInt32 size) {
 }
 
 // TODO: implement these
-#if 0
-void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest) { return logLoadInst(src_addr,dest); }
-void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest) { return logLoadInst(src_addr,dest); }
-void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest) { return logLoadInst(src_addr,dest); }
-#endif
+void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
+void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
+void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
 
 
 void* logStoreInst(UInt src, Addr dest_addr, UInt32 size) {
+	assert(size <= 8);
     MSG(0, "store size %d ts[0x%x] = ts[%u] + %u\n", size, dest_addr, src, STORE_COST);
     if (!isKremlinOn())
     	return NULL;

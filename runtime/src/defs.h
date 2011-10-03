@@ -1,8 +1,14 @@
 #ifndef _DEFS_H
 #define _DEFS_H
-#define NDEBUG
+//#define NDEBUG
 //#define KREMLIN_DEBUG
-//#define USE_MSHADOW_BASE
+
+
+#define MSHADOW_BASE	0
+#define MSHADOW_STV		1
+#define MSHADOW_CACHE	2
+
+#define TYPE_MSHADOW MSHADOW_BASE
 
 #include <assert.h>
 #include <limits.h>

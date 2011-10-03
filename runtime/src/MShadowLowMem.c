@@ -1,7 +1,7 @@
 #include "defs.h"
 
 //#define DUMMY_SHADOW
-#ifndef USE_MSHADOW_BASE
+#if TYPE_MSHADOW == MSHADOW_CACHE
 
 #include <assert.h>
 #include <limits.h>
@@ -86,6 +86,7 @@ typedef struct _MemStat {
 	UInt64 nTimeTableAllocated[2];
 	UInt64 nVersionTableAllocated;
 	UInt64 nTimeTableFreed[2];
+	UInt64 nTimeTableConvert32;
 	UInt64 nTimeTableActive;
 	UInt64 nTimeTableActiveMax;
 	UInt64 nSegTableNewAlloc[100];
@@ -214,6 +215,7 @@ static void printMemStatAllocation() {
 	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax= %lld, %lld / %lld, %lld / %lld\n",
 		 timetableType, stat.nTimeTableAllocated[0], stat.nTimeTableAllocated[1],
 		 stat.nTimeTableFreed[0], stat.nTimeTableFreed[1], stat.nTimeTableActiveMax);
+	fprintf(stderr, "\tbTimeTable Convert: %lld\n", stat.nTimeTableConvert32);
 	fprintf(stderr, "\tnVersionTable: Alloc = %lld\n", stat.nVersionTableAllocated);
 	fprintf(stderr, "\tnTotal Evict: %lld, Realloc: %lld\n", 
 		stat.nEvictTotal, stat.nTimeTableReallocTotal);
@@ -244,6 +246,11 @@ static inline void eventTimeTableNewAlloc(int level) {
 static inline void eventTimeTableConvert(int level) {
 	stat.nTimeTableConvert[level]++;
 }
+
+static inline void eventTimeTableConvertTo32() {
+	stat.nTimeTableConvert32++;
+}
+
 
 static inline void eventTimeTableRealloc(int level) {
 	stat.nTimeTableRealloc[level]++;
@@ -398,6 +405,7 @@ static inline int SegTableGetIndex(Addr addr) {
 
 // convert 64 bit format into 32 bit format
 TimeTable* convertTimeTable(TimeTable* table) {
+	eventTimeTableConvertTo32();
 	assert(table->type == TYPE_64BIT);
 	TimeTable* ret = TimeTableAlloc(TYPE_32BIT);
 	int i;
@@ -583,61 +591,62 @@ SEntry* STableGetSEntry(Addr addr) {
 }
 
 
-typedef struct _L1Entry {
+typedef struct _CacheEntry {
 	UInt64 tag;  
-	Version version;
-	int lastSize;
 	UInt32 status;	
+	Version version[2];
+	int lastSize[2];
+	int type;
 
-} L1Entry;
+} CacheLine;
 
-static L1Entry* tagTable;
-static Table* valueTable;
+static CacheLine* tagTable;
+static Table* valueTable[2];
 static int lineNum;
 static int lineShift;
 static int lineMask;
 static int bypassCache = 0;
 
-static inline Bool isValid(L1Entry* entry) {
+static inline Bool isValid(CacheLine* entry) {
 	return entry->status & STATUS_VALID;
 }
 
-static inline void setValid(L1Entry* entry) {
+static inline void setValid(CacheLine* entry) {
 	entry->status |= STATUS_VALID;
 }
 
-static inline Bool isDirty(L1Entry* entry) {
+static inline Bool isDirty(CacheLine* entry) {
 	return entry->status & (STATUS_DIRTY | STATUS_VALID);
 }
 
-static inline void setDirty(L1Entry* entry) {
+static inline void setDirty(CacheLine* entry) {
 	entry->status |= STATUS_DIRTY;
 }
 
-static inline void clearDirty(L1Entry* entry) {
+static inline void clearDirty(CacheLine* entry) {
 	entry->status &= ~STATUS_DIRTY;
 }
 
-static inline Time* getTimeAddr(int row, int index) {
-	return TableGetElementAddr(valueTable, row, index);
+static inline Time* getTimeAddr(int tableNum, int row, int index) {
+	return TableGetElementAddr(valueTable[tableNum], row, index);
 }
 
 
 static int getLineIndex(Addr addr) {
-	int nShift = WORD_SHIFT;
+	int nShift = 3; 	// 8 byte 
 	int ret = (((UInt64)addr) >> nShift) & lineMask;
 	assert(ret >= 0 && ret < lineNum);
 	return ret;
 }
 
-static inline Bool isHit(L1Entry* entry, Addr addr) {
+static inline Bool isHit(CacheLine* entry, Addr addr) {
 	MSG(3, "isHit addr = 0x%llx, tag = 0x%llx, entry tag = 0x%llx\n",
 		addr, entry->tag, entry->tag);
 
-	return isValid(entry) && (entry->tag == addr);
+	return isValid(entry) && (((entry->tag ^ addr) >> 3) == 0);
 }
 
-static inline L1Entry* getEntry(int index) {
+static inline CacheLine* getEntry(int index) {
 	assert(index < lineNum);
 	return &(tagTable[index]);
 }
@@ -660,21 +669,19 @@ void MShadowCacheInit(int cacheSizeMB) {
 		fprintf(stderr, "MShadowCacheInit: Bypass Cache\n"); 
 		return;
 	}
-	lineNum = cacheSizeMB * 1024 * 256;
+	int lineSize = 8;	// 64bit granularity 
+	lineNum = cacheSizeMB * 1024 * 1024 / lineSize;
 	lineShift = getFirstOnePosition(lineNum);
 	lineMask = lineNum - 1;
 	fprintf(stderr, "MShadowCacheInit: total size: %d MB, lineNum %d, lineShift %d, lineMask 0x%x\n", 
 		cacheSizeMB, lineNum, lineShift, lineMask);
 
-	tagTable = malloc(sizeof(L1Entry) * lineNum);
-	for (i = 0; i < lineNum; i++) {
-		tagTable[i].status = 0x0;
-		tagTable[i].tag = 0x0;
-	}
-	valueTable = TableCreate(lineNum, INIT_LEVEL);
+	tagTable = calloc(sizeof(CacheLine), lineNum);
+	valueTable[0] = TableCreate(lineNum, INIT_LEVEL);
+	valueTable[1] = TableCreate(lineNum, INIT_LEVEL);
 
 	MSG(3, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
-		lineNum, INIT_LEVEL, valueTable->array);
+		lineNum, INIT_LEVEL, valueTable[0]->array);
 }
 
 void MShadowCacheDeinit() {
@@ -683,7 +690,8 @@ void MShadowCacheDeinit() {
 
 	//printStat();
 	free(tagTable);
-	TableFree(valueTable);
+	TableFree(valueTable[0]);
+	TableFree(valueTable[1]);
 }
 
 static inline Bool isValidVersion(Version prev, Version current) {
@@ -695,11 +703,11 @@ static inline Bool isValidVersion(Version prev, Version current) {
 
 #define MIN(a, b) ((a) < (b))? a : b
 
-static inline int getAccessWidthType(L1Entry* entry) {
+static inline int getAccessWidthType(CacheLine* entry) {
 	return TYPE_64BIT;
 }
 
-void MShadowEvict(L1Entry* cacheEntry, Addr addr, int size, Version* vArray) {
+void MShadowEvict(CacheLine* cacheEntry, Addr addr, int size, Version* vArray) {
 	MSG(0, "\tMShadowEvict 0x%llx, size=%d \n", 
 		addr, size);
 
@@ -708,7 +716,7 @@ void MShadowEvict(L1Entry* cacheEntry, Addr addr, int size, Version* vArray) {
 	}
 
 	int row = getLineIndex(addr);
-	Time* tArray = getTimeAddr(row, 0);
+	Time* tArray = getTimeAddr(0, row, 0);
 
 	SEntry* sEntry = STableGetSEntry(addr);
 	ITable* iTable = sEntry->iTable;
@@ -752,7 +760,7 @@ void MShadowEvict(L1Entry* cacheEntry, Addr addr, int size, Version* vArray) {
 	return cacheEntry;
 }
 
-void MShadowFetch(L1Entry* entry, Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
+void MShadowFetch(CacheLine* entry, Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
 	MSG(0, "\tMShadowFetch 0x%llx, size %d \n", addr, size);
 
 	SEntry* sEntry = STableGetSEntry(addr);
@@ -782,8 +790,8 @@ void MShadowFetch(L1Entry* entry, Addr addr, Index size, Version* vArray, Time* 
 	}
 
 	entry->tag = addr;
-	entry->version = vArray[size-1];
-	entry->lastSize = size;
+	entry->version[0] = vArray[size-1];
+	entry->lastSize[0] = size;
 	setValid(entry);
 }
 
@@ -802,10 +810,10 @@ Time* MShadowGetNoCache(Addr addr, Index size, Version* vArray, int type) {
 		Version version = segEntry->version;
 
 		if (version < vArray[i]) {
+			tempArray[i] = 0ULL;
+		} else {
 			Time time = SegEntryGetTime(segEntry, addr);
 			tempArray[i] = time;
-		} else {
-			tempArray[i] = 0ULL;
 		}
 	}
 
@@ -816,6 +824,7 @@ void MShadowSetNoCache(Addr addr, Index size, Version* vArray, Time* tArray, int
 	SEntry* sEntry = STableGetSEntry(addr);
 	ITable* iTable = sEntry->iTable;
 	int segIndex = SegTableGetIndex(addr);
+
 	Index i;
 	for (i=0; i<size; i++) {
 		SegTable* segTable = ITableGetSegTable(iTable, i);
@@ -846,14 +855,22 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 wid
 Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d \n", addr, size);
 	int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
+
 	if (bypassCache == 1) {
 		return MShadowGetNoCache(addr, size, vArray, type);
 	}
 
 	eventRead();
 	int row = getLineIndex(addr);
-	Time* destAddr = getTimeAddr(row, 0);
-	L1Entry* entry = getEntry(row);
+	CacheLine* entry = getEntry(row);
+
+	int offset = 0;
+	if (entry->type == TYPE_32BIT && type == TYPE_32BIT) {
+		offset = (addr >> 2) & 0x1;
+	}
+
+
+	Time* destAddr = getTimeAddr(offset, row, 0);
 
 	if (isHit(entry, addr)) {
 		eventReadHit();
@@ -891,8 +908,8 @@ Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 
 		} 	
 	}
-	entry->version = vArray[size-1];
-	entry->lastSize = size;
+	entry->version[offset] = vArray[size-1];
+	entry->lastSize[offset] = size;
 	return destAddr;
 }
 
@@ -901,18 +918,31 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 wid
 		addr, size);
 	
 	int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
+	//int type = TYPE_32BIT;
 	eventWrite();
 	if (bypassCache == 1) {
 		MShadowSetNoCache(addr, size, vArray, tArray, type);
 		return;
 	}
 
-	int row = getLineIndex(addr);
-	L1Entry* entry = getEntry(row);
+	int row = getLineIndex(addr, type);
+
+	int offset = 0;
+	if (type == TYPE_32BIT) {
+		offset = (addr >> 2) & 0x1;
+	}
+
+	CacheLine* entry = getEntry(row);
 	assert(row < lineNum);
 
 	if (isHit(entry, addr)) {
 		eventWriteHit();
+
+		if (type == TYPE_32BIT && offset == 0 && 
+			entry->type == TYPE_64BIT) {
+			entry->version[1] = entry->version[0];
+			entry->lastSize[1] = entry->lastSize[0];	
+		}
 
 	} else {
 		eventWriteEvict();
@@ -920,14 +950,15 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 wid
 	} 		
 
 	// copy Timestamps
-	Time* destAddr = getTimeAddr(row, 0);
+	Time* destAddr = getTimeAddr(offset, row, 0);
 	memcpy(destAddr, tArray, sizeof(Time) * size);
 	setValid(entry);
 	setDirty(entry);
 	//entry->tag = getTag(addr);
+	entry->type = type;
 	entry->tag = addr;
-	entry->version = vArray[size-1];
-	entry->lastSize = size;
+	entry->version[offset] = vArray[size-1];
+	entry->lastSize[offset] = size;
 }
 #endif
 
