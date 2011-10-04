@@ -198,36 +198,12 @@ static SegEntry* SegTableGetEntry(SegTable* segTable, Addr addr) {
 	return entry;
 }
 
-#if 0
-static void refreshTimeTable(SegEntry* entry, Version* vArray, int size) {
-	int i;
-	int startInvalid = 0;
-	int nEntry = getTimeTableEntrySize(entry->type);
-
-	Version oldVersion = entry->version;
-	for (i=size-1; i>=0; i--) {
-		if (vArray[i] <= oldVersion) {
-			startInvalid = i+1;
-			break;
-		}
-	}
-
-	// clear level[startInvalid:size-1] to 0ULL
-	if (startInvalid < size) {
-		for (i=0; i<nEntry; i++) {
-			Time* addr = &(entry->tTable[i * entry->depth]);
-			bzero(addr, sizeof(Time) * (size - startInvalid));
-		}
-	}
-}
-#endif
-
 static void TagValidate(Time* tAddr, Version* vAddr, Version* vArray, int size) {
 	int i;
 	int startInvalid = 0;
 
 	for (i=size-1; i>=0; i--) {
-		if (vArray[i] != vAddr[i]) {
+		if (vArray[i] == vAddr[i]) {
 			startInvalid = i+1;
 			break;
 		}
@@ -266,8 +242,8 @@ Version* convertVersion(Version* src, int depth) {
 	int i;
 	
 	for (i=0; i<nEntry; i++) {
-		memcpy(ret + depth*2*i, src + depth*i, sizeof(Time) * depth); 		
-		memcpy(ret + depth*2*i + 1, src + depth*i, sizeof(Time) * depth); 		
+		memcpy(ret + depth*2*i, src + depth*i, sizeof(Version) * depth); 		
+		memcpy(ret + depth*2*i + 1, src + depth*i, sizeof(Version) * depth); 		
 	}
 	return ret;
 
@@ -276,31 +252,19 @@ Version* convertVersion(Version* src, int depth) {
 
 
 static void checkRefresh(SegEntry* entry, Version* vArray, int size, int type) {
-/*
-	Version oldVersion = entry->version;
-	fprintf(stderr, "[%d, %d]\t", oldVersion, vArray[size-1]);
-	if (oldVersion != vArray[size-1]) {
-		refreshTimeTable(entry, vArray, size);
-		entry->version = vArray[size-1];
-		fprintf(stderr, "?");
-	} else {
-		fprintf(stderr, "!");
-	}
-*/
-
 	if (type == TYPE_32BIT && entry->type == TYPE_64BIT) {
+		// convert time table
 		Time* converted = convertTable(entry->tTable, entry->depth);
 		TimeTableFree(entry->tTable, entry->type);
 		entry->tTable = converted;
 
+		// convert version table
 		Version* version = convertVersion(entry->versions, entry->depth);
 		VersionTableFree(entry->versions, entry->type);
 		entry->versions = version;
 
 		entry->type = TYPE_32BIT;
 	}
-	
-	
 }
 
 void SegTableSetTime(SegEntry* entry, Addr addr, Index size, Version* vArray, Time* tArray, int type) {
@@ -312,12 +276,11 @@ void SegTableSetTime(SegEntry* entry, Addr addr, Index size, Version* vArray, Ti
 		checkRefresh(entry, vArray, size, type);
 	}
 
-	Version* vAddr = VersionGetAddr(entry, addr);	
 	Time* tAddr = TimeTableGetAddr(entry, addr);
 	memcpy(tAddr, tArray, sizeof(Time) * size);
-	memcpy(vAddr, vArray, sizeof(Version) * size);
 
-	*vAddr = vArray[size-1];
+	Version* vAddr = VersionGetAddr(entry, addr);	
+	memcpy(vAddr, vArray, sizeof(Version) * size);
 }
 
 Time* SegTableGetTime(SegEntry* entry, Addr addr, Index size, Version* vArray, int type) {
@@ -334,8 +297,6 @@ Time* SegTableGetTime(SegEntry* entry, Addr addr, Index size, Version* vArray, i
 	TagValidate(tAddr, vAddr, vArray, size);
 	return tAddr;
 }
-
-
 
 /*
  * STable: sparse table that tracks 4GB memory chunks being used
@@ -397,86 +358,15 @@ SegTable* STableGetSegTable(Addr addr) {
 }
 
 
-#ifdef USE_CACHE
-
-#define WORD_SHIFT		2
-#define TABLE_SHIFT		10	
-#define LINE_SHIFT	20
-#define NUM_LINE		(1 << LINE_SHIFT)
-#define NUM_LINE_MASK	(NUM_LINE - 1)
-
-#define STATUS_VALID	1
-
-
-typedef struct _L1Entry {
-	UInt64 tag;
-	SegEntry* segEntry;
-	UInt32 status;
-
-} L1Entry;
-
-typedef struct _MShadowL1 {
-	L1Entry entry[NUM_LINE];
-} MShadowL1;
-
-static MShadowL1	cache;
-
-static inline UInt64 getTag(Addr addr) {
-	int nShift = WORD_SHIFT + TABLE_SHIFT + LINE_SHIFT;
-	UInt64 mask = ~((1 << nShift) - 1);
-	return (UInt64)addr & mask;
-}
-
-static inline int getLineIndex(Addr addr) {
-	int nShift = WORD_SHIFT + TABLE_SHIFT;
-	int ret = (((UInt64)addr) >> nShift ) & NUM_LINE_MASK;
-	return ret;
-}
-
-static inline void setValid(L1Entry* entry) {
-	entry->status |= STATUS_VALID;
-}
-
-static inline Bool isValid(L1Entry* entry) {
-	return entry->status & STATUS_VALID;
-}
-
-static inline void setTag(L1Entry* entry, UInt64 tag) {
-	entry->tag = tag;
-}
-
-static inline Bool isHit(L1Entry* entry, Addr addr) {
-	return isValid(entry) && (entry->tag == getTag(addr));
-}
-
-static inline L1Entry* getEntry(Addr addr) {
-	int index = getLineIndex(addr);
-	L1Entry* entry = &(cache.entry[index]);
-
-	if (isHit(entry, addr) == FALSE) {
-		// bring the cache line
-		SegTable* segTable = STableGetSegTable(addr);
-		SegEntry* segEntry = SegTableGetEntry(segTable, addr);
-		entry->segEntry = segEntry;
-		setValid(entry);
-		setTag(entry, getTag(addr));
-	}
-	return entry;
-}
-#endif
-
-
 UInt MShadowInit(int a, int b) {
 	fprintf(stderr, "[kremlin] MShadow Base Init\n");
 	STableInit();
-	//MemAllocInit(sizeof(TimeTable));
 }
 
 
 UInt MShadowDeinit() {
 	printMemStat();
 	STableDeinit();
-	//MemAllocDeinit();
 }
 
 Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
@@ -487,14 +377,8 @@ Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	if (width  > 4)
 		type = TYPE_64BIT;
 
-#ifdef USE_CACHE
-	L1Entry* entry = getEntry(addr);
-	assert(entry->segEntry != NULL);
-	segEntry = entry->segEntry;
-#else	
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
-#endif
 	return SegTableGetTime(segEntry, addr, size, vArray, type);
 }
 
@@ -504,15 +388,8 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 wid
 	if (width  > 4)
 		type = TYPE_64BIT;
 
-#ifdef USE_CACHE
-	L1Entry* entry = getEntry(addr);
-	assert(entry->segEntry != NULL);
-	segEntry = entry->segEntry;
-#else	
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
-	//assert(entry->segEntry != NULL);
-#endif
 	SegTableSetTime(segEntry, addr, size, vArray, tArray, type);
 }
 

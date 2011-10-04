@@ -8,7 +8,7 @@
 #define MSHADOW_STV		1
 #define MSHADOW_CACHE	2
 
-#define TYPE_MSHADOW MSHADOW_BASE
+#define TYPE_MSHADOW MSHADOW_CACHE
 
 #include <assert.h>
 #include <limits.h>
