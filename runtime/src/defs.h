@@ -1,6 +1,6 @@
 #ifndef _DEFS_H
 #define _DEFS_H
-//#define NDEBUG
+#define NDEBUG
 //#define KREMLIN_DEBUG
 
 
@@ -43,6 +43,7 @@
 typedef unsigned long       UInt32;
 typedef signed long         Int32;
 typedef unsigned int		UInt;
+typedef unsigned char		UInt8;
 typedef signed int          Int;
 typedef unsigned long long  UInt64;
 typedef signed long long    Int64;

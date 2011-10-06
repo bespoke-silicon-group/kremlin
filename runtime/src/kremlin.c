@@ -1106,9 +1106,9 @@ void* logLoadInst(Addr addr, Reg dest, UInt32 size) {
         Time greater1 = (cdt > ts0) ? cdt : ts0;
         Time value = greater1 + LOAD_COST;
 
-        MSG(3, "logLoadInst level %u version %u \n", i, RegionGetVersion(i));
-        MSG(3, " addr 0x%x dest %u\n", addr, dest);
-        MSG(3, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
+        MSG(0, "logLoadInst level %u version %u \n", i, RegionGetVersion(i));
+        MSG(0, " addr 0x%x dest %u\n", addr, dest);
+        MSG(0, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
 		checkTimestamp(region, ts0);
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
@@ -1147,9 +1147,9 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest, UInt32 size) {
         Time max2 = (max1 > tsSrc1) ? max1 : tsSrc1;
 		Time value = max2 + LOAD_COST;
 
-        MSG(0, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
-        MSG(0, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
-        MSG(0, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
+        MSG(3, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
+        MSG(3, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
 		checkTimestamp(region, tsAddr);
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
