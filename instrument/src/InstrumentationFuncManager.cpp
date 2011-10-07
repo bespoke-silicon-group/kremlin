@@ -139,12 +139,13 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	args.clear();
 
 	args.push_back(types.pi8()); // void*
+	FunctionType* pvoidclean = FunctionType::get(types.voidTy(), args, false);
 
 	// Look before declaration of free before adding logFree (if it doesn't exist, we shouldn't bother with it)
 	if(Function* f = module.getFunction("free")) 
 	{
 		LOG_DEBUG() << "adding free because we located this function: " << *f;
-		addFunc("logFree", pvoid);
+		addFunc("logFree", pvoidclean);
 	}
 
 	args.push_back(types.i32()); 
