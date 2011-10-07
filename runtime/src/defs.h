@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <stdint.h>
 #include "MemMapAllocator.h"
 
 #ifndef _KREMLIN_DEF
@@ -40,13 +41,13 @@
 #define CACHE_LINE_POWER_2	4
 #define CACHE_LINE_SIZE		(1 << CACHE_LINE_POWER_2)
 
-typedef unsigned long       UInt32;
-typedef signed long         Int32;
-typedef unsigned int		UInt;
-typedef unsigned char		UInt8;
+typedef uint32_t 	       	UInt32;
+typedef int32_t         	Int32;
+typedef uint32_t			UInt;
+typedef uint8_t				UInt8;
 typedef signed int          Int;
-typedef unsigned long long  UInt64;
-typedef signed long long    Int64;
+typedef uint64_t			UInt64;
+typedef int64_t				Int64;
 typedef UInt32 				Bool;
 typedef void*               Addr;
 typedef FILE                File;

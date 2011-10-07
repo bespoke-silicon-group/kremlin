@@ -20,7 +20,7 @@
 #define TIME_TABLE_VERSION	1	
 #define TIME_TABLE_ADAPTIVE	2
 
-#define TIME_TABLE_TYPE		TIME_TABLE_ADAPTIVE
+#define TIME_TABLE_TYPE		TIME_TABLE_VERSION
 
 // SEGTABLE Parameters
 #define SEGTABLE_MASK 	0xfffff
@@ -326,6 +326,7 @@ static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
 	if (stat.nTimeTableActive > stat.nTimeTableActiveMax)
 		stat.nTimeTableActiveMax++;
 
+	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	int size = TimeTableEntrySize(sizeType);
 	TimeTable* ret = malloc(sizeof(TimeTable));
 	ret->array = calloc(sizeof(Time), size);
@@ -342,9 +343,12 @@ static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
 
 static inline void TimeTableFree(TimeTable* table) {
 	stat.nTimeTableActive--;
+	int sizeType = table->type;
+	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	stat.nTimeTableFreed[table->type]++;
 	free(table->array);
 	if (table->useVersion) {
+		assert(table->version != NULL);
 		free(table->version);
 		stat.nVersionTableFreed[table->type]++;
 	}
@@ -368,7 +372,7 @@ static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver) {
 		ret = table->array[index];
 
 	else if (table->version[index] >= ver) {
-		//return table->array[index];
+		ret = table->array[index];
 
 	} else {
 		table->version[index] = ver;
@@ -396,7 +400,7 @@ static inline void TimeTableSet(TimeTable* table, Addr addr, Time time, Version 
  *
  */ 
 
-SegTable* SegTableAlloc() {
+static inline SegTable* SegTableAlloc() {
 	SegTable* ret = (SegTable*) calloc(sizeof(SegTable), 1);
 
 	int i;
@@ -416,11 +420,11 @@ static inline int SegTableGetIndex(Addr addr) {
 	return ((UInt64)addr >> SEGTABLE_SHIFT) & SEGTABLE_MASK;
 }
 
-static SegEntry* SegEntryAlloc() {
+static inline SegEntry* SegEntryAlloc() {
 	SegEntry* ret = calloc(sizeof(SegEntry), 1);
 #if TIME_TABLE_TYPE == TIME_TABLE_VERSION
 	int i;
-	for (i=0; i<MAX_LEVEL; i++)
+	for (i=15; i<MAX_LEVEL; i++)
 		ret->noBTV[i] = 1;
 #endif
 	return ret;
@@ -628,24 +632,60 @@ static inline int getAccessWidthType(CacheLine* entry) {
 	return TYPE_64BIT;
 }
 
-static inline Time getTimeLevel(SegEntry* segEntry, int level, Addr addr, Version verCurrent, int type) {
+static inline Time getTimeLevel(SegEntry* segEntry, Index level, Addr addr, Version verCurrent, UInt32 type) {
 	TimeTable* table = segEntry->tArray[level];
 	Version version = segEntry->vArray[level];
 	int useTableVer = segEntry->noBTV[level];
 
+	Time ret = 0ULL;
 	if (table == NULL) {
-		return 0ULL;
+		ret = 0ULL;
 
-	} else if (useTableVer || version == verCurrent) {
+	} else if (useTableVer) {
 		MSG(0, "\t\t\tversion = %d, %d\n", version, verCurrent);
-		return TimeTableGet(table, addr, verCurrent);
+		assert(table->useVersion == 1);
+		ret = TimeTableGet(table, addr, verCurrent);
 
-	} else {
-		return 0ULL;
+	} else if (version == verCurrent) {
+		assert(table->useVersion == 0);
+		ret = TimeTableGet(table, addr, verCurrent);
+
 	}
+	return ret;
 }
 
-static inline void setTimeLevel(SegEntry* segEntry, int level, Addr addr, Version verCurrent, Time value, int type) {
+static inline void checkConvertTimeTable(SegEntry* segEntry, Index level, Version verCurrent, UInt32 type) {
+		// check if a converting is required at the first access in a new region
+		if (segEntry->vArray[level] < verCurrent) {
+
+#if TIME_TABLE_TYPE == TIME_TABLE_ADAPTIVE
+			// convert from BVT -> no BVT
+			if (segEntry->nAccess[level] <= 8 && segEntry->noBTV[level] == 0) {
+				segEntry->noBTV[level] = 1;	
+				if (segEntry->tArray[level] != NULL) {
+					TimeTableFree(segEntry->tArray[level]);
+					segEntry->tArray[level] = NULL;
+				}
+			}
+
+			// convert from no BVT -> BVT
+			else if (segEntry->nAccess[level] > 8 && segEntry->noBTV[level] == 1) {
+				segEntry->noBTV[level] = 0;	
+				if (segEntry->tArray[level] != NULL) {
+					TimeTableFree(segEntry->tArray[level]);
+					segEntry->tArray[level] = NULL;
+				}
+			}
+#endif
+			segEntry->nAccess[level] = 0;
+		}
+		segEntry->nAccess[level]++;
+}
+
+
+static inline void setTimeLevel(SegEntry* segEntry, Index level, Addr addr, Version verCurrent, Time value, UInt32 type) {
+
+		checkConvertTimeTable(segEntry, level, verCurrent, type);
 		TimeTable* table = segEntry->tArray[level];
 		Version verOld = segEntry->vArray[level];
 		int useTableVersion = segEntry->noBTV[level];
@@ -653,34 +693,11 @@ static inline void setTimeLevel(SegEntry* segEntry, int level, Addr addr, Versio
 		if (table == NULL) {
 			table = TimeTableAlloc(type, useTableVersion);
 			segEntry->tArray[level] = table; 
-
-		} 
-
-#if TIME_TABLE_TYPE == TIME_TABLE_ADAPTIVE
-		// check if a converting is required at the first access in a new region
-		if (verOld < verCurrent) {
-			// convert from BVT -> no BVT
-			if (segEntry->nAccess[level] <= 8 && !useTableVersion) {
-				segEntry->noBTV[level] = 1;	
-				useTableVersion = 1;
-
-				TimeTableFree(segEntry->tArray[level]);
-				table = TimeTableAlloc(type, useTableVersion);
-				segEntry->tArray[level] = table; 
-			}
-
-			// convert from no BVT -> BVT
-			if (segEntry->nAccess[level] > 8 && useTableVersion) {
-				segEntry->noBTV[level] = 0;	
-				useTableVersion = 0;
-			}
-			segEntry->nAccess[level] = 0;
+			TimeTableSet(table, addr, value, verCurrent);
 		}
-		segEntry->nAccess[level]++;
-#endif
 
 		// actual write
-		if (useTableVersion || verOld == verCurrent) {
+		else if (useTableVersion || verOld == verCurrent) {
 			assert(table != NULL);
 			TimeTableSet(table, addr, value, verCurrent);
 
@@ -691,9 +708,10 @@ static inline void setTimeLevel(SegEntry* segEntry, int level, Addr addr, Versio
 			TimeTableSet(toAdd, addr, value, verCurrent);
 		} 
 		segEntry->vArray[level] = verCurrent;
+		assert(segEntry->tArray[level] != NULL);
 }
 
-static SegEntry* getSegEntry(Addr addr) {
+static inline SegEntry* getSegEntry(Addr addr) {
 	SEntry* sEntry = STableGetSEntry(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
@@ -755,6 +773,31 @@ void MCacheEvict(CacheLine* cacheEntry, Addr addr, int size, Version* vArray) {
 		setTimeLevel(segEntry, i, addr, vArray[i], tArray[i], type);
 		MSG(0, "\t\toffset=%d, version=%d, value=%d\n", i, vArray[i], tArray[i]);
 	}
+#if 0
+	for (i=1; i<startInvalid; i++) {
+		Time valA = getTimeLevel(segEntry, i-1, addr, vArray[i-1], type);
+		Time valB = getTimeLevel(segEntry, i, addr, vArray[i], type);
+
+		if (valA < valB) {
+			fprintf(stderr, "\tError at MCacheEvict 0x%llx, size %d offset = %d startInvalid = %d\n", addr, size, i, startInvalid);
+			int j;
+			for (j=1; j<startInvalid; j++) {
+				Time val0 = getTimeLevel(segEntry, j-1, addr, vArray[j-1], type);
+				Time val1 = getTimeLevel(segEntry, j, addr, vArray[j], type);
+
+				TimeTable* table0 = segEntry->tArray[j-1];
+				TimeTable* table1 = segEntry->tArray[j];
+				if (j < startInvalid)
+					assert(table0 != NULL);
+
+				fprintf(stderr, "srcVal= [%d,%d], retVal = [%d, %d], ver[%d] = %d, %d\n", tArray[j-1], tArray[j], val0, val1, j, segEntry->vArray[j], vArray[j]);
+				if (table1 != NULL)
+					fprintf(stderr, "\t table useVersion = [%d %d] type = %d\n", table0->useVersion, table1->useVersion, table0->type);
+			}
+			assert(0);
+		}
+	}
+#endif
 
 	eventCacheEvict(size, index);
 }
@@ -769,6 +812,19 @@ void MCacheFetch(CacheLine* entry, Addr addr, Index size, Version* vArray, Time*
 	for (i=0; i<size; i++) {
 		destAddr[i] = getTimeLevel(segEntry, i, addr, vArray[i], type);
 	}
+#if 0
+	for (i=1; i<size; i++) {
+		if (destAddr[i-1] < destAddr[i]) {
+			fprintf(stderr, "\tError at MCacheFetch 0x%llx, size %d offset = %d\n", addr, size, i);
+			int j;
+			for (j=0; j<size; j++) {
+				fprintf(stderr, "val= %d, ver[%d] = %d, %d\n", destAddr[j], j, segEntry->vArray[j], vArray[j]);
+				TimeTable* table = segEntry->tArray[j];
+				fprintf(stderr, "\t table useVersion = %d type = %d\n", table->useVersion, table->type);
+			}
+		}
+	}
+#endif
 
 	//setValid(entry);
 }
@@ -804,15 +860,19 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 wid
 }
 #else
 
-void check(Addr addr, Time* src, int size) {
+#ifdef NDEBUG
+void check(Addr addr, Time* src, int size, int site) {}
+#else
+void check(Addr addr, Time* src, int size, int site) {
 	int i;
 	for (i=1; i<size; i++) {
 		if (src[i-1] < src[i]) {
-			fprintf(stderr, "Addr 0x%llx size %d offset %d\n", addr, size, i); 
+			fprintf(stderr, "site %d Addr 0x%llx size %d offset %d val=%lld %lld\n", site, addr, size, i, src[i-1], src[i]); 
 			assert(0);
 		}
 	}
 }
+#endif
 
 Time* MShadowGetCache(Addr addr, Index size, Version* vArray, int type) {
 	int row = getLineIndex(addr);
@@ -831,6 +891,7 @@ Time* MShadowGetCache(Addr addr, Index size, Version* vArray, int type) {
 		//Version version = entry->version[offset];
 
 		MCacheValidateTag(entry, row, vArray, size);
+		check(addr, destAddr, size, 0);
 
 	} else {
 		// Unfortunately, this access results in a miss
@@ -845,11 +906,11 @@ Time* MShadowGetCache(Addr addr, Index size, Version* vArray, int type) {
 		MSG(3, "\t write values to cache \n", destAddr);
 		MCacheFetch(entry, addr, size, vArray, destAddr, type);
 		entry->tag = (UInt64)addr;
+		check(addr, destAddr, size, 1);
 	}
 
 	entry->version[offset] = vArray[size-1];
 	entry->lastSize[offset] = size;
-	check(addr, destAddr, size);
 	return destAddr;
 }
 
@@ -888,7 +949,7 @@ void MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArray, int t
 	entry->version[offset] = vArray[size-1];
 	entry->lastSize[offset] = size;
 
-	check(addr, destAddr, size);
+	check(addr, destAddr, size, 2);
 }
 
 
@@ -896,12 +957,13 @@ Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d \n", addr, size);
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
+	Addr tAddr = (Addr)((UInt64)addr & ~0x7);
 	eventRead();
 	if (bypassCache == 1) {
-		return MShadowGetNoCache(addr, size, vArray, type);
+		return MShadowGetNoCache(tAddr, size, vArray, type);
 
 	} else {
-		return MShadowGetCache(addr, size, vArray, type);
+		return MShadowGetCache(tAddr, size, vArray, type);
 	}
 }
 
@@ -910,12 +972,13 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 wid
 	
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
+	Addr tAddr = (Addr)((UInt64)addr & ~0x7);
 	eventWrite();
 	if (bypassCache == 1) {
-		MShadowSetNoCache(addr, size, vArray, tArray, type);
+		MShadowSetNoCache(tAddr, size, vArray, tArray, type);
 
 	} else {
-		MShadowSetCache(addr, size, vArray, tArray, type);
+		MShadowSetCache(tAddr, size, vArray, tArray, type);
 	}
 
 }
@@ -931,7 +994,6 @@ UInt MShadowInit(int cacheSizeMB, int type) {
 	timetableType = type;
 	cacheMB = cacheSizeMB;
 	STableInit();
-	//MemAllocInit(sizeof(TimeTable));
 	MShadowCacheInit(cacheSizeMB);
 }
 
@@ -939,7 +1001,6 @@ UInt MShadowInit(int cacheSizeMB, int type) {
 UInt MShadowDeinit() {
 	printMemStat();
 	STableDeinit();
-	//MemAllocDeinit();
 	MShadowCacheDeinit();
 }
 

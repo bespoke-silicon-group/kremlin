@@ -1083,6 +1083,10 @@ void* logAssignmentConst(UInt dest) {
 
 void* logLoadInst(Addr addr, Reg dest, UInt32 size) {
     MSG(0, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
+	if (size > 8ULL) {
+		fprintf(stderr, "size = %d sizeof(UInt32) = %d\n", size, sizeof(UInt32));
+		assert(0);
+	}
 	assert(size <= 8);
 	checkRegion();
     if (!isKremlinOn())
