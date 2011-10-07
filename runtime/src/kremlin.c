@@ -498,11 +498,11 @@ static void RegionDeinit() {
     regionInfo = NULL;
 }
 
-static inline void checkTimestamp(Region* region, Timestamp value) {
+static inline void checkTimestamp(int index, Region* region, Timestamp value) {
 #ifndef NDEBUG
 	if (value > getTimetick() - region->start) {
-		fprintf(stderr, "value = %lld, getTimetick() = %lld, region start = %lld\n", 
-		value, getTimetick(), region->start);
+		fprintf(stderr, "index = %d, value = %lld, getTimetick() = %lld, region start = %lld\n", 
+		index, value, getTimetick(), region->start);
 		assert(0);
 	}
 #endif
@@ -1106,10 +1106,10 @@ void* logLoadInst(Addr addr, Reg dest, UInt32 size) {
         Time greater1 = (cdt > ts0) ? cdt : ts0;
         Time value = greater1 + LOAD_COST;
 
-        MSG(0, "logLoadInst level %u version %u \n", i, RegionGetVersion(i));
-        MSG(0, " addr 0x%x dest %u\n", addr, dest);
-        MSG(0, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
-		checkTimestamp(region, ts0);
+        MSG(3, "logLoadInst level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " addr 0x%x dest %u\n", addr, dest);
+        MSG(3, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
+		checkTimestamp(index, region, ts0);
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
     }
@@ -1150,7 +1150,7 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest, UInt32 size) {
         MSG(3, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
         MSG(3, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
-		checkTimestamp(region, tsAddr);
+		checkTimestamp(index, region, tsAddr);
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
 

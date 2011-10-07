@@ -90,7 +90,7 @@ static inline void TableCopy(Table* destTable, int destReg, Table* srcTable, int
 	assert(srcTable != NULL);
 	int indexDest = TableGetOffset(destTable, destReg, start);
 	int indexSrc = TableGetOffset(srcTable, srcReg, start);
-	MSG(0, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
+	MSG(3, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
 	if (size == 0)
 		return;
 	assert(size >= 0);
