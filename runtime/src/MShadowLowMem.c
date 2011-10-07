@@ -314,6 +314,15 @@ static int TimeTableEntrySize(int type) {
  *
  */ 
 
+static inline void TimeTableClean(TimeTable* table) {
+	int size = TimeTableEntrySize(table->type);
+	bzero(table->array, sizeof(Time) * size);
+
+	if (table->useVersion) {
+		bzero(table->version, sizeof(Version) * size);
+	}
+}
+
 static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
 	stat.nTimeTableAllocated[sizeType]++;
 	stat.nTimeTableActive++;
@@ -595,19 +604,6 @@ void MCacheDeinit() {
 	TableFree(valueTable[1]);
 }
 
-static inline Bool isValidVersion(Version prev, Version current) {
-	if (current <= prev)
-		return TRUE;
-	else
-		return FALSE;
-}
-
-#define MIN(a, b) ((a) < (b)? a : b)
-#if 0
-static inline Version getCachedVersion(CacheLine* line, int offset) {
-	return line->version[offset];
-}
-#endif
 
 static inline int getAccessWidthType(CacheLine* entry) {
 	return TYPE_64BIT;
@@ -624,7 +620,6 @@ static inline Time getTimeLevel(LTable* lTable, Index level, Addr addr, Version 
 
 	} else if (useTableVer || version == verCurrent) {
 		MSG(0, "\t\t\tversion = %d, %d\n", version, verCurrent);
-		assert(table->useVersion == 1);
 		ret = TimeTableGet(table, addr, verCurrent);
 
 	} 
@@ -698,10 +693,11 @@ static inline void setTimeLevel(LTable* lTable, Index level, Addr addr, Version 
 			TimeTableSet(table, addr, value, verCurrent);
 
 		} else 	{
-			TimeTable* toAdd = TimeTableAlloc(type, useTableVersion);
-			TimeTableFree(table);
-			LTableSetTable(lTable, level, toAdd); 
-			TimeTableSet(toAdd, addr, value, verCurrent);
+			//TimeTable* toAdd = TimeTableAlloc(type, useTableVersion);
+			//TimeTableFree(table);
+			TimeTableClean(table);
+			//LTableSetTable(lTable, level, toAdd); 
+			TimeTableSet(table, addr, value, verCurrent);
 		} 
 		LTableSetVer(lTable, level, verCurrent);
 }
