@@ -481,6 +481,9 @@ UInt MShadowDeinit() {
 Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
 
+	if (size < 1)
+		return NULL;
+
 	SegEntry* segEntry = NULL;
 	int type = TYPE_32BIT;
 	if (width  > 4)
@@ -498,6 +501,9 @@ Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 }
 
 void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
+	if (size < 1)
+		return;
+
 	SegEntry* segEntry = NULL;
 	int type = TYPE_32BIT;
 	if (width  > 4)

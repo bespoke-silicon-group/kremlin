@@ -898,6 +898,9 @@ void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
 
 Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d \n", addr, size);
+	if (size < 1)
+		return NULL;
+
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
 	Addr tAddr = (Addr)((UInt64)addr & ~0x7);
@@ -912,6 +915,8 @@ Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 
 void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(0, "MShadowSet 0x%llx, size %d \n", addr, size);
+	if (size < 1)
+		return;
 	
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
