@@ -53,12 +53,13 @@ void createOutputFilename() {
 	strcat(__kremlin_output_filename,".bin");
 }
 
-void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args) {
+int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args) {
 	int num_true_args = 0;
 	char** true_args = malloc(argc*sizeof(char*));
 
+	int parsed = 0;
 	int i;
-	for(i = 0; i < argc; ++i) {
+	for(i = 0; i < argc-1; ++i) {
 		//fprintf(stderr,"checking %s\n",argv[i]);
 		char *str_start;
 
@@ -67,7 +68,6 @@ void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_arg
 		if(str_start) {
 			__kremlin_debug= 1;
 			__kremlin_debug_level = parseOptionInt(argv[i]);
-
 			continue;
 		}
 
@@ -76,7 +76,6 @@ void parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_arg
 			__kremlin_level_to_log = parseOptionInt(argv[i]);
 			setMinLevel(__kremlin_level_to_log);
 			setMaxLevel(__kremlin_level_to_log + 1);
-
 			continue;
 		}
 
@@ -135,6 +134,15 @@ int main(int argc, char* argv[]) {
 	}
 
 	fprintf(stderr,"[kremlin] writing data to: %s\n", argGetOutputFileName());
+	//fprintf(stderr,"[kremlin] true args = %d\n", num_args);
 
-	__main(argc,argv);
+	//__main(argc,argv);
+	int i;
+	char** start = &argv[argc - num_args];
+#if 0
+	for (i=0; i<num_args; i++) {
+		fprintf(stderr, "arg %d: %s\n", i, start[i]);
+	}
+#endif
+	__main(num_args, start);
 }
