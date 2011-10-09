@@ -466,7 +466,7 @@ static inline L1Entry* getEntry(Addr addr) {
 
 
 UInt MShadowInit(int a, int b) {
-	fprintf(stderr, "[kremlin] MShadow Base Init\n");
+	fprintf(stderr, "[kremlin] MShadow STV Init\n");
 	STableInit();
 	//MemAllocInit(sizeof(TimeTable));
 }

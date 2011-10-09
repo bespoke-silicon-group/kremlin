@@ -134,15 +134,14 @@ int main(int argc, char* argv[]) {
 	}
 
 	fprintf(stderr,"[kremlin] writing data to: %s\n", argGetOutputFileName());
-	//fprintf(stderr,"[kremlin] true args = %d\n", num_args);
+	fprintf(stderr,"[kremlin] true args = %d\n", num_args);
 
 	//__main(argc,argv);
 	int i;
-	char** start = &argv[argc - num_args];
-#if 0
-	for (i=0; i<num_args; i++) {
+	char** start = &argv[argc - num_args-1];
+	start[0] = strdup(argv[0]);
+	for (i=0; i<=num_args; i++) {
 		fprintf(stderr, "arg %d: %s\n", i, start[i]);
 	}
-#endif
-	__main(num_args, start);
+	__main(num_args+1, start);
 }

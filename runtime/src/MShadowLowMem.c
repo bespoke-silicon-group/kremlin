@@ -529,10 +529,15 @@ static inline Time* getTimeAddr(int tableNum, int row, int index) {
 }
 
 static inline int getLineIndex(Addr addr) {
+#if 0
 	int nShift = 3; 	// 8 byte 
 	int ret = (((UInt64)addr) >> nShift) & lineMask;
 	assert(ret >= 0 && ret < lineNum);
-	return ret;
+#endif
+	int nShift = 3;	
+	int val0 = (((UInt64)addr) >> nShift) & lineMask;
+	int val1 = (((UInt64)addr) >> (nShift + lineShift)) & lineMask;
+	return val0 ^ val1;
 }
 
 static inline Version getCacheVersion(CacheLine* line) {
