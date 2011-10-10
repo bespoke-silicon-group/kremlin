@@ -79,6 +79,12 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			continue;
 		}
 
+		str_start = strstr(argv[i],"mshadow-type");
+		if(str_start) {
+			setMShadowType(parseOptionInt(argv[i]));
+			continue;
+		}
+
 		str_start = strstr(argv[i],"cache-size");
 		if(str_start) {
 			setCacheSize(parseOptionInt(argv[i]));

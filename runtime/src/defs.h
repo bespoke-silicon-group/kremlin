@@ -1,6 +1,6 @@
 #ifndef _DEFS_H
 #define _DEFS_H
-//#define NDEBUG
+#define NDEBUG
 //#define KREMLIN_DEBUG
 
 
@@ -23,7 +23,7 @@
 #ifndef _KREMLIN_DEF
 #define _KREMLIN_DEF
 
-
+#define INIT_LEVEL_DEPTH	64
 // save the last visited BB number 
 // for now we do not use it
 // but if we need it later, define it 
@@ -60,6 +60,10 @@ typedef UInt 				Reg;
 typedef UInt64				SID; 	// static region ID
 typedef UInt64				CID;	// callsite ID
 
+
+
+extern Time* (*MShadowGet)(Addr, Index, Version*, UInt32);
+extern void  (*MShadowSet)(Addr, Index, Version*, Time*, UInt32) ;
 
 
 

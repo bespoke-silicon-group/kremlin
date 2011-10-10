@@ -45,6 +45,9 @@ void setTableType(int type) {
 	_tableType = type;
 }
 
+Time* (*MShadowGet)(Addr, Index, Version*, UInt32) = NULL;
+void  (*MShadowSet)(Addr, Index, Version*, Time*, UInt32) = NULL;
+
 /*****************************************************************
  * Region Level Management 
  *****************************************************************/
@@ -1519,6 +1522,40 @@ void* logPhiNodeAddCondition(UInt dest, UInt src) {
 /******************************
  * Kremlin Init / Deinit
  *****************************/
+int _mshadow_type = 2;
+void setMShadowType(int type) {
+	_mshadow_type = type;
+	fprintf(stderr, "[kremlin] Setting mshadow type to %d\n", type);
+}
+
+void MShadowInit(int cacheSizeMB, int type) {
+	switch(_mshadow_type) {
+		case 0:
+			MShadowInitBase(cacheSizeMB, type);	
+			break;
+		case 1:
+			MShadowInitSTV(cacheSizeMB, type);	
+			break;
+		case 2:
+			MShadowInitCache(cacheSizeMB, type);	
+			break;
+	}
+}
+
+void MShadowDeinit() {
+	switch(_mshadow_type) {
+		case 0:
+			MShadowDeinitBase();	
+			break;
+		case 1:
+			MShadowDeinitSTV();	
+			break;
+		case 2:
+			MShadowDeinitCache();	
+			break;
+	}
+
+}
 
 static UInt hasInitialized = 0;
 

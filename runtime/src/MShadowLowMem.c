@@ -1,7 +1,6 @@
 #include "defs.h"
 
 //#define DUMMY_SHADOW
-#if TYPE_MSHADOW == MSHADOW_CACHE
 
 #include <assert.h>
 #include <limits.h>
@@ -33,7 +32,7 @@
 #define WORD_SHIFT 2
 
 // Cache Constatns and Parameters
-#define INIT_LEVEL		24	// max index depth
+#define INIT_LEVEL		INIT_LEVEL_DEPTH	// max index depth
 #define STATUS_VALID	1
 #define STATUS_DIRTY	2
 #define STATUS_32BIT	3
@@ -121,10 +120,10 @@ typedef struct _L1Stat {
 	UInt64 nWriteEvict;
 } L1Stat;
 
-L1Stat cacheStat;
+static L1Stat cacheStat;
 
 
-double getSizeMB(UInt64 nUnit, UInt64 size) {
+static double getSizeMB(UInt64 nUnit, UInt64 size) {
 	return (nUnit * size) / (1024.0 * 1024.0);	
 }
 
@@ -412,7 +411,7 @@ static inline SegTable* SegTableAlloc() {
 	return ret;	
 }
 
-void SegTableFree(SegTable* table) {
+static void SegTableFree(SegTable* table) {
 	stat.nSegTableActive--;
 	free(table);
 }
@@ -432,7 +431,7 @@ static inline LTable* LTableAlloc() {
 }
 
 // convert 64 bit format into 32 bit format
-TimeTable* convertTimeTable(TimeTable* table) {
+static TimeTable* convertTimeTable(TimeTable* table) {
 	eventTimeTableConvertTo32();
 	assert(table->type == TYPE_64BIT);
 	TimeTable* ret = TimeTableAlloc(TYPE_32BIT, table->useVersion);
@@ -470,11 +469,11 @@ typedef struct _STable {
 
 static STable sTable;
 
-void STableInit() {
+static void STableInit() {
 	sTable.writePtr = 0;
 }
 
-void STableDeinit() {
+static void STableDeinit() {
 	int i;
 #if 0
 	for (i=0; i<sTable.writePtr; i++) {
@@ -483,7 +482,7 @@ void STableDeinit() {
 #endif
 }
 
-SEntry* STableGetSEntry(Addr addr) {
+static SEntry* STableGetSEntry(Addr addr) {
 	UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
 
 	// walk-through STable
@@ -575,7 +574,7 @@ static inline int getFirstOnePosition(int input) {
 	return 0;
 }
 
-void MCacheInit(int cacheSizeMB) {
+static void MCacheInit(int cacheSizeMB) {
 	int i = 0;
 	if (cacheSizeMB == 0) {
 		bypassCache = 1;
@@ -591,7 +590,7 @@ void MCacheInit(int cacheSizeMB) {
 
 	tagTable = calloc(sizeof(CacheLine), lineNum);
 	valueTable[0] = TableCreate(lineNum, INIT_LEVEL);
-	valueTable[1] = TableCreate(lineNum, INIT_LEVEL);
+	//valueTable[1] = TableCreate(lineNum, INIT_LEVEL);
 
 	//verTable = calloc(sizeof(Version), lineNum);
 
@@ -599,14 +598,14 @@ void MCacheInit(int cacheSizeMB) {
 		lineNum, INIT_LEVEL, valueTable[0]->array);
 }
 
-void MCacheDeinit() {
+static void MCacheDeinit() {
 	if (bypassCache == 1)
 		return;
 
 	//printStat();
 	free(tagTable);
 	TableFree(valueTable[0]);
-	TableFree(valueTable[1]);
+	//TableFree(valueTable[1]);
 }
 
 
@@ -746,7 +745,7 @@ static inline void MCacheValidateTag(CacheLine* line, int lineIndex, Version* vA
 	setCacheVersion(line, vArray[size-1]);
 }
 
-void MCacheEvict(CacheLine* cacheEntry, Addr addr, int size, Version* vArray) {
+static void MCacheEvict(CacheLine* cacheEntry, Addr addr, int size, Version* vArray) {
 	//if (!isValid(cacheEntry))
 	//	return;
 	if (cacheEntry->tag == NULL)
@@ -771,7 +770,7 @@ void MCacheEvict(CacheLine* cacheEntry, Addr addr, int size, Version* vArray) {
 	eventCacheEvict(size, index);
 }
 
-void MCacheFetch(CacheLine* entry, Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
+static void MCacheFetch(CacheLine* entry, Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
 	MSG(0, "\tMCacheFetch 0x%llx, size %d \n", addr, size);
 	LTable* lTable = getLTable(addr);
 
@@ -784,7 +783,7 @@ void MCacheFetch(CacheLine* entry, Addr addr, Index size, Version* vArray, Time*
 
 static Time tempArray[1000];
 
-Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
+static Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	LTable* lTable = getLTable(addr);	
 	Index i;
 	for (i=0; i<size; i++) {
@@ -794,7 +793,7 @@ Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	return tempArray;	
 }
 
-void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
+static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
 	LTable* lTable = getLTable(addr);	
 	assert(lTable != NULL);
 	Index i;
@@ -803,20 +802,10 @@ void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type)
 	}
 }
 
-#ifdef DUMMY_SHADOW
-
-Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
-	return tempArray;
-}
-
-void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
-}
-#else
-
 #ifdef NDEBUG
-void check(Addr addr, Time* src, int size, int site) {}
+static void check(Addr addr, Time* src, int size, int site) {}
 #else
-void check(Addr addr, Time* src, int size, int site) {
+static void check(Addr addr, Time* src, int size, int site) {
 	int i;
 	for (i=1; i<size; i++) {
 		if (src[i-1] < src[i]) {
@@ -828,7 +817,7 @@ void check(Addr addr, Time* src, int size, int site) {
 }
 #endif
 
-Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
+static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	int row = getLineIndex(addr);
 	CacheLine* entry = getEntry(row);
 
@@ -859,7 +848,7 @@ Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 }
 
 
-void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
+static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
 	int row = getLineIndex(addr);
 	int offset = 0;
 #if 0
@@ -896,7 +885,7 @@ void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
 }
 
 
-Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
+static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d \n", addr, size);
 	if (size < 1)
 		return NULL;
@@ -913,7 +902,7 @@ Time* MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width) {
 	}
 }
 
-void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
+static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(0, "MShadowSet 0x%llx, size %d \n", addr, size);
 	if (size < 1)
 		return;
@@ -930,26 +919,28 @@ void MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 wid
 	}
 
 }
-#endif
 
 
 /*
  * Init / Deinit
  */
-UInt MShadowInit(int cacheSizeMB, int type) {
+UInt MShadowInitCache(int cacheSizeMB, int type) {
 	fprintf("[kremlin] MShadow Init with cache % MB, TimeTableType = %d, TimeTableSize = %d\n",
 		cacheSizeMB, type, sizeof(TimeTable));
+	
 	timetableType = type;
 	cacheMB = cacheSizeMB;
 	STableInit();
 	MCacheInit(cacheSizeMB);
+
+	MShadowGet = _MShadowGetCache;
+	MShadowSet = _MShadowSetCache;
 }
 
 
-UInt MShadowDeinit() {
+UInt MShadowDeinitCache() {
 	printMemStat();
 	STableDeinit();
 	MCacheDeinit();
 }
 
-#endif
