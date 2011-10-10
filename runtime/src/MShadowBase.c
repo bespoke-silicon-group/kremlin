@@ -164,7 +164,7 @@ static SegTable* SegTableAlloc() {
 
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		ret->entry[i].depth = INIT_LEVEL_DEPTH;
+		ret->entry[i].depth = getRegionDepth();
 	}
 
 	stat.nSegTableAllocated++;

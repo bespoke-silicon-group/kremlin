@@ -59,8 +59,8 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 
 	int parsed = 0;
 	int i;
-	for(i = 0; i < argc-1; ++i) {
-		//fprintf(stderr,"checking %s\n",argv[i]);
+	for(i = 1; i < argc; ++i) {
+		fprintf(stderr,"checking %s\n",argv[i]);
 		char *str_start;
 
 		str_start = strstr(argv[i],"kremlin-debug");
@@ -82,6 +82,12 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 		str_start = strstr(argv[i],"mshadow-type");
 		if(str_start) {
 			setMShadowType(parseOptionInt(argv[i]));
+			continue;
+		}
+
+		str_start = strstr(argv[i],"depth");
+		if(str_start) {
+			setRegionDepth(parseOptionInt(argv[i]));
 			continue;
 		}
 

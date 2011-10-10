@@ -32,7 +32,6 @@
 #define WORD_SHIFT 2
 
 // Cache Constatns and Parameters
-#define INIT_LEVEL		INIT_LEVEL_DEPTH	// max index depth
 #define STATUS_VALID	1
 #define STATUS_DIRTY	2
 #define STATUS_32BIT	3
@@ -58,8 +57,7 @@ typedef struct _TimeTable {
 } TimeTable;
 
 
-
-#define MAX_LEVEL	INIT_LEVEL
+#define MAX_LEVEL	64
 
 typedef struct _LTable {
 	UInt8		noBTV[MAX_LEVEL];
@@ -589,13 +587,13 @@ static void MCacheInit(int cacheSizeMB) {
 		cacheSizeMB, lineNum, lineShift, lineMask);
 
 	tagTable = calloc(sizeof(CacheLine), lineNum);
-	valueTable[0] = TableCreate(lineNum, INIT_LEVEL);
-	//valueTable[1] = TableCreate(lineNum, INIT_LEVEL);
+	valueTable[0] = TableCreate(lineNum, getRegionDepth());
+	//valueTable[1] = TableCreate(lineNum, getRegionDepth());
 
 	//verTable = calloc(sizeof(Version), lineNum);
 
 	MSG(3, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
-		lineNum, INIT_LEVEL, valueTable[0]->array);
+		lineNum, getRegionDepth(), valueTable[0]->array);
 }
 
 static void MCacheDeinit() {

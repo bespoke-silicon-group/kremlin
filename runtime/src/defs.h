@@ -3,13 +3,6 @@
 #define NDEBUG
 //#define KREMLIN_DEBUG
 
-
-#define MSHADOW_BASE	0
-#define MSHADOW_STV		1
-#define MSHADOW_CACHE	2
-
-#define TYPE_MSHADOW MSHADOW_CACHE
-
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */
@@ -23,7 +16,7 @@
 #ifndef _KREMLIN_DEF
 #define _KREMLIN_DEF
 
-#define INIT_LEVEL_DEPTH	64
+//#define INIT_LEVEL_DEPTH	64
 // save the last visited BB number 
 // for now we do not use it
 // but if we need it later, define it 

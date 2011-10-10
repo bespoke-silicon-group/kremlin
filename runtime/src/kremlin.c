@@ -35,10 +35,20 @@ UInt64 _setupTableCnt;
 int _requireSetupTable;
 static int _cacheSize = 4;
 static int _tableType = 0;
+static int _regionDepth = 20;
 
+void setRegionDepth(int depth) {
+	fprintf(stderr, "[kremlin] Setting region depth to %d\n", depth);
+	_regionDepth = depth;
+}
+
+int getRegionDepth() {
+	return _regionDepth;
+}
 
 void setCacheSize(int nMB) {
 	_cacheSize = nMB;
+	fprintf(stderr, "[kremlin] Setting cache size to %d MB\n",nMB);
 }
 
 void setTableType(int type) {
@@ -1522,7 +1532,13 @@ void* logPhiNodeAddCondition(UInt dest, UInt src) {
 /******************************
  * Kremlin Init / Deinit
  *****************************/
+
+#define MSHADOW_BASE	0
+#define MSHADOW_STV		1
+#define MSHADOW_CACHE	2
+
 int _mshadow_type = 2;
+
 void setMShadowType(int type) {
 	_mshadow_type = type;
 	fprintf(stderr, "[kremlin] Setting mshadow type to %d\n", type);
