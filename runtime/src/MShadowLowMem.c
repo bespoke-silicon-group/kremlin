@@ -95,6 +95,7 @@ typedef struct _MemStat {
 	UInt64 nTimeTableConvert[100];
 	UInt64 nTimeTableRealloc[100];
 	UInt64 nTimeTableReallocTotal;
+	UInt64 nLevelWrite[100];
 	UInt64 nEvict[100];
 	UInt64 nEvictTotal;
 	UInt64 nCacheEvictLevelTotal;
@@ -199,8 +200,9 @@ static void printLevelStat() {
 		totalConvert += stat.nTimeTableConvert[i];
 		totalRealloc += stat.nTimeTableRealloc[i];
 
+		int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TIMETABLE_SIZE / 2);
 		double sizeSegTable = getSizeMB(stat.nSegTableNewAlloc[i], sizeof(SegTable));
-		double sizeTimeTable = getSizeMB(stat.nTimeTableNewAlloc[i], sizeof(TimeTable));
+		double sizeTimeTable = getSizeMB(stat.nTimeTableNewAlloc[i], sizeTable64);
 		double sizeVersionTable = getSizeMB(stat.nTimeTableConvert[i], sizeof(TimeTable));
 		double sizeLevel = sizeSegTable + sizeTimeTable + sizeVersionTable;
 		double reallocPercent = (double)stat.nTimeTableRealloc[i] * 100.0 / (double)stat.nEvict[i];
@@ -208,8 +210,8 @@ static void printLevelStat() {
 		if (i < 2)
 			minTotal += sizeLevel;
 		
-		fprintf(stderr, "\tLevel [%2d] SegTable=%.2f, TTable=%.2f, VTable=%.2f Sum=%.2f MB\n", 
-			i, sizeSegTable, sizeTimeTable, sizeVersionTable, sizeLevel, sizeLevel);
+		fprintf(stderr, "\tLevel [%2d] Wr Cnt = %lld, TTable=%.2f, VTable=%.2f Sum=%.2f MB\n", 
+			i, stat.nLevelWrite[i], sizeTimeTable, sizeVersionTable, sizeLevel, sizeLevel);
 		fprintf(stderr, "\t\tReallocPercent=%.2f, Evict=%lld, Realloc=%lld\n",
 			reallocPercent, stat.nEvict[i], stat.nTimeTableRealloc[i]);
 			
@@ -259,6 +261,10 @@ static inline void eventTimeTableNewAlloc(int level) {
 
 static inline void eventTimeTableConvert(int level) {
 	stat.nTimeTableConvert[level]++;
+}
+
+static inline void eventLevelWrite(int level) {
+	stat.nLevelWrite[level]++;
 }
 
 static inline void eventTimeTableConvertTo32() {
@@ -505,7 +511,7 @@ static SEntry* STableGetSEntry(Addr addr) {
 }
 
 typedef struct _CacheEntry {
-	UInt64 tag;  
+	Addr tag;  
 	Version version[2];
 	int lastSize[2];	// required to know the region depth at eviction
 	int type;
@@ -553,7 +559,7 @@ static inline Bool isHit(CacheLine* entry, Addr addr) {
 	MSG(3, "isHit addr = 0x%llx, tag = 0x%llx, entry tag = 0x%llx\n",
 		addr, entry->tag, entry->tag);
 
-	return ((entry->tag ^ (UInt64)addr) >> 3) == 0;
+	return (((UInt64)entry->tag ^ (UInt64)addr) >> 3) == 0;
 }
 
 static inline CacheLine* getEntry(int index) {
@@ -682,8 +688,11 @@ static inline void setTimeLevel(LTable* lTable, Index level, Addr addr, Version 
 		TimeTable* table = LTableGetTable(lTable, level);
 		Version verOld = LTableGetVer(lTable, level);
 		int useTableVersion = lTable->noBTV[level];
+		assert(useTableVersion == 0);
+		eventLevelWrite(level);
 
 		if (table == NULL) {
+			eventTimeTableNewAlloc(level);
 			table = TimeTableAlloc(type, useTableVersion);
 			LTableSetTable(lTable, level, table); 
 			TimeTableSet(table, addr, value, verCurrent);
@@ -695,15 +704,41 @@ static inline void setTimeLevel(LTable* lTable, Index level, Addr addr, Version 
 			TimeTableSet(table, addr, value, verCurrent);
 
 		} else 	{
-			//TimeTable* toAdd = TimeTableAlloc(type, useTableVersion);
-			//TimeTableFree(table);
 			TimeTableClean(table);
-			//LTableSetTable(lTable, level, toAdd); 
 			TimeTableSet(table, addr, value, verCurrent);
 		} 
 		LTableSetVer(lTable, level, verCurrent);
 }
 
+static inline void setTimeLevel2(LTable* lTable, Index level, Addr addr, Version verCurrent, Time value, UInt32 type) {
+
+		checkConvertTimeTable(lTable, level, verCurrent, type);
+		TimeTable* table = LTableGetTable(lTable, level);
+		Version verOld = LTableGetVer(lTable, level);
+		int useTableVersion = lTable->noBTV[level];
+		assert(useTableVersion == 0);
+		eventLevelWrite(level);
+
+		if (table == NULL) {
+			fprintf(stderr, "addr 0x%llx with level %d must have been written previously!\n", addr, level);
+			assert(0);
+			eventTimeTableNewAlloc(level);
+			table = TimeTableAlloc(type, useTableVersion);
+			LTableSetTable(lTable, level, table); 
+			TimeTableSet(table, addr, value, verCurrent);
+		}
+
+		// actual write
+		else if (useTableVersion || verOld >= verCurrent) {
+			assert(table != NULL);
+			TimeTableSet(table, addr, value, verCurrent);
+
+		} else 	{
+			TimeTableClean(table);
+			TimeTableSet(table, addr, value, verCurrent);
+		} 
+		//LTableSetVer(lTable, level, verCurrent);
+}
 static inline LTable* getLTable(Addr addr) {
 	SEntry* sEntry = STableGetSEntry(addr);
 	SegTable* segTable = sEntry->segTable;
@@ -718,9 +753,11 @@ static inline LTable* getLTable(Addr addr) {
 	return lTable;
 }
 
-static inline int getStartInvalidLevel(CacheLine* line, Version* vArray, Index size) {
-	Version oldVer = getCacheVersion(line);
+static inline int getStartInvalidLevel(Version oldVer, Version* vArray, Index size) {
 	int firstInvalid = 0;
+
+	if (size > 2)
+		MSG(0, "\tMCacheEvict oldVer = %lld, newVer = %lld %lld \n", oldVer, vArray[size-2], vArray[size-1]);
 
 	if (oldVer == vArray[size-1])
 		return size;
@@ -736,39 +773,70 @@ static inline int getStartInvalidLevel(CacheLine* line, Version* vArray, Index s
 
 }
 
-static inline void MCacheValidateTag(CacheLine* line, int lineIndex, Version* vArray, Index size) {
-	int firstInvalid = getStartInvalidLevel(line, vArray, size);
-	Time* destAddr = getTimeAddr(0, lineIndex, firstInvalid);
-	bzero(destAddr, sizeof(Time) * (size - firstInvalid));
-	setCacheVersion(line, vArray[size-1]);
+static void check(Addr addr, Time* src, int size, int site) {
+#ifndef NDEBUG
+	int i;
+	for (i=1; i<size; i++) {
+		if (src[i-1] < src[i]) {
+			fprintf(stderr, "site %d Addr 0x%llx size %d offset %d val=%lld %lld\n", 
+				site, addr, size, i, src[i-1], src[i]); 
+			assert(0);
+		}
+	}
+#endif
 }
 
-static void MCacheEvict(CacheLine* cacheEntry, Addr addr, int size, Version* vArray) {
-	//if (!isValid(cacheEntry))
-	//	return;
-	if (cacheEntry->tag == NULL)
+static inline int hasVersionError(Version* vArray, int size) {
+#ifndef NDEBUG
+	int i;
+	for (i=1; i<size; i++) {
+		if (vArray[i-1] > vArray[i])
+			return 1;
+	}
+#endif
+	return 0;
+}
+
+static inline void MCacheValidateTag(CacheLine* line, Time* destAddr, Version* vArray, Index size) {
+	int firstInvalid = getStartInvalidLevel(line->version[0], vArray, size);
+
+	MSG(0, "\t\tMCacheValidateTag: invalid from level %d\n", firstInvalid);
+	if (size > firstInvalid)
+		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
+}
+
+static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, Version* vArray, int type) {
+	if (addr == NULL)
 		return;
 
-	int row = getLineIndex(addr);
-	Time* tArray = getTimeAddr(0, row, 0);
+	int i;
 
-	int index;
+	if (hasVersionError(vArray, size)) {
+		fprintf(stderr, "\toldVer = %lld", oldVersion);
+		for (i=0; i<size; i++) {
+			fprintf(stderr, "\tVer[%d] = %lld", i, vArray[i]);
+		}
+		fprintf(stderr, "\n");
+
+
+		assert(0);
+	}
+
 	int lastValid = -1;
-	int type = getAccessWidthType(cacheEntry);
-	int startInvalid = getStartInvalidLevel(cacheEntry, vArray, size);
+	int startInvalid = getStartInvalidLevel(oldVersion, vArray, size);
 
 	MSG(0, "\tMCacheEvict 0x%llx, size=%d, effectiveSize=%d \n", addr, size, startInvalid);
+		
 	LTable* lTable = getLTable(addr);
-	int i;
 	for (i=0; i<startInvalid; i++) {
 		eventEvict(i);
-		setTimeLevel(lTable, i, addr, vArray[i], tArray[i], type);
+		setTimeLevel2(lTable, i, addr, vArray[i], tArray[i], type);
 		MSG(0, "\t\toffset=%d, version=%d, value=%d\n", i, vArray[i], tArray[i]);
 	}
-	eventCacheEvict(size, index);
+	eventCacheEvict(size, startInvalid);
 }
 
-static void MCacheFetch(CacheLine* entry, Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
+static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
 	MSG(0, "\tMCacheFetch 0x%llx, size %d \n", addr, size);
 	LTable* lTable = getLTable(addr);
 
@@ -800,20 +868,6 @@ static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, in
 	}
 }
 
-#ifdef NDEBUG
-static void check(Addr addr, Time* src, int size, int site) {}
-#else
-static void check(Addr addr, Time* src, int size, int site) {
-	int i;
-	for (i=1; i<size; i++) {
-		if (src[i-1] < src[i]) {
-			fprintf(stderr, "site %d Addr 0x%llx size %d offset %d val=%lld %lld\n", 
-				site, addr, size, i, src[i-1], src[i]); 
-			assert(0);
-		}
-	}
-}
-#endif
 
 static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	int row = getLineIndex(addr);
@@ -825,18 +879,21 @@ static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	if (isHit(entry, addr)) {
 		eventReadHit();
 		//MSG(0, "\t cache hit at 0x%llx firstInvalid = %d\n", destAddr, firstInvalid);
-		MCacheValidateTag(entry, row, vArray, size);
+		MCacheValidateTag(entry, destAddr, vArray, size);
 		check(addr, destAddr, size, 0);
 
 	} else {
 		// Unfortunately, this access results in a miss
 		// 1. evict a line	
 		eventReadEvict();
-		MCacheEvict(entry, entry->tag, entry->lastSize[0], vArray);
+		int evictSize = entry->lastSize[0];
+		if (size < evictSize)
+			evictSize = size;
+		MCacheEvict(destAddr, entry->tag, size, entry->version[0], vArray, entry->type);
 
 		// 2. read line from MShadow to the evicted line
-		MCacheFetch(entry, addr, size, vArray, destAddr, type);
-		entry->tag = (UInt64)addr;
+		MCacheFetch(addr, size, vArray, destAddr, type);
+		entry->tag = addr;
 		check(addr, destAddr, size, 1);
 	}
 
@@ -849,6 +906,7 @@ static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
 	int row = getLineIndex(addr);
 	int offset = 0;
+	Time* destAddr = getTimeAddr(offset, row, 0);
 #if 0
 	if (type == TYPE_32BIT) {
 		offset = ((UInt64)addr >> 2) & 0x1;
@@ -856,6 +914,10 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 #endif
 	CacheLine* entry = getEntry(row);
 	assert(row < lineNum);
+
+	if (hasVersionError(vArray, size)) {
+		assert(0);
+	}
 
 	if (isHit(entry, addr)) {
 		eventWriteHit();
@@ -868,11 +930,14 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 
 	} else {
 		eventWriteEvict();
-		MCacheEvict(entry, entry->tag, entry->lastSize[0], vArray);
+
+		int evictSize = entry->lastSize[0];
+		if (size < evictSize)
+			evictSize = size;
+		MCacheEvict(destAddr, entry->tag, evictSize, entry->version[0], vArray, entry->type);
 	} 		
 
 	// copy Timestamps
-	Time* destAddr = getTimeAddr(offset, row, 0);
 	memcpy(destAddr, tArray, sizeof(Time) * size);
 	entry->type = type;
 	entry->tag = addr;
@@ -883,6 +948,7 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 }
 
 
+
 static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d \n", addr, size);
 	if (size < 1)
@@ -890,7 +956,7 @@ static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 wid
 
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
-	Addr tAddr = (Addr)((UInt64)addr & ~0x7);
+	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	eventRead();
 	if (bypassCache == 1) {
 		return MNoCacheGet(tAddr, size, vArray, type);
@@ -907,12 +973,13 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 	
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
-	Addr tAddr = (Addr)((UInt64)addr & ~0x7);
+	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	eventWrite();
 	if (bypassCache == 1) {
 		MNoCacheSet(tAddr, size, vArray, tArray, type);
 
 	} else {
+		MNoCacheSet(tAddr, size, vArray, tArray, type);
 		MCacheSet(tAddr, size, vArray, tArray, type);
 	}
 

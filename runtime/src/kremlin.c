@@ -613,7 +613,7 @@ inline Time CDepGet(Index index) {
  *****************************************************************/
 
 void addControlDep(Reg cond) {
-    MSG(1, "push ControlDep ts[%u]\n", cond);
+    MSG(3, "push ControlDep ts[%u]\n", cond);
 checkRegion();
     if (!isKremlinOn()) {
 		return;
@@ -645,7 +645,7 @@ checkRegion();
 }
 
 void removeControlDep() {
-    MSG(1, "pop  ControlDep\n");
+    MSG(3, "pop  ControlDep\n");
     if (!isKremlinOn()) {
 		return;
 	}
@@ -1032,7 +1032,7 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
 }
 
 void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
-    MSG(1, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
+    MSG(3, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
     if (!isKremlinOn())
         return NULL;
 
