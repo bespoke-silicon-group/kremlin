@@ -710,35 +710,6 @@ static inline void setTimeLevel(LTable* lTable, Index level, Addr addr, Version 
 		LTableSetVer(lTable, level, verCurrent);
 }
 
-static inline void setTimeLevel2(LTable* lTable, Index level, Addr addr, Version verCurrent, Time value, UInt32 type) {
-
-		checkConvertTimeTable(lTable, level, verCurrent, type);
-		TimeTable* table = LTableGetTable(lTable, level);
-		Version verOld = LTableGetVer(lTable, level);
-		int useTableVersion = lTable->noBTV[level];
-		assert(useTableVersion == 0);
-		eventLevelWrite(level);
-
-		if (table == NULL) {
-			fprintf(stderr, "addr 0x%llx with level %d must have been written previously!\n", addr, level);
-			assert(0);
-			eventTimeTableNewAlloc(level);
-			table = TimeTableAlloc(type, useTableVersion);
-			LTableSetTable(lTable, level, table); 
-			TimeTableSet(table, addr, value, verCurrent);
-		}
-
-		// actual write
-		else if (useTableVersion || verOld >= verCurrent) {
-			assert(table != NULL);
-			TimeTableSet(table, addr, value, verCurrent);
-
-		} else 	{
-			TimeTableClean(table);
-			TimeTableSet(table, addr, value, verCurrent);
-		} 
-		//LTableSetVer(lTable, level, verCurrent);
-}
 static inline LTable* getLTable(Addr addr) {
 	SEntry* sEntry = STableGetSEntry(addr);
 	SegTable* segTable = sEntry->segTable;
@@ -810,18 +781,6 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 		return;
 
 	int i;
-
-	if (hasVersionError(vArray, size)) {
-		fprintf(stderr, "\toldVer = %lld", oldVersion);
-		for (i=0; i<size; i++) {
-			fprintf(stderr, "\tVer[%d] = %lld", i, vArray[i]);
-		}
-		fprintf(stderr, "\n");
-
-
-		assert(0);
-	}
-
 	int lastValid = -1;
 	int startInvalid = getStartInvalidLevel(oldVersion, vArray, size);
 
@@ -830,7 +789,9 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 	LTable* lTable = getLTable(addr);
 	for (i=0; i<startInvalid; i++) {
 		eventEvict(i);
-		setTimeLevel2(lTable, i, addr, vArray[i], tArray[i], type);
+		if (tArray[i] == 0ULL)
+			break;
+		setTimeLevel(lTable, i, addr, vArray[i], tArray[i], type);
 		MSG(0, "\t\toffset=%d, version=%d, value=%d\n", i, vArray[i], tArray[i]);
 	}
 	eventCacheEvict(size, startInvalid);
@@ -889,6 +850,7 @@ static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 		int evictSize = entry->lastSize[0];
 		if (size < evictSize)
 			evictSize = size;
+		MSG(0, "\t CacheGet: evict size = %d, lastSize = %d, size = %d\n", evictSize, entry->lastSize[0], size);
 		MCacheEvict(destAddr, entry->tag, size, entry->version[0], vArray, entry->type);
 
 		// 2. read line from MShadow to the evicted line
@@ -897,8 +859,10 @@ static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 		check(addr, destAddr, size, 1);
 	}
 
-	entry->version[offset] = vArray[size-1];
-	entry->lastSize[offset] = size;
+	entry->version[0] = vArray[size-1];
+	if (size > entry->lastSize[0])
+		MSG(0, "\t CacheGet: size increased from %d to %d at addr 0x%llx\n", entry->lastSize[0], size, addr);
+	entry->lastSize[0] = size;
 	return destAddr;
 }
 
@@ -921,12 +885,13 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 
 	if (isHit(entry, addr)) {
 		eventWriteHit();
-
+#if 0
 		if (type == TYPE_32BIT && offset == 0 && 
 			entry->type == TYPE_64BIT) {
 			entry->version[1] = entry->version[0];
 			entry->lastSize[1] = entry->lastSize[0];	
 		}
+#endif
 
 	} else {
 		eventWriteEvict();
@@ -934,6 +899,8 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 		int evictSize = entry->lastSize[0];
 		if (size < evictSize)
 			evictSize = size;
+
+		MSG(0, "\t CacheSet: evict size = %d, lastSize = %d, size = %d\n", evictSize, entry->lastSize[0], size);
 		MCacheEvict(destAddr, entry->tag, evictSize, entry->version[0], vArray, entry->type);
 	} 		
 
@@ -941,8 +908,8 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 	memcpy(destAddr, tArray, sizeof(Time) * size);
 	entry->type = type;
 	entry->tag = addr;
-	entry->version[offset] = vArray[size-1];
-	entry->lastSize[offset] = size;
+	entry->version[0] = vArray[size-1];
+	entry->lastSize[0] = size;
 
 	check(addr, destAddr, size, 2);
 }
@@ -950,13 +917,13 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 
 
 static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 width) {
-	MSG(0, "MShadowGet 0x%llx, size %d \n", addr, size);
 	if (size < 1)
 		return NULL;
 
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
+	MSG(0, "MShadowGet 0x%llx, size %d \n", tAddr, size);
 	eventRead();
 	if (bypassCache == 1) {
 		return MNoCacheGet(tAddr, size, vArray, type);
@@ -974,12 +941,13 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
+	MSG(0, "MShadowSet 0x%llx, size %d \n", tAddr, size);
 	eventWrite();
 	if (bypassCache == 1) {
 		MNoCacheSet(tAddr, size, vArray, tArray, type);
 
 	} else {
-		MNoCacheSet(tAddr, size, vArray, tArray, type);
+	//	MNoCacheSet(tAddr, size, vArray, tArray, type);
 		MCacheSet(tAddr, size, vArray, tArray, type);
 	}
 
