@@ -650,6 +650,39 @@ static inline void LTableSetTable(LTable* lTable, Index level, TimeTable* table)
 	lTable->tArray[level] = table;
 }
 
+static void gcLevel(LTable* table, Version* vArray) {
+	int i;
+	for (i=0; i<MAX_LEVEL; i++) {
+		TimeTable* time = table->tArray[i];
+		Version ver = table->vArray[i];
+		if (time == NULL)
+			continue;
+
+		if (ver < vArray[i]) {
+			// out of date
+			TimeTableFree(time);
+			table->tArray[i] = NULL;
+		}
+		
+	}
+		
+}
+
+static void gcStart(Version* vArray) {
+	int i, j;
+	for (i=0; i<STABLE_SIZE; i++) {
+		SegTable* table = sTable.entry[i].segTable;	
+		if (table == NULL)
+			continue;
+		
+		for (j=0; j<SEGTABLE_SIZE; j++) {
+			LTable* lTable = table->entry[j];
+			if (lTable != NULL) {
+				gcLevel(lTable, vArray);
+			}
+		}
+	}
+}
 static inline void checkConvertTimeTable(LTable* lTable, Index level, Version verCurrent, UInt32 type) {
 		Version verOld = LTableGetVer(lTable, level);
 		TimeTable* table = LTableGetTable(lTable, level);
@@ -767,6 +800,7 @@ static inline int hasVersionError(Version* vArray, int size) {
 #endif
 	return 0;
 }
+
 
 static inline void MCacheValidateTag(CacheLine* line, Time* destAddr, Version* vArray, Index size) {
 	int firstInvalid = getStartInvalidLevel(line->version[0], vArray, size);
@@ -933,6 +967,16 @@ static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 wid
 	}
 }
 
+static UInt64 nextGC = 10000;
+static int gcPeriod = 10000;
+
+void setGCPeriod(int time) {
+	nextGC = time;
+	gcPeriod = time;
+	if (time == 0)
+		nextGC = 0xFFFFFFFFFFFFFFFF;
+}
+
 static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(0, "MShadowSet 0x%llx, size %d \n", addr, size);
 	if (size < 1)
@@ -951,6 +995,10 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 		MCacheSet(tAddr, size, vArray, tArray, type);
 	}
 
+	if (tArray[size-1] > nextGC) {
+		gcStart(tArray);
+		nextGC += gcPeriod;
+	}
 }
 
 
