@@ -2,6 +2,7 @@
 #define MEM_MAP_ALLOCATOR_H
 
 #include <stdlib.h>
+#include "defs.h"
 
 typedef struct MemMapAllocator MemMapAllocator;
 
@@ -31,5 +32,8 @@ void* MemMapAllocatorMalloc(MemMapAllocator* p, size_t size);
  * Free memory allocated from the allocator.
  */
 void MemMapAllocatorFree(MemMapAllocator* p, void* ptr);
+
+void* MemPoolAlloc(void);
+void MemPoolFree(void* addr);
 
 #endif /* MEM_MAP_ALLOCATOR_H */

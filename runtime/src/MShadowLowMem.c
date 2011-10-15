@@ -13,6 +13,7 @@
 #include "debug.h"
 #include "CRegion.h"
 #include "MShadow.h"
+#include "MemMapAllocator.h"
 #include "Table.h"
 
 #define TIME_TABLE_BTV		0
@@ -101,6 +102,7 @@ typedef struct _MemStat {
 	UInt64 nCacheEvictLevelTotal;
 	UInt64 nCacheEvictLevelEffective;
 	UInt64 nCacheEvict;
+	UInt64 nGC;
 
 } MemStat;
 
@@ -149,6 +151,7 @@ static void printCacheStat() {
 		stat.nCacheEvict, 
 		(double)stat.nCacheEvictLevelTotal / stat.nCacheEvict, 
 		(double)stat.nCacheEvictLevelEffective / stat.nCacheEvict);
+	fprintf(stderr, "\tnGC = %d\n", stat.nGC);
 }
 
 
@@ -162,7 +165,7 @@ static void printMemReqStat() {
 	int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TIMETABLE_SIZE / 2);
 	UInt64 nTable1 = stat.nTimeTableAllocated[1] - stat.nTimeTableFreed[1];
 	int sizeTable32 = sizeof(TimeTable) + sizeof(Time) * TIMETABLE_SIZE;
-	double tTableSize0 = getSizeMB(nTable0, sizeTable64);
+	double tTableSize0 = getSizeMB(stat.nTimeTableActiveMax, sizeTable64);
 	double tTableSize1 = getSizeMB(nTable1, sizeTable32);
 	double tTableSize = tTableSize0 + tTableSize1;
 
@@ -326,16 +329,21 @@ static inline void TimeTableClean(TimeTable* table) {
 	}
 }
 
+
 static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
 	stat.nTimeTableAllocated[sizeType]++;
 	stat.nTimeTableActive++;
 	if (stat.nTimeTableActive > stat.nTimeTableActiveMax)
 		stat.nTimeTableActiveMax++;
+	
 
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	int size = TimeTableEntrySize(sizeType);
 	TimeTable* ret = malloc(sizeof(TimeTable));
-	ret->array = calloc(sizeof(Time), size);
+	//ret->array = malloc(sizeof(Time) * size);
+	ret->array = MemPoolAlloc();
+	bzero(ret->array, sizeof(Time) * size);
+
 	ret->type = sizeType;
 	ret->useVersion = useVersion;
 
@@ -352,7 +360,7 @@ static inline void TimeTableFree(TimeTable* table) {
 	int sizeType = table->type;
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	stat.nTimeTableFreed[table->type]++;
-	free(table->array);
+	//free(table->array);
 	if (table->useVersion) {
 		assert(table->version != NULL);
 		free(table->version);
@@ -372,6 +380,7 @@ static inline int TimeTableGetIndex(Addr addr, int type) {
 
 // note that TimeTableGet is not affected by access width
 static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver) {
+	assert(table != NULL);
 	int index = TimeTableGetIndex(addr, table->type);
 	Time ret = 0ULL;
 	if (table->useVersion == 0)
@@ -389,6 +398,7 @@ static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver) {
 }
 
 static inline void TimeTableSet(TimeTable* table, Addr addr, Time time, Version ver) {
+	assert(table != NULL);
 	int index = TimeTableGetIndex(addr, table->type);
 	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &(table->array[index]), index);
 	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", table, &(table->array[0]));
@@ -650,9 +660,10 @@ static inline void LTableSetTable(LTable* lTable, Index level, TimeTable* table)
 	lTable->tArray[level] = table;
 }
 
-static void gcLevel(LTable* table, Version* vArray) {
+static void gcLevel(LTable* table, Version* vArray, int size) {
 	int i;
-	for (i=0; i<MAX_LEVEL; i++) {
+	//fprintf(stderr, "%d: \t", size);
+	for (i=0; i<size; i++) {
 		TimeTable* time = table->tArray[i];
 		Version ver = table->vArray[i];
 		if (time == NULL)
@@ -660,16 +671,26 @@ static void gcLevel(LTable* table, Version* vArray) {
 
 		if (ver < vArray[i]) {
 			// out of date
+			//fprintf(stderr, "(%d, %d %d)\t", i, ver, vArray[i]);
 			TimeTableFree(time);
 			table->tArray[i] = NULL;
 		}
-		
+	}
+
+	for (i=size; i<MAX_LEVEL; i++) {
+		TimeTable* time = table->tArray[i];
+		if (time != NULL) {
+			//fprintf(stderr, "(%d)\t", i);
+			TimeTableFree(time);
+			table->tArray[i] = NULL;
+		}
 	}
 		
 }
 
-static void gcStart(Version* vArray) {
+static void gcStart(Version* vArray, int size) {
 	int i, j;
+	stat.nGC++;
 	for (i=0; i<STABLE_SIZE; i++) {
 		SegTable* table = sTable.entry[i].segTable;	
 		if (table == NULL)
@@ -678,7 +699,7 @@ static void gcStart(Version* vArray) {
 		for (j=0; j<SEGTABLE_SIZE; j++) {
 			LTable* lTable = table->entry[j];
 			if (lTable != NULL) {
-				gcLevel(lTable, vArray);
+				gcLevel(lTable, vArray, size);
 			}
 		}
 	}
@@ -884,8 +905,11 @@ static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 		int evictSize = entry->lastSize[0];
 		if (size < evictSize)
 			evictSize = size;
-		MSG(0, "\t CacheGet: evict size = %d, lastSize = %d, size = %d\n", evictSize, entry->lastSize[0], size);
-		MCacheEvict(destAddr, entry->tag, size, entry->version[0], vArray, entry->type);
+
+		MSG(0, "\t CacheGet: evict size = %d, lastSize = %d, size = %d\n", 
+			evictSize, entry->lastSize[0], size);
+		//MCacheEvict(destAddr, entry->tag, size, entry->version[0], vArray, entry->type);
+		MCacheEvict(destAddr, entry->tag, evictSize, entry->version[0], vArray, entry->type);
 
 		// 2. read line from MShadow to the evicted line
 		MCacheFetch(addr, size, vArray, destAddr, type);
@@ -967,21 +991,29 @@ static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 wid
 	}
 }
 
-static UInt64 nextGC = 10000;
-static int gcPeriod = 10000;
+static UInt64 nextGC = 1024;
+static int gcPeriod = -1;
 
 void setGCPeriod(int time) {
+	fprintf(stderr, "[kremlin] set GC period to %d\n", time);
 	nextGC = time;
 	gcPeriod = time;
 	if (time == 0)
 		nextGC = 0xFFFFFFFFFFFFFFFF;
 }
 
+
 static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(0, "MShadowSet 0x%llx, size %d \n", addr, size);
 	if (size < 1)
 		return;
-	
+
+	//if (tArray[size-1] > nextGC) {
+	if (stat.nTimeTableActiveMax >= nextGC) {
+		gcStart(vArray, size);
+		nextGC += gcPeriod;
+	}
+
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
@@ -995,10 +1027,6 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 		MCacheSet(tAddr, size, vArray, tArray, type);
 	}
 
-	if (tArray[size-1] > nextGC) {
-		gcStart(tArray);
-		nextGC += gcPeriod;
-	}
 }
 
 
@@ -1008,8 +1036,14 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 UInt MShadowInitCache(int cacheSizeMB, int type) {
 	fprintf("[kremlin] MShadow Init with cache % MB, TimeTableType = %d, TimeTableSize = %d\n",
 		cacheSizeMB, type, sizeof(TimeTable));
+
+	int size = TimeTableEntrySize(TYPE_64BIT);
+	MemPoolInit(1024, size * sizeof(Time));
 	
 	timetableType = type;
+	if (gcPeriod == -1)
+		setGCPeriod(1024);
+
 	cacheMB = cacheSizeMB;
 	STableInit();
 	MCacheInit(cacheSizeMB);

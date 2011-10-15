@@ -24,6 +24,89 @@
 #   endif /* MAP_ANONYMOUS */
 #endif /* MAP_ANON */
 
+typedef struct _MChunk {
+	Addr addr;
+	struct _MChunk* next;
+} MChunk;
+
+static int chunkSize;
+static int mmapSizeMB;
+static MChunk* freeList;
+
+
+void MemPoolInit(int nMB, int sizeEach) {
+	mmapSizeMB = nMB;
+	chunkSize = sizeEach;
+	freeList = NULL;	
+}
+
+MChunk* MChunkAlloc(Addr addr) {
+	MChunk* ret = malloc(sizeof(MChunk));
+	ret->addr = addr;
+	return ret;
+}
+
+void addMChunk(MChunk* toAdd) {
+	MChunk* head = freeList;
+	toAdd->next = head;
+	freeList = toAdd;
+}
+
+static void FillFreeList() {
+	int protection = PROT_READ | PROT_WRITE;
+    int flags = MAP_PRIVATE | MEM_MAP_POOL_ANON;
+    int fileId = -1;
+    int offset = 0;
+
+    // Allocate mmapped data.
+	unsigned char* data;
+    data = (unsigned char*)mmap64(NULL, mmapSizeMB * 1024 * 1024, protection, flags, fileId, offset);
+	
+	if (data == MAP_FAILED) {
+		fprintf(stderr, "mmap failed\n");
+
+	} else {
+		assert(freeList == NULL);
+	}
+
+	unsigned char* current = data;
+	int cnt = 0;	
+	while ((current + chunkSize) < (data + mmapSizeMB * 1024 * 1024)) {
+		//fprintf(stderr, "current = 0x%llx\n", current);
+		MChunk* toAdd = MChunkAlloc(current);		
+		addMChunk(toAdd);	
+		current += chunkSize;
+		cnt++;
+	}
+	fprintf(stderr, "Allocated %d chunks starting at 0x%llx\n", cnt, data);
+	fprintf(stderr, "last = 0x%llx\n", current - chunkSize);
+}
+
+
+Addr MemPoolAlloc() {
+	if (freeList == NULL) {
+		FillFreeList();
+	}
+	MChunk* head = freeList;
+	void* ret = freeList->addr;
+	freeList = freeList->next;
+	free(head);
+
+	//bzero(ret, chunkSize);
+	//fprintf(stderr, "Returning addr 0x%llx\n", ret);
+	return ret;
+}
+
+void MemPoolFree(Addr addr) {
+	MChunk* toAdd = MChunkAlloc(addr);
+	addMChunk(toAdd);
+}
+
+void MemPoolDeinit() {
+	
+}
+
+#if 0
 /**
  * MemMapAllocator using mmap.
  *
@@ -136,3 +219,4 @@ void MemMapAllocatorFree(MemMapAllocator* p, void* ptr)
 {
 	// TODO: implement
 }
+#endif

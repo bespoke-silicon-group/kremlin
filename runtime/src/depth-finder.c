@@ -1,5 +1,4 @@
 #include "defs.h"
-
 static unsigned int curr_level, max_level;
 Level __kremlin_min_level = 0;
 Level __kremlin_max_level = 21;
@@ -91,5 +90,4 @@ void cppExit() {}
 void setupLocalTable(UInt maxVregNum) {}
 
 void printProfileData() {}
-
 int main(int argc, char* argv[]) { __main(argc,argv); }

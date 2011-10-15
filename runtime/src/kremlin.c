@@ -40,6 +40,7 @@ static int _regionDepth = 20;
 void setRegionDepth(int depth) {
 	fprintf(stderr, "[kremlin] Setting region depth to %d\n", depth);
 	_regionDepth = depth;
+	setMaxLevel(depth);
 }
 
 int getRegionDepth() {
@@ -1595,7 +1596,7 @@ Bool kremlinInit() {
     InvokeRecordsCreate(&invokeRecords);
 #endif
 
-    MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
+    //MemMapAllocatorCreate(&memPool, ALLOCATOR_SIZE);
 	ArgFifoInit();
 	CDepInit();
 	CRegionInit();
@@ -1625,7 +1626,7 @@ Bool kremlinDeinit() {
 	ArgFifoDeinit();
 	CDepDeinit();
 	RegionDeinit();
-    MemMapAllocatorDelete(&memPool);
+    //MemMapAllocatorDelete(&memPool);
 
 	DebugDeinit();
     return TRUE;
