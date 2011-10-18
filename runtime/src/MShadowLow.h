@@ -16,12 +16,14 @@
 #define TYPE_64BIT	0
 #define TYPE_32BIT	1
 
+typedef UInt16 CompChunk;
+
 
 typedef struct _DictEntry {
-	UInt16 *name; // key
+	CompChunk *name; // key
 	UInt16 id;
 	UInt32 size;
-	UT_hash_handle hh; // makes this structure hashable
+	UT_hash_handle hh,hh2; // makes this structure hashable
 } DictEntry;
 
 typedef struct _TimeTable {

@@ -6,12 +6,37 @@
 
 // TODO: store size in diffs array for bettery memory alloc?
 typedef struct _CompressedTimeTable {
-	UInt32 size; // num of entries in UInt16 array
+	UInt32 size; // num of entries in CompChunk array
 	UInt16* diffs; // compressed array of diffs
 } CompressedTimeTable;
 
-CompressedTimeTable* compressTimeTableDiff(UInt16* diffArray, DictEntry** compressionDict, DictEntry** decompressionDict, UInt16* nextDictId) {
-	UInt16 *currSymbol = malloc(sizeof(UInt16)*COMPRESSOR_CHUNK_SIZE);
+void satsBetterFind(DictEntry* dictionary, CompChunk* name, UInt32 size, DictEntry** resultEntry) {
+	DictEntry *currEntry, *tmp;
+
+	HASH_ITER(hh, dictionary, currEntry, tmp) {
+		if(currEntry->size == size) {
+			UInt8 found = 1;
+
+			int i;
+			for(i = 0; i < size; ++i) {
+				if(name[i] != currEntry->name[i]) {
+					found = 0;
+					break;
+				}
+			}
+
+			if(found == 1) {
+				*resultEntry = currEntry;
+				return;
+			}
+		}
+	}
+
+	*resultEntry = NULL;
+}
+
+CompressedTimeTable* compressTimeTableDiff(CompChunk* diffArray, DictEntry** compressionDict, DictEntry** decompressionDict, UInt16* nextDictId) {
+	CompChunk *currSymbol = malloc(sizeof(CompChunk)*COMPRESSOR_CHUNK_SIZE);
 	unsigned int symbolArrayCapacity = COMPRESSOR_CHUNK_SIZE;
 	UInt32 currSymbolLength = 0;
 	UInt32 computedCompressedSize = 0;
@@ -27,46 +52,37 @@ CompressedTimeTable* compressTimeTableDiff(UInt16* diffArray, DictEntry** compre
 	DictEntry *dEntry, *newEntry, *singleEntry, *reversedEntry;
 
 	int i;
-	for(i = 0; i < (TIMETABLE_SIZE/2)*(sizeof(Time)/sizeof(UInt16)); ++i) {
+	for(i = 0; i < (TIMETABLE_SIZE/2)*(sizeof(Time)/sizeof(CompChunk)); ++i) {
 		//fprintf(stderr,"index = %d\n",i);
 		fprintf(stderr,"value %d: %hu\n",i,diffArray[i]);
 
-		UInt8 newChar = 0; // 1 => first time this short has been seen
-
 		// if diffArray[i] doesn't exist in dictionary, add it
-		HASH_FIND( hh, *compressionDict, &diffArray[i], sizeof(UInt16), dEntry );
+		HASH_FIND( hh, *compressionDict, &diffArray[i], sizeof(CompChunk), dEntry );
 		if(dEntry == NULL) {
 			fprintf(stderr,"\thaven't seen value (%hu) before. Adding to dict with id = %hu\n",diffArray[i],*nextDictId);
 
-			dEntry = malloc(sizeof(DictEntry));
-			dEntry->name = malloc(sizeof(UInt16));
+			dEntry = calloc(1,sizeof(DictEntry));
+			dEntry->name = malloc(sizeof(CompChunk));
 			dEntry->name[0] = diffArray[i];
 			dEntry->id = *nextDictId;
-			reversedEntry = malloc(sizeof(DictEntry));
-			reversedEntry->name = malloc(sizeof(UInt16));
+			/*
+			reversedEntry = calloc(1,sizeof(DictEntry));
+			reversedEntry->name = malloc(sizeof(CompChunk));
 			reversedEntry->name[0] = diffArray[i];
 			reversedEntry->id = *nextDictId;
+			*/
 			(*nextDictId)++;
 			dEntry->size = 1;
-			reversedEntry->size = 1;
-			newChar = 1;
+			//reversedEntry->size = 1;
 
-			HASH_ADD_KEYPTR( hh, *compressionDict, &diffArray[i], sizeof(UInt16), dEntry );
-			HASH_ADD( hh, *decompressionDict, id, sizeof(UInt16), reversedEntry );
+			HASH_ADD_KEYPTR( hh, *compressionDict, &diffArray[i], sizeof(CompChunk), dEntry );
+			//HASH_ADD( hh, *decompressionDict, id, sizeof(UInt16), reversedEntry );
+			HASH_ADD( hh2, *decompressionDict, id, sizeof(UInt16), dEntry );
 		}
 
 		// add current short to current symbol
 		currSymbol[currSymbolLength] = diffArray[i];
 		currSymbolLength++;
-
-		// special check for first time through loop
-		//if(currSymbolLength == 1) { 
-		/*
-		if(i == 0 && newChar == 1) { 
-			dEntry = singleEntry;
-			continue;
-		}
-		*/
 
 		fprintf(stderr,"checking symbol (len = %u): ",currSymbolLength);
 		int j;
@@ -76,11 +92,11 @@ CompressedTimeTable* compressTimeTableDiff(UInt16* diffArray, DictEntry** compre
 		fprintf(stderr,"\n");
 
 		// check if current symbol is in the dictionary
-		HASH_FIND( hh, *compressionDict, currSymbol, currSymbolLength*sizeof(UInt16), dEntry);
+		HASH_FIND( hh, *compressionDict, currSymbol, currSymbolLength*sizeof(CompChunk), dEntry);
 
 		// if not, we need to add it and output code for previous symbol
 		if(dEntry != NULL) {
-			//fprintf(stderr,"\tFound existing entry in dict for current //symbol (id = %hu)\n",dEntry->id);
+			fprintf(stderr,"\tFound existing entry in dict for current symbol (id = %hu)\n",dEntry->id);
 			//dEntry = newEntry;
 		}
 		else {
@@ -94,20 +110,23 @@ CompressedTimeTable* compressTimeTableDiff(UInt16* diffArray, DictEntry** compre
 
 
 			// add new symbol to dictionary
-			dEntry = malloc(sizeof(DictEntry));
-			dEntry->name = malloc(sizeof(UInt16)*currSymbolLength);
-			memcpy(dEntry->name,currSymbol,currSymbolLength*sizeof(UInt16));
+			dEntry = calloc(1,sizeof(DictEntry));
+			dEntry->name = malloc(sizeof(CompChunk)*currSymbolLength);
+			memcpy(dEntry->name,currSymbol,currSymbolLength*sizeof(CompChunk));
 			dEntry->id = *nextDictId;
-			reversedEntry = malloc(sizeof(DictEntry));
-			reversedEntry->name = malloc(sizeof(UInt16)*currSymbolLength);
-			memcpy(reversedEntry->name,currSymbol,currSymbolLength*sizeof(UInt16));
+			/*
+			reversedEntry = calloc(1,sizeof(DictEntry));
+			reversedEntry->name = malloc(sizeof(CompChunk)*currSymbolLength);
+			memcpy(reversedEntry->name,currSymbol,currSymbolLength*sizeof(CompChunk));
 			reversedEntry->id = *nextDictId;
+			*/
 			(*nextDictId)++;
 			dEntry->size = currSymbolLength;
-			reversedEntry->size = currSymbolLength;
+			//reversedEntry->size = currSymbolLength;
 
-			HASH_ADD_KEYPTR( hh, *compressionDict, currSymbol, currSymbolLength*sizeof(UInt16), dEntry );
-			HASH_ADD( hh, *decompressionDict, id, sizeof(UInt16), reversedEntry );
+			HASH_ADD_KEYPTR( hh, *compressionDict, currSymbol, currSymbolLength*sizeof(CompChunk), dEntry );
+			//HASH_ADD( hh, *decompressionDict, id, sizeof(UInt16), reversedEntry );
+			HASH_ADD( hh2, *decompressionDict, id, sizeof(UInt16), dEntry );
 
 			// store code for previous symbol in compressed array
 			/*
@@ -118,14 +137,16 @@ CompressedTimeTable* compressTimeTableDiff(UInt16* diffArray, DictEntry** compre
 			}
 			fprintf(stderr,"\n");
 			*/
-			HASH_FIND( hh, *compressionDict, currSymbol, (currSymbolLength-1)*sizeof(UInt16), dEntry);
+			UInt32 mylen = currSymbolLength-1;
+			HASH_FIND( hh, *compressionDict, currSymbol, mylen*sizeof(CompChunk), dEntry);
+			//satsBetterFind(*compressionDict,currSymbol,mylen,&dEntry);
 			compressedArray[compressedIndex] = dEntry->id;
 			fprintf(stderr,"compressedArray[%u] = %hu (size = %hu)\n",compressedIndex,dEntry->id,dEntry->size);
 			computedCompressedSize += dEntry->size;
 			compressedIndex++;
 
 			// reset symbol to be short we just tried appending
-			bzero(currSymbol,currSymbolLength*sizeof(UInt16));
+			//bzero(currSymbol,currSymbolLength*sizeof(CompChunk));
 			currSymbol[0] = diffArray[i];
 			currSymbolLength = 1;
 		}
@@ -134,10 +155,8 @@ CompressedTimeTable* compressTimeTableDiff(UInt16* diffArray, DictEntry** compre
 		if(currSymbolLength == symbolArrayCapacity) {
 			fprintf(stderr,"NOTE: increasing symbol capacity\n");
 			symbolArrayCapacity += COMPRESSOR_CHUNK_SIZE;
-			currSymbol = realloc(currSymbol,sizeof(UInt16)*symbolArrayCapacity);
+			currSymbol = realloc(currSymbol,sizeof(CompChunk)*symbolArrayCapacity);
 		}
-
-		//if(newChar == 1) dEntry = singleEntry;
 	}
 
 	// don't forget to add the last entry!
@@ -175,6 +194,22 @@ void decompressionDictFree(DictEntry* compDict) {
 	}
 }
 
+void printDictionary(DictEntry* dictionary) {
+	DictEntry *dEntry;
+	fprintf(stderr,"printing dictionary\n");
+
+	for(dEntry=dictionary; dEntry != NULL; dEntry=dEntry->hh.next) {
+		int i;
+		fprintf(stderr,"id = %hu (size = %u): ",dEntry->id,dEntry->size);
+		for(i = 0; i < dEntry->size; ++i) {
+			fprintf(stderr,"%hu",dEntry->name[i]);
+		}
+		fprintf(stderr,"\n");
+	}
+
+	fprintf(stderr,"finished printing dictionary\n");
+}
+
 void compressLTable(LTable* lTable, Version* vArray) {
 	if(lTable->isCompressed == 1) return;
 	fprintf(stderr,"compressing LTable (%p)\n",lTable);
@@ -191,7 +226,6 @@ void compressLTable(LTable* lTable, Version* vArray) {
 	int i;
 	for(i = 1; i < MAX_LEVEL; ++i) {
 		fprintf(stderr,"compressing level %d\n",i);
-		if(i == 2 && lTable == 0x6375d0) fprintf(stderr,"MEOWWWW!\n"); // XXX
 		// step 1: create/fill in time difference table
 		TimeTable* tt2 = (TimeTable*)lTable->tArray[i];
 		lTable->tArrayBackup[i] = tt2;
@@ -219,10 +253,12 @@ void compressLTable(LTable* lTable, Version* vArray) {
 
 		// step 2: compress table with LZW
 		//lTable->tArray[i] = compressTimeTableDiff((UInt16*)diffs, &compressionDict, &(lTable->decompressionDict), &nextDictId);
-		CompressedTimeTable *ctt = compressTimeTableDiff((UInt16*)diffs, &compressionDict, &lTable->decompressionDict, &nextDictId);
+		printDictionary(compressionDict);
+		CompressedTimeTable *ctt = compressTimeTableDiff((CompChunk*)diffs, &compressionDict, &lTable->decompressionDict, &nextDictId);
+		printDictionary(compressionDict);
 		lTable->tArray[i] = ctt;
 
-		//CompressedTimeTable *ctt2 = compressTimeTableDiff((UInt16*)diffs, &compressionDict2, &lTable->decompressionDict2, &nextDictId2);
+		//CompressedTimeTable *ctt2 = compressTimeTableDiff((CompChunk*)diffs, &compressionDict2, &lTable->decompressionDict2, &nextDictId2);
 		//lTable->tArray2[i] = ctt2;
 		lTable->tArray2[i] = ctt;
 
@@ -255,7 +291,7 @@ Time* decompressTimeTableDiff(CompressedTimeTable* ctt, DictEntry* decompression
 
 	int i;
 	for(i = 0; i < ctt->size; ++i) {
-		HASH_FIND( hh, decompressionDict, &ctt->diffs[i], sizeof(UInt16), dEntry );
+		HASH_FIND( hh2, decompressionDict, &ctt->diffs[i], sizeof(UInt16), dEntry );
 		//fprintf(stderr,"ctt[%d] = %hu (size = %u)\n",i,ctt->diffs[i],dEntry->size);
 		computedSize += dEntry->size;
 
@@ -269,8 +305,8 @@ Time* decompressTimeTableDiff(CompressedTimeTable* ctt, DictEntry* decompression
 	}
 
 	// sanity checking to make sure we decompressed to the correct size
-	if(currDiffsEntry != (sizeof(Time)/sizeof(UInt16))*(TIMETABLE_SIZE/2)) {
-		UInt32 blah = (sizeof(Time)/sizeof(UInt16))*(TIMETABLE_SIZE/2);
+	if(currDiffsEntry != (sizeof(Time)/sizeof(CompChunk))*(TIMETABLE_SIZE/2)) {
+		UInt32 blah = (sizeof(Time)/sizeof(CompChunk))*(TIMETABLE_SIZE/2);
 		fprintf(stderr,"ERROR: decompression to incorrect size (size = %u, correct size = %u)!\n",currDiffsEntry,blah);
 		fprintf(stderr,"computed size = %u\n",computedSize);
 		return NULL;
@@ -311,7 +347,6 @@ void decompressLTable(LTable* lTable) {
 	int i;
 	for(i = 1; i < MAX_LEVEL; ++i) {
 		fprintf(stderr,"decompressing level %d\n",i);
-		if(i == 2 && lTable == 0x6375d0) fprintf(stderr,"MEOWWWW!\n");
 
 		// step 1: decompress time different table
 		CompressedTimeTable *ctt = (CompressedTimeTable*)lTable->tArray[i];
