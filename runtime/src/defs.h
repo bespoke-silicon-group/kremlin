@@ -34,6 +34,7 @@
 #define CACHE_LINE_POWER_2	4
 #define CACHE_LINE_SIZE		(1 << CACHE_LINE_POWER_2)
 
+typedef uint16_t 	       	UInt16;
 typedef uint32_t 	       	UInt32;
 typedef int32_t         	Int32;
 typedef uint32_t			UInt;

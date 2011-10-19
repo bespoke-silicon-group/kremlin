@@ -1,5 +1,4 @@
 #include "defs.h"
-#include "uthash.h"
 
 #define MAX_LEVEL	64
 
@@ -9,22 +8,11 @@
 #define SEGTABLE_SIZE 	(SEGTABLE_MASK + 1)
 
 // TimeTable Parameters
-//#define TIMETABLE_MASK 0x3ff
-#define TIMETABLE_MASK 0xff
+#define TIMETABLE_MASK 0x3ff
 #define TIMETABLE_SIZE (TIMETABLE_MASK + 1)
 
 #define TYPE_64BIT	0
 #define TYPE_32BIT	1
-
-typedef UInt16 CompChunk;
-
-
-typedef struct _DictEntry {
-	CompChunk *name; // key
-	UInt16 id;
-	UInt32 size;
-	UT_hash_handle hh,hh2; // makes this structure hashable
-} DictEntry;
 
 typedef struct _TimeTable {
 	UInt8 type;
@@ -35,13 +23,10 @@ typedef struct _TimeTable {
 
 typedef struct _LTable {
 	UInt8		isCompressed; // 0 = uncompressed, 1 = compressed
-	DictEntry*	decompressionDict; // XXX this might need to be an array of dicts
-	DictEntry*	decompressionDict2; // XXX this might need to be an array of dicts
 	UInt8		noBTV[MAX_LEVEL];
 	UInt64		nAccess[MAX_LEVEL];
 	Version		vArray[MAX_LEVEL];
-	void* 		tArray[MAX_LEVEL]; // will either be TimeTable* or CompressedTimeTable*
-	void* 		tArray2[MAX_LEVEL]; // will either be TimeTable* or CompressedTimeTable*
+	void* 		tArray[MAX_LEVEL]; // will either be TimeTable* or UInt8*
 	TimeTable* 	tArrayBackup[MAX_LEVEL]; 
 } LTable;
 
