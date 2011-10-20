@@ -24,10 +24,10 @@ typedef struct _TimeTable {
 typedef struct _LTable {
 	UInt8		isCompressed; // 0 = uncompressed, 1 = compressed
 	UInt8		noBTV[MAX_LEVEL];
+	UInt32		compressedLen[MAX_LEVEL];
 	UInt64		nAccess[MAX_LEVEL];
 	Version		vArray[MAX_LEVEL];
-	void* 		tArray[MAX_LEVEL]; // will either be TimeTable* or UInt8*
-	TimeTable* 	tArrayBackup[MAX_LEVEL]; 
+	TimeTable* 	tArray[MAX_LEVEL]; // will either be TimeTable* or UInt8*
 } LTable;
 
 
