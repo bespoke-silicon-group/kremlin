@@ -360,6 +360,7 @@ static inline void TimeTableFree(TimeTable* table) {
 	int sizeType = table->type;
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	stat.nTimeTableFreed[table->type]++;
+	MemPoolFree(table->array);
 	//free(table->array);
 	if (table->useVersion) {
 		assert(table->version != NULL);
@@ -1008,7 +1009,6 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 	if (size < 1)
 		return;
 
-	//if (tArray[size-1] > nextGC) {
 	if (stat.nTimeTableActiveMax >= nextGC) {
 		gcStart(vArray, size);
 		nextGC += gcPeriod;

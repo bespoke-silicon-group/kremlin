@@ -11,7 +11,6 @@
 #include <string.h>
 #include <sys/time.h>
 #include <stdint.h>
-#include "MemMapAllocator.h"
 
 #ifndef _KREMLIN_DEF
 #define _KREMLIN_DEF
@@ -63,7 +62,6 @@ extern void  (*MShadowSet)(Addr, Index, Version*, Time*, UInt32) ;
 
 
 typedef enum RegionType {RegionFunc, RegionLoop, RegionLoopBody} RegionType;
-MemMapAllocator* memPool;
 
 
 #ifdef __cplusplus
