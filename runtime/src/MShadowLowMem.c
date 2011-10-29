@@ -9,12 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include "MemMapAllocator.h"
 
 #include "debug.h"
 #include "CRegion.h"
 #include "MShadow.h"
 #include "MShadowLow.h"
 #include "Table.h"
+#include "compress.h"
 
 #include <string.h> // for memcpy
 
@@ -1086,6 +1088,7 @@ void setGCPeriod(int time) {
 		nextGC = 0xFFFFFFFFFFFFFFFF;
 }
 
+extern UInt64 compressShadowMemory(Version* vArray);
 
 static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(0, "MShadowSet 0x%llx, size %d \n", addr, size);
@@ -1145,4 +1148,4 @@ UInt MShadowDeinitCache() {
 	MCacheDeinit();
 }
 
-//#endif
+
