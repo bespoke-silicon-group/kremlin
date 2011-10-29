@@ -28,7 +28,7 @@ typedef struct _LTable {
 	UInt64		nAccess[MAX_LEVEL];
 	Version		vArray[MAX_LEVEL];
 	TimeTable* 	tArray[MAX_LEVEL];
-	Time* 		tArrayBackup[MAX_LEVEL];
+	//Time* 		tArrayBackup[MAX_LEVEL];
 } LTable;
 
 
