@@ -338,14 +338,13 @@ inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
 }
 
 
-inline void TimeTableFree(TimeTable* table) {
+inline void TimeTableFree(TimeTable* table, UInt8 isCompressed) {
 	stat.nTimeTableActive--;
-	//stat.timeTableOverhead -= sizeof(Time)*TIMETABLE_SIZE/2; // XXX: assumes 8B
 	int sizeType = table->type;
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	stat.nTimeTableFreed[table->type]++;
-	MemPoolFree(table->array);
-	//free(table->array);
+	if(isCompressed == 0) { MemPoolFree(table->array); }
+	else { free(table->array); }
 	if (table->useVersion) {
 		assert(table->version != NULL);
 		free(table->version);
@@ -711,7 +710,7 @@ static inline void cleanTimeTables(LTable* lTable, Index start) {
 		TimeTable* time = lTable->tArray[i];
 		if (time != NULL) {
 			//fprintf(stderr, "(%d)\t", i);
-			TimeTableFree(time);
+			TimeTableFree(time,lTable->isCompressed);
 			lTable->tArray[i] = NULL;
 
 			if(lTable->compressedLen[i] != 0) {
@@ -742,7 +741,7 @@ void gcLevel(LTable* table, Version* vArray, int size) {
 		if (ver < vArray[i]) {
 			// out of date
 			//fprintf(stderr, "(%d, %d %d)\t", i, ver, vArray[i]);
-			TimeTableFree(time);
+			TimeTableFree(time,table->isCompressed);
 			table->tArray[i] = NULL;
 			if(table->compressedLen[i] != 0) {
 				stat.timeTableOverhead -= table->compressedLen[i];
@@ -785,7 +784,7 @@ static inline void checkConvertTimeTable(LTable* lTable, Index level, Version ve
 			if (lTable->nAccess[level] <= 8 && lTable->noBTV[level] == 0) {
 				lTable->noBTV[level] = 1;	
 				if (table != NULL) {
-					TimeTableFree(table);
+					TimeTableFree(table,lTable->isCompressed);
 					LTableSetTable(lTable, level, NULL);
 				}
 			}
@@ -794,7 +793,7 @@ static inline void checkConvertTimeTable(LTable* lTable, Index level, Version ve
 			else if (lTable->nAccess[level] > 8 && lTable->noBTV[level] == 1) {
 				lTable->noBTV[level] = 0;	
 				if (table != NULL) {
-					TimeTableFree(table);
+					TimeTableFree(table,lTable->isCompressed);
 					LTableSetTable(lTable, level, NULL);
 				}
 			}
@@ -1098,6 +1097,9 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 		nextGC += gcPeriod;
 		stat.timeTableOverhead -= compressShadowMemory(vArray);
 	}
+
+	//if(stat.timeTableOverhead >= COMPRESSION_TRIGGER_SIZE)
+		//stat.timeTableOverhead -= compressShadowMemory(vArray);
 
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;

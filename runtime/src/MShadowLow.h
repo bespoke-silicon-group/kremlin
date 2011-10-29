@@ -1,4 +1,5 @@
 #include "defs.h"
+#include "MemMapAllocator.h"
 
 #define MAX_LEVEL	64
 
@@ -13,6 +14,8 @@
 
 #define TYPE_64BIT	0
 #define TYPE_32BIT	1
+
+#define COMPRESSION_TRIGGER_SIZE 10000000
 
 typedef struct _TimeTable {
 	UInt8 type;
