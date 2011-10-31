@@ -147,7 +147,7 @@ static void printCacheStat() {
 	fprintf(stderr, "\tnGC = %d\n", stat.nGC);
 #if COMPRESSION_POLICY == 1
 	double activeTableHitRate = (double)stat.nActiveTableHits / (double)(stat.nActiveTableHits + stat.nActiveTableMisses);
-	fprintf(stderr, "\tnactive table hit ratio = %.2f (hits = %llu, misses = %llu)\n", activeTableHitRate,stat.nActiveTableHits,stat.nActiveTableMisses);
+	fprintf(stderr, "\t'active LTable list' hit ratio = %.2f (hits = %llu, misses = %llu)\n", activeTableHitRate,stat.nActiveTableHits,stat.nActiveTableMisses);
 #endif
 }
 
