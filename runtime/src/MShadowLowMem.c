@@ -87,6 +87,11 @@ typedef struct _MemStat {
 	// tracking overhead of timetables (in bytes) with compression
 	UInt64 timeTableOverhead;
 	UInt64 timeTableOverheadMax;
+
+#if COMPRESSION_POLICY == 1
+	UInt64 nActiveTableHits;
+	UInt64 nActiveTableMisses;
+#endif
 } MemStat;
 
 static MemStat stat;
@@ -140,6 +145,10 @@ static void printCacheStat() {
 		(double)stat.nCacheEvictLevelTotal / stat.nCacheEvict, 
 		(double)stat.nCacheEvictLevelEffective / stat.nCacheEvict);
 	fprintf(stderr, "\tnGC = %d\n", stat.nGC);
+#if COMPRESSION_POLICY == 1
+	double activeTableHitRate = (double)stat.nActiveTableHits / (double)(stat.nActiveTableHits + stat.nActiveTableMisses);
+	fprintf(stderr, "\tnactive table hit ratio = %.2f (hits = %llu, misses = %llu)\n", activeTableHitRate,stat.nActiveTableHits,stat.nActiveTableMisses);
+#endif
 }
 
 
@@ -973,6 +982,10 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 	if(isInActiveBuffer(lTable) == 0) {
 		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
 		addToActiveBuffer(lTable);
+		stat.nActiveTableMisses++;
+	}
+	else {
+		stat.nActiveTableHits++;
 	}
 #endif
 }
@@ -1012,6 +1025,10 @@ static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, in
 	if(isInActiveBuffer(lTable) == 0) {
 		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
 		addToActiveBuffer(lTable);
+		stat.nActiveTableMisses++;
+	}
+	else {
+		stat.nActiveTableHits++;
 	}
 #endif
 }
