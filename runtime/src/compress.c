@@ -60,7 +60,7 @@ void decompressData(UInt8* dest, UInt8* src, uLong sizeSrc, uLong* sizeDest) {
 }
 
 #if 0
-UInt64 compressLTable(LTable* lTable, Version* vArray) {
+UInt64 compressLTable(LTable* lTable) {
 	if(lTable->isCompressed == 1) return 0;
 
 	int i;
@@ -95,7 +95,7 @@ UInt64 decompressLTable(LTable* lTable) {
 // we'll assume you already GC'ed lTable... otherwise you are going to be
 // doing useless work (i.e. compressing data that is out of date)
 // Returns: number of bytes saved by compression
-UInt64 compressLTable(LTable* lTable, Version* vArray) {
+UInt64 compressLTable(LTable* lTable) {
 	if(lTable->isCompressed == 1) return 0;
 
 	TimeTable* tt1 = lTable->tArray[0];
@@ -238,7 +238,7 @@ UInt64 compressShadowMemory(Version* vArray) {
 		for(j = 0; j < SEGTABLE_SIZE; ++j) {
 			LTable* currLT = currSeg->entry[j];
 			if(currLT != NULL) {
-				newCompressionSavings += compressLTable(currLT, vArray);
+				newCompressionSavings += compressLTable(currLT);
 			}
 		}
 	}

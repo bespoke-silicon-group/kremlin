@@ -15,8 +15,8 @@
 #include "CRegion.h"
 #include "MShadow.h"
 #include "MShadowLow.h"
-#include "Table.h"
 #include "compress.h"
+#include "Table.h"
 
 #include <string.h> // for memcpy
 
@@ -41,6 +41,15 @@
 
 //#define CACHE_VERSION_SHIFT	0
 
+/*
+HASH_MAP_DEFINE_PROTOTYPES(ub,Addr,UInt8);
+HASH_MAP_DEFINE_FUNCTIONS(ub,Addr,UInt8);
+
+static hash_map_ub* activeLTables;
+
+UInt64 addrHash(Addr addr) { return addr; }
+int addrCompare(Addr a1, Addr a2) { return a1 == a2; }
+*/
 
 static int timetableType;
 
@@ -82,6 +91,10 @@ typedef struct _MemStat {
 
 static MemStat stat;
 static UInt64 nRegionExits;
+
+// "active" buffer of LTables that won't be compressed/uncompressed
+static LTable* activeBuffer[UNCOMPRESSED_BUFFER_SIZE];
+static UInt16 nextActiveBufferSpot = 0; // TODO: fix this naive policy
 
 /*
  * CacheStat
@@ -831,10 +844,7 @@ static inline void setTimeLevel(LTable* lTable, Index level, Addr addr, Version 
 
 	// exists but version is old so clean it and reuse
 	else {
-		//TimeTable* toAdd = TimeTableAlloc(type, useTableVersion);
-		//TimeTableFree(table);
 		TimeTableClean(table);
-		//LTableSetTable(lTable, level, toAdd); 
 		TimeTableSet(table, addr, value, verCurrent);
 	} 
 	LTableSetVer(lTable, level, verCurrent);
@@ -854,7 +864,9 @@ static inline LTable* getLTable(Addr addr, Version* vArray) {
 	}
 
 	if(lTable->isCompressed) {
+#ifdef GC_BEFORE_DECOMPRESS
 		gcLevelUnknownSize(lTable,vArray);
+#endif
 		stat.timeTableOverhead += decompressLTable(lTable);
 		if(stat.timeTableOverhead > stat.timeTableOverheadMax)
 			stat.timeTableOverheadMax = stat.timeTableOverhead;
@@ -916,6 +928,26 @@ static inline void MCacheValidateTag(CacheLine* line, Time* destAddr, Version* v
 		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
 }
 
+// FIXME: use more efficient lookup
+static inline UInt8 isInActiveBuffer(LTable* lTable) {
+	int i;
+	for(i = 0; i < UNCOMPRESSED_BUFFER_SIZE; ++i) {
+		if(activeBuffer[i] == lTable) { return 1; }
+	}
+
+	return 0;
+}
+
+static inline void addToActiveBuffer(LTable* lTable) {
+	// compress whatever we are kicking out of the active buffer
+	if(activeBuffer[nextActiveBufferSpot] != NULL)
+		stat.timeTableOverhead -= compressLTable(activeBuffer[nextActiveBufferSpot]);
+
+	// add new lTable to the active buffer
+	activeBuffer[nextActiveBufferSpot] = lTable;
+	nextActiveBufferSpot = (nextActiveBufferSpot+1) % UNCOMPRESSED_BUFFER_SIZE;
+}
+
 static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, Version* vArray, int type) {
 	if (addr == NULL)
 		return;
@@ -936,6 +968,13 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 		MSG(0, "\t\toffset=%d, version=%d, value=%d\n", i, vArray[i], tArray[i]);
 	}
 	eventCacheEvict(size, startInvalid);
+
+#if COMPRESSION_POLICY == 1
+	if(isInActiveBuffer(lTable) == 0) {
+		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
+		addToActiveBuffer(lTable);
+	}
+#endif
 }
 
 static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
@@ -968,6 +1007,13 @@ static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, in
 	for (i=0; i<size; i++) {
 		setTimeLevel(lTable, i, addr, vArray[i], tArray[i], type);
 	}
+
+#if COMPRESSION_POLICY == 1
+	if(isInActiveBuffer(lTable) == 0) {
+		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
+		addToActiveBuffer(lTable);
+	}
+#endif
 }
 
 
@@ -1088,8 +1134,6 @@ void setGCPeriod(int time) {
 		nextGC = 0xFFFFFFFFFFFFFFFF;
 }
 
-extern UInt64 compressShadowMemory(Version* vArray);
-
 static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(0, "MShadowSet 0x%llx, size %d \n", addr, size);
 	if (size < 1)
@@ -1098,11 +1142,14 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 	if (stat.nTimeTableActiveMax >= nextGC) {
 		gcStart(vArray, size);
 		nextGC += gcPeriod;
-		stat.timeTableOverhead -= compressShadowMemory(vArray);
 	}
 
-	//if(stat.timeTableOverhead >= COMPRESSION_TRIGGER_SIZE)
-		//stat.timeTableOverhead -= compressShadowMemory(vArray);
+#if COMPRESSION_POLICY == 2
+	if(stat.timeTableOverhead >= COMPRESSION_THRESHOLD) {
+		stat.timeTableOverhead -= compressShadowMemory(vArray);
+		assert(stat.TimeTableOverhead < COMPRESSION_THRESHOLD);
+	}
+#endif
 
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
