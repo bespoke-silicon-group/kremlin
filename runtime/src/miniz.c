@@ -216,7 +216,7 @@ enum { MZ_NO_FLUSH = 0, MZ_PARTIAL_FLUSH = 1, MZ_SYNC_FLUSH = 2, MZ_FULL_FLUSH =
 enum { MZ_OK = 0, MZ_STREAM_END = 1, MZ_NEED_DICT = 2, MZ_ERRNO = -1, MZ_STREAM_ERROR = -2, MZ_DATA_ERROR = -3, MZ_MEM_ERROR = -4, MZ_BUF_ERROR = -5, MZ_VERSION_ERROR = -6, MZ_PARAM_ERROR = -10000 };
 
 // Compression levels.
-enum { MZ_NO_COMPRESSION = 0, MZ_BEST_SPEED = 1, MZ_BEST_COMPRESSION = 9, MZ_DEFAULT_COMPRESSION = -1 };
+enum { MZ_NO_COMPRESSION = 0, MZ_BEST_SPEED = 1, MZ_BEST_COMPRESSION = 9, MZ_DEFAULT_COMPRESSION = 1 };
 
 // Window bits
 #define MZ_DEFAULT_WINDOW_BITS 15
@@ -981,12 +981,14 @@ int mz_deflate(mz_streamp pStream, int flush)
   int mz_status = MZ_OK;
 
   if ((!pStream) || (!pStream->state) || (flush < 0) || (flush > MZ_FINISH) || (!pStream->next_out)) return MZ_STREAM_ERROR;
-  if (!pStream->avail_out) return MZ_BUF_ERROR;
+  if (!pStream->avail_out) {fprintf(stderr, "1"); return MZ_BUF_ERROR;}
 
   if (flush == MZ_PARTIAL_FLUSH) flush = MZ_SYNC_FLUSH;
 
-  if (((tdefl_compressor*)pStream->state)->m_prev_return_status == TDEFL_STATUS_DONE)
+  if (((tdefl_compressor*)pStream->state)->m_prev_return_status == TDEFL_STATUS_DONE) {
+		 fprintf(stderr, "2");
     return (flush == MZ_FINISH) ? MZ_STREAM_END : MZ_BUF_ERROR;
+  }
 
   orig_total_in = pStream->total_in; orig_total_out = pStream->total_out;
   for ( ; ; )
@@ -1017,6 +1019,7 @@ int mz_deflate(mz_streamp pStream, int flush)
     {
       if ((flush) || (pStream->total_in != orig_total_in) || (pStream->total_out != orig_total_out))
         break;
+	fprintf(stderr, "3");
       return MZ_BUF_ERROR; // Can't make forward progress without some input.
     }
   }
@@ -1062,6 +1065,7 @@ int mz_compress2(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char 
   if (status != MZ_STREAM_END)
   {
     mz_deflateEnd(&stream);
+	fprintf(stderr, "4");
     return (status == MZ_OK) ? MZ_BUF_ERROR : status;
   }
 
@@ -1160,6 +1164,7 @@ int mz_inflate(mz_streamp pStream, int flush)
     else if (status != TINFL_STATUS_DONE)
     {
       pState->m_last_status = TINFL_STATUS_FAILED;
+	  fprintf(stderr, "5");
       return MZ_BUF_ERROR;
     }
     return MZ_STREAM_END;
@@ -1196,16 +1201,24 @@ int mz_inflate(mz_streamp pStream, int flush)
 
     if (status < 0)
        return MZ_DATA_ERROR; // Stream is corrupted (there could be some uncompressed data left in the output dictionary - oh well).
-    else if ((status == TINFL_STATUS_NEEDS_MORE_INPUT) && (!orig_avail_in))
+    else if ((status == TINFL_STATUS_NEEDS_MORE_INPUT) && (!orig_avail_in)) {
+	  fprintf(stderr, "6");
       return MZ_BUF_ERROR; // Signal caller that we can't make forward progress without supplying more input or by setting flush to MZ_FINISH.
+	}
     else if (flush == MZ_FINISH)
     {
        // The output buffer MUST be large to hold the remaining uncompressed data when flush==MZ_FINISH.
-       if (status == TINFL_STATUS_DONE)
+       if (status == TINFL_STATUS_DONE) {
+
+	  	fprintf(stderr, "7");
           return pState->m_dict_avail ? MZ_BUF_ERROR : MZ_STREAM_END;
+	   }
        // status here must be TINFL_STATUS_HAS_MORE_OUTPUT, which means there's at least 1 more byte on the way. If there's no more room left in the output buffer then something is wrong.
-       else if (!pStream->avail_out)
+       else if (!pStream->avail_out) {
+
+	  	fprintf(stderr, "8");
           return MZ_BUF_ERROR;
+	   }
     }
     else if ((status == TINFL_STATUS_DONE) || (!pStream->avail_in) || (!pStream->avail_out) || (pState->m_dict_avail))
       break;
