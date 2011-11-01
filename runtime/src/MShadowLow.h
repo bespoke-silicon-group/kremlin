@@ -62,6 +62,3 @@ typedef struct _STable {
 
 
 STable sTable;
-
-//void gcLevel(LTable* table, Version* vArray);
-//TimeTable* TimeTableAlloc(int sizeType, int useVersion);

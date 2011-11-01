@@ -143,7 +143,7 @@ UInt64 compressLTable(LTable* lTable) {
 		compressionSavings += (srcLen - compLen);
 		lTable->compressedLen[i] = compLen;
 
-		//fprintf(stderr,"compressed timetable to %u bytes\n",compLen);
+		//fprintf(stderr,"compressed level %d data to %u bytes\n",i,compLen);
 
 		// step 3: profit
 		MemPoolFree(tt2->array); // XXX: comment this out if using tArrayBackup
@@ -156,6 +156,7 @@ UInt64 compressLTable(LTable* lTable) {
 	lTable->isCompressed = 1;
 	//fprintf(stderr,"finished compressing LTable\n");
 
+	//fprintf(stderr,"saved %llu bytes from compression\n",compressionSavings);
 	return compressionSavings;
 }
 
@@ -226,6 +227,73 @@ UInt64 decompressLTable(LTable* lTable) {
 	return decompressionCost;
 }
 #endif
+
+static UInt32 uncompressedTables = 0;
+static UInt32 compressedTables = 0;
+
+inline UInt64 calculateLTableOverheadCompressed(LTable* lTable) {
+	UInt64 overhead = 0;
+
+	int i;
+	for(i = 0; i < MAX_LEVEL; ++i) {
+		if(lTable->tArray[i] == NULL) break;
+		else {
+			overhead += lTable->compressedLen[i];
+		}
+	}
+
+	return overhead;
+}
+
+inline UInt64 calculateLTableOverheadUncompressed(LTable* lTable) {
+	UInt64 overhead = 0;
+
+	int i;
+	for(i = 0; i < MAX_LEVEL; ++i) {
+		if(lTable->tArray[i] == NULL) break;
+		else {
+			overhead += sizeof(Time)*TIMETABLE_SIZE/2;
+		}
+	}
+
+	return overhead;
+}
+
+inline UInt64 calculateLTableOverhead(LTable* lTable) {
+	UInt64 overhead;
+
+	if(lTable->isCompressed == 1)  {
+		compressedTables++;
+		overhead = calculateLTableOverheadCompressed(lTable);
+	}
+	else {
+		uncompressedTables++;
+		overhead = calculateLTableOverheadUncompressed(lTable);
+	}
+
+	return overhead;
+}
+
+UInt64 calculateTimeTableOverhead() {
+	uncompressedTables = compressedTables = 0;
+	UInt64 overhead = 0;
+	int i;
+	for(i = 0; i < sTable.writePtr; ++i) {
+		SegTable* currSeg = sTable.entry[i].segTable;
+
+		int j;
+		for(j = 0; j < SEGTABLE_SIZE; ++j) {
+			LTable* currLT = currSeg->entry[j];
+			if(currLT != NULL) {
+				overhead += calculateLTableOverhead(currLT);
+			}
+		}
+	}
+	fprintf(stderr,"%u uncompressed, %u compressed\n",uncompressedTables,compressedTables);
+	//fprintf(stderr,"finished compression (saved %u bytes)\n",newCompressionSavings);
+
+	return overhead;
+}
 
 UInt64 compressShadowMemory(Version* vArray) {
 	//fprintf(stderr,"beginning compression\n");

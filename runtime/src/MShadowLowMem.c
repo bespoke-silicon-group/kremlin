@@ -406,18 +406,15 @@ static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver) {
 	return ret;
 }
 
-static inline Time TimeTableSet(TimeTable* table, Addr addr, Time time, Version ver) {
+static inline void TimeTableSet(TimeTable* table, Addr addr, Time time, Version ver) {
 	assert(table != NULL);
 	int index = TimeTableGetIndex(addr, table->type);
 	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &(table->array[index]), index);
 	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", table, &(table->array[0]));
-	Time retVal = table->array[index]; // this will be used to see if this is a new entry
 	table->array[index] = time;
 	if (table->useVersion) {
 		table->version[index] = ver;
 	}
-
-	return retVal;
 }
 
 
@@ -710,7 +707,7 @@ static inline void LTableSetVer(LTable* lTable, Index level, Version ver) {
 }
 
 static inline TimeTable* LTableGetTable(LTable* lTable, Index level) {
-	return (TimeTable*)lTable->tArray[level];
+	return lTable->tArray[level];
 }
 
 static inline void LTableSetTable(LTable* lTable, Index level, TimeTable* table) {
@@ -754,8 +751,8 @@ static inline void gcLevelUnknownSize(LTable* lTable, Version* vArray) {
 }
 
 void gcLevel(LTable* table, Version* vArray, int size) {
-	int i;
 	//fprintf(stderr, "%d: \t", size);
+	int i;
 	for (i=0; i<size; i++) {
 		TimeTable* time = table->tArray[i];
 		if (time == NULL)
@@ -848,7 +845,7 @@ static inline void setTimeLevel(LTable* lTable, Index level, Addr addr, Version 
 	// A table exists and is correct version, so use it
 	else if (useTableVersion || verOld == verCurrent) {
 		assert(table != NULL);
-		Time old_time = TimeTableSet(table, addr, value, verCurrent);
+		TimeTableSet(table, addr, value, verCurrent);
 	}
 
 	// exists but version is old so clean it and reuse
@@ -999,6 +996,18 @@ static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, 
 	for (i=0; i<size; i++) {
 		destAddr[i] = getTimeLevel(lTable, i, addr, vArray[i], type);
 	}
+
+#if COMPRESSION_POLICY == 1
+	// XXX TODO: save old compression to avoid extra step?
+	if(isInActiveBuffer(lTable) == 0) {
+		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
+		addToActiveBuffer(lTable);
+		stat.nActiveTableMisses++;
+	}
+	else {
+		stat.nActiveTableHits++;
+	}
+#endif
 }
 
 static Time tempArray[1000];
@@ -1009,6 +1018,18 @@ static Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	for (i=0; i<size; i++) {
 		tempArray[i] = getTimeLevel(lTable, i, addr, vArray[i], type);
 	}
+
+#if COMPRESSION_POLICY == 1
+	// XXX TODO: save old compression to avoid extra step?
+	if(isInActiveBuffer(lTable) == 0) {
+		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
+		addToActiveBuffer(lTable);
+		stat.nActiveTableMisses++;
+	}
+	else {
+		stat.nActiveTableHits++;
+	}
+#endif
 
 	return tempArray;	
 }

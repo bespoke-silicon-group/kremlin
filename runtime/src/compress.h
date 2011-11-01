@@ -23,5 +23,6 @@ UInt8 tArrayIsDiff(Time *array1, Time *array2);
 UInt64 compressLTable(LTable* lTable);
 UInt64 decompressLTable(LTable* lTable);
 UInt64 compressShadowMemory(Version* vArray);
+UInt64 calculateTimeTableOverhead();
 
 #endif
