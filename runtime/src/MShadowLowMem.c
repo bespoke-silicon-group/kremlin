@@ -17,6 +17,7 @@
 #include "MShadowLow.h"
 #include "compress.h"
 #include "Table.h"
+#include "uthash.h"
 
 #include <string.h> // for memcpy
 
@@ -95,11 +96,23 @@ typedef struct _MemStat {
 } MemStat;
 
 static MemStat stat;
-static UInt64 nRegionExits;
 
 // "active" buffer of LTables that won't be compressed/uncompressed
+#if ACTIVE_SET_IMPLEMENTATION == 0
 static LTable* activeBuffer[UNCOMPRESSED_BUFFER_SIZE];
 static UInt16 nextActiveBufferSpot = 0; // TODO: fix this naive policy
+#elif ACTIVE_SET_IMPLEMENTATION == 1
+typedef struct _ActiveSetEntry {
+	LTable* key;
+	UInt16 r_bit;
+	UT_hash_handle hh;
+} ASEntry;
+
+static ASEntry* activeSet = NULL;
+static ASEntry* activeSetClockHand = NULL;
+
+UInt32 numInActiveSet = 0;
+#endif
 
 /*
  * CacheStat
@@ -934,6 +947,7 @@ static inline void MCacheValidateTag(CacheLine* line, Time* destAddr, Version* v
 		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
 }
 
+#if ACTIVE_SET_IMPLEMENTATION == 0
 // FIXME: use more efficient lookup
 static inline UInt8 isInActiveBuffer(LTable* lTable) {
 	int i;
@@ -953,6 +967,72 @@ static inline void addToActiveBuffer(LTable* lTable) {
 	activeBuffer[nextActiveBufferSpot] = lTable;
 	nextActiveBufferSpot = (nextActiveBufferSpot+1) % UNCOMPRESSED_BUFFER_SIZE;
 }
+#elif ACTIVE_SET_IMPLEMENTATION == 1
+static inline void advanceActiveSetClockHand() {
+	activeSetClockHand = activeSetClockHand->hh.next;
+	if(activeSetClockHand == NULL) activeSetClockHand = activeSet;
+}
+
+static inline void printActiveSet() {
+	ASEntry* as;
+
+	int i = 0;
+	for(as = activeSet; as != NULL; as = as->hh.next, ++i) {
+		fprintf(stderr,"%d: key = %p, r_bit = %hu\n",i,as->key,as->r_bit);
+	}
+}
+
+static inline ASEntry* createNewASEntry(LTable* lTable) {
+	ASEntry *as = malloc(sizeof(ASEntry));
+	as->key = lTable;
+	as->r_bit = 1;
+
+	return as;
+}
+
+static inline void addToActiveSet(LTable* lTable) {
+	//fprintf(stderr,"adding %p to active set\n",lTable);
+	// just add this if we are less than the buffer size
+	if(numInActiveSet < UNCOMPRESSED_BUFFER_SIZE) {
+		ASEntry *as = createNewASEntry(lTable);
+
+		HASH_ADD_PTR(activeSet,key,as);
+		numInActiveSet++;
+
+		if(numInActiveSet == 1) activeSetClockHand = activeSet;
+		return;
+	}
+
+	// set activeSetClockHand to entry that will be removed
+	while(activeSetClockHand->r_bit == 1) {
+		activeSetClockHand->r_bit = 0;
+		advanceActiveSetClockHand();
+	}
+
+	/*
+	if(lTable == activeSetClockHand->key) {
+		fprintf(stderr,"ERROR: evicting same thing we are putting in???\n");
+	}
+	*/
+
+	//fprintf(stderr,"evicting %p from active set\n",activeSetClockHand->key);
+
+	//fprintf(stderr,"evicting %p from active set (checked %d entries for 0 r bit)\n",activeSetClockHand->key,numCheckForZeroRBit);
+
+	// compress the entry to be removed
+	stat.timeTableOverhead -= compressLTable(activeSetClockHand->key);
+
+	// add lTable to active set
+	ASEntry *as = createNewASEntry(lTable);
+	HASH_ADD_PTR(activeSet,key,as);
+	HASH_DEL(activeSet,activeSetClockHand);
+	//activeSetClockHand->key = lTable;
+	//activeSetClockHand->r_bit = 1;
+
+	advanceActiveSetClockHand();
+	//printActiveSet();
+}
+#endif
 
 static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, Version* vArray, int type) {
 	if (addr == NULL)
@@ -976,6 +1056,20 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 	eventCacheEvict(size, startInvalid);
 
 #if COMPRESSION_POLICY == 1
+#if ACTIVE_SET_IMPLEMENTATION == 1
+	ASEntry *as;
+	HASH_FIND_PTR(activeSet,&lTable,as);
+
+	if(as == NULL) {
+		addToActiveSet(lTable);
+		stat.nActiveTableMisses++;
+	}
+	else {
+		as->r_bit = 1;
+		stat.nActiveTableHits++;
+	}
+
+#elif ACTIVE_SET_IMPLEMENTATION == 0
 	if(isInActiveBuffer(lTable) == 0) {
 		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
 		addToActiveBuffer(lTable);
@@ -984,6 +1078,7 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 	else {
 		stat.nActiveTableHits++;
 	}
+#endif
 #endif
 }
 
@@ -999,6 +1094,20 @@ static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, 
 
 #if COMPRESSION_POLICY == 1
 	// XXX TODO: save old compression to avoid extra step?
+#if ACTIVE_SET_IMPLEMENTATION == 1
+	ASEntry *as;
+	HASH_FIND_PTR(activeSet,&lTable,as);
+
+	if(as == NULL) {
+		addToActiveSet(lTable);
+		stat.nActiveTableMisses++;
+	}
+	else {
+		as->r_bit = 1;
+		stat.nActiveTableHits++;
+	}
+
+#elif ACTIVE_SET_IMPLEMENTATION == 0
 	if(isInActiveBuffer(lTable) == 0) {
 		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
 		addToActiveBuffer(lTable);
@@ -1007,6 +1116,7 @@ static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, 
 	else {
 		stat.nActiveTableHits++;
 	}
+#endif
 #endif
 }
 
@@ -1021,6 +1131,20 @@ static Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 
 #if COMPRESSION_POLICY == 1
 	// XXX TODO: save old compression to avoid extra step?
+#if ACTIVE_SET_IMPLEMENTATION == 1
+	ASEntry *as;
+	HASH_FIND_PTR(activeSet,&lTable,as);
+
+	if(as == NULL) {
+		addToActiveSet(lTable);
+		stat.nActiveTableMisses++;
+	}
+	else {
+		as->r_bit = 1;
+		stat.nActiveTableHits++;
+	}
+
+#elif ACTIVE_SET_IMPLEMENTATION == 0
 	if(isInActiveBuffer(lTable) == 0) {
 		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
 		addToActiveBuffer(lTable);
@@ -1029,6 +1153,7 @@ static Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	else {
 		stat.nActiveTableHits++;
 	}
+#endif
 #endif
 
 	return tempArray;	
@@ -1043,6 +1168,20 @@ static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, in
 	}
 
 #if COMPRESSION_POLICY == 1
+#if ACTIVE_SET_IMPLEMENTATION == 1
+	ASEntry *as;
+	HASH_FIND_PTR(activeSet,&lTable,as);
+
+	if(as == NULL) {
+		addToActiveSet(lTable);
+		stat.nActiveTableMisses++;
+	}
+	else {
+		as->r_bit = 1;
+		stat.nActiveTableHits++;
+	}
+
+#elif ACTIVE_SET_IMPLEMENTATION == 0
 	if(isInActiveBuffer(lTable) == 0) {
 		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
 		addToActiveBuffer(lTable);
@@ -1051,6 +1190,7 @@ static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, in
 	else {
 		stat.nActiveTableHits++;
 	}
+#endif
 #endif
 }
 
