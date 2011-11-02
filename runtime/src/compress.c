@@ -1,7 +1,11 @@
+#include "defs.h"
 #include "MShadowLow.h"
 #include <string.h>
+//#include "lz.h"
+#include "minilzo.h"
 
-#include "miniz.c" // for compress() and uncompress()
+typedef UInt32 uLong;
+//#include "miniz.c" // for compress() and uncompress()
 
 void printTArray(Time* tArray) {
 	int i;
@@ -30,6 +34,7 @@ UInt8 tArrayIsDiff(Time *array1, Time *array2) {
 	return wasDiff;
 }
 
+static char compressBuf[16*1024*1024];
 UInt8* compressData(UInt8* src, uLong sizeSrc, uLong* sizeDest) {
 	assert(src != NULL);
 	assert(sizeSrc > 0);
@@ -38,12 +43,21 @@ UInt8* compressData(UInt8* src, uLong sizeSrc, uLong* sizeDest) {
 	*sizeDest = sizeSrc;
 	//UInt8* dest = malloc(sizeSrc); // TODO: move away from malloc/free
 	UInt8* dest = MemPoolAlloc(); //XXX need a specialized memory allocator
+	//*sizeDest = LZ_CompressFast(src, dest, sizeSrc, compressBuf);
+
+	int result = lzo1x_1_compress(src, sizeSrc, dest, sizeDest, compressBuf);
+	assert(result == LZO_E_OK);
+
+	//fprintf(stderr, "compressed from %d to %d\n", sizeSrc, *sizeDest);
+
+#if 0
 	int compStatus = compress(dest, sizeDest, src, sizeSrc);
 	assert(compStatus == Z_OK);
 	if (compStatus != Z_OK) {
 		fprintf(stderr, "compress error!\n");
 		exit(1);
 	}
+#endif
 	//return realloc(dest, *sizeDest);
 	return dest;
 }
@@ -53,15 +67,51 @@ void decompressData(UInt8* dest, UInt8* src, uLong sizeSrc, uLong* sizeDest) {
 	assert(dest != NULL);
 	assert(sizeSrc > 0);
 	assert(sizeDest != NULL);
+	int result = lzo1x_decompress(src, sizeSrc, dest, sizeDest, NULL);
+	//fprintf(stderr, "decompressed from %d to %d\n", sizeSrc, *sizeDest);
+	assert(result == LZO_E_OK);
+	MemPoolFree(src);
+}
+
+#if 0
+UInt8* compressData(UInt8* src, uLong sizeSrc, uLong* sizeDest) {
+	assert(src != NULL);
+	assert(sizeSrc > 0);
+	assert(sizeDest != NULL);
+
+	*sizeDest = sizeSrc;
+	//UInt8* dest = malloc(sizeSrc); // TODO: move away from malloc/free
+	UInt8* dest = MemPoolAlloc(); //XXX need a specialized memory allocator
+	*sizeDest = LZ_CompressFast(src, dest, sizeSrc, compressBuf);
+#if 0
+	int compStatus = compress(dest, sizeDest, src, sizeSrc);
+	assert(compStatus == Z_OK);
+	if (compStatus != Z_OK) {
+		fprintf(stderr, "compress error!\n");
+		exit(1);
+	}
+#endif
+	//return realloc(dest, *sizeDest);
+	return dest;
+}
+
+void decompressData(UInt8* dest, UInt8* src, uLong sizeSrc, uLong* sizeDest) {
+	assert(src != NULL);
+	assert(dest != NULL);
+	assert(sizeSrc > 0);
+	assert(sizeDest != NULL);
+	LZ_Uncompress(src, dest, sizeSrc);
+#if 0
 	int compStatus = uncompress(dest, sizeDest, src, sizeSrc);
 	assert(compStatus == Z_OK);
 	if (compStatus != Z_OK) {
 		fprintf(stderr, "decompress error!\n");
 		exit(1);
 	}
-	//free(src);
+#endif
 	MemPoolFree(src);
 }
+#endif
 
 #if 0
 UInt64 compressLTable(LTable* lTable) {

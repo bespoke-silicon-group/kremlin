@@ -4,6 +4,7 @@
 #include "compress.h"
 #include "uthash.h"
 #include "config.h"
+#include "minilzo.h"
 
 static UInt64 totalAccess;
 static UInt64 totalEvict;
@@ -42,6 +43,15 @@ static inline ASEntry* createNewASEntry(LTable* lTable) {
 
 static int bufferSize;
 void CBufferInit(int size) {
+	if (getCompression() == 0)
+		return 1;
+	
+	if (lzo_init() != LZO_E_OK) {
+		printf("internal error - lzo_init() failed !!!\n");
+	    printf("(this usually indicates a compiler bug - try recompiling\nwithout optimizations, and enable '-DLZO_DEBUG' for diagnostics)\n");
+	    return 3;
+	}
+
 	bufferSize = size;
 }
 
@@ -55,12 +65,17 @@ int CBufferAdd(LTable* lTable) {
 	if (getCompression() == 0)
 		return 0;
 
+	//fprintf(stderr, "adding lTable 0x%llx\n", lTable);
 	//fprintf(stderr,"adding %p to active set\n",lTable);
 	// just add this if we are less than the buffer size
 	if(numInActiveSet < bufferSize) {
 		ASEntry *as = createNewASEntry(lTable);
 		HASH_ADD_PTR(activeSet,key,as);
 		numInActiveSet++;
+
+		ASEntry *as2 = NULL;
+		HASH_FIND_PTR(activeSet,&lTable,as2);
+		assert(as2 != NULL);
 
 		if(numInActiveSet == 1) activeSetClockHand = activeSet;
 		return 0;
@@ -103,6 +118,10 @@ void CBufferAccess(LTable* lTable) {
 
 	ASEntry *as;
 	HASH_FIND_PTR(activeSet,&lTable,as);
+	if (as == NULL) {
+		fprintf(stderr, "as not found for lTable 0x%llx\n", lTable);
+	}
+	assert(as != NULL);
 	as->r_bit = 1;
 	totalAccess++;
 }

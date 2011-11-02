@@ -166,9 +166,10 @@ static void printMemReqStat() {
 	int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TIMETABLE_SIZE / 2);
 	UInt64 nTable1 = stat.nTimeTableAllocated[1] - stat.nTimeTableFreed[1];
 	int sizeTable32 = sizeof(TimeTable) + sizeof(Time) * TIMETABLE_SIZE;
-	double tTableSize0 = getSizeMB(stat.nTimeTableActiveMax, sizeTable64);
-	double tTableSize1 = getSizeMB(nTable1, sizeTable32);
-	double tTableSize = tTableSize0 + tTableSize1;
+	UInt64 sizeUncompressed = stat.nTimeTableActive * sizeof(Time) * TIMETABLE_SIZE / 2;
+	double tTableSize = getSizeMB(sizeUncompressed, 1);
+	//double tTableSize1 = getSizeMB(nTable1, sizeTable32);
+	//double tTableSize = tTableSize0 + tTableSize1;
 
 	double tTableSizeWithCompression = getSizeMB(stat.timeTableOverheadMax, 1);
 
@@ -183,15 +184,22 @@ static void printMemReqStat() {
 
 
 	double cacheSize = getCacheSize(getMaxActiveLevel());
-	double totalSize = segSize + lTableSize + tTableSize + vTableSize + cacheSize;
+	double totalSize = segSize + lTableSize + tTableSize + cacheSize;
 	double totalSizeComp = segSize + lTableSize + cacheSize + tTableSizeWithCompression;
+	
+	UInt64 compressedNoBuffer = stat.timeTableOverheadMax - getCBufferSize() * sizeTable64;
+	UInt64 noCompressedNoBuffer = sizeUncompressed - getCBufferSize() * sizeTable64;
+	double compressionRatio = (double)noCompressedNoBuffer / compressedNoBuffer;
 
 	//minTotal += getCacheSize(2);
+	fprintf(stderr, "%lld, %lld, %lld\n", stat.timeTableOverhead, sizeUncompressed, stat.timeTableOverhead - sizeUncompressed);
 	fprintf(stderr, "\nRequired Memory Analysis\n");
 	fprintf(stderr, "\tShadowMemory (SegTable / TTable / TTableCompressed / VTable) = %.2f / %.2f / %.2f / %.2f\n",
 		segSize + lTableSize, tTableSize, tTableSizeWithCompression, vTableSize);
 	fprintf(stderr, "\tReqMemSize (Total / Cache / Uncompressed Shadow / Compressed Shadow) = %.2f / %.2f / %.2f / %.2f\n",
 		totalSize, cacheSize, segSize + tTableSize + vTableSize, segSize + tTableSizeWithCompression + vTableSize);  
+	fprintf(stderr, "\tTagTable (Uncompressed / Compressed / Ratio / Comp Ratio) = %.2f / %.2f / %.2f / %.2f\n",
+		tTableSize, tTableSizeWithCompression, tTableSize / tTableSizeWithCompression, compressionRatio);
 	fprintf(stderr, "\tTotal (Uncompressed / Compressed / Ratio) = %.2f / %.2f / %.2f\n",
 		totalSize, totalSizeComp, totalSize / totalSizeComp);
 }
@@ -344,6 +352,14 @@ static inline void TimeTableUpdateOverhead(int size) {
 	stat.timeTableOverhead += size; 
 	if(stat.timeTableOverhead > stat.timeTableOverheadMax)
 		stat.timeTableOverheadMax = stat.timeTableOverhead;
+#if 0
+	if (getCompression() == 0) {
+		//assert(stat.timeTableOverhead == stat.nTimeTableActive * sizeof(Time) * TIMETABLE_SIZE / 2);
+		//assert(stat.timeTableOverheadMax == stat.nTimeTableActiveMax * sizeof(Time) * TIMETABLE_SIZE / 2);
+		UInt64 sizeUncompressed = stat.nTimeTableActive * sizeof(Time) * TIMETABLE_SIZE / 2;
+		fprintf(stderr, "%lld, %lld, %lld\n", stat.timeTableOverhead, sizeUncompressed, stat.timeTableOverhead - sizeUncompressed);
+	}
+#endif
 }
 
 static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
@@ -871,8 +887,8 @@ static inline LTable* getLTable(Addr addr, Version* vArray) {
 
 	if(lTable->isCompressed) {
 		gcLevelUnknownSize(lTable,vArray);
-		int gain = decompressLTable(lTable);
-		int loss = CBufferAdd(lTable);
+		int loss = decompressLTable(lTable);
+		int gain = CBufferAdd(lTable);
 		TimeTableUpdateOverhead(loss - gain);
 	}
 
