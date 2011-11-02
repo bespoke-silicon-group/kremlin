@@ -29,13 +29,13 @@ typedef struct _TimeTable {
 } TimeTable;
 
 typedef struct _LTable {
+	UInt32		code;
 	UInt8		isCompressed; // 0 = uncompressed, 1 = compressed
 	UInt8		noBTV[MAX_LEVEL];
-//	UInt32		compressedLen[MAX_LEVEL];
 	UInt64		nAccess[MAX_LEVEL];
 	Version		vArray[MAX_LEVEL];
 	TimeTable* 	tArray[MAX_LEVEL];
-	//Time* 		tArrayBackup[MAX_LEVEL];
+	Time* 		tArrayBackup[MAX_LEVEL];
 } LTable;
 
 

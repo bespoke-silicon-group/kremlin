@@ -13,6 +13,7 @@ typedef struct _ActiveSetEntry {
 	LTable* key;
 	UInt16 r_bit;
 	UT_hash_handle hh;
+	UInt32 code;
 } ASEntry;
 
 static ASEntry* activeSet = NULL;
@@ -20,9 +21,10 @@ static ASEntry* activeSetClockHand = NULL;
 
 UInt32 numInActiveSet = 0;
 
-static inline void advanceActiveSetClockHand() {
+static inline void advanceClockHand() {
 	activeSetClockHand = activeSetClockHand->hh.next;
-	if(activeSetClockHand == NULL) activeSetClockHand = activeSet;
+	if(activeSetClockHand == NULL) 
+		activeSetClockHand = activeSet;
 }
 
 static inline void printActiveSet() {
@@ -34,82 +36,103 @@ static inline void printActiveSet() {
 	}
 }
 
-static inline ASEntry* createNewASEntry(LTable* lTable) {
+static inline ASEntry* ASEntryAlloc(LTable* lTable) {
 	ASEntry *as = malloc(sizeof(ASEntry));
 	as->key = lTable;
 	as->r_bit = 1;
+	as->code = 0xDEADBEEF;
 	return as;
+}
+
+static inline ASEntry* ASEntryFree(ASEntry* entry) {
+	free(entry);
 }
 
 static int bufferSize;
 void CBufferInit(int size) {
 	if (getCompression() == 0)
-		return 1;
+		return;
 	
 	if (lzo_init() != LZO_E_OK) {
 		printf("internal error - lzo_init() failed !!!\n");
 	    printf("(this usually indicates a compiler bug - try recompiling\nwithout optimizations, and enable '-DLZO_DEBUG' for diagnostics)\n");
-	    return 3;
+	    return;
 	}
 
 	bufferSize = size;
 }
 
+extern UInt64 _compSrcSize, _compDestSize;
+
 void CBufferDeinit() {
 	fprintf(stderr, "CBuffer (evict / access / ratio) = %lld, %lld, %.2f \%\n",
 		totalEvict, totalAccess, ((double)totalEvict / totalAccess) * 100.0);
+	fprintf(stderr, "Compression Overall Rate = %.2f X\n", (double)_compSrcSize / _compDestSize);
 }
 
-
-int CBufferAdd(LTable* lTable) {
-	if (getCompression() == 0)
-		return 0;
-
-	//fprintf(stderr, "adding lTable 0x%llx\n", lTable);
-	//fprintf(stderr,"adding %p to active set\n",lTable);
-	// just add this if we are less than the buffer size
-	if(numInActiveSet < bufferSize) {
-		ASEntry *as = createNewASEntry(lTable);
-		HASH_ADD_PTR(activeSet,key,as);
-		numInActiveSet++;
-
-		ASEntry *as2 = NULL;
-		HASH_FIND_PTR(activeSet,&lTable,as2);
-		assert(as2 != NULL);
-
-		if(numInActiveSet == 1) activeSetClockHand = activeSet;
-		return 0;
-	}
-
+ASEntry* getVictim() {
 	// set activeSetClockHand to entry that will be removed
 	while(activeSetClockHand->r_bit == 1) {
 		activeSetClockHand->r_bit = 0;
-		advanceActiveSetClockHand();
+		assert(activeSetClockHand->code == 0xDEADBEEF);
+		assert(activeSetClockHand->key->code == 0xDEADBEEF);
+		advanceClockHand();
 	}
-
-	/*
-	if(lTable == activeSetClockHand->key) {
-		fprintf(stderr,"ERROR: evicting same thing we are putting in???\n");
-	}
-	*/
-
-	//fprintf(stderr,"evicting %p from active set\n",activeSetClockHand->key);
-	//fprintf(stderr,"evicting %p from active set (checked %d entries for 0 r bit)\n",activeSetClockHand->key,numCheckForZeroRBit);
-
-	// compress the entry to be removed
-	int ret = compressLTable(activeSetClockHand->key);
-	totalEvict++;
-
-	// add lTable to active set
-	ASEntry *as = createNewASEntry(lTable);
-	HASH_ADD_PTR(activeSet,key,as);
-	HASH_DEL(activeSet,activeSetClockHand);
-	//activeSetClockHand->key = lTable;
-	//activeSetClockHand->r_bit = 1;
-
-	advanceActiveSetClockHand();
-	//printActiveSet();
+	assert(activeSetClockHand->code == 0xDEADBEEF);
+	assert(activeSetClockHand->key->code == 0xDEADBEEF);
+	ASEntry* ret = activeSetClockHand;
+	advanceClockHand();
 	return ret;
+}
+
+
+static inline void addToBuffer(LTable* lTable) {
+	//fprintf(stderr, "adding lTable 0x%llx\n", lTable);
+	ASEntry *as = ASEntryAlloc(lTable);
+	HASH_ADD_PTR(activeSet, key, as);
+	numInActiveSet++;
+
+	ASEntry *as2 = NULL;
+	HASH_FIND_PTR(activeSet, &lTable, as2);
+	assert(as2 != NULL);
+	if (as2 == NULL) {
+		fprintf(stderr, "[0] as not found for lTable 0x%llx\n", lTable);
+	}
+
+	if(numInActiveSet == 1) 
+		activeSetClockHand = activeSet;
+	return;
+}
+
+static inline int evictFromBuffer() {
+	numInActiveSet--;
+
+	ASEntry* victim = getVictim();
+	assert(victim->code == 0xDEADBEEF);
+	LTable* lTable = victim->key;
+	//fprintf(stderr, "\tevicting lTable 0x%llx\n", lTable);
+	assert(lTable->code == 0xDEADBEEF);
+	int sizeGained = compressLTable(lTable);
+	assert(lTable->code == 0xDEADBEEF);
+	totalEvict++;
+	HASH_DEL(activeSet, victim);
+	ASEntryFree(victim);
+	return sizeGained;
+}
+
+int CBufferAdd(LTable* lTable) {
+	assert(lTable->code == 0xDEADBEEF);
+	int sizeGained = 0;
+	if (getCompression() == 0)
+		return 0;
+
+	//fprintf(stderr,"adding %p to active set\n",lTable);
+	if(numInActiveSet >= bufferSize) {
+		sizeGained = evictFromBuffer();
+	}
+
+	addToBuffer(lTable);
+	return sizeGained;
 }
 
 void CBufferAccess(LTable* lTable) {
@@ -117,11 +140,12 @@ void CBufferAccess(LTable* lTable) {
 		return;
 
 	ASEntry *as;
-	HASH_FIND_PTR(activeSet,&lTable,as);
+	HASH_FIND_PTR(activeSet, &lTable, as);
 	if (as == NULL) {
-		fprintf(stderr, "as not found for lTable 0x%llx\n", lTable);
+		fprintf(stderr, "[1] as not found for lTable 0x%llx\n", lTable);
 	}
 	assert(as != NULL);
+	assert(as->code == 0xDEADBEEF);
 	as->r_bit = 1;
 	totalAccess++;
 }

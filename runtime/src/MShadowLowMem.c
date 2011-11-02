@@ -471,6 +471,7 @@ static inline int SegTableGetIndex(Addr addr) {
 
 static inline LTable* LTableAlloc() {
 	LTable* ret = calloc(1,sizeof(LTable));
+	ret->code = 0xDEADBEEF;
 #if TIME_TABLE_TYPE == TIME_TABLE_VERSION
 	int i;
 	for (i=15; i<MAX_LEVEL; i++)
