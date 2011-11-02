@@ -1,3 +1,6 @@
+#ifndef _MSHADOW_LOW
+#define _MSHADOW_LOW
+
 #include "defs.h"
 #include "MemMapAllocator.h"
 //#include "compress.h"
@@ -20,6 +23,7 @@
 typedef struct _TimeTable {
 	UInt8 type;
 	UInt8 useVersion;
+	UInt32 size;
 	Time* array;
 	Version* version;
 } TimeTable;
@@ -27,7 +31,7 @@ typedef struct _TimeTable {
 typedef struct _LTable {
 	UInt8		isCompressed; // 0 = uncompressed, 1 = compressed
 	UInt8		noBTV[MAX_LEVEL];
-	UInt32		compressedLen[MAX_LEVEL];
+//	UInt32		compressedLen[MAX_LEVEL];
 	UInt64		nAccess[MAX_LEVEL];
 	Version		vArray[MAX_LEVEL];
 	TimeTable* 	tArray[MAX_LEVEL];
@@ -61,4 +65,5 @@ typedef struct _STable {
 } STable;
 
 
-STable sTable;
+//extern STable sTable;
+#endif

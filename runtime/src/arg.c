@@ -1,4 +1,5 @@
 #include "arg.h"
+#include "config.h"
 // These are the levels on which we are ``reporting'' (i.e. writing info out to the
 // .bin file)
 
@@ -94,6 +95,22 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 		str_start = strstr(argv[i],"gc-period");
 		if(str_start) {
 			setGCPeriod(parseOptionInt(argv[i]));
+			continue;
+		}
+
+		str_start = strstr(argv[i],"compression");
+		if(str_start) {
+			setCompression(parseOptionInt(argv[i]));
+			continue;
+		}
+		str_start = strstr(argv[i],"compress");
+		if(str_start) {
+			setCompression(parseOptionInt(argv[i]));
+			continue;
+		}
+		str_start = strstr(argv[i],"cbuffer-size");
+		if(str_start) {
+			setCBufferSize(parseOptionInt(argv[i]));
 			continue;
 		}
 

@@ -18,6 +18,8 @@
 #include "compress.h"
 #include "Table.h"
 #include "uthash.h"
+#include "CBuffer.h"
+#include "config.h"
 
 #include <string.h> // for memcpy
 
@@ -53,6 +55,7 @@ int addrCompare(Addr a1, Addr a2) { return a1 == a2; }
 */
 
 static int timetableType;
+static STable sTable;
 
 /*
  * MemStat
@@ -84,6 +87,7 @@ typedef struct _MemStat {
 	UInt64 nCacheEvictLevelEffective;
 	UInt64 nCacheEvict;
 	UInt64 nGC;
+	UInt64 nLTableAccess;
 
 	// tracking overhead of timetables (in bytes) with compression
 	UInt64 timeTableOverhead;
@@ -97,22 +101,6 @@ typedef struct _MemStat {
 
 static MemStat stat;
 
-// "active" buffer of LTables that won't be compressed/uncompressed
-#if ACTIVE_SET_IMPLEMENTATION == 0
-static LTable* activeBuffer[UNCOMPRESSED_BUFFER_SIZE];
-static UInt16 nextActiveBufferSpot = 0; // TODO: fix this naive policy
-#elif ACTIVE_SET_IMPLEMENTATION == 1
-typedef struct _ActiveSetEntry {
-	LTable* key;
-	UInt16 r_bit;
-	UT_hash_handle hh;
-} ASEntry;
-
-static ASEntry* activeSet = NULL;
-static ASEntry* activeSetClockHand = NULL;
-
-UInt32 numInActiveSet = 0;
-#endif
 
 /*
  * CacheStat
@@ -157,7 +145,9 @@ static void printCacheStat() {
 		stat.nCacheEvict, 
 		(double)stat.nCacheEvictLevelTotal / stat.nCacheEvict, 
 		(double)stat.nCacheEvictLevelEffective / stat.nCacheEvict);
+
 	fprintf(stderr, "\tnGC = %d\n", stat.nGC);
+
 #if COMPRESSION_POLICY == 1
 	double activeTableHitRate = (double)stat.nActiveTableHits / (double)(stat.nActiveTableHits + stat.nActiveTableMisses);
 	fprintf(stderr, "\t'active LTable list' hit ratio = %.2f (hits = %llu, misses = %llu)\n", activeTableHitRate,stat.nActiveTableHits,stat.nActiveTableMisses);
@@ -180,7 +170,7 @@ static void printMemReqStat() {
 	double tTableSize1 = getSizeMB(nTable1, sizeTable32);
 	double tTableSize = tTableSize0 + tTableSize1;
 
-	double tTableSizeWithCompression = getSizeMB(stat.timeTableOverheadMax,1);
+	double tTableSizeWithCompression = getSizeMB(stat.timeTableOverheadMax, 1);
 
 
 	int sizeVersion64 = sizeof(Version) * (TIMETABLE_SIZE / 2);
@@ -193,13 +183,17 @@ static void printMemReqStat() {
 
 
 	double cacheSize = getCacheSize(getMaxActiveLevel());
-	double totalSize = segSize + tTableSize + vTableSize + cacheSize;
+	double totalSize = segSize + lTableSize + tTableSize + vTableSize + cacheSize;
+	double totalSizeComp = segSize + lTableSize + cacheSize + tTableSizeWithCompression;
+
 	//minTotal += getCacheSize(2);
 	fprintf(stderr, "\nRequired Memory Analysis\n");
 	fprintf(stderr, "\tShadowMemory (SegTable / TTable / TTableCompressed / VTable) = %.2f / %.2f / %.2f / %.2f\n",
 		segSize + lTableSize, tTableSize, tTableSizeWithCompression, vTableSize);
 	fprintf(stderr, "\tReqMemSize (Total / Cache / Uncompressed Shadow / Compressed Shadow) = %.2f / %.2f / %.2f / %.2f\n",
 		totalSize, cacheSize, segSize + tTableSize + vTableSize, segSize + tTableSizeWithCompression + vTableSize);  
+	fprintf(stderr, "\tTotal (Uncompressed / Compressed / Ratio) = %.2f / %.2f / %.2f\n",
+		totalSize, totalSizeComp, totalSize / totalSizeComp);
 }
 
 static void printLevelStat() {
@@ -346,26 +340,29 @@ static inline void TimeTableClean(TimeTable* table) {
 	}
 }
 
-inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
-	stat.nTimeTableAllocated[sizeType]++;
-	stat.nTimeTableActive++;
-	if (stat.nTimeTableActive > stat.nTimeTableActiveMax)
-		stat.nTimeTableActiveMax++;
-
-	stat.timeTableOverhead += sizeof(Time)*TIMETABLE_SIZE/2; // XXX: assumes 8B
+static inline void TimeTableUpdateOverhead(int size) {
+	stat.timeTableOverhead += size; 
 	if(stat.timeTableOverhead > stat.timeTableOverheadMax)
 		stat.timeTableOverheadMax = stat.timeTableOverhead;
-	
+}
 
+static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	int size = TimeTableEntrySize(sizeType);
 	TimeTable* ret = malloc(sizeof(TimeTable));
-	//ret->array = malloc(sizeof(Time) * size);
 	ret->array = MemPoolAlloc();
 	bzero(ret->array, sizeof(Time) * size);
 
 	ret->type = sizeType;
 	ret->useVersion = useVersion;
+	ret->size = sizeof(Time) * TIMETABLE_SIZE / 2;
+
+	stat.nTimeTableAllocated[sizeType]++;
+	stat.nTimeTableActive++;
+	if (stat.nTimeTableActive > stat.nTimeTableActiveMax)
+		stat.nTimeTableActiveMax++;
+	
+	TimeTableUpdateOverhead(ret->size);
 
 	if (useVersion == 1) {
 		ret->version = calloc(size,sizeof(Version));
@@ -375,18 +372,18 @@ inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
 }
 
 
-inline void TimeTableFree(TimeTable* table, UInt8 isCompressed) {
+static inline void TimeTableFree(TimeTable* table, UInt8 isCompressed) {
 	stat.nTimeTableActive--;
 	int sizeType = table->type;
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	stat.nTimeTableFreed[table->type]++;
-	if(isCompressed == 0) { MemPoolFree(table->array); }
-	else { free(table->array); }
+	MemPoolFree(table->array);
 	if (table->useVersion) {
 		assert(table->version != NULL);
 		free(table->version);
 		stat.nVersionTableFreed[table->type]++;
 	}
+	TimeTableUpdateOverhead(table->size * -1);
 	free(table);
 }
 
@@ -746,14 +743,6 @@ static inline void cleanTimeTables(LTable* lTable, Index start) {
 			//fprintf(stderr, "(%d)\t", i);
 			TimeTableFree(time,lTable->isCompressed);
 			lTable->tArray[i] = NULL;
-
-			if(lTable->compressedLen[i] != 0) {
-				stat.timeTableOverhead -= lTable->compressedLen[i]; // XXX: assumes 8B
-				lTable->compressedLen[i] = 0;
-			}
-			else {
-				stat.timeTableOverhead -= sizeof(Time)*TIMETABLE_SIZE/2; // XXX: assumes 8B
-			}
 		}
 	}
 }
@@ -777,13 +766,6 @@ void gcLevel(LTable* table, Version* vArray, int size) {
 			//fprintf(stderr, "(%d, %d %d)\t", i, ver, vArray[i]);
 			TimeTableFree(time,table->isCompressed);
 			table->tArray[i] = NULL;
-			if(table->compressedLen[i] != 0) {
-				stat.timeTableOverhead -= table->compressedLen[i];
-				table->compressedLen[i] = 0;
-			}
-			else {
-				stat.timeTableOverhead -= sizeof(Time)*TIMETABLE_SIZE/2; // XXX: assumes 8B
-			}
 		}
 	}
 
@@ -874,21 +856,24 @@ static inline LTable* getLTable(Addr addr, Version* vArray) {
 	SEntry* sEntry = STableGetSEntry(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
+	stat.nLTableAccess++;
 	int segIndex = SegTableGetIndex(addr);
 	LTable* lTable = segTable->entry[segIndex];
 	if (lTable == NULL) {
 		lTable = LTableAlloc();
+		if (getCompression()) {
+			int compressGain = CBufferAdd(lTable);
+			TimeTableUpdateOverhead(compressGain * -1);
+		}
 		segTable->entry[segIndex] = lTable;
 		eventLTableAlloc();
 	}
 
 	if(lTable->isCompressed) {
-#ifdef GC_BEFORE_DECOMPRESS
 		gcLevelUnknownSize(lTable,vArray);
-#endif
-		stat.timeTableOverhead += decompressLTable(lTable);
-		if(stat.timeTableOverhead > stat.timeTableOverheadMax)
-			stat.timeTableOverheadMax = stat.timeTableOverhead;
+		int gain = decompressLTable(lTable);
+		int loss = CBufferAdd(lTable);
+		TimeTableUpdateOverhead(loss - gain);
 	}
 
 	return lTable;
@@ -947,93 +932,6 @@ static inline void MCacheValidateTag(CacheLine* line, Time* destAddr, Version* v
 		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
 }
 
-#if ACTIVE_SET_IMPLEMENTATION == 0
-// FIXME: use more efficient lookup
-static inline UInt8 isInActiveBuffer(LTable* lTable) {
-	int i;
-	for(i = 0; i < UNCOMPRESSED_BUFFER_SIZE; ++i) {
-		if(activeBuffer[i] == lTable) { return 1; }
-	}
-
-	return 0;
-}
-
-static inline void addToActiveBuffer(LTable* lTable) {
-	// compress whatever we are kicking out of the active buffer
-	if(activeBuffer[nextActiveBufferSpot] != NULL)
-		stat.timeTableOverhead -= compressLTable(activeBuffer[nextActiveBufferSpot]);
-
-	// add new lTable to the active buffer
-	activeBuffer[nextActiveBufferSpot] = lTable;
-	nextActiveBufferSpot = (nextActiveBufferSpot+1) % UNCOMPRESSED_BUFFER_SIZE;
-}
-#elif ACTIVE_SET_IMPLEMENTATION == 1
-static inline void advanceActiveSetClockHand() {
-	activeSetClockHand = activeSetClockHand->hh.next;
-	if(activeSetClockHand == NULL) activeSetClockHand = activeSet;
-}
-
-static inline void printActiveSet() {
-	ASEntry* as;
-
-	int i = 0;
-	for(as = activeSet; as != NULL; as = as->hh.next, ++i) {
-		fprintf(stderr,"%d: key = %p, r_bit = %hu\n",i,as->key,as->r_bit);
-	}
-}
-
-static inline ASEntry* createNewASEntry(LTable* lTable) {
-	ASEntry *as = malloc(sizeof(ASEntry));
-	as->key = lTable;
-	as->r_bit = 1;
-
-	return as;
-}
-
-static inline void addToActiveSet(LTable* lTable) {
-	//fprintf(stderr,"adding %p to active set\n",lTable);
-	// just add this if we are less than the buffer size
-	if(numInActiveSet < UNCOMPRESSED_BUFFER_SIZE) {
-		ASEntry *as = createNewASEntry(lTable);
-
-		HASH_ADD_PTR(activeSet,key,as);
-		numInActiveSet++;
-
-		if(numInActiveSet == 1) activeSetClockHand = activeSet;
-		return;
-	}
-
-	// set activeSetClockHand to entry that will be removed
-	while(activeSetClockHand->r_bit == 1) {
-		activeSetClockHand->r_bit = 0;
-		advanceActiveSetClockHand();
-	}
-
-	/*
-	if(lTable == activeSetClockHand->key) {
-		fprintf(stderr,"ERROR: evicting same thing we are putting in???\n");
-	}
-	*/
-
-	//fprintf(stderr,"evicting %p from active set\n",activeSetClockHand->key);
-
-	//fprintf(stderr,"evicting %p from active set (checked %d entries for 0 r bit)\n",activeSetClockHand->key,numCheckForZeroRBit);
-
-	// compress the entry to be removed
-	stat.timeTableOverhead -= compressLTable(activeSetClockHand->key);
-
-	// add lTable to active set
-	ASEntry *as = createNewASEntry(lTable);
-	HASH_ADD_PTR(activeSet,key,as);
-	HASH_DEL(activeSet,activeSetClockHand);
-	//activeSetClockHand->key = lTable;
-	//activeSetClockHand->r_bit = 1;
-
-	advanceActiveSetClockHand();
-	//printActiveSet();
-}
-#endif
-
 static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, Version* vArray, int type) {
 	if (addr == NULL)
 		return;
@@ -1055,31 +953,7 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 	}
 	eventCacheEvict(size, startInvalid);
 
-#if COMPRESSION_POLICY == 1
-#if ACTIVE_SET_IMPLEMENTATION == 1
-	ASEntry *as;
-	HASH_FIND_PTR(activeSet,&lTable,as);
-
-	if(as == NULL) {
-		addToActiveSet(lTable);
-		stat.nActiveTableMisses++;
-	}
-	else {
-		as->r_bit = 1;
-		stat.nActiveTableHits++;
-	}
-
-#elif ACTIVE_SET_IMPLEMENTATION == 0
-	if(isInActiveBuffer(lTable) == 0) {
-		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
-		addToActiveBuffer(lTable);
-		stat.nActiveTableMisses++;
-	}
-	else {
-		stat.nActiveTableHits++;
-	}
-#endif
-#endif
+	CBufferAccess(lTable);
 }
 
 static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
@@ -1092,32 +966,7 @@ static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, 
 		destAddr[i] = getTimeLevel(lTable, i, addr, vArray[i], type);
 	}
 
-#if COMPRESSION_POLICY == 1
-	// XXX TODO: save old compression to avoid extra step?
-#if ACTIVE_SET_IMPLEMENTATION == 1
-	ASEntry *as;
-	HASH_FIND_PTR(activeSet,&lTable,as);
-
-	if(as == NULL) {
-		addToActiveSet(lTable);
-		stat.nActiveTableMisses++;
-	}
-	else {
-		as->r_bit = 1;
-		stat.nActiveTableHits++;
-	}
-
-#elif ACTIVE_SET_IMPLEMENTATION == 0
-	if(isInActiveBuffer(lTable) == 0) {
-		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
-		addToActiveBuffer(lTable);
-		stat.nActiveTableMisses++;
-	}
-	else {
-		stat.nActiveTableHits++;
-	}
-#endif
-#endif
+	CBufferAccess(lTable);
 }
 
 static Time tempArray[1000];
@@ -1129,33 +978,7 @@ static Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 		tempArray[i] = getTimeLevel(lTable, i, addr, vArray[i], type);
 	}
 
-#if COMPRESSION_POLICY == 1
-	// XXX TODO: save old compression to avoid extra step?
-#if ACTIVE_SET_IMPLEMENTATION == 1
-	ASEntry *as;
-	HASH_FIND_PTR(activeSet,&lTable,as);
-
-	if(as == NULL) {
-		addToActiveSet(lTable);
-		stat.nActiveTableMisses++;
-	}
-	else {
-		as->r_bit = 1;
-		stat.nActiveTableHits++;
-	}
-
-#elif ACTIVE_SET_IMPLEMENTATION == 0
-	if(isInActiveBuffer(lTable) == 0) {
-		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
-		addToActiveBuffer(lTable);
-		stat.nActiveTableMisses++;
-	}
-	else {
-		stat.nActiveTableHits++;
-	}
-#endif
-#endif
-
+	CBufferAccess(lTable);
 	return tempArray;	
 }
 
@@ -1167,31 +990,7 @@ static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, in
 		setTimeLevel(lTable, i, addr, vArray[i], tArray[i], type);
 	}
 
-#if COMPRESSION_POLICY == 1
-#if ACTIVE_SET_IMPLEMENTATION == 1
-	ASEntry *as;
-	HASH_FIND_PTR(activeSet,&lTable,as);
-
-	if(as == NULL) {
-		addToActiveSet(lTable);
-		stat.nActiveTableMisses++;
-	}
-	else {
-		as->r_bit = 1;
-		stat.nActiveTableHits++;
-	}
-
-#elif ACTIVE_SET_IMPLEMENTATION == 0
-	if(isInActiveBuffer(lTable) == 0) {
-		//fprintf(stderr,"adding to active buffer: %p\n",lTable);
-		addToActiveBuffer(lTable);
-		stat.nActiveTableMisses++;
-	}
-	else {
-		stat.nActiveTableHits++;
-	}
-#endif
-#endif
+	CBufferAccess(lTable);
 }
 
 
@@ -1319,15 +1118,9 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 
 	if (stat.nTimeTableActiveMax >= nextGC) {
 		gcStart(vArray, size);
+		//nextGC = stat.nTimeTableActive + gcPeriod;
 		nextGC += gcPeriod;
 	}
-
-#if COMPRESSION_POLICY == 2
-	if(stat.timeTableOverhead >= COMPRESSION_THRESHOLD) {
-		stat.timeTableOverhead -= compressShadowMemory(vArray);
-		assert(stat.TimeTableOverhead < COMPRESSION_THRESHOLD);
-	}
-#endif
 
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
@@ -1338,7 +1131,6 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 		MNoCacheSet(tAddr, size, vArray, tArray, type);
 
 	} else {
-	//	MNoCacheSet(tAddr, size, vArray, tArray, type);
 		MCacheSet(tAddr, size, vArray, tArray, type);
 	}
 }
@@ -1362,15 +1154,18 @@ UInt MShadowInitCache(int cacheSizeMB, int type) {
 	STableInit();
 	MCacheInit(cacheSizeMB);
 
+	CBufferInit(getCBufferSize());
 	MShadowGet = _MShadowGetCache;
 	MShadowSet = _MShadowSetCache;
 }
 
 
 UInt MShadowDeinitCache() {
+	CBufferDeinit();
 	printMemStat();
 	STableDeinit();
 	MCacheDeinit();
+	
 }
 
 

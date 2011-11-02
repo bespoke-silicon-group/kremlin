@@ -35,14 +35,17 @@ UInt8* compressData(UInt8* src, uLong sizeSrc, uLong* sizeDest) {
 	assert(sizeSrc > 0);
 	assert(sizeDest != NULL);
 
-	//uLong compLen = compressBound(sizeSrc);
 	*sizeDest = sizeSrc;
-	UInt8* dest = malloc(sizeSrc); // TODO: move away from malloc/free
-	//fprintf(stderr, "[enc] compress src=0x%llx, dest=0x%llx, srcSize = %d\n", src, dest, sizeSrc);
+	//UInt8* dest = malloc(sizeSrc); // TODO: move away from malloc/free
+	UInt8* dest = MemPoolAlloc(); //XXX need a specialized memory allocator
 	int compStatus = compress(dest, sizeDest, src, sizeSrc);
-	//fprintf(stderr, "[enc] result = %d sizeDest = %d\n", compStatus, *sizeDest);
 	assert(compStatus == Z_OK);
-	return realloc(dest, *sizeDest);
+	if (compStatus != Z_OK) {
+		fprintf(stderr, "compress error!\n");
+		exit(1);
+	}
+	//return realloc(dest, *sizeDest);
+	return dest;
 }
 
 void decompressData(UInt8* dest, UInt8* src, uLong sizeSrc, uLong* sizeDest) {
@@ -50,13 +53,14 @@ void decompressData(UInt8* dest, UInt8* src, uLong sizeSrc, uLong* sizeDest) {
 	assert(dest != NULL);
 	assert(sizeSrc > 0);
 	assert(sizeDest != NULL);
-//	*sizeDest = sizeSrc;
-
-	//fprintf(stderr, "[dec] decompress src=0x%llx, dest=0x%llx, srcSize = %d\n", src, dest, sizeSrc);
 	int compStatus = uncompress(dest, sizeDest, src, sizeSrc);
-	//fprintf(stderr, "[dec] result = %d sizeDest = %d\n", compStatus, *sizeDest);
 	assert(compStatus == Z_OK);
-	free(src);
+	if (compStatus != Z_OK) {
+		fprintf(stderr, "decompress error!\n");
+		exit(1);
+	}
+	//free(src);
+	MemPoolFree(src);
 }
 
 #if 0
@@ -103,7 +107,6 @@ UInt64 compressLTable(LTable* lTable) {
 	//fprintf(stderr,"compressing LTable (%p)\n",lTable);
 
 	UInt64 compressionSavings = 0;
-
 	uLong srcLen = sizeof(Time)*TIMETABLE_SIZE/2; // XXX assumes 8 bytes
 	uLong compLen = 0;
 	void* compressedData = compressData((UInt8*)tt1->array, srcLen, &compLen);
@@ -111,9 +114,7 @@ UInt64 compressLTable(LTable* lTable) {
 	Time* level0Array = tt1->array;
 	tt1->array = compressedData;
 	compressionSavings += (srcLen - compLen);
-	lTable->compressedLen[0] = compLen;
-
-	//fprintf(stderr,"compressed level 0 data to %u bytes\n",compLen);
+	tt1->size = compLen;
 	Time* diffs = MemPoolAlloc();
 
 	int i;
@@ -138,12 +139,8 @@ UInt64 compressLTable(LTable* lTable) {
 		// step 2: compress diffs
 		compLen = 0;
 		compressedData = compressData((UInt8*)diffs, srcLen, &compLen);
-
-		//fprintf(stderr,"compressed data to %u bytes\n",compLen);
 		compressionSavings += (srcLen - compLen);
-		lTable->compressedLen[i] = compLen;
-
-		//fprintf(stderr,"compressed level %d data to %u bytes\n",i,compLen);
+		tt2->size = compLen;
 
 		// step 3: profit
 		MemPoolFree(tt2->array); // XXX: comment this out if using tArrayBackup
@@ -154,80 +151,59 @@ UInt64 compressLTable(LTable* lTable) {
 	MemPoolFree(diffs);
 
 	lTable->isCompressed = 1;
-	//fprintf(stderr,"finished compressing LTable\n");
-
-	//fprintf(stderr,"saved %llu bytes from compression\n",compressionSavings);
 	return compressionSavings;
 }
 
 
 UInt64 decompressLTable(LTable* lTable) {
-	if(lTable->isCompressed == 0) return 0;
+	if(lTable->isCompressed == 0) 
+		return 0;
 
 	UInt64 decompressionCost = 0;
-
-	//fprintf(stderr,"decompressing LTable (%p)\n",lTable);
 	uLong srcLen = sizeof(Time)*TIMETABLE_SIZE/2;
 	uLong uncompLen = srcLen;
 
 	// for now, we'll always diff based on level 0
 	TimeTable* tt1 = lTable->tArray[0];
-	//fprintf(stderr,"decompressing level 0\n");
+	int compressedSize = tt1->size;
 
 	Time* decompedArray = MemPoolAlloc();
-	//int compStatus = uncompress((UInt8*)decompedArray, &uncompLen, (UInt8*)tt1->array, lTable->compressedLen[0]);
-	decompressData((UInt8*)decompedArray, (UInt8*)tt1->array, lTable->compressedLen[0], &uncompLen);
-
-	//free(tt1->array); // TODO: move away from free/malloc
+	decompressData((UInt8*)decompedArray, (UInt8*)tt1->array, compressedSize, &uncompLen);
 	tt1->array = decompedArray;
-	//printTimeTable(tt1);
-
-	decompressionCost += (srcLen - lTable->compressedLen[0]);
-	lTable->compressedLen[0] = 0;
+	decompressionCost += (srcLen - compressedSize);
+	tt1->size = srcLen;
 
 	Time *diffs = MemPoolAlloc();
-
 	int i;
 	for(i = 1; i < MAX_LEVEL; ++i) {
 		TimeTable* tt2 = lTable->tArray[i];
-		if(tt2 == NULL) break;
-		//fprintf(stderr,"decompressing level %d\n",i);
-
-		// step 1: decompress time different table
+		if(tt2 == NULL) 
+			break;
+		// step 1: decompress time different table, 
+		// the src buffer will be freed in decompressData
 		uncompLen = srcLen;
-		//int compStatus = uncompress((UInt8*)diffs, &uncompLen, (UInt8*)tt2->array, lTable->compressedLen[i]);
-		decompressData((UInt8*)diffs, (UInt8*)tt2->array, lTable->compressedLen[i], &uncompLen);
-		//assert(compStatus == Z_OK);
+		decompressData((UInt8*)diffs, (UInt8*)tt2->array, tt2->size, &uncompLen);
 		assert(srcLen == uncompLen);
-
-		decompressionCost += (srcLen - lTable->compressedLen[i]);
-		lTable->compressedLen[i] = 0;
+		decompressionCost += (srcLen - tt2->size);
+		tt2->size = 0;
 
 		// step 2: add diffs to base TimeTable
-		//free(tt2->array); // TODO: move away from malloc/free
 		tt2->array = MemPoolAlloc();
+		tt2->size = srcLen;
 
 		int j;
 		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
-			//fprintf(stderr,"diffs[%d] = %llu\n",j,diffs[j]);
 			tt2->array[j] = tt1->array[j] - diffs[j];
 		}
-
-		//UInt8 wasDiff = tArrayIsDiff(tt2->array,lTable->tArrayBackup[i]);
-		//assert(wasDiff == 0);
-		//MemPoolFree(lTable->tArrayBackup[i]);
 	}
-
-	// clean up diffs
 	MemPoolFree(diffs);
 
 	lTable->isCompressed = 0;
-	//fprintf(stderr,"finished decompressing LTable (%p)\n",lTable);
-
 	return decompressionCost;
 }
 #endif
 
+#if 0
 static UInt32 uncompressedTables = 0;
 static UInt32 compressedTables = 0;
 
@@ -314,3 +290,5 @@ UInt64 compressShadowMemory(Version* vArray) {
 
 	return newCompressionSavings;
 }
+
+#endif
