@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "debug.h"
+#include "MemMapAllocator.h"
 #include "CRegion.h"
 
 
@@ -17,7 +18,6 @@ static CRegion* createCRegion(SID sid, CID callSite);
 static void deleteCRegion(CRegion* region);
 static void emit(char* file);
 static void emitRegion(FILE* fp, CNode* node, UInt level);
-
 
 
 /*** public functions ***/
@@ -207,7 +207,8 @@ static CNode* findChildNode(CNode* node, UInt64 sid, UInt64 callSite) {
 
 // create a CNode
 static CNode* createCNode(CNode* parent, CRegion* region) {
-	CNode* ret = (CNode*)malloc(sizeof(CNode));
+	CNode* ret = (CNode*)MemPoolAllocSmall(sizeof(CNode));
+	//fprintf(stderr, "CNode addr = 0x%llx\n", ret);
 	assert(region != NULL);
 	ret->region = region;
 	ret->parent = parent;
@@ -228,14 +229,18 @@ static CNode* createCNode(CNode* parent, CRegion* region) {
 }
 
 // remove a CNode
-static void deleteCNode(CRegion* region) { free(region); }
+static void deleteCNode(CRegion* region) { 
+	MemPoolFreeSmall(region, sizeof(CNode)); 
+	//free(region);
+}
 
 static UInt64 lastId = 0;
 static UInt64 allocateCRegionId() { return ++lastId; }
 
 
 static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
-	CRegion* ret = (CRegion*)malloc(sizeof(CRegion));
+	CRegion* ret = (CRegion*)MemPoolAllocSmall(sizeof(CRegion));
+	//fprintf(stderr, "CRegion addr = 0x%llx\n", ret);
 	ret->id = allocateCRegionId();
 	ret->sid = sid;
 	ret->callSite = callSite;
@@ -252,5 +257,8 @@ static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
 	return ret;
 }
 
-static void deleteCRegion(CRegion* region) { free(region); }
+static void deleteCRegion(CRegion* region) {
+	//free(region);
+	MemPoolFreeSmall(region, sizeof(CRegion)); 
+}
 

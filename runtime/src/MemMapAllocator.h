@@ -4,7 +4,11 @@
 #include <stdlib.h>
 #include "defs.h"
 
+void MemPoolInit(int, int);
 Addr MemPoolAlloc(void);
 void MemPoolFree(Addr addr);
 
+Addr MemPoolAllocSmall(int);
+Addr MemPoolCallocSmall(int, int);
+void MemPoolFreeSmall(Addr addr, int size);
 #endif /* MEM_MAP_ALLOCATOR_H */

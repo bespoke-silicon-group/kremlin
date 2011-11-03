@@ -37,15 +37,15 @@ static inline void printActiveSet() {
 }
 
 static inline ASEntry* ASEntryAlloc(LTable* lTable) {
-	ASEntry *as = malloc(sizeof(ASEntry));
+	ASEntry *as = MemPoolAllocSmall(sizeof(ASEntry));
 	as->key = lTable;
 	as->r_bit = 1;
 	as->code = 0xDEADBEEF;
 	return as;
 }
 
-static inline ASEntry* ASEntryFree(ASEntry* entry) {
-	free(entry);
+static inline void ASEntryFree(ASEntry* entry) {
+	MemPoolFreeSmall(entry, sizeof(ASEntry));
 }
 
 static int bufferSize;

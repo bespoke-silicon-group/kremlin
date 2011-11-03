@@ -1,11 +1,8 @@
 #include "defs.h"
 #include "MShadowLow.h"
 #include <string.h>
-//#include "lz.h"
 #include "minilzo.h"
 
-typedef UInt32 uLong;
-//#include "miniz.c" // for compress() and uncompress()
 
 void printTArray(Time* tArray) {
 	int i;
@@ -37,7 +34,6 @@ UInt8 tArrayIsDiff(Time *array1, Time *array2) {
 UInt64 _compSrcSize;
 UInt64 _compDestSize;
 
-//static char compressBuf[1024*1024];
 #define HEAP_ALLOC(var,size) \
     lzo_align_t __LZO_MMODEL var [ ((size) + (sizeof(lzo_align_t) - 1)) / sizeof(lzo_align_t) ]
 

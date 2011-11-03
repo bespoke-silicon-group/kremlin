@@ -7,5 +7,7 @@ int  getCompression();
 void setCBufferSize(int);
 int  getCBufferSize();
 
+void setRegionDepth(int);
+int  getRegionDepth();
 
 #endif

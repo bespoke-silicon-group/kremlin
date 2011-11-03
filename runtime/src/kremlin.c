@@ -35,17 +35,7 @@ UInt64 _setupTableCnt;
 int _requireSetupTable;
 static int _cacheSize = 4;
 static int _tableType = 0;
-static int _regionDepth = 20;
 
-void setRegionDepth(int depth) {
-	fprintf(stderr, "[kremlin] Setting region depth to %d\n", depth);
-	_regionDepth = depth;
-	setMaxLevel(depth);
-}
-
-int getRegionDepth() {
-	return _regionDepth;
-}
 
 void setCacheSize(int nMB) {
 	_cacheSize = nMB;
@@ -321,7 +311,8 @@ static FuncContexts*       funcContexts;
  * Pushes new context onto function context stack.
  */
 static void RegionPushFunc(CID cid) {
-    FuncContext* funcContext = (FuncContext*) malloc(sizeof(FuncContext));
+    //FuncContext* funcContext = (FuncContext*) malloc(sizeof(FuncContext));
+    FuncContext* funcContext = (FuncContext*) MemPoolAllocSmall(sizeof(FuncContext));
     assert(funcContext);
 
     FuncContextsPushVal(funcContexts, funcContext);
@@ -348,7 +339,8 @@ static void RegionPopFunc() {
     if (func->table != NULL)
         TableFree(func->table);
 
-    free(func);  
+    //free(func);  
+	MemPoolFreeSmall(func, sizeof(FuncContext));
 }
 
 static FuncContext* RegionGetFunc() {
@@ -459,6 +451,7 @@ static int RegionSize() {
 
 static void RegionInit(int size) {
     regionInfo = (Region*) malloc(sizeof(Region) * size);
+    //regionInfo = (Region*) MemPoolAllocSmall(sizeof(Region) * size);
 	regionSize = size;
 	assert(regionInfo != NULL);
 	MSG(3, "RegionInit at 0x%x\n", regionInfo);

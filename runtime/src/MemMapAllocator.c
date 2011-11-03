@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include "vector.h"
+#include "mpool.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -32,18 +33,49 @@ typedef struct _MChunk {
 static int chunkSize;
 static int mmapSizeMB;
 static MChunk* freeList;
+static mpool_t* poolSmall;
 
 
 void MemPoolInit(int nMB, int sizeEach) {
 	mmapSizeMB = nMB;
 	chunkSize = sizeEach;
 	freeList = NULL;	
+	int error;
+	poolSmall = mpool_open(0, 0, 0x100000000000, &error);
+	fprintf(stderr, "mpool_open error = %x\n", error); 
+
+}
+
+void MemPoolDeinit() {
+	mpool_close(poolSmall);
+}
+
+Addr MemPoolAllocSmall(int size) {
+	//assert(size <= chunkSize);
+	//return MemPoolAlloc();
+	int error;
+	return mpool_alloc(poolSmall, size, &error);
+}
+
+Addr MemPoolCallocSmall(int num, int size) {
+	int error;
+	return mpool_calloc(poolSmall, num, size, &error);
+}
+
+void MemPoolFreeSmall(Addr addr, int size) {
+	mpool_free(poolSmall, addr, size);
+	//MemPoolFree(addr);
 }
 
 MChunk* MChunkAlloc(Addr addr) {
-	MChunk* ret = malloc(sizeof(MChunk));
+	//MChunk* ret = malloc(sizeof(MChunk));
+	MChunk* ret = MemPoolAllocSmall(sizeof(MChunk));
 	ret->addr = addr;
 	return ret;
+}
+
+void MChunkFree(MChunk* target) {
+	MemPoolFreeSmall(target, sizeof(MChunk));
 }
 
 void addMChunk(MChunk* toAdd) {
@@ -90,7 +122,7 @@ Addr MemPoolAlloc() {
 	MChunk* head = freeList;
 	void* ret = freeList->addr;
 	freeList = freeList->next;
-	free(head);
+	MChunkFree(head);
 
 	//bzero(ret, chunkSize);
 	//fprintf(stderr, "Returning addr 0x%llx\n", ret);
@@ -102,9 +134,7 @@ void MemPoolFree(Addr addr) {
 	addMChunk(toAdd);
 }
 
-void MemPoolDeinit() {
-	
-}
+
 
 #if 0
 /**
