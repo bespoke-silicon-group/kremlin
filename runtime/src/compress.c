@@ -174,19 +174,21 @@ UInt64 decompressLTable(LTable* lTable) {
 // doing useless work (i.e. compressing data that is out of date)
 // Returns: number of bytes saved by compression
 UInt64 compressLTable(LTable* lTable) {
+	//fprintf(stderr,"[LTable] compressing LTable (%p)\n",lTable);
 	if (lTable->code != 0xDEADBEEF) {
 		fprintf(stderr, "LTable addr = 0x%llx\n", lTable);
 		assert(0);
 	}
 	assert(lTable->code == 0xDEADBEEF);
-	if(lTable->isCompressed == 1) 
-		return 0;
+	assert(lTable->isCompressed == 0);
 
 	TimeTable* tt1 = lTable->tArray[0];
-	if(tt1 == NULL) 
-		return 0;
 
-	//fprintf(stderr,"compressing LTable (%p)\n",lTable);
+	if (tt1 == NULL) {
+		lTable->isCompressed = 1;
+		return 0;
+	}
+
 
 	UInt64 compressionSavings = 0;
 	lzo_uint srcLen = sizeof(Time)*TIMETABLE_SIZE/2; // XXX assumes 8 bytes
@@ -247,15 +249,19 @@ UInt64 decompressLTable(LTable* lTable) {
 		assert(0);
 	}
 	assert(lTable->code == 0xDEADBEEF);
-	if(lTable->isCompressed == 0) 
-		return 0;
+	assert(lTable->isCompressed == 1);
 
+	//fprintf(stderr,"[LTable] decompressing LTable (%p)\n",lTable);
 	UInt64 decompressionCost = 0;
 	lzo_uint srcLen = sizeof(Time)*TIMETABLE_SIZE/2;
 	lzo_uint uncompLen = srcLen;
 
 	// for now, we'll always diff based on level 0
 	TimeTable* tt1 = lTable->tArray[0];
+	if (tt1 == NULL) {
+		lTable->isCompressed = 0;
+		return 0;
+	}
 	int compressedSize = tt1->size;
 
 	Time* decompedArray = MemPoolAlloc();
@@ -293,7 +299,6 @@ UInt64 decompressLTable(LTable* lTable) {
 		//tArrayIsDiff(tt2->array, lTable->tArrayBackup[i]);
 	}
 	MemPoolFree(diffBuffer);
-
 
 	lTable->isCompressed = 0;
 	return decompressionCost;

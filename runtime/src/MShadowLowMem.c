@@ -971,11 +971,13 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 	}
 	eventCacheEvict(size, startInvalid);
 
+	//fprintf(stderr, "\tMCacheEvict lTable=%llx, 0x%llx, size=%d, effectiveSize=%d \n", lTable, addr, size, startInvalid);
 	CBufferAccess(lTable);
 }
 
 static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
 	MSG(0, "\tMCacheFetch 0x%llx, size %d \n", addr, size);
+	//fprintf(stderr, "\tMCacheFetch 0x%llx, size %d \n", addr, size);
 	LTable* lTable = getLTable(addr,vArray);
 
 	int i;
