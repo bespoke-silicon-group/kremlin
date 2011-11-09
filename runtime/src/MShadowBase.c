@@ -64,6 +64,9 @@ typedef struct _MemStat {
 	
 	UInt64 nTimeTableConverted;
 
+	UInt64 reqRead[64];
+	UInt64 reqWrite[64];
+
 } MemStat;
 
 static MemStat stat;
@@ -91,6 +94,13 @@ static void printMemStat() {
 	double timeTableSize = timeTableEach64 * (nTable64 + 2*nTable32) / (1024.0 * 1024.0) / 2;
 	double versionTableSize = timeTableSize;
 
+	int i;
+	for (i=0; i<getRegionDepth(); i++) {
+		fprintf(stderr, "Level [%2d] req Read / Write = %lld, %lld\n",
+			i, stat.reqRead[i-1], stat.reqWrite[i-1]);
+	}
+
+	fprintf(stderr, "SegTable size = %.2f MB\n", segTableSize); 
 	fprintf(stderr, "SegTable size = %.2f MB\n", segTableSize); 
 	fprintf(stderr, "TimeTable size = %.2f MB\n", timeTableSize); 
 	fprintf(stderr, "VersionTable size = %.2f MB\n", versionTableSize);
@@ -369,6 +379,7 @@ static Time* _MShadowGetBase(Addr addr, Index size, Version* vArray, UInt32 widt
 
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
+	stat.reqRead[size]++;
 	return SegTableGetTime(segEntry, addr, size, vArray, type);
 }
 
@@ -384,6 +395,7 @@ static void _MShadowSetBase(Addr addr, Index size, Version* vArray, Time* tArray
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
 	SegTableSetTime(segEntry, addr, size, vArray, tArray, type);
+	stat.reqWrite[size]++;
 }
 
 

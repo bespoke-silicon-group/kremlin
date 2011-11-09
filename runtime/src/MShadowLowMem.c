@@ -57,6 +57,11 @@ int addrCompare(Addr a1, Addr a2) { return a1 == a2; }
 
 static int timetableType;
 static STable sTable;
+static int _useCompression = 0;
+
+static inline int useCompression() {
+	return _useCompression;
+}
 
 /*
  * MemStat
@@ -148,11 +153,6 @@ static void printCacheStat() {
 		(double)stat.nCacheEvictLevelEffective / stat.nCacheEvict);
 
 	fprintf(stderr, "\tnGC = %d\n", stat.nGC);
-
-#if COMPRESSION_POLICY == 1
-	double activeTableHitRate = (double)stat.nActiveTableHits / (double)(stat.nActiveTableHits + stat.nActiveTableMisses);
-	fprintf(stderr, "\t'active LTable list' hit ratio = %.2f (hits = %llu, misses = %llu)\n", activeTableHitRate,stat.nActiveTableHits,stat.nActiveTableMisses);
-#endif
 }
 
 
@@ -167,11 +167,11 @@ static void printMemReqStat() {
 	int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TIMETABLE_SIZE / 2);
 	UInt64 nTable1 = stat.nTimeTableAllocated[1] - stat.nTimeTableFreed[1];
 	int sizeTable32 = sizeof(TimeTable) + sizeof(Time) * TIMETABLE_SIZE;
-	UInt64 sizeUncompressed = stat.nTimeTableActive * sizeof(Time) * TIMETABLE_SIZE / 2;
-	double tTableSize = getSizeMB(sizeUncompressed, 1);
 	//double tTableSize1 = getSizeMB(nTable1, sizeTable32);
 	//double tTableSize = tTableSize0 + tTableSize1;
 
+	UInt64 sizeUncompressed = stat.nTimeTableActiveMax * sizeof(Time) * TIMETABLE_SIZE / 2;
+	double tTableSize = getSizeMB(sizeUncompressed, 1);
 	double tTableSizeWithCompression = getSizeMB(stat.timeTableOverheadMax, 1);
 
 
@@ -195,10 +195,10 @@ static void printMemReqStat() {
 	//minTotal += getCacheSize(2);
 	fprintf(stderr, "%lld, %lld, %lld\n", stat.timeTableOverhead, sizeUncompressed, stat.timeTableOverhead - sizeUncompressed);
 	fprintf(stderr, "\nRequired Memory Analysis\n");
-	fprintf(stderr, "\tShadowMemory (SegTable / TTable / TTableCompressed / VTable) = %.2f / %.2f / %.2f / %.2f\n",
-		segSize + lTableSize, tTableSize, tTableSizeWithCompression, vTableSize);
+	fprintf(stderr, "\tShadowMemory (SegTable / LevTable/ TTable / TTableCompressed) = %.2f / %.2f/ %.2f / %.2f \n",
+		segSize, lTableSize, tTableSize, tTableSizeWithCompression);
 	fprintf(stderr, "\tReqMemSize (Total / Cache / Uncompressed Shadow / Compressed Shadow) = %.2f / %.2f / %.2f / %.2f\n",
-		totalSize, cacheSize, segSize + tTableSize + vTableSize, segSize + tTableSizeWithCompression + vTableSize);  
+		totalSize, cacheSize, segSize + tTableSize, segSize + tTableSizeWithCompression);  
 	fprintf(stderr, "\tTagTable (Uncompressed / Compressed / Ratio / Comp Ratio) = %.2f / %.2f / %.2f / %.2f\n",
 		tTableSize, tTableSizeWithCompression, tTableSize / tTableSizeWithCompression, compressionRatio);
 	fprintf(stderr, "\tTotal (Uncompressed / Compressed / Ratio) = %.2f / %.2f / %.2f\n",
@@ -880,15 +880,15 @@ static inline LTable* getLTable(Addr addr, Version* vArray) {
 	LTable* lTable = segTable->entry[segIndex];
 	if (lTable == NULL) {
 		lTable = LTableAlloc();
-		if (getCompression()) {
+		if (useCompression()) {
 			int compressGain = CBufferAdd(lTable);
 			TimeTableUpdateOverhead(compressGain * -1);
 		}
 		segTable->entry[segIndex] = lTable;
 		eventLTableAlloc();
 	}
-
-	if(lTable->isCompressed) {
+	
+	if(useCompression() && lTable->isCompressed) {
 		gcLevelUnknownSize(lTable,vArray);
 		int loss = decompressLTable(lTable);
 		int gain = CBufferAdd(lTable);
@@ -972,7 +972,8 @@ static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, V
 	eventCacheEvict(size, startInvalid);
 
 	//fprintf(stderr, "\tMCacheEvict lTable=%llx, 0x%llx, size=%d, effectiveSize=%d \n", lTable, addr, size, startInvalid);
-	CBufferAccess(lTable);
+	if (useCompression())
+		CBufferAccess(lTable);
 }
 
 static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
@@ -985,7 +986,8 @@ static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, 
 		destAddr[i] = getTimeLevel(lTable, i, addr, vArray[i], type);
 	}
 
-	CBufferAccess(lTable);
+	if (useCompression())
+		CBufferAccess(lTable);
 }
 
 static Time tempArray[1000];
@@ -997,7 +999,8 @@ static Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 		tempArray[i] = getTimeLevel(lTable, i, addr, vArray[i], type);
 	}
 
-	CBufferAccess(lTable);
+	if (useCompression())
+		CBufferAccess(lTable);
 	return tempArray;	
 }
 
@@ -1008,8 +1011,8 @@ static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, in
 	for (i=0; i<size; i++) {
 		setTimeLevel(lTable, i, addr, vArray[i], tArray[i], type);
 	}
-
-	CBufferAccess(lTable);
+	if (useCompression())
+		CBufferAccess(lTable);
 }
 
 
@@ -1176,6 +1179,7 @@ UInt MShadowInitCache(int cacheSizeMB, int type) {
 	CBufferInit(getCBufferSize());
 	MShadowGet = _MShadowGetCache;
 	MShadowSet = _MShadowSetCache;
+	_useCompression = getCompression();
 	return 0;
 }
 
