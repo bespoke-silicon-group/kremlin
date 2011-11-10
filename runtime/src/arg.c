@@ -42,13 +42,13 @@ void createOutputFilename() {
 	strcat(__kremlin_output_filename, "kremlin-L");
 	char level_str[5];
 	//sprintf(level_str,"%d",__kremlin_level_to_log);
-	sprintf(level_str, "%d", getMinLevel());
+	sprintf(level_str, "%d", KConfigGetMinLevel());
 	strcat(__kremlin_output_filename, level_str);
 
-	if(getMaxLevel() != (getMinLevel())) {
+	if(KConfigGetMaxLevel() != (KConfigGetMinLevel())) {
 		strcat(__kremlin_output_filename,"_");
 		level_str[0] - '\0';
-		sprintf(level_str,"%d", getMaxLevel());
+		sprintf(level_str,"%d", KConfigGetMaxLevel());
 		strcat(__kremlin_output_filename,level_str);
 	}
 	
@@ -73,6 +73,7 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			continue;
 		}
 
+#if 0
 		str_start = strstr(argv[i],"kremlin-ltl");
 		if(str_start) {
 			__kremlin_level_to_log = parseOptionInt(argv[i]);
@@ -80,6 +81,7 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			setMaxLevel(__kremlin_level_to_log + 1);
 			continue;
 		}
+#endif
 
 		str_start = strstr(argv[i],"mshadow-type");
 		if(str_start) {
@@ -121,15 +123,15 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			continue;
 		}
 
-		str_start = strstr(argv[i],"kremlin-min-level");
+		str_start = strstr(argv[i],"min-level");
 		if(str_start) {
-			setMinLevel(parseOptionInt(argv[i]));
+			KConfigSetMinLevel(parseOptionInt(argv[i]));
 			continue;
 		}
 
-		str_start = strstr(argv[i],"kremlin-max-level");
+		str_start = strstr(argv[i],"max-level");
 		if(str_start) {
-			setMaxLevel(parseOptionInt(argv[i])+1);
+			KConfigSetMaxLevel(parseOptionInt(argv[i])+1);
 			continue;
 		}
 		else {
@@ -159,7 +161,7 @@ int main(int argc, char* argv[]) {
 	parseKremlinOptions(argc,argv,&num_args,&real_args);
 
 	if(__kremlin_level_to_log == -1) {
-    	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", getMinLevel(), getMaxLevel());
+    	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", KConfigGetMinLevel(), KConfigGetMaxLevel());
 	}
 	else {
     	fprintf(stderr, "[kremlin] logging only level %d\n", __kremlin_level_to_log);

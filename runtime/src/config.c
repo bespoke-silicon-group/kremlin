@@ -2,9 +2,10 @@
 #include "config.h"
 
 typedef struct _config_ {
+	Level minLevel;
+	Level maxLevel;
+
 	UInt8 useCompression;
-	UInt8 startInstLevel;
-	UInt8 endInstLevel;
 	UInt8 shadowType;
 
 	UInt32 regionDepth;
@@ -20,13 +21,32 @@ static KConfig config;
 
 void KConfigInit() {
 	config.useCompression = 0;
-	config.startInstLevel = 0;
-	config.endInstLevel = 20;
+	config.minLevel = 0;
+	config.maxLevel = 20;
 	config.cbufferSize = 4096;
 	config.cacheSize = 4;
 	config.regionDepth = 20;
 	config.shadowType = 2;
 }
+
+
+void   KConfigSetMinLevel(Level level) {
+	config.minLevel = level;
+}
+
+void   KConfigSetMaxLevel(Level level) {
+	config.maxLevel = level;
+}
+
+
+Level KConfigGetMinLevel() {
+	return config.minLevel;
+}
+
+Level KConfigGetMaxLevel() {
+	return config.maxLevel;
+}
+
 
 void KConfigSetCompression(int compress) {
 	config.useCompression = compress;
@@ -49,7 +69,8 @@ UInt32 KConfigGetCBufferSize() {
 void KConfigSetRegionDepth(int depth) {
 	fprintf(stderr, "[kremlin] Setting region depth to %d\n", depth);
 	config.regionDepth = depth;
-	setMaxLevel(depth);
+	if (depth > KConfigGetMaxLevel())
+		KConfigSetMaxLevel(depth);
 }
 
 UInt32 KConfigGetRegionDepth() {

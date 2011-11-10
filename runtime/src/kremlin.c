@@ -51,10 +51,34 @@ void  (*MShadowSet)(Addr, Index, Version*, Time*, UInt32) = NULL;
 
 
 // min and max level for instrumentation
-Level __kremlin_min_level = 0;
-Level __kremlin_max_level = 20;	 
+Level __kremlin_min_level;
+Level __kremlin_max_level;	 
 Level __kremlin_max_active_level = 0;	 
+Level __kremlin_index_size;
 
+
+
+static inline int getMinLevel() {
+	return __kremlin_min_level;
+}
+
+static inline int getMaxLevel() {
+	return __kremlin_max_level;
+}
+
+static inline int initLevels() {
+	__kremlin_min_level = KConfigGetMinLevel();
+	__kremlin_max_level = KConfigGetMaxLevel();
+	__kremlin_index_size = KConfigGetMaxLevel() - KConfigGetMinLevel() + 1;
+}
+
+static inline int getLevel(Index index) {
+	return __kremlin_min_level + index;
+}
+
+static inline int getIndexSize() {
+	return __kremlin_index_size;
+}
 
 static Level levelNum = -1;
 
@@ -71,13 +95,7 @@ Level getMaxActiveLevel() {
 	return __kremlin_max_active_level;
 }
 
-inline void setMinLevel(Level level) {
-	__kremlin_min_level = level;	
-}
 
-inline void setMaxLevel(Level level) {
-	__kremlin_max_level = level;	
-}
 
 // what are lowest and highest levels to instrument now?
 static inline Level getStartLevel() {
@@ -1569,6 +1587,7 @@ Bool kremlinInit() {
         MSG(0, "kremlinInit skipped\n");
         return FALSE;
     }
+	initLevels();
 
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
         getMinLevel(), getMaxLevel(), getIndexSize());

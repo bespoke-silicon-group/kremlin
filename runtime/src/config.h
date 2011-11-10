@@ -18,4 +18,11 @@ UInt32 KConfigGetShadowType();
 void   KConfigSetCacheSize(int);
 UInt32 KConfigGetCacheSize();
 
+void   KConfigSetMinLevel(Level);
+void   KConfigSetMaxLevel(Level);
+
+Level  KConfigGetMinLevel();
+Level  KConfigGetMaxLevel();
+
+
 #endif

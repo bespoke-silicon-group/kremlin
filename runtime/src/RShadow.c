@@ -85,7 +85,6 @@ UInt RShadowDeinit() {
 
 
 inline Time RShadowGetItem(Reg reg, Index index) {
-	assert(index < getIndexSize());
 	int offset = TableGetOffset(lTable, reg, index);
 	Time ret = lTable->array[offset];
 	return ret;
@@ -96,7 +95,6 @@ inline void RShadowSetItem(Time time, Reg reg, Index index) {
 	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
 		&(lTable->array[offset]), time, reg, index, offset);
 	assert(lTable != NULL);
-	assert(index < getIndexSize());
 	assert(reg < lTable->row);
 	lTable->array[offset] = time;
 }
