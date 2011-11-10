@@ -1,4 +1,4 @@
-#include "defs.h"
+#include "kremlin.h"
 #include "CBuffer.h"
 #include "MShadowLow.h"
 #include "compress.h"

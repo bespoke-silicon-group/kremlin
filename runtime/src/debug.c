@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "defs.h"
+#include "ktypes.h"
 #include "debug.h"
 
 int	__kremlin_debug = 1;

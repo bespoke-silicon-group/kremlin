@@ -1,3 +1,4 @@
+#include "kremlin.h"
 #include "arg.h"
 #include "config.h"
 // These are the levels on which we are ``reporting'' (i.e. writing info out to the

@@ -1,7 +1,7 @@
 #include <assert.h>
 #include "ATable.h"
 #include "hash_map.h"
-#include "MemMapAllocator.h"
+#include "kremlin.h"
 
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))

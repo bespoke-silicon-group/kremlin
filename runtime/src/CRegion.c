@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "debug.h"
+#include "kremlin.h"
 #include "MemMapAllocator.h"
 #include "CRegion.h"
 

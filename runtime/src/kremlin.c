@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include "kremlin.h"
 #include "debug.h"
 #include "kremlin_deque.h"
 #include "CRegion.h"
@@ -14,6 +15,12 @@
 #include "MShadow.h"
 
 #include "RShadow.c"
+#include "interface.h"
+
+#define LOAD_COST           4
+#define STORE_COST          1
+#define MALLOC_COST         100
+#define FREE_COST           10
 
 #define ALLOCATOR_SIZE (8ll * 1024 * 1024 * 1024 * 0 + 1)
 #define DS_ALLOC_SIZE   100     // used for static data structures

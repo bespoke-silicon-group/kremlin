@@ -1,7 +1,7 @@
 #ifndef _DEBUG_H
 #define _DEBUG_H
 
-#include "defs.h"
+#include "kremlin.h"
 //#define KREMLIN_DEBUG	1
 
 /* WARNING!!!!

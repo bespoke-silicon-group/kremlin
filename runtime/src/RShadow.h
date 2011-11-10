@@ -9,7 +9,7 @@
  */
 
 
-#include "defs.h"
+#include "ktypes.h"
 #include "Table.h"
 
 #if 0

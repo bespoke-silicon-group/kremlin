@@ -1,4 +1,4 @@
-#include "defs.h"
+#include "kremlin.h"
 #include "MShadowLow.h"
 #include <string.h>
 #include "minilzo.h"

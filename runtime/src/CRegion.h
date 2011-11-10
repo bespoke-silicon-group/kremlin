@@ -1,7 +1,7 @@
 #ifndef _CREGION_H_
 #define _CREGION_H_
 
-#include "defs.h"
+#include "ktypes.h"
 
 typedef struct _cregion_t {
 	UInt64 id;

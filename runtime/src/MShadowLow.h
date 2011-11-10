@@ -1,7 +1,7 @@
 #ifndef _MSHADOW_LOW
 #define _MSHADOW_LOW
 
-#include "defs.h"
+#include "ktypes.h"
 #include "MemMapAllocator.h"
 //#include "compress.h"
 

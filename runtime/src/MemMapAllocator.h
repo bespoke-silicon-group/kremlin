@@ -2,7 +2,7 @@
 #define MEM_MAP_ALLOCATOR_H
 
 #include <stdlib.h>
-#include "defs.h"
+#include "ktypes.h"
 
 void MemPoolInit(int, int);
 Addr MemPoolAlloc(void);

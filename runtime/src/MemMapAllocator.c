@@ -4,7 +4,7 @@
  */
 
 #define _GNU_SOURCE
-#include "defs.h"
+#include "kremlin.h"
 #include "MemMapAllocator.h"
 #include <stdlib.h>
 #include <stdio.h>

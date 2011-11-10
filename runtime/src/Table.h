@@ -1,6 +1,6 @@
 #ifndef _TABLE_H
 #define _TABLE_H
-#include "defs.h"
+#include "ktypes.h"
 
 
 typedef struct _Table {

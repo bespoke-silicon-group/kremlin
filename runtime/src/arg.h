@@ -1,7 +1,7 @@
 #ifndef _ARG_H
 #define _ARG_H
 
-#include "defs.h"
+#include "ktypes.h"
 
 
 char* argGetOutputFileName(void);

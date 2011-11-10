@@ -8,7 +8,7 @@
  */
 
 
-#include "defs.h"
+#include "ktypes.h"
 
 
 //UInt 		MShadowInit(int, int);	// initialize global shadow memory system
