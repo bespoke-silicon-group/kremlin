@@ -1,13 +1,21 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
-void setCompression(int);
-int  getCompression();
+#include "ktypes.h"
 
-void setCBufferSize(int);
-int  getCBufferSize();
+void   KConfigSetCompression(int);
+Bool   KConfigGetCompression();
 
-void setRegionDepth(int);
-int  getRegionDepth();
+void   KConfigSetCBufferSize(int);
+UInt32 KConfigGetCBufferSize();
+
+void   KConfigSetRegionDepth(int);
+UInt32 KConfigGetRegionDepth();
+
+void   KConfigSetShadowType(int);
+UInt32 KConfigGetShadowType();
+
+void   KConfigSetCacheSize(int);
+UInt32 KConfigGetCacheSize();
 
 #endif

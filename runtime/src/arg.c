@@ -83,13 +83,13 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 
 		str_start = strstr(argv[i],"mshadow-type");
 		if(str_start) {
-			setMShadowType(parseOptionInt(argv[i]));
+			KConfigSetShadowType(parseOptionInt(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"depth");
 		if(str_start) {
-			setRegionDepth(parseOptionInt(argv[i]));
+			KConfigSetRegionDepth(parseOptionInt(argv[i]));
 			continue;
 		}
 
@@ -101,29 +101,23 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 
 		str_start = strstr(argv[i],"compression");
 		if(str_start) {
-			setCompression(parseOptionInt(argv[i]));
+			KConfigSetCompression(parseOptionInt(argv[i]));
 			continue;
 		}
 		str_start = strstr(argv[i],"compress");
 		if(str_start) {
-			setCompression(parseOptionInt(argv[i]));
+			KConfigSetCompression(parseOptionInt(argv[i]));
 			continue;
 		}
 		str_start = strstr(argv[i],"cbuffer-size");
 		if(str_start) {
-			setCBufferSize(parseOptionInt(argv[i]));
+			KConfigSetCBufferSize(parseOptionInt(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"cache-size");
 		if(str_start) {
-			setCacheSize(parseOptionInt(argv[i]));
-			continue;
-		}
-
-		str_start = strstr(argv[i],"table-type");
-		if(str_start) {
-			setTableType(parseOptionInt(argv[i]));
+			KConfigSetCacheSize(parseOptionInt(argv[i]));
 			continue;
 		}
 
@@ -156,6 +150,8 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 int main(int argc, char* argv[]) {
 	int num_args = 0;;
 	char** real_args;
+
+	KConfigInit();
 
 	__kremlin_output_filename = calloc(sizeof(char), 20);
 	strcat(__kremlin_output_filename,"kremlin.bin");

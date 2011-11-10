@@ -188,8 +188,8 @@ static void printMemReqStat() {
 	double totalSize = segSize + lTableSize + tTableSize + cacheSize;
 	double totalSizeComp = segSize + lTableSize + cacheSize + tTableSizeWithCompression;
 	
-	UInt64 compressedNoBuffer = stat.timeTableOverheadMax - getCBufferSize() * sizeTable64;
-	UInt64 noCompressedNoBuffer = sizeUncompressed - getCBufferSize() * sizeTable64;
+	UInt64 compressedNoBuffer = stat.timeTableOverheadMax - KConfigGetCBufferSize() * sizeTable64;
+	UInt64 noCompressedNoBuffer = sizeUncompressed - KConfigGetCBufferSize() * sizeTable64;
 	double compressionRatio = (double)noCompressedNoBuffer / compressedNoBuffer;
 
 	//minTotal += getCacheSize(2);
@@ -353,14 +353,6 @@ static inline void TimeTableUpdateOverhead(int size) {
 	stat.timeTableOverhead += size; 
 	if(stat.timeTableOverhead > stat.timeTableOverheadMax)
 		stat.timeTableOverheadMax = stat.timeTableOverhead;
-#if 0
-	if (getCompression() == 0) {
-		//assert(stat.timeTableOverhead == stat.nTimeTableActive * sizeof(Time) * TIMETABLE_SIZE / 2);
-		//assert(stat.timeTableOverheadMax == stat.nTimeTableActiveMax * sizeof(Time) * TIMETABLE_SIZE / 2);
-		UInt64 sizeUncompressed = stat.nTimeTableActive * sizeof(Time) * TIMETABLE_SIZE / 2;
-		fprintf(stderr, "%lld, %lld, %lld\n", stat.timeTableOverhead, sizeUncompressed, stat.timeTableOverhead - sizeUncompressed);
-	}
-#endif
 }
 
 static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
@@ -687,12 +679,12 @@ static void MCacheInit(int cacheSizeMB) {
 		cacheSizeMB, lineNum, lineShift, lineMask);
 
 	tagTable = MemPoolCallocSmall(lineNum,sizeof(CacheLine));
-	valueTable[0] = TableCreate(lineNum, getRegionDepth());
-	//valueTable[1] = TableCreate(lineNum, getRegionDepth());
+	valueTable[0] = TableCreate(lineNum, KConfigGetRegionDepth());
+	//valueTable[1] = TableCreate(lineNum, KConfigGetRegionDepth());
 
 
 	MSG(3, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
-		lineNum, getRegionDepth(), valueTable[0]->array);
+		lineNum, KConfigGetRegionDepth(), valueTable[0]->array);
 }
 
 static void MCacheDeinit() {
@@ -1161,14 +1153,14 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 /*
  * Init / Deinit
  */
-UInt MShadowInitCache(int cacheSizeMB, int type) {
-	fprintf(stderr,"[kremlin] MShadow Init with cache %d MB, TimeTableType = %d, TimeTableSize = %d\n",
-		cacheSizeMB, type, sizeof(TimeTable));
+UInt MShadowInitCache() {
+	int cacheSizeMB = KConfigGetCacheSize();
+	fprintf(stderr,"[kremlin] MShadow Init with cache %d MB, TimeTableSize = %d\n",
+		cacheSizeMB, sizeof(TimeTable));
 
 	int size = TimeTableEntrySize(TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
 	
-	timetableType = type;
 	if (gcPeriod == -1)
 		setGCPeriod(1024);
 
@@ -1176,10 +1168,10 @@ UInt MShadowInitCache(int cacheSizeMB, int type) {
 	STableInit();
 	MCacheInit(cacheSizeMB);
 
-	CBufferInit(getCBufferSize());
+	CBufferInit(KConfigGetCBufferSize());
 	MShadowGet = _MShadowGetCache;
 	MShadowSet = _MShadowSetCache;
-	_useCompression = getCompression();
+	_useCompression = KConfigGetCompression();
 	return 0;
 }
 

@@ -1,7 +1,6 @@
 #include "Table.h"
 #include "RShadow.h"
 #include "MemMapAllocator.h"
-#include "Pool.h"
 
 /*
  * RShadow.c
@@ -28,7 +27,6 @@
  */
 
 static Table*	lTable;
-static Pool* 	tEntryPool;
 
 static void initMemoryPool(Index depth) {
 	//fprintf(stderr, "[kremlin] # of instrumented levels = %d\n", depth);

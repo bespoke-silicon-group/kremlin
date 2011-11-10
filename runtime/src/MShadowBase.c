@@ -95,7 +95,7 @@ static void printMemStat() {
 	double versionTableSize = timeTableSize;
 
 	int i;
-	for (i=0; i<getRegionDepth(); i++) {
+	for (i=0; i<KConfigGetRegionDepth(); i++) {
 		fprintf(stderr, "Level [%2d] req Read / Write = %lld, %lld\n",
 			i, stat.reqRead[i-1], stat.reqWrite[i-1]);
 	}
@@ -174,7 +174,7 @@ static SegTable* SegTableAlloc() {
 
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		ret->entry[i].depth = getRegionDepth();
+		ret->entry[i].depth = KConfigGetRegionDepth();
 	}
 
 	stat.nSegTableAllocated++;
@@ -399,7 +399,7 @@ static void _MShadowSetBase(Addr addr, Index size, Version* vArray, Time* tArray
 }
 
 
-UInt MShadowInitBase(int a, int b) {
+UInt MShadowInitBase() {
 	fprintf(stderr, "[kremlin] MShadow Base Init\n");
 	STableInit();
 	MShadowSet = _MShadowSetBase;

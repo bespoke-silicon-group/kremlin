@@ -50,7 +50,7 @@ static inline void ASEntryFree(ASEntry* entry) {
 
 static int bufferSize;
 void CBufferInit(int size) {
-	if (getCompression() == 0)
+	if (KConfigGetCompression() == 0)
 		return;
 	
 	if (lzo_init() != LZO_E_OK) {
@@ -123,7 +123,7 @@ static inline int evictFromBuffer() {
 int CBufferAdd(LTable* lTable) {
 	assert(lTable->code == 0xDEADBEEF);
 	int sizeGained = 0;
-	if (getCompression() == 0)
+	if (KConfigGetCompression() == 0)
 		return 0;
 
 	//fprintf(stderr,"adding %p to active set\n",lTable);
@@ -136,7 +136,7 @@ int CBufferAdd(LTable* lTable) {
 }
 
 void CBufferAccess(LTable* lTable) {
-	if (getCompression() == 0)
+	if (KConfigGetCompression() == 0)
 		return;
 
 	ASEntry *as;

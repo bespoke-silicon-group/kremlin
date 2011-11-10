@@ -1,34 +1,82 @@
 #include <stdio.h>
+#include "config.h"
 
-static int useCompression = 0;
+typedef struct _config_ {
+	UInt8 useCompression;
+	UInt8 startInstLevel;
+	UInt8 endInstLevel;
+	UInt8 shadowType;
 
-void setCompression(int compress) {
-	useCompression = compress;
+	UInt32 regionDepth;
+	UInt32 cbufferSize;
+	UInt32 cacheSize;
+	
+
+								    
+} KConfig;
+
+static KConfig config;
+
+
+void KConfigInit() {
+	config.useCompression = 0;
+	config.startInstLevel = 0;
+	config.endInstLevel = 20;
+	config.cbufferSize = 4096;
+	config.cacheSize = 4;
+	config.regionDepth = 20;
+	config.shadowType = 2;
 }
 
-int getCompression() {
-	return useCompression;	
+void KConfigSetCompression(int compress) {
+	config.useCompression = compress;
 }
 
-static int cBufferSize = 4096;
-void setCBufferSize(int size) {
-	cBufferSize = size;
+Bool KConfigGetCompression() {
+	return config.useCompression;	
+}
+
+void KConfigSetCBufferSize(int size) {
+	config.cbufferSize = size;
 	fprintf(stderr, "setting CBufferSize to %d\n", size);
 }
 
-int getCBufferSize() {
-	return cBufferSize;
+UInt32 KConfigGetCBufferSize() {
+	return config.cbufferSize;
 }
 
-static int _regionDepth = 20;
 
-void setRegionDepth(int depth) {
+void KConfigSetRegionDepth(int depth) {
 	fprintf(stderr, "[kremlin] Setting region depth to %d\n", depth);
-	_regionDepth = depth;
+	config.regionDepth = depth;
 	setMaxLevel(depth);
 }
 
-int getRegionDepth() {
-	return _regionDepth;
+UInt32 KConfigGetRegionDepth() {
+	return config.regionDepth;
 }
 
+
+void KConfigSetCacheSize(int nMB) {
+	config.cacheSize = nMB;
+	fprintf(stderr, "[kremlin] Setting cache size to %d MB\n",nMB);
+}
+
+UInt32 KConfigGetCacheSize() {
+	return config.cacheSize;
+}
+
+void KConfigSetShadowType(int n) {
+	config.shadowType = n;
+}
+
+UInt32 KConfigGetShadowType() {
+	return config.shadowType;
+}
+
+
+#if 0
+void setTableType(int type) {
+	_tableType = type;
+}
+#endif

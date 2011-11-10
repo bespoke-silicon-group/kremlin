@@ -40,18 +40,7 @@ static UInt64	storeCnt = 0llu;
 UInt64 _regionFuncCnt;
 UInt64 _setupTableCnt;
 int _requireSetupTable;
-static int _cacheSize = 4;
-static int _tableType = 0;
 
-
-void setCacheSize(int nMB) {
-	_cacheSize = nMB;
-	fprintf(stderr, "[kremlin] Setting cache size to %d MB\n",nMB);
-}
-
-void setTableType(int type) {
-	_tableType = type;
-}
 
 Time* (*MShadowGet)(Addr, Index, Version*, UInt32) = NULL;
 void  (*MShadowSet)(Addr, Index, Version*, Time*, UInt32) = NULL;
@@ -1538,29 +1527,25 @@ void* logPhiNodeAddCondition(UInt dest, UInt src) {
 #define MSHADOW_STV		1
 #define MSHADOW_CACHE	2
 
-int _mshadow_type = 2;
 
-void setMShadowType(int type) {
-	_mshadow_type = type;
-	fprintf(stderr, "[kremlin] Setting mshadow type to %d\n", type);
-}
 
-void MShadowInit(int cacheSizeMB, int type) {
-	switch(_mshadow_type) {
+
+void MShadowInit() {
+	switch(KConfigGetShadowType()) {
 		case 0:
-			MShadowInitBase(cacheSizeMB, type);	
+			MShadowInitBase();	
 			break;
 		case 1:
-			MShadowInitSTV(cacheSizeMB, type);	
+			MShadowInitSTV();	
 			break;
 		case 2:
-			MShadowInitCache(cacheSizeMB, type);	
+			MShadowInitCache();	
 			break;
 	}
 }
 
 void MShadowDeinit() {
-	switch(_mshadow_type) {
+	switch(KConfigGetShadowType()) {
 		case 0:
 			MShadowDeinitBase();	
 			break;
@@ -1602,7 +1587,7 @@ Bool kremlinInit() {
 	CRegionInit();
 	RShadowInit(getIndexSize());
 
-	MShadowInit(_cacheSize, _tableType);
+	MShadowInit(KConfigGetCacheSize());
 	RegionInit(REGION_INIT_SIZE);
    	turnOnProfiler();
     return TRUE;

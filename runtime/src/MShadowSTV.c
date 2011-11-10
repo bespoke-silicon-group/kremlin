@@ -168,7 +168,7 @@ static SegTable* SegTableAlloc() {
 
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		ret->entry[i].depth = MIN(getRegionDepth(), getIndexSize());
+		ret->entry[i].depth = MIN(KConfigGetRegionDepth(), getIndexSize());
 	}
 
 	stat.nSegTableAllocated++;
@@ -416,7 +416,7 @@ static void _MShadowSetSTV(Addr addr, Index size, Version* vArray, Time* tArray,
 }
 
 
-UInt MShadowInitSTV(int a, int b) {
+UInt MShadowInitSTV() {
 	fprintf(stderr, "[kremlin] MShadow STV Init\n");
 	STableInit();
 	//MemAllocInit(sizeof(TimeTable));
