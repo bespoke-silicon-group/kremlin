@@ -68,6 +68,18 @@ void restoreDiff(Time* array) {
 		array[i] += array[i-1];
 	}
 }
+
+int getTimeTableSize(LTable* lTable) {
+	int i;
+	for (i=0; i<MAX_LEVEL; i++) {
+		TimeTable* table = lTable->tArray[i];
+		if (table == NULL)
+			return i;
+	}
+	assert(0);
+	return -1;
+}
+
 // we'll assume you already GC'ed lTable... otherwise you are going to be
 // doing useless work (i.e. compressing data that is out of date)
 // Returns: number of bytes saved by compression
@@ -92,37 +104,25 @@ static UInt64 compressLTable(LTable* lTable) {
 	lzo_uint srcLen = sizeof(Time)*TIMETABLE_SIZE/2; // XXX assumes 8 bytes
 	lzo_uint compLen = 0;
 
-	Time* level0Array = MemPoolAlloc();
-	memcpy(level0Array, tt1->array, srcLen);
-	makeDiff(tt1->array);
-	void* compressedData = compressData((UInt8*)tt1->array, srcLen, &compLen);
-	MemPoolFree(tt1->array);
-	//Time* level0Array = tt1->array;
-	tt1->array = compressedData;
-	tt1->size = compLen;
-	compressionSavings += (srcLen - compLen);
-
-	// only for result checking
-	//lTable->tArrayBackup[0] = level0Array;
-
 	int i;
 	Time* diffBuffer = MemPoolAlloc();
-	for(i = 1; i < MAX_LEVEL; ++i) {
-			
+	void* compressedData;
+#if 1
+	for(i = MAX_LEVEL-1; i >=1; i--) {
 		// step 1: create/fill in time difference table
 		TimeTable* tt2 = lTable->tArray[i];
+		TimeTable* ttPrev = lTable->tArray[i-1];
 		if(tt2 == NULL)
-			break;
+			continue;
+
+		assert(tt2 != NULL);
+		assert(ttPrev != NULL);
 
 		lTable->tArrayBackup[i] = tt2->array;
 
-		//fprintf(stderr,"compressing level %d\n",i);
-		//printTimeTable(tt2);
-
-		// for now, we'll always diff based on level 0
 		int j;
 		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
-			diffBuffer[j] = level0Array[j] - tt2->array[j];
+			diffBuffer[j] = ttPrev->array[j] - tt2->array[j];
 		}
 
 		// step 2: compress diffs
@@ -132,11 +132,26 @@ static UInt64 compressLTable(LTable* lTable) {
 		tt2->size = compLen;
 
 		// step 3: profit
-		MemPoolFree(tt2->array); // XXX: comment this out if using tArrayBackup
+		//MemPoolFree(tt2->array); // XXX: comment this out if using tArrayBackup
 		tt2->array = compressedData;
 	}
+	Time* level0Array = MemPoolAlloc();
+	memcpy(level0Array, tt1->array, srcLen);
+	makeDiff(tt1->array);
+	compressedData = compressData((UInt8*)tt1->array, srcLen, &compLen);
+	MemPoolFree(tt1->array);
+	//Time* level0Array = tt1->array;
+	tt1->array = compressedData;
+	tt1->size = compLen;
+	compressionSavings += (srcLen - compLen);
 
-	MemPoolFree(level0Array);  // XXX: comment this out if using tArrayBackup
+	// only for result checking
+	lTable->tArrayBackup[0] = level0Array;
+
+
+#endif
+
+	//MemPoolFree(level0Array);  // XXX: comment this out if using tArrayBackup
 	MemPoolFree(diffBuffer);
 
 	lTable->isCompressed = 1;
@@ -178,10 +193,15 @@ static UInt64 decompressLTable(LTable* lTable) {
 
 	int i;
 	Time *diffBuffer = MemPoolAlloc();
+#if 1
 	for(i = 1; i < MAX_LEVEL; ++i) {
 		TimeTable* tt2 = lTable->tArray[i];
+		TimeTable* ttPrev = lTable->tArray[i-1];
 		if(tt2 == NULL) 
 			break;
+
+		assert(tt2 != NULL);
+		assert(ttPrev != NULL);
 
 		// step 1: decompress time different table, 
 		// the src buffer will be freed in decompressData
@@ -197,12 +217,23 @@ static UInt64 decompressLTable(LTable* lTable) {
 
 		int j;
 		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
-			tt2->array[j] = tt1->array[j] - diffBuffer[j];
+			assert(diffBuffer[j] >= 0);
+			tt2->array[j] = ttPrev->array[j] - diffBuffer[j];
+
 		}
+	#if 0
+		if (memcmp(tt2->array, lTable->tArrayBackup[i], uncompLen) != 0) {
+			fprintf(stderr, "error at level %d\n", i);
+			assert(0);
+		}
+	#endif
+//		assert(memcmp(tt2->array, lTable->tArrayBackup[i], uncompLen) == 0);
 		//tArrayIsDiff(tt2->array, lTable->tArrayBackup[i]);
 	}
-	MemPoolFree(diffBuffer);
+#endif
 
+
+	MemPoolFree(diffBuffer);
 	lTable->isCompressed = 0;
 	return decompressionCost;
 }
