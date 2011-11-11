@@ -87,7 +87,7 @@ static void printMemStat() {
 	double segTableSize = sizeof(SegTable) * stat.nSegTableAllocated / (1024.0 * 1024.0);
 
 	//int timeTableEach64 = sizeof(Time) * (L2_SIZE/2) * getMaxActiveLevel();
-	int timeTableEach64 = sizeof(Time) * (L2_SIZE/2) * getIndexSize();
+	int timeTableEach64 = sizeof(Time) * (L2_SIZE/2) * getMaxActiveLevel();
 	UInt64 nTable64 = stat.nTimeTableAllocated[0] - stat.nTimeTableFreed[0];
 	UInt64 nTable32 = stat.nTimeTableAllocated[1] - stat.nTimeTableFreed[1];
 	double timeTableSize = timeTableEach64 * (nTable64 + 2*nTable32) / (1024.0 * 1024.0);
@@ -168,7 +168,7 @@ static SegTable* SegTableAlloc() {
 
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		ret->entry[i].depth = MIN(KConfigGetRegionDepth(), getIndexSize());
+		ret->entry[i].depth = MIN(KConfigGetRegionDepth(), KConfigGetIndexSize());
 	}
 
 	stat.nSegTableAllocated++;

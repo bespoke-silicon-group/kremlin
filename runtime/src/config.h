@@ -23,6 +23,7 @@ void   KConfigSetMaxLevel(Level);
 
 Level  KConfigGetMinLevel();
 Level  KConfigGetMaxLevel();
+Level  KConfigGetIndexSize();
 
 
 #endif

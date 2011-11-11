@@ -1,7 +1,6 @@
 #ifndef TABLE_H
 #define TABLE_H
 
-#include "Pool.h"
 #include "ktypes.h"
 
 #ifndef MALLOC_TABLE_CHUNK_SIZE

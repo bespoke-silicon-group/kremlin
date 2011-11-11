@@ -91,7 +91,7 @@ static void emit(char* file) {
 }
 
 static Bool isEmittable(Level level) {
-	return level >= getMinLevel() && level < getMaxLevel();
+	return level >= KConfigGetMinLevel() && level < KConfigGetMaxLevel();
 	//return TRUE;
 }
 

@@ -15,7 +15,6 @@
 #include "CRegion.h"
 #include "MShadow.h"
 #include "MShadowLow.h"
-#include "compress.h"
 #include "Table.h"
 #include "uthash.h"
 #include "CBuffer.h"
@@ -882,9 +881,8 @@ static inline LTable* getLTable(Addr addr, Version* vArray) {
 	
 	if(useCompression() && lTable->isCompressed) {
 		gcLevelUnknownSize(lTable,vArray);
-		int loss = decompressLTable(lTable);
-		int gain = CBufferAdd(lTable);
-		TimeTableUpdateOverhead(loss - gain);
+		int gain = CBufferDecompress(lTable);
+		TimeTableUpdateOverhead(gain *  -1);
 	}
 
 	return lTable;

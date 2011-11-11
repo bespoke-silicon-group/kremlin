@@ -38,6 +38,10 @@ void   KConfigSetMaxLevel(Level level) {
 	config.maxLevel = level;
 }
 
+Level  KConfigGetIndexSize() {
+	return config.maxLevel - config.minLevel + 1;
+}
+
 
 Level KConfigGetMinLevel() {
 	return config.minLevel;
