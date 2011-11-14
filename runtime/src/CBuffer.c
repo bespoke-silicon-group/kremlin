@@ -1,6 +1,6 @@
 #include "kremlin.h"
 #include "CBuffer.h"
-#include "MShadowLow.h"
+#include "MShadowSkadu.h"
 #include "uthash.h"
 #include "config.h"
 #include "minilzo.h"
@@ -24,7 +24,8 @@ static UInt8* compressData(UInt8* src, lzo_uint sizeSrc, lzo_uintp sizeDest) {
 
 	//XXX need a specialized memory allocator, for now, just check the 
 
-	UInt8* dest = MemPoolAlloc();
+	//UInt8* dest = MemPoolAlloc();
+	UInt8* dest = malloc(sizeSrc);
 	int result = lzo1x_1_compress(src, sizeSrc, dest, sizeDest, wrkmem);
 	assert(result == LZO_E_OK);
 	//memcpy(dest, src, sizeSrc);
@@ -48,7 +49,8 @@ static void decompressData(UInt8* dest, UInt8* src, lzo_uint sizeSrc, lzo_uintp 
 	//*sizeDest = sizeSrc;
 
 	//fprintf(stderr, "decompressed from %d to %d\n", sizeSrc, *sizeDest);
-	MemPoolFree(src);
+	//MemPoolFree(src);
+	free(src);
 }
 
 void makeDiff(Time* array) {
@@ -69,6 +71,12 @@ void restoreDiff(Time* array) {
 	}
 }
 
+static inline int getByteOffset(int a, int b) {
+	int size = TIMETABLE_SIZE / 2;
+	return b * size + a;
+}
+
+
 int getTimeTableSize(LTable* lTable) {
 	int i;
 	for (i=0; i<MAX_LEVEL; i++) {
@@ -80,6 +88,7 @@ int getTimeTableSize(LTable* lTable) {
 	return -1;
 }
 
+#if 1
 // we'll assume you already GC'ed lTable... otherwise you are going to be
 // doing useless work (i.e. compressing data that is out of date)
 // Returns: number of bytes saved by compression
@@ -107,7 +116,7 @@ static UInt64 compressLTable(LTable* lTable) {
 	int i;
 	Time* diffBuffer = MemPoolAlloc();
 	void* compressedData;
-#if 1
+
 	for(i = MAX_LEVEL-1; i >=1; i--) {
 		// step 1: create/fill in time difference table
 		TimeTable* tt2 = lTable->tArray[i];
@@ -148,10 +157,7 @@ static UInt64 compressLTable(LTable* lTable) {
 	// only for result checking
 	lTable->tArrayBackup[0] = level0Array;
 
-
-#endif
-
-	//MemPoolFree(level0Array);  // XXX: comment this out if using tArrayBackup
+	MemPoolFree(level0Array);  // XXX: comment this out if using tArrayBackup
 	MemPoolFree(diffBuffer);
 
 	lTable->isCompressed = 1;
@@ -193,7 +199,7 @@ static UInt64 decompressLTable(LTable* lTable) {
 
 	int i;
 	Time *diffBuffer = MemPoolAlloc();
-#if 1
+
 	for(i = 1; i < MAX_LEVEL; ++i) {
 		TimeTable* tt2 = lTable->tArray[i];
 		TimeTable* ttPrev = lTable->tArray[i-1];
@@ -230,13 +236,12 @@ static UInt64 decompressLTable(LTable* lTable) {
 //		assert(memcmp(tt2->array, lTable->tArrayBackup[i], uncompLen) == 0);
 		//tArrayIsDiff(tt2->array, lTable->tArrayBackup[i]);
 	}
-#endif
-
 
 	MemPoolFree(diffBuffer);
 	lTable->isCompressed = 0;
 	return decompressionCost;
 }
+#endif
 
 
 typedef struct _ActiveSetEntry {
@@ -385,6 +390,166 @@ void CBufferAccess(LTable* lTable) {
 	as->r_bit = 1;
 	totalAccess++;
 }
+
+#if 0   // byte gathering support functions
+void makeByteOrder(Time* array) {
+	int size = TIMETABLE_SIZE / 2;
+	Time* buffer = malloc(sizeof(Time) * size);
+	memcpy(buffer, array, sizeof(Time) * size);
+	UInt8* dest = (UInt8*)array;
+
+	int i, j;
+	for (i=0; i<size; i++) {
+		Time current = buffer[i];
+		char* byte = &current;
+		for (j=0; j<sizeof(Time); j++) {
+			int offset = getByteOffset(i, j);
+			dest[offset] = byte[j];
+		}
+	}
+	free(buffer);
+}
+
+void restoreByteOrder(Time* array) {
+	int size = TIMETABLE_SIZE / 2;
+	UInt8* buffer = malloc(sizeof(Time) * size);
+	memcpy(buffer, array, sizeof(Time) * size);
+	UInt8* dest = (UInt8*)array;
+
+	int i, j;
+	for (i=0; i<size; i++) {
+		Time current = buffer[i];
+		char* byte = &current;
+		for (j=0; j<sizeof(Time); j++) {
+			int offset = getByteOffset(i, j);
+			dest[i*sizeof(Time) + j] = buffer[offset];
+		}
+	}
+	free(buffer);
+}
+
+
+// we'll assume you already GC'ed lTable... otherwise you are going to be
+// doing useless work (i.e. compressing data that is out of date)
+// Returns: number of bytes saved by compression
+static UInt64 compressLTable(LTable* lTable) {
+	//fprintf(stderr,"[LTable] compressing LTable (%p)\n",lTable);
+	if (lTable->code != 0xDEADBEEF) {
+		fprintf(stderr, "LTable addr = 0x%p\n", lTable);
+		assert(0);
+	}
+	assert(lTable->code == 0xDEADBEEF);
+	assert(lTable->isCompressed == 0);
+
+	int size = getTimeTableSize(lTable);
+	if (size == 0) {
+		lTable->isCompressed = 1;
+		lTable->compressed = NULL;
+		return 0;
+	}
+
+	Time* buffer = malloc(sizeof(Time) * TIMETABLE_SIZE / 2 * size);
+
+	int i;
+	for(i = size-1; i >=1; i--) {
+		TimeTable* current = lTable->tArray[i];
+		TimeTable* prev = lTable->tArray[i-1];
+		if(current == NULL)
+			continue;
+
+		int j;
+		int offset = i * TIMETABLE_SIZE / 2;
+		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
+			//diffBuffer[j] = ttPrev->array[j] - tt2->array[j];
+			buffer[offset + j] = prev->array[j] - current->array[j];
+			//buffer[offset + j] = current->array[j];
+		}
+		makeDiff(&(buffer[offset]));
+		//fprintf(stderr, "\tlevel = %d\n", i);
+	}
+
+	memcpy(buffer, lTable->tArray[0]->array, sizeof(Time)*TIMETABLE_SIZE/2);
+	makeDiff(buffer);
+
+	UInt64 compressionSavings = 0;
+	lzo_uint srcLen = sizeof(Time)*TIMETABLE_SIZE/2 * size; 
+	lzo_uint compLen = 0;
+
+	Time* compressed = (Time*)compressData((UInt8*)buffer, srcLen, &compLen);
+	compressionSavings += (srcLen - compLen);
+
+	lTable->compressed = compressed;
+	lTable->compressedSize = compLen;
+	lTable->nLevel = size;
+
+	MemPoolFree(buffer);
+
+	lTable->isCompressed = 1;
+	return compressionSavings;
+}
+
+
+static UInt64 decompressLTable(LTable* lTable) {
+	if (lTable->code != 0xDEADBEEF) {
+		fprintf(stderr, "LTable addr = 0x%llx\n", lTable);
+		assert(0);
+	}
+	assert(lTable->code == 0xDEADBEEF);
+	assert(lTable->isCompressed == 1);
+
+	//fprintf(stderr,"[LTable] decompressing LTable (%p)\n",lTable);
+
+	// for now, we'll always diff based on level 0
+	if (lTable->compressed == NULL) {
+		lTable->isCompressed = 0;
+		return 0;
+	}
+
+	UInt64 decompressionCost = 0;
+	lzo_uint srcLen = lTable->compressedSize;
+	lzo_uint uncompLen = srcLen;
+
+	Time* decompedArray = malloc(lTable->nLevel * sizeof(Time) * TIMETABLE_SIZE / 2);
+	decompressData((UInt8*)decompedArray, (UInt8*)lTable->compressed, srcLen, &uncompLen);
+	restoreDiff((Time*)decompedArray);
+	decompressionCost += (uncompLen - srcLen);
+	memcpy(lTable->tArray[0]->array, decompedArray, sizeof(Time) * TIMETABLE_SIZE /2);
+
+
+	int i;
+	Time *diffBuffer = MemPoolAlloc();
+
+	for(i = 1; i < lTable->nLevel; ++i) {
+		TimeTable* current = lTable->tArray[i];
+		TimeTable* prev = lTable->tArray[i-1];
+		if(current == NULL) 
+			break;
+
+		// step 1: decompress time different table, 
+		// the src buffer will be freed in decompressData
+		int offset = i * TIMETABLE_SIZE / 2;
+		restoreDiff((Time*)&(decompedArray[offset]));
+
+		// step 2: add diffs to base TimeTable
+		int j;
+		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
+			current->array[j] = prev->array[j] - decompedArray[offset + j];
+			//current->array[j] = decompedArray[offset+j];
+		}
+	#if 0
+		if (memcmp(tt2->array, lTable->tArrayBackup[i], uncompLen) != 0) {
+			fprintf(stderr, "error at level %d\n", i);
+			assert(0);
+		}
+	#endif
+//		assert(memcmp(tt2->array, lTable->tArrayBackup[i], uncompLen) == 0);
+	}
+
+	lTable->isCompressed = 0;
+	return decompressionCost;
+}
+
+#endif
 
 #if 0
 // from now on, direct mapped cache implementation

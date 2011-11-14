@@ -1,7 +1,7 @@
 #ifndef _CBUFFER_H
 #define _CBUFFER_H
 
-#include "MShadowLow.h"
+#include "MShadowSkadu.h"
 void CBufferInit(int size);
 void CBufferDeinit();
 

@@ -14,7 +14,7 @@
 #include "debug.h"
 #include "CRegion.h"
 #include "MShadow.h"
-#include "MShadowLow.h"
+#include "MShadowSkadu.h"
 #include "Table.h"
 #include "uthash.h"
 #include "CBuffer.h"

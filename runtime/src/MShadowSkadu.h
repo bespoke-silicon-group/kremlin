@@ -36,6 +36,9 @@ typedef struct _LTable {
 	Version		vArray[MAX_LEVEL];
 	TimeTable* 	tArray[MAX_LEVEL];
 	Time* 		tArrayBackup[MAX_LEVEL];
+	Time*		compressed;
+	UInt32		compressedSize;
+	UInt8		nLevel;
 } LTable;
 
 
