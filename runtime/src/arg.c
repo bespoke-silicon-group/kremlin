@@ -97,7 +97,7 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 
 		str_start = strstr(argv[i],"gc-period");
 		if(str_start) {
-			setGCPeriod(parseOptionInt(argv[i]));
+			KConfigSetGCPeriod(parseOptionInt(argv[i]));
 			continue;
 		}
 

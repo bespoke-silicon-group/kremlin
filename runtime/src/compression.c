@@ -1,5 +1,5 @@
 #include "kremlin.h"
-#include "CBuffer.h"
+#include "compression.h"
 #include "MShadowSkadu.h"
 #include "uthash.h"
 #include "config.h"

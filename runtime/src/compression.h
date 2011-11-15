@@ -8,6 +8,8 @@ void CBufferDeinit();
 int  CBufferAdd(LTable* table);
 void CBufferAccess(LTable* table);
 
+int CBufferDecompress(LTable* table);
+
 
 
 #endif

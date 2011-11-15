@@ -15,7 +15,7 @@
 #include "MShadowStat.h"
 #include "Table.h"
 #include "uthash.h"
-#include "CBuffer.h"
+#include "compression.h"
 #include "config.h"
 
 #include <string.h> // for memcpy
@@ -59,6 +59,7 @@ static inline int useCompression() {
 static void setCompression() {
 	_useCompression = KConfigGetCompression();
 }
+
 
 
 /*
@@ -171,6 +172,10 @@ static TimeTable* convertTimeTable(TimeTable* table) {
 }
 
 
+/*
+ * STable: introduced to support 64-bit address space
+ *
+ */
 static void STableInit() {
 	sTable.writePtr = 0;
 }
@@ -206,6 +211,11 @@ static SEntry* STableGetSEntry(Addr addr) {
 
 }
 
+/*
+ * TVCache: cache for tag vectors
+ *
+ */ 
+
 typedef struct _CacheEntry {
 	Addr tag;  
 	Version version[2];
@@ -216,7 +226,6 @@ typedef struct _CacheEntry {
 
 static CacheLine* tagTable;
 static Table* valueTable[2];
-//static Version* verTable;
 
 static int lineNum;
 static int lineShift;
@@ -273,58 +282,8 @@ static inline int getFirstOnePosition(int input) {
 	assert(0);
 	return 0;
 }
-
-static void MCacheInit(int cacheSizeMB) {
-	if (cacheSizeMB == 0) {
-		bypassCache = 1;
-		fprintf(stderr, "MShadowCacheInit: Bypass Cache\n"); 
-		return;
-	}
-	int lineSize = 8;	// 64bit granularity 
-	lineNum = cacheSizeMB * 1024 * 1024 / lineSize;
-	lineShift = getFirstOnePosition(lineNum);
-	lineMask = lineNum - 1;
-	fprintf(stderr, "MShadowCacheInit: total size: %d MB, lineNum %d, lineShift %d, lineMask 0x%x\n", 
-		cacheSizeMB, lineNum, lineShift, lineMask);
-
-	tagTable = MemPoolCallocSmall(lineNum,sizeof(CacheLine));
-	valueTable[0] = TableCreate(lineNum, KConfigGetRegionDepth());
-	//valueTable[1] = TableCreate(lineNum, KConfigGetRegionDepth());
-
-
-	MSG(3, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
-		lineNum, KConfigGetRegionDepth(), valueTable[0]->array);
-}
-
-static void MCacheDeinit() {
-	if (bypassCache == 1)
-		return;
-
-	//printStat();
-	MemPoolFreeSmall(tagTable, sizeof(CacheLine) * lineNum);
-	TableFree(valueTable[0]);
-	//TableFree(valueTable[1]);
-}
-
-
 static inline int getAccessWidthType(CacheLine* entry) {
 	return TYPE_64BIT;
-}
-
-static inline Time getTimeLevel(LTable* lTable, Index level, Addr addr, Version verCurrent, UInt32 type) {
-	TimeTable* table = (TimeTable*)lTable->tArray[level];
-	Version version = lTable->vArray[level];
-
-	Time ret = 0ULL;
-	if (table == NULL) {
-		ret = 0ULL;
-
-	} else if (version == verCurrent) {
-		MSG(0, "\t\t\tversion = %d, %d\n", version, verCurrent);
-		ret = TimeTableGet(table, addr, verCurrent);
-
-	} 
-	return ret;
 }
 
 static inline Version LTableGetVer(LTable* lTable, Index level) {
@@ -342,6 +301,53 @@ static inline TimeTable* LTableGetTable(LTable* lTable, Index level) {
 static inline void LTableSetTable(LTable* lTable, Index level, TimeTable* table) {
 	lTable->tArray[level] = table;
 }
+
+static inline Time LTableGetTime(LTable* lTable, Index level, Addr addr, Version verCurrent, UInt32 type) {
+	TimeTable* table = (TimeTable*)lTable->tArray[level];
+	Version version = lTable->vArray[level];
+
+	Time ret = 0ULL;
+	if (table == NULL) {
+		ret = 0ULL;
+
+	} else if (version == verCurrent) {
+		MSG(0, "\t\t\tversion = %d, %d\n", version, verCurrent);
+		ret = TimeTableGet(table, addr, verCurrent);
+
+	} 
+	return ret;
+}
+
+static inline void LTableSetTime(LTable* lTable, Index level, Addr addr, Version verCurrent, Time value, UInt32 type) {
+	TimeTable* table = LTableGetTable(lTable, level);
+	Version verOld = LTableGetVer(lTable, level);
+	eventLevelWrite(level);
+
+	// no timeTable exists so create it
+	if (table == NULL) {
+		eventTimeTableNewAlloc(level);
+		table = TimeTableAlloc(type);
+
+		LTableSetTable(lTable, level, table); 
+		TimeTableSet(table, addr, value, verCurrent);
+	}
+
+	// A table exists and is correct version, so use it
+	else if (verOld == verCurrent) {
+		assert(table != NULL);
+		TimeTableSet(table, addr, value, verCurrent);
+	}
+
+	// exists but version is old so clean it and reuse
+	else {
+		TimeTableClean(table);
+		TimeTableSet(table, addr, value, verCurrent);
+	} 
+	LTableSetVer(lTable, level, verCurrent);
+}
+
+
+
 
 static inline int findLowestInvalidIndex(LTable* lTable, Version* vArray) {
 	int lowestInvalidIndex = 0;
@@ -365,6 +371,22 @@ static inline void cleanTimeTables(LTable* lTable, Index start) {
 		}
 	}
 }
+
+
+/*
+ * Garbage collection related logic
+ */
+static UInt64 nextGC = 1024;
+static int gcPeriod = -1;
+
+static void setGCPeriod(int time) {
+	fprintf(stderr, "[kremlin] set GC period to %d\n", time);
+	nextGC = time;
+	gcPeriod = time;
+	if (time == 0)
+		nextGC = 0xFFFFFFFFFFFFFFFF;
+}
+
 
 static inline void gcLevelUnknownSize(LTable* lTable, Version* vArray) {
 	int lii = findLowestInvalidIndex(lTable,vArray);
@@ -408,36 +430,11 @@ static void gcStart(Version* vArray, int size) {
 	}
 }
 
-static inline void setTimeLevel(LTable* lTable, Index level, Addr addr, Version verCurrent, Time value, UInt32 type) {
-	TimeTable* table = LTableGetTable(lTable, level);
-	Version verOld = LTableGetVer(lTable, level);
-	eventLevelWrite(level);
+/*
+ * LTable operations
+ */
 
-	// no timeTable exists so create it
-	if (table == NULL) {
-		eventTimeTableNewAlloc(level);
-		table = TimeTableAlloc(type);
-
-		LTableSetTable(lTable, level, table); 
-		TimeTableSet(table, addr, value, verCurrent);
-	}
-
-	// A table exists and is correct version, so use it
-	else if (verOld == verCurrent) {
-		assert(table != NULL);
-		TimeTableSet(table, addr, value, verCurrent);
-	}
-
-	// exists but version is old so clean it and reuse
-	else {
-		TimeTableClean(table);
-		TimeTableSet(table, addr, value, verCurrent);
-	} 
-	LTableSetVer(lTable, level, verCurrent);
-}
-
-
-static inline LTable* getLTable(Addr addr, Version* vArray) {
+static inline LTable* LTableGet(Addr addr, Version* vArray) {
 	SEntry* sEntry = STableGetSEntry(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
@@ -460,6 +457,7 @@ static inline LTable* getLTable(Addr addr, Version* vArray) {
 		eventCompression(gain);
 	}
 
+
 	return lTable;
 }
 
@@ -467,7 +465,7 @@ static inline int getStartInvalidLevel(Version oldVer, Version* vArray, Index si
 	int firstInvalid = 0;
 
 	if (size > 2)
-		MSG(0, "\tMCacheEvict oldVer = %lld, newVer = %lld %lld \n", oldVer, vArray[size-2], vArray[size-1]);
+		MSG(0, "\tTVCacheEvict oldVer = %lld, newVer = %lld %lld \n", oldVer, vArray[size-2], vArray[size-1]);
 
 	if (oldVer == vArray[size-1])
 		return size;
@@ -488,7 +486,7 @@ static void check(Addr addr, Time* src, int size, int site) {
 	int i;
 	for (i=1; i<size; i++) {
 		if (src[i-1] < src[i]) {
-			fprintf(stderr, "site %d Addr 0x%llx size %d offset %d val=%lld %lld\n", 
+			fprintf(stderr, "site %d Addr %p size %d offset %d val=%ld %ld\n", 
 				site, addr, size, i, src[i-1], src[i]); 
 			assert(0);
 		}
@@ -507,81 +505,103 @@ static inline int hasVersionError(Version* vArray, int size) {
 	return 0;
 }
 
+/*
+ * TVCache Init/ Deinit
+ */
 
-static inline void MCacheValidateTag(CacheLine* line, Time* destAddr, Version* vArray, Index size) {
-	int firstInvalid = getStartInvalidLevel(line->version[0], vArray, size);
 
-	MSG(0, "\t\tMCacheValidateTag: invalid from level %d\n", firstInvalid);
-	if (size > firstInvalid)
-		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
+static void TVCacheInit(int cacheSizeMB) {
+	if (cacheSizeMB == 0) {
+		bypassCache = 1;
+		fprintf(stderr, "MShadowCacheInit: Bypass Cache\n"); 
+		return;
+	}
+	int lineSize = 8;	// 64bit granularity 
+	lineNum = cacheSizeMB * 1024 * 1024 / lineSize;
+	lineShift = getFirstOnePosition(lineNum);
+	lineMask = lineNum - 1;
+	fprintf(stderr, "MShadowCacheInit: total size: %d MB, lineNum %d, lineShift %d, lineMask 0x%x\n", 
+		cacheSizeMB, lineNum, lineShift, lineMask);
+
+	tagTable = MemPoolCallocSmall(lineNum,sizeof(CacheLine));
+	valueTable[0] = TableCreate(lineNum, KConfigGetRegionDepth());
+	//valueTable[1] = TableCreate(lineNum, KConfigGetRegionDepth());
+
+
+	MSG(3, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
+		lineNum, KConfigGetRegionDepth(), valueTable[0]->array);
 }
 
-static void MCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, Version* vArray, int type) {
+static void TVCacheDeinit() {
+	if (bypassCache == 1)
+		return;
+
+	//printStat();
+	MemPoolFreeSmall(tagTable, sizeof(CacheLine) * lineNum);
+	TableFree(valueTable[0]);
+	//TableFree(valueTable[1]);
+}
+
+
+
+/*
+ * Fetch / Evict from TVCache to TVStorage
+ */
+
+
+static void TVCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, Version* vArray, int type) {
 	if (addr == NULL)
 		return;
 
 	int i;
 	int startInvalid = getStartInvalidLevel(oldVersion, vArray, size);
 
-	MSG(0, "\tMCacheEvict 0x%llx, size=%d, effectiveSize=%d \n", addr, size, startInvalid);
+	MSG(0, "\tTVCacheEvict 0x%llx, size=%d, effectiveSize=%d \n", addr, size, startInvalid);
 		
-	LTable* lTable = getLTable(addr,vArray);
+	LTable* lTable = LTableGet(addr,vArray);
 	for (i=0; i<startInvalid; i++) {
 		eventEvict(i);
 		if (tArray[i] == 0ULL) {
 			break;
 		}
-		setTimeLevel(lTable, i, addr, vArray[i], tArray[i], type);
+		LTableSetTime(lTable, i, addr, vArray[i], tArray[i], type);
 		MSG(0, "\t\toffset=%d, version=%d, value=%d\n", i, vArray[i], tArray[i]);
 	}
 	eventCacheEvict(size, startInvalid);
 
-	//fprintf(stderr, "\tMCacheEvict lTable=%llx, 0x%llx, size=%d, effectiveSize=%d \n", lTable, addr, size, startInvalid);
+	//fprintf(stderr, "\tTVCacheEvict lTable=%llx, 0x%llx, size=%d, effectiveSize=%d \n", lTable, addr, size, startInvalid);
 	if (useCompression())
 		CBufferAccess(lTable);
 }
 
-static void MCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
-	MSG(0, "\tMCacheFetch 0x%llx, size %d \n", addr, size);
-	//fprintf(stderr, "\tMCacheFetch 0x%llx, size %d \n", addr, size);
-	LTable* lTable = getLTable(addr,vArray);
+static void TVCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
+	MSG(0, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
+	//fprintf(stderr, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
+	LTable* lTable = LTableGet(addr,vArray);
 
 	int i;
 	for (i=0; i<size; i++) {
-		destAddr[i] = getTimeLevel(lTable, i, addr, vArray[i], type);
+		destAddr[i] = LTableGetTime(lTable, i, addr, vArray[i], type);
 	}
 
 	if (useCompression())
 		CBufferAccess(lTable);
 }
 
-static Time tempArray[1000];
 
-static Time* MNoCacheGet(Addr addr, Index size, Version* vArray, int type) {
-	LTable* lTable = getLTable(addr,vArray);	
-	Index i;
-	for (i=0; i<size; i++) {
-		tempArray[i] = getTimeLevel(lTable, i, addr, vArray[i], type);
-	}
+/*
+ * Actual load / store handlers with TVCache
+ */
 
-	if (useCompression())
-		CBufferAccess(lTable);
-	return tempArray;	
+static inline void TVCacheValidateTag(CacheLine* line, Time* destAddr, Version* vArray, Index size) {
+	int firstInvalid = getStartInvalidLevel(line->version[0], vArray, size);
+
+	MSG(0, "\t\tTVCacheValidateTag: invalid from level %d\n", firstInvalid);
+	if (size > firstInvalid)
+		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
 }
 
-static void MNoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
-	LTable* lTable = getLTable(addr,vArray);	
-	assert(lTable != NULL);
-	Index i;
-	for (i=0; i<size; i++) {
-		setTimeLevel(lTable, i, addr, vArray[i], tArray[i], type);
-	}
-	if (useCompression())
-		CBufferAccess(lTable);
-}
-
-
-static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
+static Time* TVCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	int row = getLineIndex(addr);
 	CacheLine* entry = getEntry(row);
 
@@ -591,7 +611,7 @@ static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	if (isHit(entry, addr)) {
 		eventReadHit();
 		//MSG(0, "\t cache hit at 0x%llx firstInvalid = %d\n", destAddr, firstInvalid);
-		MCacheValidateTag(entry, destAddr, vArray, size);
+		TVCacheValidateTag(entry, destAddr, vArray, size);
 		check(addr, destAddr, size, 0);
 
 	} else {
@@ -604,11 +624,11 @@ static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 
 		MSG(0, "\t CacheGet: evict size = %d, lastSize = %d, size = %d\n", 
 			evictSize, entry->lastSize[0], size);
-		//MCacheEvict(destAddr, entry->tag, size, entry->version[0], vArray, entry->type);
-		MCacheEvict(destAddr, entry->tag, evictSize, entry->version[0], vArray, entry->type);
+		//TVCacheEvict(destAddr, entry->tag, size, entry->version[0], vArray, entry->type);
+		TVCacheEvict(destAddr, entry->tag, evictSize, entry->version[0], vArray, entry->type);
 
 		// 2. read line from MShadow to the evicted line
-		MCacheFetch(addr, size, vArray, destAddr, type);
+		TVCacheFetch(addr, size, vArray, destAddr, type);
 		entry->tag = addr;
 		check(addr, destAddr, size, 1);
 	}
@@ -621,7 +641,7 @@ static Time* MCacheGet(Addr addr, Index size, Version* vArray, int type) {
 }
 
 
-static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
+static void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
 	int row = getLineIndex(addr);
 	int offset = 0;
 	Time* destAddr = getTimeAddr(offset, row, 0);
@@ -633,9 +653,11 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 	CacheLine* entry = getEntry(row);
 	assert(row < lineNum);
 
+#ifndef NDEBUG
 	if (hasVersionError(vArray, size)) {
 		assert(0);
 	}
+#endif
 
 	if (isHit(entry, addr)) {
 		eventWriteHit();
@@ -655,7 +677,7 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 			evictSize = size;
 
 		MSG(0, "\t CacheSet: evict size = %d, lastSize = %d, size = %d\n", evictSize, entry->lastSize[0], size);
-		MCacheEvict(destAddr, entry->tag, evictSize, entry->version[0], vArray, entry->type);
+		TVCacheEvict(destAddr, entry->tag, evictSize, entry->version[0], vArray, entry->type);
 	} 		
 
 	// copy Timestamps
@@ -668,8 +690,39 @@ static void MCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int 
 	check(addr, destAddr, size, 2);
 }
 
+/*
+ * Actual load / store handlers without TVCache
+ */
+
+static Time tempArray[1000];
+
+static Time* NoCacheGet(Addr addr, Index size, Version* vArray, int type) {
+	LTable* lTable = LTableGet(addr,vArray);	
+	Index i;
+	for (i=0; i<size; i++) {
+		tempArray[i] = LTableGetTime(lTable, i, addr, vArray[i], type);
+	}
+
+	if (useCompression())
+		CBufferAccess(lTable);
+	return tempArray;	
+}
+
+static void NoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
+	LTable* lTable = LTableGet(addr,vArray);	
+	assert(lTable != NULL);
+	Index i;
+	for (i=0; i<size; i++) {
+		LTableSetTime(lTable, i, addr, vArray[i], tArray[i], type);
+	}
+	if (useCompression())
+		CBufferAccess(lTable);
+}
 
 
+/*
+ * Entry point functions from Kremlin
+ */
 static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 width) {
 	if (size < 1)
 		return NULL;
@@ -680,22 +733,11 @@ static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 wid
 	MSG(0, "MShadowGet 0x%llx, size %d \n", tAddr, size);
 	eventRead();
 	if (bypassCache == 1) {
-		return MNoCacheGet(tAddr, size, vArray, type);
+		return NoCacheGet(tAddr, size, vArray, type);
 
 	} else {
-		return MCacheGet(tAddr, size, vArray, type);
+		return TVCacheGet(tAddr, size, vArray, type);
 	}
-}
-
-static UInt64 nextGC = 1024;
-static int gcPeriod = -1;
-
-void setGCPeriod(int time) {
-	fprintf(stderr, "[kremlin] set GC period to %d\n", time);
-	nextGC = time;
-	gcPeriod = time;
-	if (time == 0)
-		nextGC = 0xFFFFFFFFFFFFFFFF;
 }
 
 static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
@@ -715,13 +757,12 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 	MSG(0, "MShadowSet 0x%llx, size %d \n", tAddr, size);
 	eventWrite();
 	if (bypassCache == 1) {
-		MNoCacheSet(tAddr, size, vArray, tArray, type);
+		NoCacheSet(tAddr, size, vArray, tArray, type);
 
 	} else {
-		MCacheSet(tAddr, size, vArray, tArray, type);
+		TVCacheSet(tAddr, size, vArray, tArray, type);
 	}
 }
-
 
 /*
  * Init / Deinit
@@ -729,17 +770,16 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 
 UInt MShadowInitSkadu() {
 	int cacheSizeMB = KConfigGetCacheSize();
-	fprintf(stderr,"[kremlin] MShadow Init with cache %d MB, TimeTableSize = %d\n",
+	fprintf(stderr,"[kremlin] MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
 
 	int size = TimeTableEntrySize(TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
 	
-	if (gcPeriod == -1)
-		setGCPeriod(1024);
+	setGCPeriod(KConfigGetGCPeriod());
 
 	STableInit();
-	MCacheInit(cacheSizeMB);
+	TVCacheInit(cacheSizeMB);
 
 	CBufferInit(KConfigGetCBufferSize());
 	MShadowGet = _MShadowGetCache;
@@ -753,7 +793,7 @@ UInt MShadowDeinitSkadu() {
 	CBufferDeinit();
 	printMemStat();
 	STableDeinit();
-	MCacheDeinit();
+	TVCacheDeinit();
 	return 0;
 }
 

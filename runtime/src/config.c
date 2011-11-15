@@ -11,8 +11,8 @@ typedef struct _config_ {
 	UInt32 regionDepth;
 	UInt32 cbufferSize;
 	UInt32 cacheSize;
-	
 
+	UInt32 gcPeriod;	// garbage collection period 
 								    
 } KConfig;
 
@@ -27,6 +27,7 @@ void KConfigInit() {
 	config.cacheSize = 4;
 	config.regionDepth = 20;
 	config.shadowType = 2;
+	config.gcPeriod = 1024;
 }
 
 
@@ -99,6 +100,13 @@ UInt32 KConfigGetShadowType() {
 	return config.shadowType;
 }
 
+UInt32 KConfigGetGCPeriod() {
+	return config.gcPeriod;
+}
+
+void KConfigSetGCPeriod(UInt32 period) {
+	config.gcPeriod = period;
+}
 
 #if 0
 void setTableType(int type) {

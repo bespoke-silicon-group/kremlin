@@ -25,5 +25,8 @@ Level  KConfigGetMinLevel();
 Level  KConfigGetMaxLevel();
 Level  KConfigGetIndexSize();
 
+void   KConfigSetGCPeriod(UInt32);
+UInt32 KConfigGetGCPeriod();
+
 
 #endif
