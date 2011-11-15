@@ -12,7 +12,7 @@
 #include "hash_map.h"
 #include "Vector.h"
 #include "RShadow.h"
-#include "MShadow.h"
+//#include "MShadow.h"
 
 #include "RShadow.c"
 #include "interface.h"
@@ -1544,8 +1544,7 @@ void* logPhiNodeAddCondition(UInt dest, UInt src) {
 #define MSHADOW_BASE	0
 #define MSHADOW_STV		1
 #define MSHADOW_CACHE	2
-
-
+#define MSHADOW_DUMMY   3
 
 
 void MShadowInit() {
@@ -1557,7 +1556,10 @@ void MShadowInit() {
 			MShadowInitSTV();	
 			break;
 		case 2:
-			MShadowInitCache();	
+			MShadowInitSkadu();	
+			break;
+		case 3:
+			MShadowInitDummy();
 			break;
 	}
 }
@@ -1571,7 +1573,10 @@ void MShadowDeinit() {
 			MShadowDeinitSTV();	
 			break;
 		case 2:
-			MShadowDeinitCache();	
+			MShadowDeinitSkadu();	
+			break;
+		case 3:
+			MShadowDeinitDummy();
 			break;
 	}
 
