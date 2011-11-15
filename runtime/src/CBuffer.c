@@ -127,8 +127,6 @@ static UInt64 compressLTable(LTable* lTable) {
 		assert(tt2 != NULL);
 		assert(ttPrev != NULL);
 
-		lTable->tArrayBackup[i] = tt2->array;
-
 		int j;
 		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
 			diffBuffer[j] = ttPrev->array[j] - tt2->array[j];
@@ -141,7 +139,7 @@ static UInt64 compressLTable(LTable* lTable) {
 		tt2->size = compLen;
 
 		// step 3: profit
-		//MemPoolFree(tt2->array); // XXX: comment this out if using tArrayBackup
+		MemPoolFree(tt2->array); // XXX: comment this out if using tArrayBackup
 		tt2->array = compressedData;
 	}
 	Time* level0Array = MemPoolAlloc();
@@ -154,8 +152,6 @@ static UInt64 compressLTable(LTable* lTable) {
 	tt1->size = compLen;
 	compressionSavings += (srcLen - compLen);
 
-	// only for result checking
-	lTable->tArrayBackup[0] = level0Array;
 
 	MemPoolFree(level0Array);  // XXX: comment this out if using tArrayBackup
 	MemPoolFree(diffBuffer);

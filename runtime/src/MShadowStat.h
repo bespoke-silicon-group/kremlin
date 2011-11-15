@@ -122,22 +122,34 @@ static inline void eventWriteEvict() {
 }
 
 
-static inline void TimeTableUpdateOverhead(int size) {
+static inline void increaseTimeTableMemSize(int size) {
 	_stat.timeTableOverhead += size;
 	if(_stat.timeTableOverhead > _stat.timeTableOverheadMax)
 		_stat.timeTableOverheadMax = _stat.timeTableOverhead;
 }
 
-static inline void eventTimeTableAlloc(int sizeType) {
+static inline void decreaseTimeTableMemSize(int size) {
+	_stat.timeTableOverhead -= size;
+}
+
+static inline void eventCompression(int gain) {
+	decreaseTimeTableMemSize(gain);
+}
+
+static inline void eventTimeTableAlloc(int sizeType, int size) {
 	_stat.nTimeTableAllocated[sizeType]++;
 	_stat.nTimeTableActive++;
 	if (_stat.nTimeTableActive > _stat.nTimeTableActiveMax)
 		_stat.nTimeTableActiveMax++;
+	
+	increaseTimeTableMemSize(size);
 }
 
-static inline void eventTimeTableFree(int type) {
+static inline void eventTimeTableFree(int type, int size) {
 	_stat.nTimeTableActive--;
 	_stat.nTimeTableFreed[type]++;
+
+	decreaseTimeTableMemSize(size);
 }
 
 static inline void eventSegTableAlloc() {

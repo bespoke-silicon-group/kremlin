@@ -1,5 +1,6 @@
 #include "MShadowStat.h"
 #include "MShadowSkadu.h"
+#include "config.h"
 
 MemStat _stat;
 L1Stat _cacheStat;

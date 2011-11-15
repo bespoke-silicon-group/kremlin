@@ -23,11 +23,41 @@
 #define WORD_SHIFT 2
 
 
+/*
+ * STable: sparse table that tracks 4GB memory chunks being used
+ *
+ * Since 64bit address is very sparsely used in a program,
+ * we use a sparse table to reduce the memory requirement of the table.
+ * Although the walk-through of a table might be pricey,
+ * the use of cache will make the frequency of walk-through very low.
+ */
+
+typedef struct _SEntry {
+	UInt32 	addrHigh;	// upper 32bit in 64bit addr
+	SegTable* segTable;
+} SEntry;
+
+#define STABLE_SIZE		32		// 128GB addr space will be enough
+typedef struct _STable {
+	SEntry entry[STABLE_SIZE];	
+	int writePtr;
+} STable;
+
 static STable sTable;
 
+
+/*
+ * Compression Configuration
+ * instead of calling KConfigGetCompression repeatedly, 
+ * store the result and reuse.
+ */
 static int _useCompression = 0;
 static inline int useCompression() {
 	return _useCompression;
+}
+
+static void setCompression() {
+	_useCompression = KConfigGetCompression();
 }
 
 
@@ -46,13 +76,9 @@ static int TimeTableEntrySize(int type) {
 static inline void TimeTableClean(TimeTable* table) {
 	int size = TimeTableEntrySize(table->type);
 	bzero(table->array, sizeof(Time) * size);
-
-	if (table->useVersion) {
-		bzero(table->version, sizeof(Version) * size);
-	}
 }
 
-static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
+static inline TimeTable* TimeTableAlloc(int sizeType) {
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	int size = TimeTableEntrySize(sizeType);
 	TimeTable* ret = MemPoolAllocSmall(sizeof(TimeTable));
@@ -60,27 +86,18 @@ static inline TimeTable* TimeTableAlloc(int sizeType, int useVersion) {
 	bzero(ret->array, sizeof(Time) * size);
 
 	ret->type = sizeType;
-	ret->useVersion = useVersion;
 	ret->size = sizeof(Time) * TIMETABLE_SIZE / 2;
 
-	eventTimeTableAlloc(sizeType);
-	TimeTableUpdateOverhead(ret->size);
-#if 0
-	if (useVersion == 1) {
-		ret->version = MemPoolCallocSmall(size,sizeof(Version));
-		stat.nVersionTableAllocated[sizeType]++;
-	}
-#endif
+	eventTimeTableAlloc(sizeType, ret->size);
 	return ret;
 }
 
 
 static inline void TimeTableFree(TimeTable* table, UInt8 isCompressed) {
-	eventTimeTableFree(table->type);
+	eventTimeTableFree(table->type, table->size);
 	int sizeType = table->type;
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	MemPoolFree(table->array);
-	TimeTableUpdateOverhead(table->size * -1);
 	MemPoolFreeSmall(table, sizeof(TimeTable));
 }
 
@@ -99,17 +116,7 @@ static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver) {
 	assert(table != NULL);
 	int index = TimeTableGetIndex(addr, table->type);
 	Time ret = 0ULL;
-	if (table->useVersion == 0)
-		ret = table->array[index];
-
-	else if (table->version[index] >= ver) {
-		ret = table->array[index];
-
-	} else {
-		table->version[index] = ver;
-		table->array[index] = 0ULL;
-		ret = 0ULL;
-	}
+	ret = table->array[index];
 	return ret;
 }
 
@@ -119,9 +126,6 @@ static inline void TimeTableSet(TimeTable* table, Addr addr, Time time, Version 
 	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &(table->array[index]), index);
 	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", table, &(table->array[0]));
 	table->array[index] = time;
-	if (table->useVersion) {
-		table->version[index] = ver;
-	}
 }
 
 
@@ -156,7 +160,7 @@ static inline LTable* LTableAlloc() {
 static TimeTable* convertTimeTable(TimeTable* table) {
 	eventTimeTableConvertTo32();
 	assert(table->type == TYPE_64BIT);
-	TimeTable* ret = TimeTableAlloc(TYPE_32BIT, table->useVersion);
+	TimeTable* ret = TimeTableAlloc(TYPE_32BIT);
 	int i;
 	for (i=0; i<TIMETABLE_SIZE/2; i++) {
 		ret->array[i*2] = ret->array[i];
@@ -310,13 +314,12 @@ static inline int getAccessWidthType(CacheLine* entry) {
 static inline Time getTimeLevel(LTable* lTable, Index level, Addr addr, Version verCurrent, UInt32 type) {
 	TimeTable* table = (TimeTable*)lTable->tArray[level];
 	Version version = lTable->vArray[level];
-	int useTableVer = lTable->noBTV[level]; // check if version is in timetable (1) or ltable (0)
 
 	Time ret = 0ULL;
 	if (table == NULL) {
 		ret = 0ULL;
 
-	} else if (useTableVer || version == verCurrent) {
+	} else if (version == verCurrent) {
 		MSG(0, "\t\t\tversion = %d, %d\n", version, verCurrent);
 		ret = TimeTableGet(table, addr, verCurrent);
 
@@ -404,37 +407,23 @@ static void gcStart(Version* vArray, int size) {
 		}
 	}
 }
-static inline void checkConvertTimeTable(LTable* lTable, Index level, Version verCurrent, UInt32 type) {
-		Version verOld = LTableGetVer(lTable, level);
-		TimeTable* table = LTableGetTable(lTable, level);
-
-		// check if a converting is required at the first access in a new region
-		if (verOld < verCurrent) {
-			lTable->nAccess[level] = 0;
-		}
-		lTable->nAccess[level]++;
-}
 
 static inline void setTimeLevel(LTable* lTable, Index level, Addr addr, Version verCurrent, Time value, UInt32 type) {
-
-	checkConvertTimeTable(lTable, level, verCurrent, type);
 	TimeTable* table = LTableGetTable(lTable, level);
 	Version verOld = LTableGetVer(lTable, level);
-	int useTableVersion = lTable->noBTV[level];
-	assert(useTableVersion == 0);
 	eventLevelWrite(level);
 
 	// no timeTable exists so create it
 	if (table == NULL) {
 		eventTimeTableNewAlloc(level);
-		table = TimeTableAlloc(type, useTableVersion);
+		table = TimeTableAlloc(type);
 
 		LTableSetTable(lTable, level, table); 
 		TimeTableSet(table, addr, value, verCurrent);
 	}
 
 	// A table exists and is correct version, so use it
-	else if (useTableVersion || verOld == verCurrent) {
+	else if (verOld == verCurrent) {
 		assert(table != NULL);
 		TimeTableSet(table, addr, value, verCurrent);
 	}
@@ -459,7 +448,7 @@ static inline LTable* getLTable(Addr addr, Version* vArray) {
 		lTable = LTableAlloc();
 		if (useCompression()) {
 			int compressGain = CBufferAdd(lTable);
-			TimeTableUpdateOverhead(compressGain * -1);
+			eventCompression(compressGain);
 		}
 		segTable->entry[segIndex] = lTable;
 		eventLTableAlloc();
@@ -468,7 +457,7 @@ static inline LTable* getLTable(Addr addr, Version* vArray) {
 	if(useCompression() && lTable->isCompressed) {
 		gcLevelUnknownSize(lTable,vArray);
 		int gain = CBufferDecompress(lTable);
-		TimeTableUpdateOverhead(gain *  -1);
+		eventCompression(gain);
 	}
 
 	return lTable;
@@ -755,7 +744,7 @@ UInt MShadowInitSkadu() {
 	CBufferInit(KConfigGetCBufferSize());
 	MShadowGet = _MShadowGetCache;
 	MShadowSet = _MShadowSetCache;
-	_useCompression = KConfigGetCompression();
+	setCompression();
 	return 0;
 }
 
