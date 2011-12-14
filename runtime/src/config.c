@@ -7,6 +7,7 @@ typedef struct _config_ {
 
 	UInt8 useCompression;
 	UInt8 shadowType;
+	UInt8 useVerify;
 
 	UInt32 regionDepth;
 	UInt32 cbufferSize;
@@ -21,6 +22,7 @@ static KConfig config;
 
 void KConfigInit() {
 	config.useCompression = 0;
+	config.useVerify = 0;
 	config.minLevel = 0;
 	config.maxLevel = 20;
 	config.cbufferSize = 4096;
@@ -81,7 +83,6 @@ void KConfigSetRegionDepth(int depth) {
 UInt32 KConfigGetRegionDepth() {
 	return config.regionDepth;
 }
-
 
 void KConfigSetCacheSize(int nMB) {
 	config.cacheSize = nMB;

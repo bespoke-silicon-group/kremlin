@@ -113,7 +113,7 @@ static inline int TimeTableGetIndex(Addr addr, int type) {
 }
 
 // note that TimeTableGet is not affected by access width
-static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver) {
+static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver, UInt32 type) {
 	assert(table != NULL);
 	int index = TimeTableGetIndex(addr, table->type);
 	Time ret = 0ULL;
@@ -121,12 +121,18 @@ static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver) {
 	return ret;
 }
 
-static inline void TimeTableSet(TimeTable* table, Addr addr, Time time, Version ver) {
+static inline void TimeTableSet(TimeTable* table, Addr addr, Time time, Version ver, UInt32 type) {
 	assert(table != NULL);
 	int index = TimeTableGetIndex(addr, table->type);
+
 	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &(table->array[index]), index);
 	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", table, &(table->array[0]));
+
 	table->array[index] = time;
+	if (table->type == TYPE_32BIT && type == TYPE_64BIT) {
+		table->array[index+1] = time;
+	}
+
 }
 
 
@@ -158,7 +164,7 @@ static inline LTable* LTableAlloc() {
 }
 
 // convert 64 bit format into 32 bit format
-static TimeTable* convertTimeTable(TimeTable* table) {
+static TimeTable* TimeTableConvert(TimeTable* table) {
 	eventTimeTableConvertTo32();
 	assert(table->type == TYPE_64BIT);
 	TimeTable* ret = TimeTableAlloc(TYPE_32BIT);
@@ -167,7 +173,6 @@ static TimeTable* convertTimeTable(TimeTable* table) {
 		ret->array[i*2] = ret->array[i];
 		ret->array[i*2 + 1] = ret->array[i];
 	}
-	
 	return ret;
 }
 
@@ -303,7 +308,7 @@ static inline void LTableSetTable(LTable* lTable, Index level, TimeTable* table)
 }
 
 static inline Time LTableGetTime(LTable* lTable, Index level, Addr addr, Version verCurrent, UInt32 type) {
-	TimeTable* table = (TimeTable*)lTable->tArray[level];
+	TimeTable* table = LTableGetTable(lTable, level);
 	Version version = lTable->vArray[level];
 
 	Time ret = 0ULL;
@@ -312,9 +317,10 @@ static inline Time LTableGetTime(LTable* lTable, Index level, Addr addr, Version
 
 	} else if (version == verCurrent) {
 		MSG(0, "\t\t\tversion = %d, %d\n", version, verCurrent);
-		ret = TimeTableGet(table, addr, verCurrent);
+		ret = TimeTableGet(table, addr, verCurrent, type);
 
 	} 
+
 	return ret;
 }
 
@@ -325,24 +331,30 @@ static inline void LTableSetTime(LTable* lTable, Index level, Addr addr, Version
 
 	// no timeTable exists so create it
 	if (table == NULL) {
-		eventTimeTableNewAlloc(level);
+		eventTimeTableNewAlloc(level, type);
 		table = TimeTableAlloc(type);
 
 		LTableSetTable(lTable, level, table); 
-		TimeTableSet(table, addr, value, verCurrent);
-	}
+		assert(table->type == type);
+		TimeTableSet(table, addr, value, verCurrent, type);
 
-	// A table exists and is correct version, so use it
-	else if (verOld == verCurrent) {
-		assert(table != NULL);
-		TimeTableSet(table, addr, value, verCurrent);
-	}
+	} else {
+		// convert the table if needed
+		if (type == TYPE_32BIT && table->type == TYPE_64BIT) {
+			TimeTable* old = table;
+			table = TimeTableConvert(table);
+			TimeTableFree(old, lTable->isCompressed);
+		}
 
-	// exists but version is old so clean it and reuse
-	else {
-		TimeTableClean(table);
-		TimeTableSet(table, addr, value, verCurrent);
-	} 
+		if (verOld == verCurrent) {
+			assert(table != NULL);
+			TimeTableSet(table, addr, value, verCurrent, type);
+
+		} else {
+			// exists but version is old so clean it and reuse
+			TimeTableClean(table);
+		}
+	}
 	LTableSetVer(lTable, level, verCurrent);
 }
 
@@ -438,7 +450,6 @@ static inline LTable* LTableGet(Addr addr, Version* vArray) {
 	SEntry* sEntry = STableGetSEntry(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
-	eventLTableAccess();
 	int segIndex = SegTableGetIndex(addr);
 	LTable* lTable = segTable->entry[segIndex];
 	if (lTable == NULL) {
@@ -645,11 +656,10 @@ static void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int
 	int row = getLineIndex(addr);
 	int offset = 0;
 	Time* destAddr = getTimeAddr(offset, row, 0);
-#if 0
+
 	if (type == TYPE_32BIT) {
 		offset = ((UInt64)addr >> 2) & 0x1;
 	}
-#endif
 	CacheLine* entry = getEntry(row);
 	assert(row < lineNum);
 
@@ -661,13 +671,12 @@ static void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int
 
 	if (isHit(entry, addr)) {
 		eventWriteHit();
-#if 0
+
 		if (type == TYPE_32BIT && offset == 0 && 
 			entry->type == TYPE_64BIT) {
 			entry->version[1] = entry->version[0];
 			entry->lastSize[1] = entry->lastSize[0];	
 		}
-#endif
 
 	} else {
 		eventWriteEvict();
@@ -697,7 +706,7 @@ static void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int
 static Time tempArray[1000];
 
 static Time* NoCacheGet(Addr addr, Index size, Version* vArray, int type) {
-	LTable* lTable = LTableGet(addr,vArray);	
+	LTable* lTable = LTableGet(addr, vArray);	
 	Index i;
 	for (i=0; i<size; i++) {
 		tempArray[i] = LTableGetTime(lTable, i, addr, vArray[i], type);
@@ -705,16 +714,18 @@ static Time* NoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 
 	if (useCompression())
 		CBufferAccess(lTable);
+
 	return tempArray;	
 }
 
 static void NoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
-	LTable* lTable = LTableGet(addr,vArray);	
+	LTable* lTable = LTableGet(addr, vArray);	
 	assert(lTable != NULL);
 	Index i;
 	for (i=0; i<size; i++) {
 		LTableSetTime(lTable, i, addr, vArray[i], tArray[i], type);
 	}
+
 	if (useCompression())
 		CBufferAccess(lTable);
 }
@@ -723,12 +734,14 @@ static void NoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int
 /*
  * Entry point functions from Kremlin
  */
+
 static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 width) {
 	if (size < 1)
 		return NULL;
 
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
-	int type = TYPE_64BIT;
+	int type = TYPE_64BIT; 
+
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	MSG(0, "MShadowGet 0x%llx, size %d \n", tAddr, size);
 	eventRead();
@@ -753,6 +766,8 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 
 	//int type = (width > 4) ? TYPE_64BIT: TYPE_32BIT;
 	int type = TYPE_64BIT;
+
+
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	MSG(0, "MShadowSet 0x%llx, size %d \n", tAddr, size);
 	eventWrite();

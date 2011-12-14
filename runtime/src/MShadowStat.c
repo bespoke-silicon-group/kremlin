@@ -4,6 +4,9 @@
 
 MemStat _stat;
 L1Stat _cacheStat;
+
+
+
 /*
  * Cache size when a specific # of levels are used
  */
@@ -16,6 +19,7 @@ double getCacheSize(int level) {
 static double getSizeMB(UInt64 nUnit, UInt64 size) {
 	return (nUnit * size) / (1024.0 * 1024.0);	
 }
+
 void printCacheStat() {
 	fprintf(stderr, "\nShadow Memory Cache Stat\n");	
 	fprintf(stderr, "\tread  all / hit / evict = %ld / %ld / %ld\n", 
@@ -28,9 +32,9 @@ void printCacheStat() {
 	fprintf(stderr, "\tCache hit (read / write / overall) = %.2f / %.2f / %.2f\n", 
 		hitRead, hitWrite, hit);
 	fprintf(stderr, "\tEvict (total / levelAvg / levelEffective) = %ld / %.2f / %.2f\n\n", 
-		_stat.nCacheEvict, 
-		(double)_stat.nCacheEvictLevelTotal / _stat.nCacheEvict, 
-		(double)_stat.nCacheEvictLevelEffective / _stat.nCacheEvict);
+		_cacheStat.nCacheEvict, 
+		(double)_cacheStat.nCacheEvictLevelTotal / _cacheStat.nCacheEvict, 
+		(double)_cacheStat.nCacheEvictLevelEffective / _cacheStat.nCacheEvict);
 
 	fprintf(stderr, "\tnGC = %ld\n", _stat.nGC);
 }
@@ -39,30 +43,19 @@ void printCacheStat() {
 void printMemReqStat() {
 	//fprintf(stderr, "Overall allocated = %d, converted = %d, realloc = %d\n", 
 	//	totalAlloc, totalConvert, totalRealloc);
-	double segSize = getSizeMB(_stat.nSegTableActiveMax, sizeof(SegTable));
-	double lTableSize = getSizeMB(_stat.nLTableAlloc, sizeof(LTable));
+	double segSize = getSizeMB(_stat.segTable.nActiveMax, sizeof(SegTable));
+	double lTableSize = getSizeMB(_stat.lTable.nActiveMax, sizeof(LTable));
 
-	// XXX FIXME: nTable0 is unused and nTable1 is probably used incorrectly!
-	UInt64 nTable0 = _stat.nTimeTableAllocated[0] - _stat.nTimeTableFreed[0];
+	UInt64 nTable0 = _stat.tTable[0].nActiveMax;
+	UInt64 nTable1 = _stat.tTable[1].nActiveMax;
 	int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TIMETABLE_SIZE / 2);
-	UInt64 nTable1 = _stat.nTimeTableAllocated[1] - _stat.nTimeTableFreed[1];
 	int sizeTable32 = sizeof(TimeTable) + sizeof(Time) * TIMETABLE_SIZE;
 	//double tTableSize1 = getSizeMB(nTable1, sizeTable32);
 	//double tTableSize = tTableSize0 + tTableSize1;
 
-	UInt64 sizeUncompressed = _stat.nTimeTableActiveMax * sizeof(Time) * TIMETABLE_SIZE / 2;
+	UInt64 sizeUncompressed = sizeTable64 + sizeTable32;
 	double tTableSize = getSizeMB(sizeUncompressed, 1);
 	double tTableSizeWithCompression = getSizeMB(_stat.timeTableOverheadMax, 1);
-
-
-	int sizeVersion64 = sizeof(Version) * (TIMETABLE_SIZE / 2);
-	int sizeVersion32 = sizeof(Version) * (TIMETABLE_SIZE);
-	UInt64 nVTable0 = _stat.nVersionTableAllocated[0] - _stat.nVersionTableFreed[0];
-	UInt64 nVTable1 = _stat.nVersionTableAllocated[1] - _stat.nVersionTableFreed[1];
-	double vTableSize0 = getSizeMB(nVTable0, sizeVersion64);
-	double vTableSize1 = getSizeMB(nVTable1, sizeVersion32);
-	double vTableSize = vTableSize0 + vTableSize1;
-
 
 	double cacheSize = getCacheSize(getMaxActiveLevel());
 	double totalSize = segSize + lTableSize + tTableSize + cacheSize;
@@ -73,7 +66,8 @@ void printMemReqStat() {
 	double compressionRatio = (double)noCompressedNoBuffer / compressedNoBuffer;
 
 	//minTotal += getCacheSize(2);
-	fprintf(stderr, "%ld, %ld, %ld\n", _stat.timeTableOverhead, sizeUncompressed, _stat.timeTableOverhead - sizeUncompressed);
+	//fprintf(stderr, "%ld, %ld, %ld\n", _stat.timeTableOverhead, sizeUncompressed, _stat.timeTableOverhead - sizeUncompressed);
+
 	fprintf(stderr, "\nRequired Memory Analysis\n");
 	fprintf(stderr, "\tShadowMemory (SegTable / LevTable/ TTable / TTableCompressed) = %.2f / %.2f/ %.2f / %.2f \n",
 		segSize, lTableSize, tTableSize, tTableSizeWithCompression);
@@ -89,24 +83,12 @@ void printMemReqStat() {
 static void printMemStatAllocation() {
 	fprintf(stderr, "\nShadow Memory Allocation Stats\n");
 	fprintf(stderr, "\tnSegTable: Alloc / Active / ActiveMax = %ld / %ld / %ld\n",
-		 _stat.nSegTableAllocated, _stat.nSegTableActive, _stat.nSegTableActiveMax);
-	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %ld, %ld / %ld, %ld / %ld\n",
-		 0, _stat.nTimeTableAllocated[0], _stat.nTimeTableAllocated[1],
-		 _stat.nTimeTableFreed[0], _stat.nTimeTableFreed[1],
-		 _stat.nTimeTableActiveMax);
-	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax= %ld, %ld / %ld, %ld / %ld\n",
-		 0, _stat.nTimeTableAllocated[0], _stat.nTimeTableAllocated[1],
-		 _stat.nTimeTableFreed[0], _stat.nTimeTableFreed[1], _stat.nTimeTableActiveMax);
-	fprintf(stderr, "\tbTimeTable Convert: %ld\n", _stat.nTimeTableConvert32);
-	fprintf(stderr, "\tnVersionTable: Alloc = %l / %l\n", 
-		_stat.nVersionTableAllocated[0], _stat.nVersionTableAllocated[1]);
-	fprintf(stderr, "\tnTotal Evict: %l, Realloc: %l\n", 
-		_stat.nEvictTotal, _stat.nTimeTableReallocTotal);
-	fprintf(stderr, "\tRealloc / Evict Percentage: %.2f %%\n", 
-		(double)_stat.nTimeTableReallocTotal * 100.0 / _stat.nEvictTotal);
-	UInt64 nAllocated = _stat.nTimeTableAllocated[0] + _stat.nTimeTableAllocated[1];
-	fprintf(stderr, "\tNewAlloc / Evict Percentage: %.2f %%\n", 
-		(double)nAllocated * 100.0 / _stat.nEvictTotal);
+		 _stat.segTable.nAlloc, _stat.segTable.nActive, _stat.segTable.nActiveMax);
+
+	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %ld / %ld / %ld / %ld\n",
+		 0, _stat.tTable[0].nAlloc, _stat.tTable[0].nDealloc, _stat.tTable[0].nConvertOut, _stat.tTable[0].nActiveMax);
+	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %ld / %ld / %ld / %ld\n",
+		 1, _stat.tTable[1].nAlloc, _stat.tTable[1].nDealloc, _stat.tTable[1].nConvertIn, _stat.tTable[1].nActiveMax);
 }
 
 
@@ -119,6 +101,7 @@ void printLevelStat() {
 
 	fprintf(stderr, "\nLevel Specific Statistics\n");
 
+#if 0
 	for (i=0; i<=getMaxActiveLevel(); i++) {
 		totalAlloc += _stat.nTimeTableNewAlloc[i];
 		totalConvert += _stat.nTimeTableConvert[i];
@@ -140,6 +123,7 @@ void printLevelStat() {
 			reallocPercent, _stat.nEvict[i], _stat.nTimeTableRealloc[i]);
 			
 	}
+#endif
 }
 
 void printMemStat() {

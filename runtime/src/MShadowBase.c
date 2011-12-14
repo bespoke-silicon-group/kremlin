@@ -1,55 +1,48 @@
 #include "kremlin.h"
 
-
 #include <assert.h>
 #include <limits.h>
-#include <stdarg.h> /* for variable length args */
+#include <stdarg.h> 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 
-#include "debug.h"
-//#include "MShadow.h"
-
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 
-// Mask of the L1 table.
-#define L1_MASK 0xffff
+#define L1_MASK 0xffff 			// Mask of the L1 table.
+#define L1_SIZE (L1_MASK + 1)   // Size of the L1 table.
+#define L1_SHIFT 16				// Bits to shift right before the mask
+#define L2_MASK 0x3fff			// Mask of the L2 table.
+#define L2_SIZE (L2_MASK + 1)	// Size of the L2 table
+#define L2_SHIFT 2				// 32-bit word offset
 
-// Size of the L1 table.
-#define L1_SIZE (L1_MASK + 1)
-
-// Bits to shift right before the mask
-#define L1_SHIFT 16
-
-// Mask of the L2 table.
-#define L2_MASK 0x3fff
-
-// The size of the L2 table. Since only word addressible, shift by 2
-#define L2_SIZE (L2_MASK + 1)
-#define L2_SHIFT 2
-
+// Access types
 #define TYPE_64BIT	0
 #define TYPE_32BIT	1
 
+/* 
+ * Segment Entry: track a 64KB chunk
+ */
 typedef struct _SegEntry {
 	Time* tTable;
-	//Time tTable[L2_SIZE][32];
 	Version* versions;
 	int type;
 	int depth;
 } SegEntry;
 
 
+/*
+ * SegTable: track a 4GB chunk
+ */
 typedef struct _Segment {
 	SegEntry entry[L1_SIZE];
 } SegTable;
 
 
 /*
- * MemStat
+ * MemStat: track and print statistics
  */
 typedef struct _MemStat {
 	UInt64 nSTableEntry;
@@ -128,8 +121,6 @@ static Time* TimeTableAlloc(int type, int depth) {
 	if (stat.nTimeTableActive > stat.nTimeTableActiveMax)
 		stat.nTimeTableActiveMax++;
 
-
-	//fprintf(stderr, "TAlloc: type = %d, depth = %d\n", type, depth);
 	int nEntry = getTimeTableEntrySize(type);
 	return (Time*) malloc(sizeof(Time) * nEntry * depth);
 }
@@ -163,11 +154,11 @@ static inline Version* VersionGetAddr(SegEntry* entry, Addr addr) {
 	return &(entry->versions[index]);
 }
 
+
 /*
- * SegTable:
+ * SegTable related functions
  *
  */ 
-
 
 static SegTable* SegTableAlloc() {
 	SegTable* ret = (SegTable*) calloc(sizeof(SegEntry), L1_SIZE);
@@ -317,11 +308,11 @@ static Time* SegTableGetTime(SegEntry* entry, Addr addr, Index size, Version* vA
  */
 
 typedef struct _SEntry {
-	UInt32 	addrHigh;	// upper 32bit in 64bit addr
+	UInt32 	addrHigh;	// upper 32 bits in 64bit addr
 	SegTable* segTable;
 } SEntry;
 
-#define STABLE_SIZE		32		// 128GB addr space will be enough
+#define STABLE_SIZE		32		// 128GB addr space will be large enough
 
 typedef struct _STable {
 	SEntry entry[STABLE_SIZE];	
@@ -350,7 +341,7 @@ static SegTable* STableGetSegTable(Addr addr) {
 	int i;
 	for (i=0; i<sTable.writePtr; i++) {
 		if (sTable.entry[i].addrHigh == highAddr) {
-			//MSG(0, "STable Found an existing entry..\n");
+			MSG(1, "STable Found an existing entry..\n");
 			return sTable.entry[i].segTable;	
 		}
 	}
@@ -370,13 +361,15 @@ static SegTable* STableGetSegTable(Addr addr) {
 
 static Time* _MShadowGetBase(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
+
 	if (size < 1)
 		return NULL;
-	SegEntry* segEntry = NULL;
+
 	int type = TYPE_32BIT;
 	if (width  > 4)
 		type = TYPE_64BIT;
 
+	SegEntry* segEntry = NULL;
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
 	stat.reqRead[size]++;
@@ -384,7 +377,6 @@ static Time* _MShadowGetBase(Addr addr, Index size, Version* vArray, UInt32 widt
 }
 
 static void _MShadowSetBase(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
-	SegEntry* segEntry = NULL;
 	if (size < 1)
 		return;
 
@@ -392,6 +384,7 @@ static void _MShadowSetBase(Addr addr, Index size, Version* vArray, Time* tArray
 	if (width  > 4)
 		type = TYPE_64BIT;
 
+	SegEntry* segEntry = NULL;
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
 	SegTableSetTime(segEntry, addr, size, vArray, tArray, type);
