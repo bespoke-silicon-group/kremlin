@@ -20,12 +20,14 @@ typedef struct _cregion_t {
 	UInt64 numInstance;
 	UInt64 childNum;
 	double avgSP;
+	UInt64 isDoall;
 
 } CRegion;
 
 typedef struct _cnode_t CNode;
 
 struct _cnode_t {
+	UInt32 code;
 	CNode* parent;
 	CNode* firstChild;
 	CNode* next;	
@@ -39,6 +41,7 @@ typedef struct _RegionField_t {
 	UInt64 callSite;
 	UInt64 spWork;
 	UInt64 tpWork;
+	UInt64 isDoall;
 
 	UInt64 readCnt;
 	UInt64 writeCnt;

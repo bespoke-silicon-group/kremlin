@@ -445,6 +445,7 @@ typedef struct _region_t {
 	Time cp;
 	Time childrenWork;
 	Time childrenCP;
+	Time childMaxCP;
 #ifdef EXTRA_STATS
 	UInt64 loadCnt;
 	UInt64 storeCnt;
@@ -568,6 +569,7 @@ static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level
 	region->cp = 0ULL;
 	region->childrenWork = 0LL;
 	region->childrenCP = 0LL;
+	region->childMaxCP = 0LL;
 	region->regionType = regionType;
 #ifdef EXTRA_STATS
 	region->loadCnt = 0LL;
@@ -866,7 +868,7 @@ static void handleFuncRegionExit() {
 /**
  * Creates RegionField and fills it based on inputs.
  */
-RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 tpWork, Region* region_info) {
+RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 tpWork, UInt64 isDoall, Region* region_info) {
 	RegionField field;
 
     field.work = work;
@@ -874,6 +876,7 @@ RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWor
 	field.callSite = callSiteId;
 	field.spWork = spWork;
 	field.tpWork = tpWork;
+	field.isDoall = isDoall;
 
 #ifdef EXTRA_STATS
     field.loadCnt = region_info->loadCnt;
@@ -914,6 +917,11 @@ void logRegionExit(SID regionId, RegionType regionType) {
 
 	assert(region->regionId == regionId);
     UInt64 cp = region->cp;
+#define DOALL_THRESHOLD	5
+	UInt64 isDoall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
+	if (regionType != RegionLoop)
+		isDoall = 0;
+	//fprintf(stderr, "isDoall = %d\n", isDoall);
 
 #ifdef KREMLIN_DEBUG
 	if (work < cp) {
@@ -934,10 +942,12 @@ void logRegionExit(SID regionId, RegionType regionType) {
 	// so no need to compare with max level.
 
 	if (level > getMinLevel()) {
-		Region* parent_region = RegionGet(level - 1);
-    	parentSid = parent_region->regionId;
-		parent_region->childrenWork += work;
-		parent_region->childrenCP += cp;
+		Region* parentRegion = RegionGet(level - 1);
+    	parentSid = parentRegion->regionId;
+		parentRegion->childrenWork += work;
+		parentRegion->childrenCP += cp;
+		if (parentRegion->childMaxCP < cp) 
+			parentRegion->childMaxCP = cp;
 	} 
 
 	double spTemp = (work - region->childrenWork + region->childrenCP) / (double)cp;
@@ -970,7 +980,7 @@ void logRegionExit(SID regionId, RegionType regionType) {
 
 	CID cid = RegionGetFunc()->callSiteId;
     RegionField field = fillRegionField(work, cp, cid, 
-						spWork, tpWork, region);
+						spWork, tpWork, isDoall, region);
 	CRegionLeave(&field);
         
     if (regionType == RegionFunc) { 

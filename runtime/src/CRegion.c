@@ -50,6 +50,8 @@ void CRegionEnter(SID sid, CID callSite) {
 	if (root == NULL)
 		root = child;
 	
+	assert(current != NULL);
+	assert(current->region != NULL);
 	MSG(3, "CRegion: put context sid: 0x%llx, callSite: 0x%llx\n", sid, callSite);
 }
 
@@ -123,10 +125,10 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 		UInt64 maxSPInt = (UInt64)(region->maxSP * 100.0);
 		fwrite(&minSPInt, sizeof(Int64), 1, fp);
 		fwrite(&maxSPInt, sizeof(Int64), 1, fp);
-		fwrite(&region->readCnt, sizeof(Int64), 1, fp);
-		fwrite(&region->writeCnt, sizeof(Int64), 1, fp);
-		fwrite(&region->loadCnt, sizeof(Int64), 1, fp);
-		fwrite(&region->storeCnt, sizeof(Int64), 1, fp);
+		fwrite(&region->isDoall, sizeof(Int64), 1, fp);
+		fwrite(&region->isDoall, sizeof(Int64), 1, fp);
+		fwrite(&region->isDoall, sizeof(Int64), 1, fp);
+		fwrite(&region->isDoall, sizeof(Int64), 1, fp);
 
 		fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
 
@@ -153,7 +155,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 
 void emitDOT(FILE* fp, CNode* node) {
 	CRegion* region = node->region;
-	fprintf(stderr,"DOT: visiting %llu\n",region->id);
+	fprintf(stderr,"DOT: visiting %lu\n",region->id);
 
 	CNode* child_node = node->firstChild;
 
@@ -161,7 +163,7 @@ void emitDOT(FILE* fp, CNode* node) {
 	int i;
 	for(i = 0; i < size; ++i) {
 		CRegion* child_region = child_node->region;
-		fprintf(fp,"\t%llu -> %llu;\n",region->id,child_region->id);
+		fprintf(fp,"\t%llu -> %lu;\n",region->id,child_region->id);
 		emitDOT(fp,child_node);
 		child_node = child_node->next;
 	}
@@ -170,9 +172,9 @@ void emitDOT(FILE* fp, CNode* node) {
 static void updateCRegion(CRegion* region, RegionField* info) {
 	assert(region != NULL);
 	assert(info != NULL);
-	MSG(3, "CRegion: update current region with info: csid(0x%llx), callSite(0x%llx), work(0x%llx), cp(%llx), tpWork(%llx), spWork(%llx)\n", 
+	MSG(3, "CRegion: update with: csid(0x%lx), callSite(0x%lx), work(0x%lx), cp(%lx), tpWork(%lx), spWork(%lx)\n", 
 			region->sid, info->callSite, info->work, info->cp, info->tpWork, info->spWork);
-	MSG(3, "current region: id(0x%llx), sid(0x%llx), callSite(0x%llx)\n", 
+	MSG(3, "current region: id(0x%lx), sid(0x%lx), callSite(0x%lx)\n", 
 			region->id, region->sid, region->callSite);
 	assert(region->callSite == info->callSite);
 	double sp = (double)info->work / (double)info->spWork;
@@ -188,6 +190,10 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	region->storeCnt += info->storeCnt;
 	assert(region->numInstance >= 0);
 	region->numInstance++;
+
+	// handle P bit 
+	if (info->isDoall == 0)
+		region->isDoall = 0;
 }
 
 static CNode* findChildNode(CNode* node, UInt64 sid, UInt64 callSite) {
@@ -254,6 +260,7 @@ static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
 	ret->loadCnt = 0;
 	ret->storeCnt = 0;
 	ret->numInstance = 0;
+	ret->isDoall = 1;
 	return ret;
 }
 
