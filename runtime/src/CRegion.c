@@ -126,9 +126,9 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 		fwrite(&minSPInt, sizeof(Int64), 1, fp);
 		fwrite(&maxSPInt, sizeof(Int64), 1, fp);
 		fwrite(&region->isDoall, sizeof(Int64), 1, fp);
-		fwrite(&region->isDoall, sizeof(Int64), 1, fp);
-		fwrite(&region->isDoall, sizeof(Int64), 1, fp);
-		fwrite(&region->isDoall, sizeof(Int64), 1, fp);
+		fwrite(&region->totalChildCount, sizeof(Int64), 1, fp);
+		fwrite(&region->minChildCount, sizeof(Int64), 1, fp);
+		fwrite(&region->maxChildCount, sizeof(Int64), 1, fp);
 
 		fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
 
@@ -184,6 +184,13 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	region->totalCP += info->cp;
 	region->tpWork += info->tpWork;
 	region->spWork += info->spWork;
+
+	region->totalChildCount += info->childCnt;
+	if (region->minChildCount > info->childCnt) 
+		region->minChildCount = info->childCnt;
+	if (region->maxChildCount < info->childCnt) 
+		region->maxChildCount = info->childCnt;
+
 	region->readCnt += info->readCnt;
 	region->writeCnt += info->writeCnt;
 	region->loadCnt += info->loadCnt;
@@ -255,6 +262,9 @@ static CRegion* createCRegion(UInt64 sid, UInt64 callSite) {
 	ret->spWork = 0;
 	ret->minSP = 0xFFFFFFFFFFFFFFFFULL;
 	ret->maxSP = 0;
+	ret->totalChildCount = 0;
+	ret->minChildCount = 0xFFFFFFFFFFFFFFFFULL;
+	ret->maxChildCount = 0;
 	ret->readCnt = 0;
 	ret->writeCnt = 0;
 	ret->loadCnt = 0;

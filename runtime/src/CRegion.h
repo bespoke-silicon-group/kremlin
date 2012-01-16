@@ -9,17 +9,23 @@ typedef struct _cregion_t {
 	UInt64 callSite;
 	UInt64 totalWork;
 	UInt64 totalCP;
+	double minSP;
+	double maxSP;
+
+	UInt64 totalChildCount;
+	UInt64 minChildCount;
+	UInt64 maxChildCount;
+
 	UInt64 tpWork;
 	UInt64 spWork;
+
 	UInt64 readCnt;
 	UInt64 writeCnt;
 	UInt64 loadCnt;
 	UInt64 storeCnt;
-	double minSP;
-	double maxSP;
+	
 	UInt64 numInstance;
 	UInt64 childNum;
-	double avgSP;
 	UInt64 isDoall;
 
 } CRegion;
@@ -42,6 +48,7 @@ typedef struct _RegionField_t {
 	UInt64 spWork;
 	UInt64 tpWork;
 	UInt64 isDoall;
+	UInt64 childCnt;
 
 	UInt64 readCnt;
 	UInt64 writeCnt;

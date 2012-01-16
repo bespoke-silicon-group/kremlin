@@ -446,6 +446,7 @@ typedef struct _region_t {
 	Time childrenWork;
 	Time childrenCP;
 	Time childMaxCP;
+	UInt64 childCount;
 #ifdef EXTRA_STATS
 	UInt64 loadCnt;
 	UInt64 storeCnt;
@@ -570,6 +571,7 @@ static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level
 	region->childrenWork = 0LL;
 	region->childrenCP = 0LL;
 	region->childMaxCP = 0LL;
+	region->childCount = 0LL;
 	region->regionType = regionType;
 #ifdef EXTRA_STATS
 	region->loadCnt = 0LL;
@@ -877,6 +879,7 @@ RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWor
 	field.spWork = spWork;
 	field.tpWork = tpWork;
 	field.isDoall = isDoall;
+	field.childCnt = region_info->childCount;
 
 #ifdef EXTRA_STATS
     field.loadCnt = region_info->loadCnt;
@@ -946,6 +949,7 @@ void logRegionExit(SID regionId, RegionType regionType) {
     	parentSid = parentRegion->regionId;
 		parentRegion->childrenWork += work;
 		parentRegion->childrenCP += cp;
+		parentRegion->childCount++;
 		if (parentRegion->childMaxCP < cp) 
 			parentRegion->childMaxCP = cp;
 	} 
