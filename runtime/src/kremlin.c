@@ -968,7 +968,7 @@ void logRegionExit(SID regionId, RegionType regionType) {
     }
 
 	if (level < getMaxLevel() && sp < 0.999) {
-		fprintf(stderr, "sid=%lld work=%llu childrenWork = %llu childrenCP=%lld\n", sid, work,
+		fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld\n", sp, sid, work,
 			region->childrenWork, region->childrenCP);
 		assert(0);
 	}

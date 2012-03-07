@@ -476,7 +476,7 @@ static inline int getStartInvalidLevel(Version oldVer, Version* vArray, Index si
 	int firstInvalid = 0;
 
 	if (size > 2)
-		MSG(0, "\tTVCacheEvict oldVer = %lld, newVer = %lld %lld \n", oldVer, vArray[size-2], vArray[size-1]);
+		MSG(0, "\tgetStartInvalidLevel oldVer = %lld, newVer = %lld %lld \n", oldVer, vArray[size-2], vArray[size-1]);
 
 	if (oldVer == vArray[size-1])
 		return size;
@@ -754,7 +754,7 @@ static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 wid
 }
 
 static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
-	MSG(0, "MShadowSet 0x%llx, size %d \n", addr, size);
+	MSG(0, "MShadowSet 0x%llx, size %d [", addr, size);
 	if (size < 1)
 		return;
 
@@ -769,7 +769,7 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 
 
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
-	MSG(0, "MShadowSet 0x%llx, size %d \n", tAddr, size);
+	MSG(0, "]\n");
 	eventWrite();
 	if (bypassCache == 1) {
 		NoCacheSet(tAddr, size, vArray, tArray, type);
