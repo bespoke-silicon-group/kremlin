@@ -30,6 +30,10 @@ OBJ_SOURCES += $(SOURCES)
 # The name of the executable to produce.
 LINK_OUTPUT_FILE ?= a.out
 DEBUG_INFO_FILE = sregions.txt
+#ifdef GPROF
+#LDLIBS += -pg -g
+#endif
+#endef
 
 DF_LINK_OUTPUT_FILE = $(dir $(LINK_OUTPUT_FILE))df-$(notdir $(LINK_OUTPUT_FILE))
 
