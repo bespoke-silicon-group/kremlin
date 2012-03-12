@@ -1,14 +1,15 @@
+#include <signal.h> // for catching CTRL-V during debug
+
 #include "kremlin.h"
 #include "arg.h"
 #include "config.h"
-// These are the levels on which we are ``reporting'' (i.e. writing info out to the
-// .bin file)
+
+#include "debug.h"
 
 char * __kremlin_output_filename;
 int __kremlin_debug;
 int __kremlin_debug_level;
 int __kremlin_level_to_log = -1;
-
 
 
 char * argGetOutputFileName() {
@@ -72,6 +73,16 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			__kremlin_debug_level = parseOptionInt(argv[i]);
 			continue;
 		}
+
+#ifdef KREMLIN_DEBUG
+		str_start = strstr(argv[i],"kremlin-idbg");
+
+		if(str_start) {
+			__kremlin_idbg = 1;
+			__kremlin_idbg_run_state = Waiting;
+			continue;
+		}
+#endif
 
 #if 0
 		str_start = strstr(argv[i],"kremlin-ltl");
@@ -153,12 +164,21 @@ int main(int argc, char* argv[]) {
 	int num_args = 0;;
 	char** real_args;
 
+
 	KConfigInit();
+	__kremlin_idbg = 0;
 
 	__kremlin_output_filename = calloc(sizeof(char), 20);
 	strcat(__kremlin_output_filename,"kremlin.bin");
 
 	parseKremlinOptions(argc,argv,&num_args,&real_args);
+
+	if(__kremlin_idbg == 0) {
+		(void)signal(SIGINT,dbg_int);
+	}
+	else {
+		fprintf(stderr,"[kremlin] Interactive debugging mode enabled.\n");
+	}
 
 	if(__kremlin_level_to_log == -1) {
     	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", KConfigGetMinLevel(), KConfigGetMaxLevel());

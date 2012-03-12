@@ -17,6 +17,8 @@
 #include "RShadow.c"
 #include "interface.h"
 
+//#include "idbg.h"
+
 #define LOAD_COST           4
 #define STORE_COST          1
 #define MALLOC_COST         100
@@ -533,6 +535,7 @@ static inline void checkTimestamp(int index, Region* region, Timestamp value) {
 
 static inline void RegionUpdateCp(Region* region, Timestamp value) {
 	region->cp = MAX(value, region->cp);
+	MSG(3, "RegionUpdateCp : value = %llu\n", region->cp);	
 	assert(region->code == 0xDEADBEEF);
 #ifndef NDEBUG
 	//assert(value <= getTimetick() - region->start);
@@ -620,16 +623,44 @@ inline Time CDepGet(Index index) {
  *
  *****************************************************************/
 
+#ifdef KREMLIN_DEBUG
+#define idbgAction(op,...) { \
+if(__kremlin_idbg) { \
+	if(__kremlin_idbg_run_state == Waiting) { \
+		fprintf(stdout, __VA_ARGS__); \
+	} \
+	iDebugHandler(op); \
+} \
+}
+
+
+/*
+static inline void idbgAction(char* inst_str, UInt op) {
+	if(__kremlin_idbg) {
+		if(__kremlin_idbg_run_state == Waiting) {
+    		fprintf(stdout, inst_str);
+		}
+		iDebugHandler(op);
+	}
+}
+*/
+#endif
+
 /*****************************************************************
  * Control Dependence Management
  *****************************************************************/
 
 void addControlDep(Reg cond) {
     MSG(3, "push ControlDep ts[%u]\n", cond);
-checkRegion();
+	checkRegion();
     if (!isKremlinOn()) {
 		return;
 	}
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_ADD_CD,"## addControlDep(cond=%u)\n",cond);
+#endif
+
 #ifndef WORK_ONLY
 	cTableReadPtr++;
 	int indexSize = getIndexDepth();
@@ -653,7 +684,7 @@ checkRegion();
 	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
 	assert(cTableReadPtr < cTable->row);
 #endif
-checkRegion();
+	checkRegion();
 }
 
 void removeControlDep() {
@@ -661,6 +692,11 @@ void removeControlDep() {
     if (!isKremlinOn()) {
 		return;
 	}
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_REMOVE_CD, "## removeControlDep()\n");
+#endif
+
 #ifndef WORK_ONLY
 	cTableReadPtr--;
 	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
@@ -807,6 +843,14 @@ void logRegionEntry(SID regionId, RegionType regionType) {
 		return; 
 	}
 
+#ifdef KREMLIN_DEBUG
+	if(__kremlin_idbg) {
+		iDebugHandlerRegionEntry(regionId);
+	}
+
+	idbgAction(KREM_REGION_ENTRY,"## logRegionEntry(regionID=%llu,regionType=%u)\n",regionId,regionType);
+#endif
+
     incrementRegionLevel();
     Level level = getCurrentLevel();
 	if (level == RegionSize()) {
@@ -906,6 +950,10 @@ void logRegionExit(SID regionId, RegionType regionType) {
     if (!isKremlinOn()) { 
 		return; 
 	}
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_REGION_EXIT, "## logRegionExit(regionID=%llu,regionType=%u)\n",regionId,regionType);
+#endif
 
     Level level = getCurrentLevel();
 
@@ -1015,6 +1063,10 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
     if (!isKremlinOn())
         return NULL;
 
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_BINOP,"## logBinaryOp(opCost=%u,src0=%u,src1=%u,dest=%u)\n",opCost,src0,src1,dest);
+#endif
+
     addWork(opCost);
 	Index depth = getIndexDepth();
 	
@@ -1058,6 +1110,18 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
     if (!isKremlinOn())
         return NULL;
 
+#ifdef KREMLIN_DEBUG
+	/*
+	if(__kremlin_idbg) {
+		if(__kremlin_idbg_run_state == Waiting) {
+    		fprintf(stdout, "## logBinaryOpConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
+		}
+		iDebugHandler(KREM_BINOP);
+	}
+	*/
+	idbgAction(KREM_BINOP,"## logBinaryOpConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
+#endif
+
     addWork(opCost);
 
 #ifndef WORK_ONLY
@@ -1093,6 +1157,14 @@ void* logAssignment(Reg src, Reg dest) {
     MSG(1, "logAssignment ts[%u] <- ts[%u]\n", dest, src);
     if (!isKremlinOn())
     	return NULL;
+
+#ifdef KREMLIN_DEBUG
+	if(__kremlin_idbg) {
+		if(__kremlin_idbg_run_state == Waiting) {
+    		fprintf(stdout, "## logAssignment(src=%u,dest=%u)\n\t",src,dest);
+		}
+	}
+#endif
     
     return logBinaryOpConst(0, src, dest);
 }
@@ -1101,6 +1173,18 @@ void* logAssignmentConst(UInt dest) {
     MSG(1, "logAssignmentConst ts[%u]\n", dest);
     if (!isKremlinOn())
         return NULL;
+
+#ifdef KREMLIN_DEBUG
+	/*
+	if(__kremlin_idbg) {
+		if(__kremlin_idbg_run_state == Waiting) {
+    		fprintf(stdout, "## logAssignmentConst(dest=%u)\n",dest);
+		}
+		iDebugHandler(KREM_ASSIGN_CONST);
+	}
+	*/
+	idbgAction(KREM_ASSIGN_CONST,"## logAssignmentConst(dest=%u)\n",dest);
+#endif
 
 
 #ifndef WORK_ONLY
@@ -1126,6 +1210,19 @@ void* logLoadInst(Addr addr, Reg dest, UInt32 size) {
 	checkRegion();
     if (!isKremlinOn())
     	return NULL;
+
+#ifdef KREMLIN_DEBUG
+	/*
+	if(__kremlin_idbg) {
+		if(__kremlin_idbg_run_state == Waiting) {
+    		fprintf(stdout, "## logLoadInst(Addr=0x%x,dest=%u,size=%u)\n",addr,dest,size);
+		}
+		iDebugHandler(KREM_LOAD);
+	}
+	*/
+	idbgAction(KREM_LOAD,"## logLoadInst(Addr=0x%x,dest=%u,size=%u)\n",addr,dest,size);
+#endif
+
 
 	incIndentTab();
     addWork(LOAD_COST);
@@ -1166,6 +1263,10 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest, UInt32 size) {
     MSG(0, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
     if (!isKremlinOn())
 		return NULL;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_LOAD,"## logLoadInst1Src(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
+#endif
 
     addWork(LOAD_COST);
 
@@ -1214,6 +1315,10 @@ void* logStoreInst(UInt src, Addr dest_addr, UInt32 size) {
     if (!isKremlinOn())
     	return NULL;
 
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_STORE,"## logStoreInst(src=%u,dest_addr=0x%x,size=%u)\n",src,dest_addr,size);
+#endif
+
     addWork(STORE_COST);
 
 #ifndef WORK_ONLY
@@ -1248,6 +1353,10 @@ void* logStoreInstConst(Addr dest_addr, UInt32 size) {
     if (!isKremlinOn())
         return NULL;
 
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_STORE,"## logStoreInstConst(dest_addr=0x%x,size=%u)\n",dest_addr,size);
+#endif
+
     addWork(STORE_COST);
 
 #ifndef WORK_ONLY
@@ -1278,6 +1387,11 @@ void addReturnValueLink(Reg dest) {
     MSG(1, "prepare return storage ts[%u]\n", dest);
     if (!isKremlinOn())
         return;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_ARVL,"## addReturnValueLink(dest=%u)\n",dest);
+#endif
+
 #ifndef WORK_ONLY
 	FuncContext* caller = RegionGetFunc();
 	RegionSetRetReg(caller, dest);
@@ -1292,6 +1406,11 @@ void logFuncReturn(Reg src) {
     MSG(1, "write return value ts[%u]\n", src);
     if (!isKremlinOn())
         return;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_FUNC_RETURN,"## logFuncReturn(src=%u)\n",src);
+#endif
+
 
 #ifndef WORK_ONLY
     FuncContext* callee = RegionGetFunc();
@@ -1317,6 +1436,10 @@ void logFuncReturnConst(void) {
     MSG(1, "logFuncReturnConst\n");
     if (!isKremlinOn())
         return;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_FUNC_RETURN,"## logFuncReturnConst()\n");
+#endif
 
 #ifndef WORK_ONLY
 
@@ -1353,6 +1476,15 @@ void* logInductionVar(UInt dest) {
     MSG(1, "logInductionVar to %u\n", dest);
     if (!isKremlinOn())
 		return NULL;
+
+#ifdef KREMLIN_DEBUG
+	if(__kremlin_idbg) {
+		if(__kremlin_idbg_run_state == Waiting) {
+    		fprintf(stdout, "## logInductionVar(dest=%u)\n\t",dest);
+		}
+	}
+#endif
+
     return logAssignmentConst(dest);
 }
 
@@ -1367,6 +1499,10 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
     MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
     if (!isKremlinOn())
 		return NULL;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_PHI,"## logPhiNode1CD(dest=%u,src=%u,cd=%u)\n",dest,src,cd);
+#endif
 
 
 #ifndef WORK_ONLY
@@ -1393,6 +1529,10 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
     MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
     if (!isKremlinOn())
     	return NULL;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_PHI,"## logPhiNode2CD(dest=%u,src=%u,cd1=%u,cd2=%u)\n",dest,src,cd1,cd2);
+#endif
 
 #ifndef WORK_ONLY
 	Index index;
@@ -1425,6 +1565,10 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     if (!isKremlinOn())
     	return NULL;
 
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_PHI,"## logPhiNode3CD(dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u)\n",dest,src,cd1,cd2,cd3);
+#endif
 
 #ifndef WORK_ONLY
 	Index index;
@@ -1459,6 +1603,10 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 
     if (!isKremlinOn())
     	return NULL;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_PHI,"## logPhiNode4CD(dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",dest,src,cd1,cd2,cd3,cd4);
+#endif
 
 #ifndef WORK_ONLY
 	Index index;
@@ -1496,6 +1644,10 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     if (!isKremlinOn())
 		return NULL;
 
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_CD_TO_PHI,"## log4CDToPhiNode(dest=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",dest,cd1,cd2,cd3,cd4);
+#endif
+
 #ifndef WORK_ONLY
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1529,6 +1681,10 @@ void* logPhiNodeAddCondition(UInt dest, UInt src) {
 
     if (!isKremlinOn())
     	return;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_CD_TO_PHI,"## logPhiNodeAddCondition(dest=%u,src=%u)\n",dest,src);
+#endif
 
 #ifndef WORK_ONLY
 	Index index;
@@ -1679,6 +1835,11 @@ void printProfileData() {}
 // use estimated cost for a callee function we cannot instrument
 // TODO: implement new shadow mem interface
 void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_CD_TO_PHI,"## logLibraryCall(cost=%u,dest=%u,num_in=%u,...)\n",cost,dest,num_in);
+#endif
+
 #if 0
     if (!isKremlinOn())
         return NULL;
@@ -1801,18 +1962,108 @@ void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
 }
 
 /***********************************************
+ * Kremlin Interactive Debugger Functions 
+ ************************************************/
+void printActiveRegionStack() {
+	fprintf(stdout,"Current Regions:\n");
+
+	int i;
+	Level level = getCurrentLevel();
+
+	for(i = 0; i <= level; ++i) {
+		Region* region = RegionGet(i);
+
+		/*
+		UInt32 code;
+		Version version;
+		SID	regionId;
+		RegionType regionType;
+		Time start;
+		Time cp;
+		*/
+		fprintf(stdout,"#%d: ",i);
+		if(region->regionType == RegionFunc) {
+			fprintf(stdout,"type=FUNC ");
+		}
+		else if(region->regionType == RegionLoop) {
+			fprintf(stdout,"type=LOOP ");
+		}
+		else if(region->regionType == RegionLoopBody) {
+			fprintf(stdout,"type=BODY ");
+		}
+		else {
+			fprintf(stdout,"type=ILLEGAL ");
+		}
+
+    	UInt64 work = getTimetick() - region->start;
+		fprintf(stdout,"SID=%llu, WORK'=%llu, CP=%llu\n",region->regionId,work,region->cp);
+	}
+}
+
+void printControlDepTimes() {
+	fprintf(stdout,"Control Dependency Times:\n");
+	Index index;
+
+    for (index = 0; index < getIndexDepth(); index++) {
+		Time cdt = CDepGet(index);
+		fprintf(stdout,"\t#%u: %llu\n",index,cdt);
+	}
+}
+
+void printRegisterTimes(Reg reg) {
+	fprintf(stdout,"Timestamps for reg[%u]:\n",reg);
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+        Time ts = RShadowGetItem(reg, index);
+		fprintf(stdout,"\t#%u: %llu\n",index,ts);
+	}
+}
+
+void printMemoryTimes(Addr addr, Index size) {
+	fprintf(stdout,"Timestamps for Mem[%x]:\n",addr);
+	Index index;
+	Index depth = getIndexDepth();
+	Level minLevel = getLevel(0);
+	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel), size);
+
+    for (index = 0; index < depth; index++) {
+		Time ts = tArray[index];
+		fprintf(stdout,"\t#%u: %llu\n",index,ts);
+	}
+}
+
+/***********************************************
  * DJ: not sure what these are for 
  ************************************************/
 
 void* logInsertValue(UInt src, UInt dest) {
 	assert(0);
     //printf("Warning: logInsertValue not correctly implemented\n");
+
+#ifdef KREMLIN_DEBUG
+	if(__kremlin_idbg) {
+		if(__kremlin_idbg_run_state == Waiting) {
+    		fprintf(stdout, "## logInsertValue(src=%u,dest=%u)\n\t",src,dest);
+		}
+	}
+#endif
+
     return logAssignment(src, dest);
 }
 
 void* logInsertValueConst(UInt dest) {
 	assert(0);
     //printf("Warning: logInsertValueConst not correctly implemented\n");
+
+#ifdef KREMLIN_DEBUG
+	if(__kremlin_idbg) {
+		if(__kremlin_idbg_run_state == Waiting) {
+    		fprintf(stdout, "## logInsertValueConst(dest=%u)\n\t",dest);
+		}
+	}
+#endif
+
     return logAssignmentConst(dest);
 }
 
@@ -1891,5 +2142,7 @@ void invokeThrew(UInt64 id)
     else
         MSG(1, "invokeThrew(%u) ignored\n", id);
 }
+
+
 
 #endif 
