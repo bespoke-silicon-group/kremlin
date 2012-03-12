@@ -23,23 +23,18 @@ void printControlDepTimes();
 void printRegisterTimes(Reg reg);
 void printMemoryTimes(Addr addr, Index size);
 
+void dbg_int(int sig);
 #ifdef KREMLIN_DEBUG 
     void MSG(int level, char* format, ...);
 	void updateTabString();
 	void incIndentTab();
 	void decIndentTab();
-
-	void dbg_int(int sig);
 	void iDebugHandler();
-
 #else
     #define MSG(level, a, args...)  ((void)0)
     #define incIndentTab()          ((void)0)
     #define decIndentTab()          ((void)0)
     #define updateTabString()       ((void)0)
-	void dbg_int(int sig) {
-		(void)signal(sig,SIG_DFL);
-	}
 #endif
 
 

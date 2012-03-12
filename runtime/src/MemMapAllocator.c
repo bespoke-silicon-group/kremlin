@@ -42,7 +42,10 @@ void MemPoolInit(int nMB, int sizeEach) {
 	freeList = NULL;	
 	int error;
 	poolSmall = mpool_open(0, 0, 0x100000000000, &error);
-	fprintf(stderr, "mpool_open error = %x\n", error); 
+	if (error != 1) {
+		fprintf(stderr, "mpool_open error = %x\n", error); 
+		assert(0);
+	}
 
 }
 

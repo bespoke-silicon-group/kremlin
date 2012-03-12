@@ -24,7 +24,7 @@ void KConfigInit() {
 	config.useCompression = 0;
 	config.useVerify = 0;
 	config.minLevel = 0;
-	config.maxLevel = 20;
+	config.maxLevel = 32;
 	config.cbufferSize = 4096;
 	config.cacheSize = 4;
 	config.regionDepth = 20;

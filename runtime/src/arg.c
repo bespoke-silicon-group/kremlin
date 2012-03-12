@@ -164,10 +164,8 @@ int main(int argc, char* argv[]) {
 	int num_args = 0;;
 	char** real_args;
 
-
 	KConfigInit();
 	__kremlin_idbg = 0;
-
 	__kremlin_output_filename = calloc(sizeof(char), 20);
 	strcat(__kremlin_output_filename,"kremlin.bin");
 
@@ -188,9 +186,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	fprintf(stderr,"[kremlin] writing data to: %s\n", argGetOutputFileName());
-	//fprintf(stderr,"[kremlin] true args = %d\n", num_args);
-
-	//__main(argc,argv);
 
 	int i;
 	char** start = &argv[argc - num_args-1];

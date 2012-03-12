@@ -26,7 +26,6 @@ static FILE* stream;
 
 void DebugInit(char* str) {
 	stream = fopen(str, "w");
-
     RegionIdsCreate(&regionBreaks);
 }
 
@@ -37,11 +36,12 @@ void DebugDeinit() {
 }
 
 void dbg_int(int sig) {
+#ifdef KREMLIN_DEBUG
 	fprintf(stdout,"\nWelcome to the Kremlin interactive debugger!\n");
-
 	__kremlin_idbg = 1;
 	__kremlin_idbg_run_state = Waiting;
-	(void)signal(sig,SIG_DFL);
+#endif
+	(void)signal(sig, SIG_DFL);
 }
 
 char** tokenizeString(char* str) {
