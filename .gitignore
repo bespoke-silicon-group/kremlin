@@ -2,3 +2,9 @@
 *~
 *.bc
 *.ll
+*.nfs*
+2.8-obj/
+2.8-src/
+llvm-2.8.tgz
+llvm-gcc-4.2-2.8-src/
+llvm-gcc-4.2-2.8.source.tgz
