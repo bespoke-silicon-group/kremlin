@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# take 2... please ignore
+# take 3... please ignore
 
 # The script's directory
 ROOT_DIR=`dirname $0`
