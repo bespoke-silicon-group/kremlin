@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#another change just to test git
 
 # The script's directory
 ROOT_DIR=`dirname $0`
