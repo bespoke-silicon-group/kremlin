@@ -1100,6 +1100,17 @@ namespace {
 			return true;
 		}
 
+		std::string composeNameWithId(Value *val, unsigned int id) {
+			std::stringstream name_ss;
+			if(val->hasName()) {
+				name_ss << val->getName().str();
+			}
+
+			name_ss << "__kid_" << id;
+			
+			return name_ss.str();
+		}
+
 		// For all non-pointer args, associates ID with arg and also inserts call to transferAndUnlinkArg()
 		void setupFuncArgs(Function* func, std::map<Value*,unsigned int>& inst_to_id, unsigned int& curr_id, InstrumentationCalls& front, bool init_to_const) {
 			LLVMTypes types(func->getContext());
@@ -1112,6 +1123,8 @@ namespace {
 					//cerr << arg_it->getName() << " is passed by value...\n";
 
 					inst_to_id[arg_it] = curr_id;
+
+					arg_it->setName(composeNameWithId(arg_it,curr_id));
 
 					op_args.push_back(ConstantInt::get(types.i32(),curr_id)); // dest ID
 
@@ -1162,24 +1175,15 @@ namespace {
 						// if we had to assign this an ID earlier (probably a PHI) then don't give it another one now
 						if(inst_to_id[i] != 0) { continue; }
 
-						/*
-						if(isa<BinaryOperator>(i) 
-						  || isa<CastInst>(i) && isa<Constant>(cast<CastInst>(i)->getOperand(0))
-						  || isa<CmpInst>(i) 
-						  || isa<LoadInst>(i)
-						  || isa<PHINode>(i)
-						  || isa<SelectInst>(i) 
-						  || isa<InsertValueInst>(i)
-						  || isa<ExtractValueInst>(i)
-						  // TODO: callinst's returning pointers shouldn't get values?
-						  // TODO: we probably don't need ID for func that returns void
-						  || isa<CallInst>(i)
-						  || isa<InvokeInst>(i)
-						  || isa<AllocaInst>(i)
-						  ) {
-						*/
 						if(requiresInstID(i)) {
 							inst_to_id[i] = curr_id;
+							
+							// make sure we aren't trying to rename something
+							// that doesn't have a return (e.g.
+							// call inst that returns void)
+							if(!i->getType()->isVoidTy()) {
+								i->setName(composeNameWithId(i,curr_id));
+							}
 							curr_id++;
 						}
 						// if a cast of non-const, then we just use the ID from the cast's op
@@ -1196,6 +1200,8 @@ namespace {
 
 								inst_to_id[i] = curr_id;
 								inst_to_id[op] = curr_id;
+
+								op->setName(composeNameWithId(op,curr_id));
 
 								curr_id++;
 							}
