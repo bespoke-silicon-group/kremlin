@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# change to test e-mailing script
+# take 2... please ignore
 
 # The script's directory
 ROOT_DIR=`dirname $0`
