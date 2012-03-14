@@ -87,7 +87,7 @@ void logRegionExit(UInt64 region_id, UInt region_type) {
 void cppEntry() {}
 void cppExit() {}
 
-void setupLocalTable(UInt maxVregNum) {}
+void setupLocalTable(UInt maxVregNum, UInt maxLoopDepth) {}
 
 void printProfileData() {}
 int main(int argc, char* argv[]) { __main(argc,argv); }
