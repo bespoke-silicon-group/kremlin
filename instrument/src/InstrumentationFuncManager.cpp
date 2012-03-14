@@ -69,7 +69,6 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 	addFunc("_KInductionDep", uint);
 
-
 	addFunc("_KPrepInvoke", uint);
 	addFunc("_KInvokeThrew", uint);
 	addFunc("_KInvokeOkay", uint);
