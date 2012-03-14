@@ -754,19 +754,19 @@ namespace {
 				else
 					LOG_DEBUG() << "got a call to function via function pointer: " << *ci;
 
-				// insert call to prepareCall to setup the structures needed to pass arg and return info efficiently
+				// insert call to _KPrepCall to setup the structures needed to pass arg and return info efficiently
                 InstrumentedCall<Callable>* instrumented_call;
                 instrumentationCalls.push_back(instrumented_call = new InstrumentedCall<Callable>(ci, bb_call_idx));
 
                 args.push_back(ConstantInt::get(types.i64(),instrumented_call->getId()));   // Call site ID
                 args.push_back(ConstantInt::get(types.i64(),0));                            // ID of region being called. TODO: Implement
-				front.addCallInst(ci, "prepareCall", args);
+				front.addCallInst(ci, "_KPrepCall", args);
                 args.clear();
 
-				// if this call returns a value, we need to call addReturnValueLink
+				// if this call returns a value, we need to call _KLinkReturn
 				if(returnsRealValue(ci)) {
 					args.push_back(ConstantInt::get(types.i32(),inst_to_id[ci])); // dest ID
-					front.addCallInst(ci, "addReturnValueLink", args);
+					front.addCallInst(ci, "_KLinkReturn", args);
 					args.clear();
 				}
 
@@ -778,15 +778,15 @@ namespace {
 					LOG_DEBUG() << "checking arg: " << *the_arg << "\n";
 
 					if(!isa<PointerType>(the_arg->getType())) {
-						if(!isa<Constant>(*arg_it)) { // not a constant so we need to call linkArgToAddr
+						if(!isa<Constant>(*arg_it)) { // not a constant so we need to call _KLinkArg
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[the_arg])); // src ID
 
-							front.addCallInst(ci, "linkArgToLocal", args);
+							front.addCallInst(ci, "_KLinkArg", args);
 
 							args.clear();
 						}
-						else { // this is a constant so call linkArgToConst instead (which takes no args)
-							front.addCallInst(ci, "linkArgToConst", args);
+						else { // this is a constant so call _KLinkArgConst instead (which takes no args)
+							front.addCallInst(ci, "_KLinkArgConst", args);
 						}
 					}
 				} // end for(arg_it)
@@ -1111,7 +1111,8 @@ namespace {
 			return name_ss.str();
 		}
 
-		// For all non-pointer args, associates ID with arg and also inserts call to transferAndUnlinkArg()
+		// For all non-pointer args, associates ID with arg and also inserts
+		// call to _KUnlinkArg()
 		void setupFuncArgs(Function* func, std::map<Value*,unsigned int>& inst_to_id, unsigned int& curr_id, InstrumentationCalls& front, bool init_to_const) {
 			LLVMTypes types(func->getContext());
 			std::vector<Value*> op_args;
@@ -1128,8 +1129,10 @@ namespace {
 
 					op_args.push_back(ConstantInt::get(types.i32(),curr_id)); // dest ID
 
-					// if we want to initialize to constants (e.g. in main), then we insert call to linkAssignmentConst, otherwise we use transferAndUnlinkArg to set init values
-					std::string func_to_insert = init_to_const ? "logAssignmentConst":"transferAndUnlinkArg";
+					// if we want to initialize to constants (e.g. in main),
+					// then we insert call to linkAssignmentConst, otherwise
+					// we use _KUnlinkArg to set init values
+					std::string func_to_insert = init_to_const ? "_KAssignConst":"_KUnlinkArg";
 
 					// insert at the very beginning of the function
 					front.addCallInst(func->begin()->begin(), func_to_insert, op_args);
@@ -1383,7 +1386,8 @@ namespace {
 						Value* op0;
 						Value* op1;
 
-						// if this is a select inst, we need to call addControlDep before using the condition of the op
+						// if this is a select inst, we need to call
+						// _KPushCDep before using the condition of the op
 						if(isa<SelectInst>(i)) {
 							SelectInst* sel_inst = cast<SelectInst>(i);
 							op0 = sel_inst->getTrueValue();
@@ -1393,7 +1397,7 @@ namespace {
 
 							args2.push_back(ConstantInt::get(types.i32(),inst_to_id[sel_inst->getCondition()]));
 
-							inst_calls_end.addCallInst(i,"addControlDep",args2);
+							inst_calls_end.addCallInst(i,"_KPushCDep",args2);
 
 							// call to removeInit after select inst
 							args2.clear();
@@ -1406,7 +1410,7 @@ namespace {
 						if(red_var_ops.find(i) != red_var_ops.end()) { // special function if this is a reduction variable op
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
-							inst_calls_end.addCallInst(i,"logReductionVar",args);
+							inst_calls_end.addCallInst(i,"_KReduction",args);
 						}
 						else if(isa<Constant>(op0) || isa<Constant>(op1)) { // const propagation should stop these from both being constant
 
@@ -1416,43 +1420,44 @@ namespace {
 							if(canon_incs.find(i) != canon_incs.end()) {
 								args.clear();
 
-								func_to_use = "logInductionVar";
+								func_to_use = "_KInduction";
 							}
-							// if both ops are constant, then we should use logAssignmentConst
+							// if both ops are constant, then we should use
+							// _KAssignConst
 							else if(isa<Constant>(op0) && isa<Constant>(op1)) {
 								args.clear();
 
 								LOG_DEBUG() << "NOTE: both operands are constant... did you forget to run constant propagation before this?\n";
 
-								func_to_use = "logAssignmentConst";
+								func_to_use = "_KAssignConst";
 							}
 							else if(isa<Constant>(op0)) {
 								args.push_back(ConstantInt::get(types.i32(),inst_to_id[op1])); // src ID
-								func_to_use = "logBinaryOpConst";
+								func_to_use = "_KBinaryConst";
 							}
 							else { // op1 is a constant
 								args.push_back(ConstantInt::get(types.i32(),inst_to_id[op0])); // src ID
-								func_to_use = "logBinaryOpConst";
+								func_to_use = "_KBinaryConst";
 							}
 
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
 							inst_calls_end.addCallInst(i,func_to_use,args);
 						}
-						else { // going to use logBinaryOp() function
-							LOG_DEBUG() << "inserting call to logBinaryOp\n";
+						else { // going to use _KBinary() function
+							LOG_DEBUG() << "inserting call to _KBinary\n";
 
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[op0])); // src0 ID
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[op1])); // src1 ID
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
-							inst_calls_end.addCallInst(i,"logBinaryOp",args);
+							inst_calls_end.addCallInst(i,"_KBinary",args);
 						}
 
 						// if this was a select, we need to end the control dep now that we have the correct logging func inserted
 						if(isa<SelectInst>(i)) {
 							args.clear();
-							inst_calls_end.addCallInst(i,"removeControlDep",args);
+							inst_calls_end.addCallInst(i,"_KPopCDep",args);
 						}
 
 						args.clear();
@@ -1461,13 +1466,14 @@ namespace {
 				else if(isa<CastInst>(i) && isa<Constant>(cast<CastInst>(i)->getOperand(0))) {
 					Value* op = i->getOperand(0);
 
-					// if this is a cast of a constant, we create a logAssignmentConst for this cast instruction
+					// if this is a cast of a constant, we create a
+					// _KAssignConst for this cast instruction
 					if(isa<Constant>(op)) {
 						LOG_DEBUG() << "inst is cast of a constant\n";
 
 						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
-						inst_calls_end.addCallInst(i,"logAssignmentConst",args);
+						inst_calls_end.addCallInst(i,"_KAssignConst",args);
 
 						args.clear();
 					}
@@ -1478,14 +1484,14 @@ namespace {
 					LOG_DEBUG() << "inst is an alloca\n";
 					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
-					inst_calls_end.addCallInst(i,"logAssignmentConst",args);
+					inst_calls_end.addCallInst(i,"_KAssignConst",args);
 
 					args.clear();
 				}
 
 				// insertvalue takes a struct and inserts a value into a specified position in the struct, returning the updated struct
-				// We use logInsertValue/logInsertValueConst to track the dependencies between the inserted value and the struct into
-				// which it is inserted. Note we can't just use logAssignment here because if we happen to insert a constant after
+				// We use _KInsertVal/_KInsertValConst to track the dependencies between the inserted value and the struct into
+				// which it is inserted. Note we can't just use _KAssign here because if we happen to insert a constant after
 				// inserting another value, the struct's timestamp will use the constant time instead of the more accurate other value
 				// time.
 				// TODO: track the individual parts of the struct that are changing rather than the whole struct
@@ -1507,17 +1513,17 @@ namespace {
 					}
 
 					if(isa<Constant>(i->getOperand(1))) {
-						inst_calls_end.addCallInst(i,"logInsertValueConst",args);
+						inst_calls_end.addCallInst(i,"_KInsertValConst",args);
 					}
 					else {
-						inst_calls_end.addCallInst(i,"logInsertValue",args);
+						inst_calls_end.addCallInst(i,"_KInsertVal",args);
 					}
 
 					args.clear();
 				}
 
 				// extractvalue just returns the specified index of a specified struct
-				// currently we just use logAssignment; in the future we should have a new function which takes into account the index being extracted
+				// currently we just use _KAssign; in the future we should have a new function which takes into account the index being extracted
 				else if(isa<ExtractValueInst>(i)) {
 					LOG_DEBUG() << "inst is an extractvalue\n";
 
@@ -1525,7 +1531,7 @@ namespace {
 					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
 					// log assignment between the struct and the resulting value we pull out of it
-					inst_calls_end.addCallInst(i,"logAssignment",args);
+					inst_calls_end.addCallInst(i,"_KAssign",args);
 
 					args.clear();
 				}
@@ -1539,14 +1545,14 @@ namespace {
 
 					Function* called_func = untangleCall(ci);
 
-					// calls to malloc and calloc get logMalloc(addr, size) call
+					// calls to malloc and calloc get _KMalloc(addr, size) call
 					if(called_func 
 					  && (called_func->getName() == "malloc" || called_func->getName() == "calloc")
 					  ) {
 						LOG_DEBUG() << "inst is a call to malloc/calloc\n";
 
 						// insert address (return value of callinst)
-						LOG_DEBUG() << "adding return value of inst as arg to logMalloc\n";
+						LOG_DEBUG() << "adding return value of inst as arg to _KMalloc\n";
 						args.push_back(ci);
 
 						// insert size (arg 0 of func)
@@ -1556,11 +1562,11 @@ namespace {
 
 						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 						
-						inst_calls_end.addCallInst(i,"logMalloc",args);
+						inst_calls_end.addCallInst(i,"_KMalloc",args);
 						args.clear();
 					}
 
-					// calls to free get logFree(addr) call
+					// calls to free get _KFree(addr) call
 					else if(called_func && called_func->getName() == "free") {
 						LOG_DEBUG() << "inst is a call to free\n";
 
@@ -1574,7 +1580,7 @@ namespace {
 						}
 
 
-						inst_calls_end.addCallInst(i,"logFree",args);
+						inst_calls_end.addCallInst(i,"_KFree",args);
 						args.clear();
 					}
 
@@ -1599,14 +1605,15 @@ namespace {
 
 						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
-						inst_calls_end.addCallInst(i,"logRealloc",args);
+						inst_calls_end.addCallInst(i,"_KRealloc",args);
 						args.clear();
 					}
 
 					else if(called_func && called_func->getName() == "fscanf") {
 						LOG_DEBUG() << "inst is call to fscanf\n";
 
-						// for each of the values we are writing to, we'll use logStoreInstConst since it will be an address being passed to fscanf
+						// for each of the values we are writing to, we'll use
+						// _KStoreConst since it will be an address being passed to fscanf
 						for(unsigned idx = 2; idx < ci->getNumArgOperands(); ++idx) {
 							// we need to make sure this has type i8*
 							if(isNBitIntPointer(ci->getArgOperand(idx),8)) {
@@ -1619,7 +1626,7 @@ namespace {
 							// TODO: figure out what to actually do here...
 							args.push_back(ConstantInt::get(types.i32(),4));
 
-							inst_calls_end.addCallInst(i,"logStoreInstConst",args);
+							inst_calls_end.addCallInst(i,"_KStoreConst",args);
 							args.clear();
 						}
 					}
@@ -1635,7 +1642,8 @@ namespace {
 
 						args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
-						// as long at is isn't a constant, we are going to use it as an input to logLibraryCall
+						// as long at is isn't a constant, we are going to use
+						// it as an input to _KCallLib
 						for(unsigned int q = 0; q < ci->getNumArgOperands(); ++q) {
 							Value* operand = ci->getArgOperand(q);
 
@@ -1660,7 +1668,7 @@ namespace {
 							}
 						}
 
-						inst_calls_end.addCallInst(i,"logLibraryCall",args);
+						inst_calls_end.addCallInst(i,"_KCallLib",args);
 
 						args.clear();
 					}
@@ -1671,7 +1679,7 @@ namespace {
 					static int invoke_id = 0;
 					ConstantInt* invoke_id_const = ConstantInt::get(types.i32(),invoke_id++);
 					args.push_back(invoke_id_const);
-					inst_calls_begin.addCallInst(i,"prepareInvoke",args);
+					inst_calls_begin.addCallInst(i,"_KPrepInvoke",args);
 
 					//The exception value is pushed on to the stack, so we are not allowed to call any other function until the
 					//value has been grabbed. As a result, we must push the instrumentation call to be after these calls,
@@ -1699,23 +1707,23 @@ namespace {
 							}
 						}
 
-						LOG_DEBUG() << "inserting invokeThrew before " << PRINT_VALUE(*insert_before) << "\n";
+						LOG_DEBUG() << "inserting _KInvokeThrew before " << PRINT_VALUE(*insert_before) << "\n";
 
-						inst_calls_end.addCallInstBefore(insert_before, "invokeThrew", args);
+						inst_calls_end.addCallInstBefore(insert_before, "_KInvokeThrew", args);
 					}
 
-					// insert invokeOkay for this invoke instruction
+					// insert _KInvokeOkay for this invoke instruction
 					{
 						BasicBlock* blk = ii->getNormalDest();
 						Instruction* insert_before = blk->getFirstNonPHI();
-						inst_calls_begin.addCallInstBefore(insert_before, "invokeOkay", args);
+						inst_calls_begin.addCallInstBefore(insert_before, "_KInvokeOkay", args);
 					}
 
 					args.clear();
 					instrumentCall(ii, inst_to_id, inst_calls_begin, bb_call_idx++);
 				} // end invokeinst
 
-				// store is either logStoreInst or logStoreInstConst (if storing a constant)
+				// store is either _KStore or _KStoreConst (if storing a constant)
 				else if(isa<StoreInst>(i)) {
 					LOG_DEBUG() << "inst is a store inst\n";
 
@@ -1734,10 +1742,10 @@ namespace {
 
 
 					if(isa<Constant>(si->getOperand(0))) {
-						inst_calls_end.addCallInst(i,"logStoreInstConst",args);
+						inst_calls_end.addCallInst(i,"_KStoreConst",args);
 					}
 					else {
-						inst_calls_end.addCallInst(i,"logStoreInst",args);
+						inst_calls_end.addCallInst(i,"_KStore",args);
 					}
 
 					args.clear();
@@ -1779,23 +1787,23 @@ namespace {
 					std::string inst_op_name = "";
 					switch(args.size()) {
 						case 2:
-							inst_op_name = "logLoadInst";
+							inst_op_name = "_KLoad";
 							break;
 						case 3:
 							LOG_DEBUG() << "load has 1 dep\n";
-							inst_op_name = "logLoadInst1Src";
+							inst_op_name = "_KLoad1";
 							break;
 						case 4:
 							LOG_DEBUG() << "load has 2 deps\n";
-							inst_op_name = "logLoadInst2Src";
+							inst_op_name = "_KLoad2";
 							break;
 						case 5:
 							LOG_DEBUG() << "load has 3 deps\n";
-							inst_op_name = "logLoadInst3Src";
+							inst_op_name = "_KLoad3";
 							break;
 						case 6:
 							LOG_DEBUG() << "load has 4 deps\n";
-							inst_op_name = "logLoadInst4Src";
+							inst_op_name = "_KLoad4";
 							break;
 						default:
 							assert(0 && "Cannot handle more than 4 deps for load insts for now");
@@ -1818,13 +1826,13 @@ namespace {
 					if(returnsRealValue(blk->getParent()) // make sure this returns a non-pointer
 					  && ri->getNumOperands() != 0) { // and that it isn't returning void
 						if(isa<Constant>(ri->getReturnValue(0))) {
-							inst_calls_end.addCallInst(i,"logFuncReturnConst",args);
+							inst_calls_end.addCallInst(i,"_KReturnConst",args);
 							LOG_DEBUG() << "returning const value\n";
 						}
 						else {
 							args.push_back(ConstantInt::get(types.i32(),inst_to_id[ri->getReturnValue(0)])); // src ID
 
-							inst_calls_end.addCallInst(i,"logFuncReturn",args);
+							inst_calls_end.addCallInst(i,"_KReturn",args);
 							LOG_DEBUG() << "returning non-const value\n";
 						}
 					}
@@ -1928,31 +1936,33 @@ namespace {
 					unsigned int num_control_deps = control_deps.size();
 
 					// In order to avoid using a var arg function for LogPhiNode, we break this up into chunks
-					// of 4 (logPhiNode4CD) plus remaining (logPhiNodeXCD, where X is 1,2, or 3).
+					// of 4 (_KPhiNode4To1) plus remaining (_KPhiNodeNTo1, where N is 1,2, or 3).
 					if(num_control_deps <= 4 && num_control_deps > 0) {
 						// tack the control deps on to arg list
 						args.insert(args.end(),control_deps.begin(),control_deps.end());
 
 						std::stringstream ss;
-						ss << "logPhiNode" << num_control_deps << "CD";
+						ss << "_KPhi" << num_control_deps << "To1";
 
 						// insert call to appropriate logging function at begining of blk
 						inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),ss.str(),args);
 					}
 					else if(num_control_deps > 0) {
-						// push the first 4 control deps on and create call to logPhiNode4CD
+						// push the first 4 control deps on and create call to
+						// _KPhi4To1
 						for(unsigned j = 0; j < 4; ++j) {
 							args.push_back(control_deps[j]);
 						}
 
-						inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"logPhiNode4CD",args);
+						inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"_KPhi4To1",args);
 
-						// save dest because we'll need it for each call to log4CDToPhiNode
+						// save dest because we'll need it for each call to
+						// _KPhiCond4To1
 						Value* dest_val = args[0];
 
 						args.clear();
 
-						// keep constructing log4CDToPhiNode calls until we run out of control deps
+						// keep constructing _KPhiCond4To1 calls until we run out of control deps
 						unsigned int num_args_added = 0;
 
 						for(unsigned dep_index = 4; dep_index < num_control_deps; ++dep_index) {
@@ -1968,11 +1978,12 @@ namespace {
 
 							// got a full set of args so let's create the func call
 							if(num_args_added == 0) {
-								inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"log4CDToPhiNode",args);
+								inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"_KPhiCond4To1",args);
 							}
 						}
 
-						// if we didn't have enough control deps to complete log4CDToPhiNode then we repeat an arbitrary control dep (e.g. the first one) to
+						// if we didn't have enough control deps to complete
+						// _KPhiCond4To1 then we repeat an arbitrary control dep (e.g. the first one) to
 						// get the required number of args
 						if(num_args_added != 0) {
 							Constant* padding = ConstantInt::get(types.i32(), 0); // 0 should indicate this is padding
@@ -1981,7 +1992,7 @@ namespace {
 								num_args_added++;
 							} while(num_args_added < 4);
 
-							inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"log4CDToPhiNode",args);
+							inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"_KPhiCond4To1",args);
 						}
 					}
 
@@ -2019,7 +2030,7 @@ namespace {
 										args.push_back(ConstantInt::get(types.i32(), dest_id));                                            // dest ID
 										args.push_back(ConstantInt::get(types.i32(), getConditionIdOfBlock(blk, inst_to_id)));             // condition ID
 
-										inst_calls_begin.addCallInstBefore(successor->getFirstNonPHI(),"logPhiNodeAddCondition",args);
+										inst_calls_begin.addCallInstBefore(successor->getFirstNonPHI(),"_KPhiAddCond",args);
 										args.clear();
 									}
 								}
@@ -2039,7 +2050,7 @@ namespace {
 										assert(0);
 									}
 									assert(condition);
-									inst_calls_end.addCallInstAfter(condition,"logPhiNodeAddCondition",args);
+									inst_calls_end.addCallInstAfter(condition,"_KPhiAddCond",args);
 									args.clear();
 								}
 							}
@@ -2063,7 +2074,8 @@ namespace {
 
 			for (BasicBlock::iterator i = blk->begin(), inst_end = blk->getFirstNonPHI(); i != inst_end; ++i) {
 
-				// If this a PHI that is a loop induction var, we only logAssignment when we first enter the loop so that we don't get
+				// If this a PHI that is a loop induction var, we only
+				// _KAssign when we first enter the loop so that we don't get
 				// caught in a dependency cycle. For example, the induction var inc would get the time of t_init for the first iter,
 				// which would then force the next iter's t_init to be one higher and so on and so forth...
 				if(canon_indvs.find(cast<PHINode>(i)) != canon_indvs.end()) {
@@ -2072,7 +2084,7 @@ namespace {
 					PHINode* phi = cast<PHINode>(i);
 
 					// Loop through all incoming vals of PHI and find the one that is constant (i.e. initializes the loop to 0).
-					// We then insert a call to logAssignmentConst() to permanently set the time of this to whatever t_init happens
+					// We then insert a call to _KAssignConst() to permanently set the time of this to whatever t_init happens
 					// to be in the BB where that value comes from.
 					int const_idx = -1;
 
@@ -2095,10 +2107,10 @@ namespace {
 
 					BasicBlock* in_blk = phi->getIncomingBlock(const_idx);
 
-					// finally, we will insert the call to logAssignmentConst
+					// finally, we will insert the call to _KAssignConst
 					args.push_back(ConstantInt::get(types.i32(),inst_to_id[i])); // dest ID
 
-					inst_calls_end.addCallInstBefore(in_blk->getTerminator(),"logInductionVar",args);
+					inst_calls_end.addCallInstBefore(in_blk->getTerminator(),"_KInduction",args);
 
 					args.clear();
 				}
@@ -2137,11 +2149,11 @@ namespace {
 				}
 
 				args.push_back(ConstantInt::get(types.i32(),cond_id)); // cond ID
-				inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"addControlDep",args);
+				inst_calls_begin.addCallInstBefore(blk->getFirstNonPHI(),"_KPushCDep",args);
 
 				args.clear();
 
-				inst_calls_end.addCallInstBefore(blk->getTerminator(),"removeControlDep",args);
+				inst_calls_end.addCallInstBefore(blk->getTerminator(),"_KPopCDep",args);
 
 				args.clear();
 			}
@@ -2225,7 +2237,7 @@ namespace {
 				
 
 				// Set up the arguments to this function. They will either be initialized to constants (if this is main) or the values will be
-				// transferred from the caller function using transferAndUnlinkArg
+				// transferred from the caller function using _KUnlinkArg
 				// Note that fortran's main is a vararg function with no formal args. The only way we will have a vararg function here
 				// is if this is a fortran main, in which case we don't want to try setting up the function arguments.
 				if(!func->isVarArg()) {
@@ -2241,7 +2253,7 @@ namespace {
 				} 
 
 				// Phi nodes associated with canonical induction vars require that all insts that can be inserted at the back 
-				// (other than removeControlDep()) have already been "inserted".
+				// (other than _KPopCDep()) have already been "inserted".
 				// This requirement is satisfied now that we have done the instrumenting ops phase so we can process these special
 				// phi nodes.
 				for (Function::iterator blk = func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
@@ -2253,13 +2265,13 @@ namespace {
 					instrumentBasicBlockControlDeps(blk,inst_to_id,inst_calls_begin,inst_calls_end);
 				}
 
-				// insert call to setupLocalTable so we know how many spots in the local table to allocate 
+				// insert call to _KPrepRTable so we know how many spots in the local table to allocate 
 				// (this function will go away when we implement logFunctionEntry)
 				args.push_back(ConstantInt::get(types.i32(),curr_id)); // number of virtual registers
 				// insert placeholder which will later be updated with the
 				// max loop nest depth in this function
 				args.push_back(ConstantInt::get(types.i32(),0));
-				inst_calls_begin.addCallInstBefore(func->begin()->begin(),"setupLocalTable",args);
+				inst_calls_begin.addCallInstBefore(func->begin()->begin(),"_KPrepRTable",args);
 				args.clear();
 
 				// add calls to BBs (as needed)
