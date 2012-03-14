@@ -9,6 +9,11 @@
 *.ll
 *.log
 *.pyc
+nesting.dot
+sregions.txt
+region.graph
+kremlin.mk
+kremlin_region_graph.dot
 
 
 #############################
@@ -21,3 +26,6 @@ llvm-gcc-4.2-2.8-src/
 llvm-gcc-4.2-2.8.source.tgz
 instrument/llvm/install/
 instrument/llvm/llvm-gcc-4.2-2.8-obj/
+
+
+kremlin.bin
