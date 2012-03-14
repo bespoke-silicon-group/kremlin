@@ -770,22 +770,22 @@ namespace {
                 func->getName() == CPP_RETHROW_FUNC_NAME;
         }
 
-		// INVARIANT: exactly one call to setupLocalTable in entry BB of func
+		// INVARIANT: exactly one call to _KPrepRTable in entry BB of func
 		void updateRegTableSetup(Function* func, unsigned int max_depth) {
 			LLVMTypes types(func->getContext());
 
 			BasicBlock* entry_bb = func->begin();
 
-			// scan through insts to find call to setupLocalTable
+			// scan through insts to find call to _KPrepRTable
 			// note: entry bb shouldn't have any PHI nodes so don't bother
 			// with the getFirstNonPHI() function
 			for(BasicBlock::iterator inst = entry_bb->begin(), inst_end = entry_bb->end(); inst != inst_end; ++inst) {
 				if(CallInst* ci = dyn_cast<CallInst>(inst)) {
 					Function* called_func = ci->getCalledFunction();
-					// check to see if this is call to setupLocalTable
+					// check to see if this is call to _KPrepRTable
 					if(called_func
 						&& called_func->hasName()
-						&& called_func->getName().compare("setupLocalTable") == 0
+						&& called_func->getName().compare("_KPrepRTable") == 0
 					  ) {
 						// TODO: sanity check to make sure arg 2 is constant 0
 						ci->setArgOperand(1,ConstantInt::get(types.i32(),max_depth));
@@ -875,7 +875,7 @@ namespace {
 				std::vector<Loop*> function_loops = harvestLoops(LI,max_depth);
 				//std::sort(function_loops.begin(), function_loops.end());
 
-				// use max_depth info to update setupLocalTable
+				// use max_depth info to update _KPrepRTable
 				updateRegTableSetup(&func,max_depth);
 
 				log.debug() << "found " << function_loops.size() << " loops in function " << func.getName() << "\n";
