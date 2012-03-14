@@ -268,7 +268,8 @@ namespace {
 				return;
 			}
 
-			// create a pre-header BB where we will insert a call to logRegionEntry()
+			// create a pre-header BB where we will insert a call to
+			// _KEnterRegion()
 			BasicBlock* preheader = BasicBlock::Create(loop_header->getContext(), loop_header->getName() + ".preheader", loop_header->getParent(), loop_header);
 
 			/*
@@ -285,12 +286,13 @@ namespace {
 
 			promotePHIsToOtherBlock(loop_header, preheader);
 
-			// scan through loop_header to see if we have any calls to logRegionEntry()... if so we move those to the preheader
+			// scan through loop_header to see if we have any calls to
+			// _KEnterRegion()... if so we move those to the preheader
 			std::vector<CallInst*> to_move;
 
 			for(BasicBlock::iterator inst = loop_header->getFirstNonPHI(), inst_end = loop_header->end(); inst != inst_end; ++inst) {
 				if(CallInst* ci = dyn_cast<CallInst>(inst)) {
-					if(ci->getCalledFunction() && ci->getCalledFunction()->getName() == "logRegionEntry") {
+					if(ci->getCalledFunction() && ci->getCalledFunction()->getName() == "_KEnterRegion") {
 						to_move.push_back(ci);
 					}
 				}
@@ -302,7 +304,7 @@ namespace {
 
 			std::vector<Value*> op_args;
 
-			// set up args for call to logRegionEntry(region_id,region_type) in the preheader
+			// set up args for call to _KEnterRegion(region_id,region_type) in the preheader
 			op_args.push_back(ConstantInt::get(types.i64(),region_id));
 			op_args.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_LOOP)); // 2nd arg = 1 means that this is a loop region
 
@@ -312,14 +314,14 @@ namespace {
 			/*
 			op_args.clear();
 
-			// set up args for call to logRegionEntry/Exit(region_id,region_type) for loop region
+			// set up args for call to _KEnter/ExitRegion(region_id,region_type) for loop region
 			op_args.push_back(ConstantInt::get(types.i64(),region_id));
 			op_args.push_back(ConstantInt::get(types.i32(),1));
 			*/
 
 			std::vector<Value*> op_args_loop_body;
 
-			// set up args for call to logRegionEntry/Exit(region_id,region_type) for loop body regions
+			// set up args for call to _KEnter/ExitRegion(region_id,region_type) for loop body regions
 			//std::string loop_body_name = loop->getHeader()->getName().str() + "_body";
 			op_args_loop_body.push_back(ConstantInt::get(types.i64(),body_region_id));
 			op_args_loop_body.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_LOOP_BODY)); // loop body regions have type ID = 2
@@ -354,25 +356,29 @@ namespace {
 
 					log.debug() << "\ttarget " << tar_no << ": " << target->getName() << "\n";
 
-					// We now create a basic block that will act as the "pre-exit" for the loop and contain a call to logRegionExit().
+					// We now create a basic block that will act as the
+					// "pre-exit" for the loop and contain a call to
+					// _KExitRegion().
 					BasicBlock* pre_exit = BasicBlock::Create(loop_header->getContext(), exiting_bb->getName() + ".pre_exit." + target->getName(), loop_header->getParent(), target);
 
 					// jump to target from pre_exit
 					BranchInst::Create(target,pre_exit);
 
-					// If we are instrumenting loop bodies, we need a call to logRegionExit for the loop body region before exiting the loop region.
+					// If we are instrumenting loop bodies, we need a call to
+					// _KExitRegion for the loop body region before exiting the loop region.
 					// We don't want to insert the call if the exiting_bb is the loop header because this implies the header is part of the
-					// loop body. If we did insert logRegionExit here and the loop header isn't part of the body, there is a path that will go through 
-					// logRegionExit for the loop body but not logRegionEntry for the body.
+					// loop body. If we did insert _KExitRegion here and the loop header isn't part of the body, there is a path that will go through 
+					// _KExitRegion for the loop body but not _KEnterRegion for the body.
 					if(loopBodyRegions 
-					  // XXX: Later we assume switch implies header is part of body so we have to insert logRegionExit even if exiting_bb is a header.
+					  // XXX: Later we assume switch implies header is part of
+					  // body so we have to insert _KExitRegion even if exiting_bb is a header.
 					  && (exiting_bb != loop_header || isa<SwitchInst>(loop_header->getTerminator())) 
 					  ) {
 						CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), "", pre_exit->getTerminator());
 						//if(loopBodyRegions && exiting_bb != loop_header) {
 					}
 
-					// insert call to logRegionExit() for loop region right before we leave pre_exit
+					// insert call to _KExitRegion() for loop region right before we leave pre_exit
 					CallInst::Create(logRegionExit_func, op_args.begin(), op_args.end(), "", pre_exit->getTerminator());
 
 					// in the target BB, replace all references to exiting_bb with a reference to pre_exit (this will be phi nodes only)
@@ -393,7 +399,8 @@ namespace {
 
 			// Instrument loop body regions
 			if(loopBodyRegions) {
-				// if the loop header is part of the body (i.e. a do-while loop) then call to logRegionEntry goes in loop header, otherwise
+				// if the loop header is part of the body (i.e. a do-while
+				// loop) then call to _KEnterRegion goes in loop header, otherwise
 				// the call goes to the successor BB that is in the loop (i.e. first block in loop body).
 				// If either of the following two conditions is true, we consider the loop header to NOT be part of the body:
 				//	  1) ends with a switch statement
@@ -421,17 +428,18 @@ namespace {
 						}
 					}
 
-					if(succ_not_in_loop) { // a success was not in loop so the logRegionEntry goes in first BB in the loop body
+					if(succ_not_in_loop) { // a success was not in loop so the _KEnterRegion goes in first BB in the loop body
 						ci->insertBefore(first_loop_bb->getFirstNonPHI());
 					}
-					else { // all successors are in the loop so header is part of loop (insert logRegionEntry there)
+					else { // all successors are in the loop so header is part of loop (insert _KEnterRegion there)
 						ci->insertBefore(loop_header->getFirstNonPHI());
 					}
 				}
 
-				// If this is a single-BB loop then we need to insert the logRegionExit at the end of the header.
+				// If this is a single-BB loop then we need to insert the
+				// _KExitRegion at the end of the header.
 				// Otherwise, we want a single BB where all "continue" edges will go to (so we can insert call to 
-				// logRegionExit for loop body region there).
+				// _KExitRegion for loop body region there).
 				// We don't want to create the extra BB in the single-BB loop case because it wouldn't have anything
 				// in it.
 				ci = CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), ""); // defer placement for now
@@ -444,7 +452,10 @@ namespace {
 
 					BranchInst::Create(loop_header,cont_bb); // create jump from cont_bb to loop_header
 
-					//CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), "", cont_bb->getTerminator()); // now the call to logRegionExit
+					//CallInst::Create(logRegionExit_func,
+					//op_args_loop_body.begin(), op_args_loop_body.end(), "",
+					//cont_bb->getTerminator()); // now the call to
+					//_KExitRegion
 					ci->insertBefore(cont_bb->getTerminator());
 
 					// replace all jumps to loop_header that are in the loop to cont_bb
@@ -456,20 +467,24 @@ namespace {
 
 
 			/*
-			// go through all exit blocks and insert a BB before them that loop nodes jump to (instead of exit bb) and which makes a call to logRegionExit
+			// go through all exit blocks and insert a BB before them that
+			// loop nodes jump to (instead of exit bb) and which makes a call
+			// to _KExitRegion
 			for(std::set<BasicBlock*>::iterator exit_bb_it = exit_bbs_set.begin(), exit_bb_end = exit_bbs_set.end(); exit_bb_it != exit_bb_end; ++exit_bb_it) {
 				BasicBlock* exit_bb = *exit_bb_it;
 
-				// We now create a basic block that will act as the single exit for the loop and contain a call to logRegionExit().
+				// We now create a basic block that will act as the single
+				// exit for the loop and contain a call to _KExitRegion().
 				BasicBlock* loop_exit = BasicBlock::Create(exit_bb->getName() + ".pre_exit", loop_header->getParent(),exit_bb);
 
 				// jump from loop_exit to the exit_bb
 				BranchInst::Create(exit_bb,loop_exit);
 
-				// insert call to logRegionExit() right before we leave loop_exit
+				// insert call to _KExitRegion() right before we leave loop_exit
 				CallInst* ci = CallInst::Create(logRegionExit_func, op_args.begin(), op_args.end(), "", loop_exit->getTerminator());
 
-				// if we are instrumenting loop bodies, we need a call to logRegionExit for the loop body region before exiting the loop region
+				// if we are instrumenting loop bodies, we need a call to
+				// _KExitRegion for the loop body region before exiting the loop region
 				if(loopBodyRegions) {
 					CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), "", ci);
 				}
@@ -505,7 +520,7 @@ namespace {
 
 		// returns true if CallInst is a call that we can inline. If it is inlinable it implies:
 		// 1) It is not a function pointer
-		// 2) It is either a region instrument function (e.g. logBBVisit) or function whose body we have the bitcode for
+		// 2) It is either a region instrument function (e.g. _KBasicBlock) or function whose body we have the bitcode for
 		bool isInlinableCall(CallInst* ci) {
 			// if this is a function pointer then we can't inline
 			if(ci->getCalledFunction() == NULL)
@@ -593,23 +608,23 @@ namespace {
 					getline(file,line);
 					log.debug() << "specified instrumentation for: " << line << "\n";
 
-					if(line == "initProfiler") add_initProfiler_func = true;
-					else if(line == "deinitProfiler") add_deinitProfiler_func = true;
-					else if(line == "printProfileData") add_printProfileData_func = true;
-					else if(line == "logBBVisit") add_logBBVisit_func = true;
-					else if(line == "logRegionEntry") add_logRegionEntry_func = true;
-					else if(line == "logRegionExit") add_logRegionExit_func = true;
+					if(line == "_KInit") add_initProfiler_func = true;
+					else if(line == "_KDeinit") add_deinitProfiler_func = true;
+					else if(line == "_KPrintData") add_printProfileData_func = true;
+					else if(line == "_KBasicBlock") add_logBBVisit_func = true;
+					else if(line == "_KEnterRegion") add_logRegionEntry_func = true;
+					else if(line == "_KExitRegion") add_logRegionExit_func = true;
 					else if(line != "") log.warn() << "unknown instrumentation function: " << line << "\n";
 				}
 
 				// Certain groups of functions must either all be added or none be added.
 				// We check here to make sure those requirements are met.
 				if(add_initProfiler_func != add_deinitProfiler_func) {
-					log.error() << "either both or neither of initProfiler and deinitProfiler must be specified\n";
+					log.error() << "either both or neither of _KInit and _KDeinit must be specified\n";
 					return false;
 				}
 				else if(add_logRegionEntry_func != add_logRegionExit_func) {
-					log.error() << "either both or neither of logRegionEntry and logRegionExit must be specified\n";
+					log.error() << "either both or neither of _KEnterRegion and _KExitRegion must be specified\n";
 					return false;
 				}
 
@@ -686,17 +701,17 @@ namespace {
 			// XXX: probably a better way to do this...
 			// add instrumentation functions to list of defined functions so callsNonInlinableFunc() doesn't get mixed up
 			if(add_initProfiler_func)
-				profilerFunctions.insert("initProfiler");
+				profilerFunctions.insert("_KInit");
 			if(add_deinitProfiler_func)
-				profilerFunctions.insert("deinitProfiler");
+				profilerFunctions.insert("_KDeinit");
 			if(add_printProfileData_func)
-				profilerFunctions.insert("printProfileData");
+				profilerFunctions.insert("_KPrintData");
 			if(add_logBBVisit_func)
-				profilerFunctions.insert("logBBVisit");
+				profilerFunctions.insert("_KBasicBlock");
 			if(add_logRegionEntry_func)
-				profilerFunctions.insert("logRegionEntry");
+				profilerFunctions.insert("_KEnterRegion");
 			if(add_logRegionExit_func)
-				profilerFunctions.insert("logRegionExit");
+				profilerFunctions.insert("_KExitRegion");
 
 			log.info() << "Inserting the following instrumentation calls:\n";
 			foreach(const std::string& func_name, profilerFunctions)
@@ -770,29 +785,30 @@ namespace {
 			Function* logRegionExit_func = NULL;
 
 			if(add_initProfiler_func) {
-				initProfiler_func = cast<Function>(m.getOrInsertFunction("initProfiler", FunctionType::get(types.voidTy(), args, false)));
-				deinitProfiler_func = cast<Function>(m.getOrInsertFunction("deinitProfiler", FunctionType::get(types.voidTy(), args, false)));
+				initProfiler_func = cast<Function>(m.getOrInsertFunction("_KInit", FunctionType::get(types.voidTy(), args, false)));
+				deinitProfiler_func = cast<Function>(m.getOrInsertFunction("_KDeinit", FunctionType::get(types.voidTy(), args, false)));
 			}
 
 			if(add_printProfileData_func)
-				printProfileData_func = cast<Function>(m.getOrInsertFunction("printProfileData", FunctionType::get(types.voidTy(), args, false)));
+				printProfileData_func = cast<Function>(m.getOrInsertFunction("_KPrintData", FunctionType::get(types.voidTy(), args, false)));
 
-			args.push_back(types.i64()); // unique ID (bb_id for logBBVisit, region_id for logRegionEntry/Exit)
+			args.push_back(types.i64()); // unique ID (bb_id for _KBasicBlock, region_id for _KEnter/ExitRegion)
 
 			if(add_logBBVisit_func)
 			{
-				Constant* func_as_const = m.getOrInsertFunction("logBBVisit", FunctionType::get(types.voidTy(), args, false));
+				Constant* func_as_const = m.getOrInsertFunction("_KBasicBlock", FunctionType::get(types.voidTy(), args, false));
 				log.info() << "func as const: " << *func_as_const << "\n"; // XXX: expensive
 				logBBVisit_func = cast<Function>(func_as_const);
 
-				//logBBVisit_func = cast<Function>(m.getOrInsertFunction("logBBVisit", FunctionType::get(types.voidTy(), args, false)));
+				//logBBVisit_func =
+				//cast<Function>(m.getOrInsertFunction("_KBasicBlock", FunctionType::get(types.voidTy(), args, false)));
 			}
 
 			args.push_back(types.i32()); // 2nd arg is the region type
 
 			if(add_logRegionEntry_func) {
-				logRegionEntry_func = cast<Function>(m.getOrInsertFunction("logRegionEntry", FunctionType::get(types.voidTy(), args, false)));
-				logRegionExit_func = cast<Function>(m.getOrInsertFunction("logRegionExit", FunctionType::get(types.voidTy(), args, false)));
+				logRegionEntry_func = cast<Function>(m.getOrInsertFunction("_KEnterRegion", FunctionType::get(types.voidTy(), args, false)));
+				logRegionExit_func = cast<Function>(m.getOrInsertFunction("_KExitRegion", FunctionType::get(types.voidTy(), args, false)));
 			}
 
 			args.clear();
@@ -811,9 +827,11 @@ namespace {
 
 				//log.debug() << "instrumenting function " << func.getName() << "\n";
 
-				// NOTE: Ordering of the instrumentation function insertion is important. logBBVisit() should come first, so it will end
-				//  up being the last instrumentation function called in a BB. Next, logRegionEntry() for loops should be inserted so
-				//  that they come after a possible call to logRegionEntry() for a loop. We need this so that a freq for regions is
+				// NOTE: Ordering of the instrumentation function insertion is
+				// important. _KBasicBlock() should come first, so it will end
+				//  up being the last instrumentation function called in a BB.
+				//  Next, _KEnterRegion() for loops should be inserted so
+				//  that they come after a possible call to _KEnterRegion() for a loop. We need this so that a freq for regions is
 				//  correctly identified (i.e. the function will be the context from which a loop is entered)
 
 				// TODO: keep list of functions we have seen calls to so far so that we dont' have multiple edges in our region graph
@@ -870,7 +888,7 @@ namespace {
 
 				// Insert call to logVisitBB(bb_id) at the beginning of each bb.
 				// We also look to see if the BB ends with a return inst, in which case we need to insert a call
-				//   to logRegionExit() for this function
+				//   to _KExitRegion() for this function
 				for(Function::iterator bb = func.begin(), bb_begin = func.begin(), bb_end = func.end(); bb != bb_end; ++bb) {
 					// if this is the entry to the function, we note the bb_id (for printing out later)
 					if(bb == bb_begin) {
@@ -958,7 +976,8 @@ namespace {
 							op_args.clear();
 						}
 
-						// if this is "main" we insert call to printProfileData() then deinitProfiler
+						// if this is "main" we insert call to
+						// _KPrintData() then _KDeinit
 						if(!(non_returning_call && non_returning_call->getCalledFunction() &&  isCppThrowFunc(non_returning_call->getCalledFunction())) && 
                             (func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0 || is_exit_point)) 
                         {
@@ -974,7 +993,7 @@ namespace {
 					bb_id++;
 				}
 
-				// insert calls to logRegionEntry(region_id) and logRegionExit(region_id) to all loops
+				// insert calls to _KEnterRegion(region_id) and _KExitRegion(region_id) to all loops
 				for(unsigned i = 0; i < function_loops.size(); ++i) {
 
 					RegionId loop_id = loop_header_name_to_region_id[function_loops[i]->getHeader()->getName()];
@@ -997,14 +1016,14 @@ namespace {
 				}
 
 				if(add_logRegionEntry_func) {
-					// finally, we insert call to logRegionEntry() for the beginning of this function
+					// finally, we insert call to _KEnterRegion() for the beginning of this function
 					op_args.push_back(ConstantInt::get(types.i64(),func_region_id));
 					op_args.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_FUNC)); // 0 for 2nd arg means this is a function region
 					CallInst::Create(logRegionEntry_func, op_args.begin(), op_args.end(), "", func.getEntryBlock().getFirstNonPHI());
 					op_args.clear();
 				}
 
-				// if this happens to be main, we also need to call initProfiler()
+				// if this happens to be main, we also need to call _KInit()
 				if(add_initProfiler_func && (func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0)) {
 					CallInst::Create(initProfiler_func, op_args.begin(), op_args.end(), "", func.getEntryBlock().getFirstNonPHI());
 				}

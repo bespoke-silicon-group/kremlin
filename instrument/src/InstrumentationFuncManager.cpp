@@ -49,69 +49,69 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	FunctionType* no_args = FunctionType::get(types.voidTy(), args, false);
 
 	// funcs with no args
-	addFunc("removeControlDep", no_args);
-	addFunc("linkArgToConst", no_args);
+	addFunc("_KPopCDep", no_args);
+	addFunc("_KLinkArgConst", no_args);
 	addFunc("setupUnwindPoint", no_args);
-	addFunc("logFuncReturnConst", no_args);
+	addFunc("_KReturnConst", no_args);
 
 	// funcs with 1 unsigned int arg
 	args.push_back(types.i32()); 
 	FunctionType* uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logAssignmentConst", uint);
-	addFunc("logInsertValueConst", uint);
-	addFunc("addControlDep", uint);
-	addFunc("addReturnValueLink", uint);
-	addFunc("logFuncReturn", uint);
-	addFunc("linkArgToLocal", uint);
-	addFunc("transferAndUnlinkArg", uint);
-	addFunc("logInductionVar", uint);
+	addFunc("_KAssignConst", uint);
+	addFunc("_KInsertValConst", uint);
+	addFunc("_KPushCDep", uint);
+	addFunc("_KLinkReturn", uint);
+	addFunc("_KReturn", uint);
+	addFunc("_KLinkArg", uint);
+	addFunc("_KUnlinkArg", uint);
+	addFunc("_KInduction", uint);
 
-	addFunc("logInductionVarDependence", uint);
+	addFunc("_KInductionDep", uint);
 
-	addFunc("setupLocalTable", uint);
+	addFunc("_KPrepRTable", uint);
 
-	addFunc("prepareInvoke", uint);
-	addFunc("invokeThrew", uint);
-	addFunc("invokeOkay", uint);
+	addFunc("_KPrepInvoke", uint);
+	addFunc("_KInvokeThrew", uint);
+	addFunc("_KInvokeOkay", uint);
 
 	// funcs with 2 unsigned int args
 	args.push_back(types.i32()); 
 	FunctionType* uint_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logAssignment", uint_uint);
-	addFunc("logInsertValue", uint_uint);
-	addFunc("logPhiNodeAddCondition", uint_uint);
-	addFunc("logReductionVar", uint_uint);
+	addFunc("_KAssign", uint_uint);
+	addFunc("_KInsertVal", uint_uint);
+	addFunc("_KPhiAddCondition", uint_uint);
+	addFunc("_KReduction", uint_uint);
 
 	// funcs with 3 unsigned int args
 	args.push_back(types.i32()); 
 	FunctionType* uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
 	FunctionType* uint_uint_uint_varg = FunctionType::get(types.voidTy(), args, true);
 
-	addFunc("logBinaryOpConst", uint_uint_uint);
-	addFunc("logPhiNode1CD", uint_uint_uint);
-	addFunc("logLibraryCall", uint_uint_uint_varg);
+	addFunc("_KBinaryConst", uint_uint_uint);
+	addFunc("_KPhi1To1", uint_uint_uint);
+	addFunc("_KCallLib", uint_uint_uint_varg);
 
 	// funcs with 4 unsigned int args
 	args.push_back(types.i32()); 
 	FunctionType* uint_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logBinaryOp", uint_uint_uint_uint);
-	addFunc("logPhiNode2CD", uint_uint_uint_uint);
+	addFunc("_KBinary", uint_uint_uint_uint);
+	addFunc("_KPhi2To1", uint_uint_uint_uint);
 
 	// funcs with 5 unsigned int args
 	args.push_back(types.i32()); 
 	FunctionType* uint_uint_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logPhiNode3CD", uint_uint_uint_uint_uint);
-	addFunc("log4CDToPhiNode", uint_uint_uint_uint_uint);
+	addFunc("_KPhi3To1", uint_uint_uint_uint_uint);
+	addFunc("_KPhiCond4To1", uint_uint_uint_uint_uint);
 
 	// funcs with 6 unsigned int args
 	args.push_back(types.i32()); 
 	FunctionType* uint_uint_uint_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logPhiNode4CD", uint_uint_uint_uint_uint_uint);
+	addFunc("_KPhi4To1", uint_uint_uint_uint_uint_uint);
 
 	args.clear();
 
@@ -119,7 +119,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	args.push_back(types.i64()); 
 	args.push_back(types.i64()); 
 	FunctionType* uint64_uint64 = FunctionType::get(types.voidTy(), args, false);
-	addFunc("prepareCall", uint64_uint64);
+	addFunc("_KPrepCall", uint64_uint64);
     args.clear();
 
 	// funcs with args other than just Int32Ty
@@ -128,14 +128,14 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	args.push_back(types.i32());
 	FunctionType* uint_pvoid = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logStoreInst", uint_pvoid);
+	addFunc("_KStore", uint_pvoid);
 
 	args.clear();
 	args.push_back(types.pi8()); // void*
 	args.push_back(types.i32());
 	FunctionType* pvoid = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logStoreInstConst", pvoid);
+	addFunc("_KStoreConst", pvoid);
 	args.clear();
 
 	args.push_back(types.pi8()); // void*
@@ -145,7 +145,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	if(Function* f = module.getFunction("free")) 
 	{
 		LOG_DEBUG() << "adding free because we located this function: " << *f;
-		addFunc("logFree", pvoidclean);
+		addFunc("_KFree", pvoidclean);
 	}
 
 	args.push_back(types.i32()); 
@@ -153,27 +153,27 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	args.push_back(types.i32()); 
 	FunctionType* pvoid_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logLoadInst", pvoid_uint);
+	addFunc("_KLoad", pvoid_uint);
 
 	args.push_back(types.i32());
 	FunctionType* pvoid_uint_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logLoadInst1Src", pvoid_uint_uint);
+	addFunc("_KLoad1", pvoid_uint_uint);
 
 	args.push_back(types.i32());
 	FunctionType* pvoid_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logLoadInst2Src", pvoid_uint_uint_uint);
+	addFunc("_KLoad2", pvoid_uint_uint_uint);
 
 	args.push_back(types.i32());
 	FunctionType* pvoid_uint_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logLoadInst3Src", pvoid_uint_uint_uint_uint);
+	addFunc("_KLoad3", pvoid_uint_uint_uint_uint);
 
 	args.push_back(types.i32());
 	FunctionType* pvoid_uint_uint_uint_uint_uint = FunctionType::get(types.voidTy(), args, false);
 
-	addFunc("logLoadInst4Src", pvoid_uint_uint_uint_uint_uint);
+	addFunc("_KLoad4", pvoid_uint_uint_uint_uint_uint);
 
 	args.clear();
 
@@ -206,7 +206,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 		FunctionType* pvoid_sizet = FunctionType::get(types.voidTy(), args, false);
 
-		addFunc("logMalloc", pvoid_sizet);
+		addFunc("_KMalloc", pvoid_sizet);
 
 		args.clear();
 	}
@@ -237,7 +237,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 		FunctionType* pvoid_pvoid_sizet = FunctionType::get(types.voidTy(), args, false);
 
-		addFunc("logRealloc", pvoid_pvoid_sizet);
+		addFunc("_KRealloc", pvoid_pvoid_sizet);
 	}
 }
 
