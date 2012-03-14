@@ -762,7 +762,7 @@ void transferAndUnlinkArg(Reg dest) {
  * Setup the local shadow register table.
  * @param maxVregNum	Number of virtual registers to allocate.
  */
-void setupLocalTable(UInt maxVregNum) {
+void setupLocalTable(UInt maxVregNum, UInt maxLoopDepth) {
     MSG(1, "setupLocalTable size %u \n", maxVregNum);
     if(!isKremlinOn()) {
 		 return; 

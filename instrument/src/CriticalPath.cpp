@@ -2256,6 +2256,9 @@ namespace {
 				// insert call to setupLocalTable so we know how many spots in the local table to allocate 
 				// (this function will go away when we implement logFunctionEntry)
 				args.push_back(ConstantInt::get(types.i32(),curr_id)); // number of virtual registers
+				// insert placeholder which will later be updated with the
+				// max loop nest depth in this function
+				args.push_back(ConstantInt::get(types.i32(),0));
 				inst_calls_begin.addCallInstBefore(func->begin()->begin(),"setupLocalTable",args);
 				args.clear();
 

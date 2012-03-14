@@ -69,8 +69,6 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 	addFunc("logInductionVarDependence", uint);
 
-	addFunc("setupLocalTable", uint);
-
 	addFunc("prepareInvoke", uint);
 	addFunc("invokeThrew", uint);
 	addFunc("invokeOkay", uint);
@@ -83,6 +81,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 	addFunc("logInsertValue", uint_uint);
 	addFunc("logPhiNodeAddCondition", uint_uint);
 	addFunc("logReductionVar", uint_uint);
+	addFunc("setupLocalTable", uint_uint);
 
 	// funcs with 3 unsigned int args
 	args.push_back(types.i32()); 
