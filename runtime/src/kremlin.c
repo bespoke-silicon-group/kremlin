@@ -644,7 +644,7 @@ static inline void idbgAction(char* inst_str, UInt op) {
  * Control Dependence Management
  *****************************************************************/
 
-void addControlDep(Reg cond) {
+void _KPushCDep(Reg cond) {
     MSG(3, "push ControlDep ts[%u]\n", cond);
 	checkRegion();
     if (!isKremlinOn()) {
@@ -681,7 +681,7 @@ void addControlDep(Reg cond) {
 	checkRegion();
 }
 
-void removeControlDep() {
+void _KPopCDep() {
     MSG(3, "pop  ControlDep\n");
     if (!isKremlinOn()) {
 		return;
@@ -702,7 +702,7 @@ void removeControlDep() {
  *****************************************************************/
 
 
-void prepareCall(CID callSiteId, UInt64 calledRegionId) {
+void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
     MSG(1, "prepareCall\n");
     if(!isKremlinOn()) { 
 		return; 
@@ -716,7 +716,7 @@ void prepareCall(CID callSiteId, UInt64 calledRegionId) {
 }
 
 // TODO: need to think how to pass args without TEntry
-void linkArgToLocal(Reg src) {
+void _KLinkArg(Reg src) {
     MSG(1, "linkArgToLocal to ts[%u]\n", src);
     if (!isKremlinOn())
         return;
@@ -726,7 +726,7 @@ void linkArgToLocal(Reg src) {
 #define DUMMY_ARG		-1
 
 // special case for constant arg
-void linkArgToConst() {
+void _KLinkArgConst() {
     MSG(1, "linkArgToConst\n");
     if (!isKremlinOn())
         return;
@@ -736,7 +736,7 @@ void linkArgToConst() {
 
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
-void transferAndUnlinkArg(Reg dest) {
+void _KUnlinkArg(Reg dest) {
     MSG(3, "transfer arg data to ts[%u] \n", dest);
     if (!isKremlinOn())
         return;
@@ -762,7 +762,7 @@ void transferAndUnlinkArg(Reg dest) {
  * Setup the local shadow register table.
  * @param maxVregNum	Number of virtual registers to allocate.
  */
-void setupLocalTable(UInt maxVregNum, UInt maxLoopDepth) {
+void _KPrepRTable(UInt maxVregNum, UInt maxLoopDepth) {
     MSG(1, "setupLocalTable size %u \n", maxVregNum);
     if(!isKremlinOn()) {
 		 return; 
@@ -800,7 +800,7 @@ void setupLocalTable(UInt maxVregNum, UInt maxLoopDepth) {
  * when kremlinOn == 0,
  * most instrumentation functions do nothing.
  */ 
-void turnOnProfiler() {
+void _KTurnOn() {
     kremlinOn = 1;
     MSG(0, "turnOnProfiler\n");
 	fprintf(stderr, "[kremlin] Logging started.\n");
@@ -811,7 +811,7 @@ void turnOnProfiler() {
  *
  * pop the root region pushed in turnOnProfiler()
  */
-void turnOffProfiler() {
+void _KTurnOff() {
     kremlinOn = 0;
     MSG(0, "turnOffProfiler\n");
 	fprintf(stderr, "[kremlin] Logging stopped.\n");
@@ -832,7 +832,7 @@ void resumeProfiler() {
  * logRegionEntry / logRegionExit
  *****************************************************************/
 
-void logRegionEntry(SID regionId, RegionType regionType) {
+void _KEnterRegion(SID regionId, RegionType regionType) {
     if (!isKremlinOn()) { 
 		return; 
 	}
@@ -940,7 +940,7 @@ RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWor
  * @param regionType	Type of region being exited.
  */
 
-void logRegionExit(SID regionId, RegionType regionType) {
+void _KExitRegion(SID regionId, RegionType regionType) {
     if (!isKremlinOn()) { 
 		return; 
 	}
@@ -1043,7 +1043,7 @@ void logRegionExit(SID regionId, RegionType regionType) {
  *****************************************************************/
 
 
-void* logReductionVar(UInt opCost, Reg dest) {
+void* _KReduction(UInt opCost, Reg dest) {
     MSG(3, "logReductionVar ts[%u] with cost = %d\n", dest, opCost);
     if (!isKremlinOn() || !isInstrumentable())
 		return;
@@ -1052,13 +1052,13 @@ void* logReductionVar(UInt opCost, Reg dest) {
     return NULL;
 }
 
-void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
+void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
     MSG(3, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
     if (!isKremlinOn())
         return NULL;
 
 #ifdef KREMLIN_DEBUG
-	idbgAction(KREM_BINOP,"## logBinaryOp(opCost=%u,src0=%u,src1=%u,dest=%u)\n",opCost,src0,src1,dest);
+	idbgAction(KREM_BINOP,"## _KBinary(opCost=%u,src0=%u,src1=%u,dest=%u)\n",opCost,src0,src1,dest);
 #endif
 
     addWork(opCost);
@@ -1099,7 +1099,7 @@ void* logBinaryOp(UInt opCost, Reg src0, Reg src1, Reg dest) {
 	return NULL;
 }
 
-void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
+void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
     MSG(3, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
     if (!isKremlinOn())
         return NULL;
@@ -1108,12 +1108,12 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
 	/*
 	if(__kremlin_idbg) {
 		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## logBinaryOpConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
+    		fprintf(stdout, "## _KBinaryConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
 		}
 		iDebugHandler(KREM_BINOP);
 	}
 	*/
-	idbgAction(KREM_BINOP,"## logBinaryOpConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
+	idbgAction(KREM_BINOP,"## _KBinaryConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
 #endif
 
     addWork(opCost);
@@ -1147,24 +1147,24 @@ void* logBinaryOpConst(UInt opCost, Reg src, Reg dest) {
 }
 
 
-void* logAssignment(Reg src, Reg dest) {
-    MSG(1, "logAssignment ts[%u] <- ts[%u]\n", dest, src);
+void* _KAssign(Reg src, Reg dest) {
+    MSG(1, "_KAssign ts[%u] <- ts[%u]\n", dest, src);
     if (!isKremlinOn())
     	return NULL;
 
 #ifdef KREMLIN_DEBUG
 	if(__kremlin_idbg) {
 		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## logAssignment(src=%u,dest=%u)\n\t",src,dest);
+    		fprintf(stdout, "## _KAssign(src=%u,dest=%u)\n\t",src,dest);
 		}
 	}
 #endif
     
-    return logBinaryOpConst(0, src, dest);
+    return _KBinaryConst(0, src, dest);
 }
 
-void* logAssignmentConst(UInt dest) {
-    MSG(1, "logAssignmentConst ts[%u]\n", dest);
+void* _KAssignConst(UInt dest) {
+    MSG(1, "_KAssignConst ts[%u]\n", dest);
     if (!isKremlinOn())
         return NULL;
 
@@ -1172,12 +1172,12 @@ void* logAssignmentConst(UInt dest) {
 	/*
 	if(__kremlin_idbg) {
 		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## logAssignmentConst(dest=%u)\n",dest);
+    		fprintf(stdout, "## _KAssignConst(dest=%u)\n",dest);
 		}
 		iDebugHandler(KREM_ASSIGN_CONST);
 	}
 	*/
-	idbgAction(KREM_ASSIGN_CONST,"## logAssignmentConst(dest=%u)\n",dest);
+	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest=%u)\n",dest);
 #endif
 
 
@@ -1194,7 +1194,7 @@ void* logAssignmentConst(UInt dest) {
     return NULL;
 }
 
-void* logLoadInst(Addr addr, Reg dest, UInt32 size) {
+void* _KLoad(Addr addr, Reg dest, UInt32 size) {
     MSG(0, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
 	if (size > 8ULL) {
 		fprintf(stderr, "size = %d sizeof(UInt32) = %d\n", size, sizeof(UInt32));
@@ -1253,7 +1253,7 @@ void* logLoadInst(Addr addr, Reg dest, UInt32 size) {
 #endif
 }
 
-void* logLoadInst1Src(Addr addr, UInt src1, UInt dest, UInt32 size) {
+void* _KLoad1(Addr addr, UInt src1, UInt dest, UInt32 size) {
     MSG(0, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
     if (!isKremlinOn())
 		return NULL;
@@ -1298,12 +1298,12 @@ void* logLoadInst1Src(Addr addr, UInt src1, UInt dest, UInt32 size) {
 }
 
 // TODO: implement these
-void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
-void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
-void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
+void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
+void* _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
+void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
 
 
-void* logStoreInst(UInt src, Addr dest_addr, UInt32 size) {
+void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
 	assert(size <= 8);
     MSG(0, "store size %d ts[0x%x] = ts[%u] + %u\n", size, dest_addr, src, STORE_COST);
     if (!isKremlinOn())
@@ -1342,7 +1342,7 @@ void* logStoreInst(UInt src, Addr dest_addr, UInt32 size) {
 }
 
 
-void* logStoreInstConst(Addr dest_addr, UInt32 size) {
+void* _KStoreConst(Addr dest_addr, UInt32 size) {
     MSG(0, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
     if (!isKremlinOn())
         return NULL;
@@ -1377,7 +1377,7 @@ void* logStoreInstConst(Addr dest_addr, UInt32 size) {
 // callee's LogRegionEnter is called.
 // Save the return register name in caller's context
 
-void addReturnValueLink(Reg dest) {
+void _KLinkReturn(Reg dest) {
     MSG(1, "prepare return storage ts[%u]\n", dest);
     if (!isKremlinOn())
         return;
@@ -1396,7 +1396,7 @@ void addReturnValueLink(Reg dest) {
 // read timestamp of the callee register and 
 // update the caller register that will hold the return value
 //
-void logFuncReturn(Reg src) {
+void _KReturn(Reg src) {
     MSG(1, "write return value ts[%u]\n", src);
     if (!isKremlinOn())
         return;
@@ -1426,7 +1426,7 @@ void logFuncReturn(Reg src) {
 #endif
 }
 
-void logFuncReturnConst(void) {
+void _KReturnConst(void) {
     MSG(1, "logFuncReturnConst\n");
     if (!isKremlinOn())
         return;
@@ -1464,9 +1464,9 @@ void logBBVisit(UInt bb_id) {
 }
 #endif
 
-// this function is the same as logAssignmentConst but helps to quickly
+// this function is the same as _KAssignConst but helps to quickly
 // identify induction variables in the source code
-void* logInductionVar(UInt dest) {
+void* _KInduction(UInt dest) {
     MSG(1, "logInductionVar to %u\n", dest);
     if (!isKremlinOn())
 		return NULL;
@@ -1479,7 +1479,7 @@ void* logInductionVar(UInt dest) {
 	}
 #endif
 
-    return logAssignmentConst(dest);
+    return _KAssignConst(dest);
 }
 
 /******************************************************************
@@ -1489,7 +1489,7 @@ void* logInductionVar(UInt dest) {
  *  number of incoming dependences
  ******************************************************************/
 
-void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
+void* _KPhi1To1(UInt dest, UInt src, UInt cd) {
     MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
     if (!isKremlinOn())
 		return NULL;
@@ -1519,7 +1519,7 @@ void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {
 #endif
 }
 
-void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
+void* _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2) {
     MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
     if (!isKremlinOn())
     	return NULL;
@@ -1553,7 +1553,7 @@ void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {
 #endif
 }
 
-void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
+void* _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     MSG(1, "logPhiNode3CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
 
     if (!isKremlinOn())
@@ -1591,7 +1591,7 @@ void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 #endif
 }
 
-void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
 		dest, src, cd1, cd2, cd3, cd4);
 
@@ -1631,7 +1631,7 @@ void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4)
 #endif
 }
 
-void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+void* _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     MSG(1, "log4CDToPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
 		dest, dest, cd1, cd2, cd3, cd4);
 
@@ -1670,7 +1670,7 @@ void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 
 #define MAX_ENTRY 10
 
-void* logPhiNodeAddCondition(UInt dest, UInt src) {
+void* _KPhiAddCond(UInt dest, UInt src) {
     MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
 
     if (!isKremlinOn())
@@ -1750,7 +1750,7 @@ static UInt hasInitialized = 0;
 
 #define REGION_INIT_SIZE	64
 
-Bool kremlinInit() {
+static Bool kremlinInit() {
 	DebugInit("kremlin.log");
     if(hasInitialized++) {
         MSG(0, "kremlinInit skipped\n");
@@ -1779,10 +1779,7 @@ Bool kremlinInit() {
     return TRUE;
 }
 
-
-
-
-Bool kremlinDeinit() {
+static Bool kremlinDeinit() {
     if(--hasInitialized) {
         MSG(0, "kremlinDeinit skipped\n");
         return FALSE;
@@ -1803,11 +1800,11 @@ Bool kremlinDeinit() {
     return TRUE;
 }
 
-void initProfiler() {
+void _KInit() {
     kremlinInit();
 }
 
-void deinitProfiler() {
+void _KDeinit() {
     kremlinDeinit();
 }
 
@@ -1826,7 +1823,7 @@ void printProfileData() {}
 
 // use estimated cost for a callee function we cannot instrument
 // TODO: implement new shadow mem interface
-void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
+void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 
 #ifdef KREMLIN_DEBUG
 	idbgAction(KREM_CD_TO_PHI,"## logLibraryCall(cost=%u,dest=%u,num_in=%u,...)\n",cost,dest,num_in);
@@ -1889,7 +1886,7 @@ void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {
 
 
 // FIXME: support 64 bit address
-void logMalloc(Addr addr, size_t size, UInt dest) {
+void _KMalloc(Addr addr, size_t size, UInt dest) {
 #if 0
     if (!isKremlinOn()) return;
     
@@ -1906,7 +1903,7 @@ void logMalloc(Addr addr, size_t size, UInt dest) {
 }
 
 // TODO: implement for new shadow mem interface
-void logFree(Addr addr) {
+void _KFree(Addr addr) {
 #if 0
     if (!isKremlinOn()) return;
 
@@ -1942,7 +1939,7 @@ void logFree(Addr addr) {
 // TODO: more efficient implementation (if old_addr = new_addr)
 // XXX: This is wrong. Values in the realloc'd location should still have the
 // same timestamp.
-void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
+void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
 #if 0
     if (!isKremlinOn())
         return;
@@ -2025,6 +2022,7 @@ void printMemoryTimes(Addr addr, Index size) {
 	}
 }
 
+#if 0
 /***********************************************
  * DJ: not sure what these are for 
  ************************************************/
@@ -2041,7 +2039,7 @@ void* logInsertValue(UInt src, UInt dest) {
 	}
 #endif
 
-    return logAssignment(src, dest);
+    return _KAssign(src, dest);
 }
 
 void* logInsertValueConst(UInt dest) {
@@ -2056,9 +2054,11 @@ void* logInsertValueConst(UInt dest) {
 	}
 #endif
 
-    return logAssignmentConst(dest);
+    return _KAssignConst(dest);
 }
+#endif
 
+#if 0
 /***********************************************
  * Kremlin CPP Support Functions (Experimental)
  * 
@@ -2089,7 +2089,7 @@ VECTOR_DEFINE_PROTOTYPES(InvokeRecords, InvokeRecord);
 VECTOR_DEFINE_FUNCTIONS(InvokeRecords, InvokeRecord, VECTOR_COPY, VECTOR_NO_DELETE);
 
 
-void prepareInvoke(UInt64 id) {
+void _KPrepInvoke(UInt64 id) {
     if(!isKremlinOn())
         return;
 
@@ -2100,7 +2100,7 @@ void prepareInvoke(UInt64 id) {
     currentRecord->stackHeight = getCurrentLevel();
 }
 
-void invokeOkay(UInt64 id) {
+void _KInvokeOkay(UInt64 id) {
     if(!isKremlinOn())
         return;
 
@@ -2111,7 +2111,7 @@ void invokeOkay(UInt64 id) {
         MSG(1, "invokeOkay(%u) ignored\n", id);
 }
 
-void invokeThrew(UInt64 id)
+void _KInvokeThrew(UInt64 id)
 {
     if(!isKremlinOn())
         return;
@@ -2135,6 +2135,7 @@ void invokeThrew(UInt64 id)
         MSG(1, "invokeThrew(%u) ignored\n", id);
 }
 
+#endif
 
 
 #endif 
