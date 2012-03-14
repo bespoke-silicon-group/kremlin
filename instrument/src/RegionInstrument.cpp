@@ -107,12 +107,13 @@ namespace {
 		}
 
 		// Returns a vector of all the loops described in LoopInfo (including subloops)
-		std::vector<Loop*> harvestLoops(LoopInfo& LI) {
+		std::vector<Loop*> harvestLoops(LoopInfo& LI,unsigned int& max_depth) {
+			// INVARIANT: max_depth == 0
 			std::vector<Loop*> loops; // all loops in this function
 
 			// go through all "top level" loops, harvest their subloops and add them to list of all loops
 			for(LoopInfo::iterator loop = LI.begin(), loop_end = LI.end(); loop != loop_end; ++loop) {
-				std::vector<Loop*> subloops = harvestSubLoops(*loop); 
+				std::vector<Loop*> subloops = harvestSubLoops(*loop,1,max_depth); 
 				loops.insert(loops.end(),subloops.begin(),subloops.end());
 			}
 
@@ -120,15 +121,17 @@ namespace {
 		}
 
 		// return a vector containing the input loop and all its subloops (recursing into subloops to get their subloops and so on)
-		std::vector<Loop*> harvestSubLoops(Loop* loop) {
+		std::vector<Loop*> harvestSubLoops(Loop* loop, unsigned int curr_depth, unsigned int& max_depth) {
 			std::vector<Loop*> loops; // all loops (i.e. this loop + all subloops)
 			std::vector<Loop*> tl_subloops = loop->getSubLoops(); // all "top level" subloops
 
 			loops.push_back(loop);
 
+			if(curr_depth > max_depth) max_depth = curr_depth;
+
 			// recursively harvest all subloops of each "top level" subloop and add that to list of all loops
 			for(unsigned i = 0; i < tl_subloops.size(); ++i) {
-				std::vector<Loop*> subloops = harvestSubLoops(tl_subloops[i]);
+				std::vector<Loop*> subloops = harvestSubLoops(tl_subloops[i],curr_depth+1,max_depth);
 				loops.insert(loops.end(),subloops.begin(),subloops.end());
 			}
 
@@ -825,7 +828,8 @@ namespace {
 				log.debug() << "region name to id: " << func.getName() << " is " << func_region_id << "\n";
 
 				// get all the loops that exist in this function
-				std::vector<Loop*> function_loops = harvestLoops(LI);
+				unsigned int max_depth = 0;
+				std::vector<Loop*> function_loops = harvestLoops(LI,max_depth);
 				//std::sort(function_loops.begin(), function_loops.end());
 
 				log.debug() << "found " << function_loops.size() << " loops in function " << func.getName() << "\n";
