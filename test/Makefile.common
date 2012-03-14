@@ -6,9 +6,11 @@ CFLAGS ?= -O3
 build:
 	kremlin-gcc $(CFLAGS) test.c -o $(BENCH)
 
-profile:
+run:
 	./$(BENCH)
-	java KremlinProfiler . > profile.txt
+
+profile:
+	kremlin > profile.txt
 
 clean:
-	-rm *.log kremlin.* *.bc *.dot *.graph sregions.txt profile.txt $(BENCH)
+	-rm *.log kremlin.* depth-finder.a *.bc *.ll *.dot *.graph sregions.txt profile.txt $(BENCH)
