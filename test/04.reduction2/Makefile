@@ -1,2 +1,1 @@
-BENCH=04.loadAddr
-include ../Makefile.common
+include topLevel.mk

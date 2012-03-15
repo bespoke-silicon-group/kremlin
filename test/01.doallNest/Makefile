@@ -1,2 +1,1 @@
-BENCH=doallNest
-include ../Makefile.common
+include topLevel.mk
