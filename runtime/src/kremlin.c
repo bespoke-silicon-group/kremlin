@@ -782,7 +782,7 @@ void _KUnlinkArg(Reg dest) {
  * Setup the local shadow register table.
  * @param maxVregNum	Number of virtual registers to allocate.
  */
-void _KPrepRTable(UInt maxVregNum, UInt maxLooopDepth) {
+void _KPrepRTable(UInt maxVregNum, UInt maxLoopDepth) {
     MSG(1, "setupLocalTable size %u \n", maxVregNum);
     if(!isKremlinOn()) {
 		 return; 
