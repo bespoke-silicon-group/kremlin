@@ -40,7 +40,8 @@ namespace {
 			LLVMTypes types(M.getContext());
 
 			std::string dump_filename = M.getModuleIdentifier();
-			dump_filename.append(".obj");
+			dump_filename = dump_filename.substr(0,dump_filename.find_first_of("."));
+			dump_filename.append(".kdump");
 
 			std::ofstream dump_file;
 			dump_file.open(dump_filename.c_str());
