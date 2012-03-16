@@ -10,7 +10,7 @@ __attribute__ ((noinline)) void f2(int x) {
 
 // tests pass-by-ref arg
 __attribute__ ((noinline)) void f3(int* x) {
-	x += rand();
+	*x += rand();
 }
 
 // tests multiple args
