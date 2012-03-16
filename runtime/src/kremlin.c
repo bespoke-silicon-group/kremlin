@@ -699,6 +699,26 @@ void _KPopCDep() {
 
 /*****************************************************************
  * Function Call Management
+ * 
+ * Example of a Sample Function call:
+ *   ret = foo (a, b);
+ *   a) from the caller:
+ *      - _KPrepCall(callsiteId, calleeSID);
+ *		- _KLinkArg(a);
+ *		- _KLinkArg(b);
+ *      - _KLinkReturn(ret);
+ *		
+ *   b) start of the callee:
+ *		- _KEnterRegion(sid);
+ *      - _KPrepRTable(regSize, maxDepth);
+ *		- _KUnlinkArg(a);
+ *		- _KUnlinkArg(b);
+ *
+ *   c) end of the callee:
+ *		- _KReturn(..);
+ *      - _KExitRegion();
+ *
+ * 
  *****************************************************************/
 
 
@@ -783,6 +803,97 @@ void _KPrepRTable(UInt maxVregNum, UInt maxLoopDepth) {
     _requireSetupTable = 0;
 #endif
 }
+
+// This function is called before 
+// callee's _KEnterRegion is called.
+// Save the return register name in caller's context
+
+void _KLinkReturn(Reg dest) {
+    MSG(1, "prepare return storage ts[%u]\n", dest);
+    if (!isKremlinOn())
+        return;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_ARVL,"## addReturnValueLink(dest=%u)\n",dest);
+#endif
+
+#ifndef WORK_ONLY
+	FuncContext* caller = RegionGetFunc();
+	RegionSetRetReg(caller, dest);
+#endif
+}
+
+// This is called right before callee's "_KExitRegion"
+// read timestamp of the callee register and 
+// update the caller register that will hold the return value
+//
+void _KReturn(Reg src) {
+    MSG(1, "write return value ts[%u]\n", src);
+    if (!isKremlinOn())
+        return;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_FUNC_RETURN,"## logFuncReturn(src=%u)\n",src);
+#endif
+
+
+#ifndef WORK_ONLY
+    FuncContext* callee = RegionGetFunc();
+    FuncContext* caller = RegionGetCallerFunc();
+
+	// main function does not have a return point
+	if (caller == NULL)
+		return;
+
+	Reg ret = RegionGetRetReg(caller);
+	assert(ret >= 0);
+
+	// current level time does not need to be copied
+	int indexSize = getIndexDepth() - 1;
+	if (indexSize > 0)
+		TableCopy(caller->table, ret, callee->table, src, 0, indexSize);
+	
+    MSG(1, "end write return value 0x%x\n", RegionGetFunc());
+#endif
+}
+
+void _KReturnConst(void) {
+    MSG(1, "logFuncReturnConst\n");
+    if (!isKremlinOn())
+        return;
+
+#ifdef KREMLIN_DEBUG
+	idbgAction(KREM_FUNC_RETURN,"## logFuncReturnConst()\n");
+#endif
+
+#ifndef WORK_ONLY
+
+    // Assert there is a function context before the top.
+	FuncContext* caller = RegionGetCallerFunc();
+
+	// main function does not have a return point
+	if (caller == NULL)
+		return;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Time cdt = CDepGet(index);
+		TableSetValue(caller->table, cdt, RegionGetRetReg(caller), index);
+    }
+#endif
+}
+
+#if 0
+void logBBVisit(UInt bb_id) {
+    if (!isKremlinOn()) return;
+
+#ifdef MANAGE_BB_INFO
+    MSG(1, "logBBVisit(%u)\n", bb_id);
+    __prevBB = __currentBB;
+    __currentBB = bb_id;
+#endif
+}
+#endif
 
 
 /*****************************************************************
@@ -1372,97 +1483,6 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
     return NULL;
 }
 
-
-// This function is called before 
-// callee's LogRegionEnter is called.
-// Save the return register name in caller's context
-
-void _KLinkReturn(Reg dest) {
-    MSG(1, "prepare return storage ts[%u]\n", dest);
-    if (!isKremlinOn())
-        return;
-
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_ARVL,"## addReturnValueLink(dest=%u)\n",dest);
-#endif
-
-#ifndef WORK_ONLY
-	FuncContext* caller = RegionGetFunc();
-	RegionSetRetReg(caller, dest);
-#endif
-}
-
-// This is called right before callee's "logRegionExit"
-// read timestamp of the callee register and 
-// update the caller register that will hold the return value
-//
-void _KReturn(Reg src) {
-    MSG(1, "write return value ts[%u]\n", src);
-    if (!isKremlinOn())
-        return;
-
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_FUNC_RETURN,"## logFuncReturn(src=%u)\n",src);
-#endif
-
-
-#ifndef WORK_ONLY
-    FuncContext* callee = RegionGetFunc();
-    FuncContext* caller = RegionGetCallerFunc();
-
-	// main function does not have a return point
-	if (caller == NULL)
-		return;
-
-	Reg ret = RegionGetRetReg(caller);
-	assert(ret >= 0);
-
-	// current level time does not need to be copied
-	int indexSize = getIndexDepth() - 1;
-	if (indexSize > 0)
-		TableCopy(caller->table, ret, callee->table, src, 0, indexSize);
-	
-    MSG(1, "end write return value 0x%x\n", RegionGetFunc());
-#endif
-}
-
-void _KReturnConst(void) {
-    MSG(1, "logFuncReturnConst\n");
-    if (!isKremlinOn())
-        return;
-
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_FUNC_RETURN,"## logFuncReturnConst()\n");
-#endif
-
-#ifndef WORK_ONLY
-
-    // Assert there is a function context before the top.
-	FuncContext* caller = RegionGetCallerFunc();
-
-	// main function does not have a return point
-	if (caller == NULL)
-		return;
-
-	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Time cdt = CDepGet(index);
-		TableSetValue(caller->table, cdt, RegionGetRetReg(caller), index);
-    }
-#endif
-}
-
-#if 0
-void logBBVisit(UInt bb_id) {
-    if (!isKremlinOn()) return;
-
-#ifdef MANAGE_BB_INFO
-    MSG(1, "logBBVisit(%u)\n", bb_id);
-    __prevBB = __currentBB;
-    __currentBB = bb_id;
-#endif
-}
-#endif
 
 // this function is the same as _KAssignConst but helps to quickly
 // identify induction variables in the source code

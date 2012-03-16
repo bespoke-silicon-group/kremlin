@@ -56,7 +56,7 @@ void _KPushCDep(Reg cond);
 void _KPopCDep();
 
 void _KPrepCall(UInt64, UInt64);
-void _KPrepRTable(UInt64);
+void _KPrepRTable(UInt64, UInt64);
 void _KLinkReturn(Reg dest);
 void _KReturn(Reg src); 
 void _KReturnConst(void);
