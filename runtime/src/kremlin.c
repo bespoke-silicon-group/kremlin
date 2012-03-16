@@ -913,18 +913,18 @@ void logBBVisit(UInt bb_id) {
  */ 
 void _KTurnOn() {
     kremlinOn = 1;
-    MSG(0, "turnOnProfiler\n");
+    MSG(0, "_KTurnOn\n");
 	fprintf(stderr, "[kremlin] Logging started.\n");
 }
 
 /**
  * end profiling
  *
- * pop the root region pushed in turnOnProfiler()
+ * pop the root region pushed in _KTurnOn()
  */
 void _KTurnOff() {
     kremlinOn = 0;
-    MSG(0, "turnOffProfiler\n");
+    MSG(0, "_KTurnOff\n");
 	fprintf(stderr, "[kremlin] Logging stopped.\n");
 }
 
@@ -1409,9 +1409,9 @@ void* _KLoad1(Addr addr, UInt src1, UInt dest, UInt32 size) {
 }
 
 // TODO: implement these
-void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
-void* _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
-void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return logLoadInst(src_addr,dest, width); }
+void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
+void* _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
+void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
 
 
 void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
@@ -1795,7 +1795,7 @@ static Bool kremlinInit() {
 
 	MShadowInit(KConfigGetCacheSize());
 	RegionInit(REGION_INIT_SIZE);
-   	turnOnProfiler();
+   	_KTurnOn();
     return TRUE;
 }
 
@@ -1807,7 +1807,7 @@ static Bool kremlinDeinit() {
 
 	fprintf(stderr,"[kremlin] max active level = %d\n", 
 		getMaxActiveLevel());	
-	turnOffProfiler();
+	_KTurnOff();
 	CRegionDeinit("kremlin.bin");
 	RShadowDeinit();
 	MShadowDeinit();
@@ -1828,7 +1828,7 @@ void _KDeinit() {
     kremlinDeinit();
 }
 
-void printProfileData() {}
+void _KPrintData() {}
 
 
 /**************************************************************************

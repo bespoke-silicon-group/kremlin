@@ -67,6 +67,8 @@ void _KUnlinkArg(UInt dest);
 
 void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...); 
 
+void _KPrintData(); // deprecated?
+
 
 /* level management */
 Level getMinReportLevel();
