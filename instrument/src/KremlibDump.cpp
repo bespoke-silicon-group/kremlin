@@ -127,7 +127,24 @@ namespace {
 							  )
 							{
 								// print out this instruction
-								*dump_raw_os << "\t\t" << *ci << "\n";
+								*dump_raw_os << "\t\t" << called_func->getName() << "(";
+
+								for(unsigned i = 0; i < ci->getNumArgOperands(); ++i) {
+									if(i > 0) *dump_raw_os << ", ";
+
+									Value* arg = ci->getArgOperand(i);
+									if(ConstantInt* con = dyn_cast<ConstantInt>(arg)) {
+										*dump_raw_os << con->getZExtValue();
+									}
+									else if(arg->hasName()){
+										*dump_raw_os << arg->getName();
+									}
+									else {
+										*dump_raw_os << *arg;
+									}
+								}
+
+								*dump_raw_os << ")\n";
 							}
 						}
 						else if(isa<ReturnInst>(inst)) {
