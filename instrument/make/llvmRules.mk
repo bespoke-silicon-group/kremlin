@@ -10,6 +10,8 @@ MIN_ADB_CHAIN_LEN = 3
 
 ADB_OPT_STRING = --min-chain-length=$(MIN_ADB_CHAIN_LEN)
 
+RENAME_OPT_STRING = -kremlib-dump
+
 # ---------------------------------------------------------------------------
 # Chained rules
 #
@@ -38,7 +40,7 @@ $(call OPT_PASS_RULE,  KremlinInstrument.so,        -splitbbatfunccall,     EMPT
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -assoc-dep-break,       ADB_OPT_STRING)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -criticalpath,          EMPTY)
 $(call OPT_PASS_RULE,  KremlinInstrument.so,        -regioninstrument,      EMPTY)
-$(call OPT_PASS_RULE,  KremlinInstrument.so,        -renamemain,      		EMPTY)
+$(call OPT_PASS_RULE,  KremlinInstrument.so,        -renamemain, 			RENAME_OPT_STRING)
 
 # ---------------------------------------------------------------------------
 # Required files
