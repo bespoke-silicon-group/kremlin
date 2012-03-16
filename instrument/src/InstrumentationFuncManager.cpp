@@ -79,7 +79,7 @@ void InstrumentationFuncManager::initializeDefaultValues()
 
 	addFunc("_KAssign", uint_uint);
 	addFunc("_KInsertVal", uint_uint);
-	addFunc("_KPhiAddCondition", uint_uint);
+	addFunc("_KPhiAddCond", uint_uint);
 	addFunc("_KReduction", uint_uint);
 	addFunc("_KPrepRTable", uint_uint);
 
