@@ -56,7 +56,7 @@ void _KPushCDep(Reg cond);
 void _KPopCDep();
 
 void _KPrepCall(UInt64, UInt64);
-void _KPrepRTable(UInt64, UInt64);
+void _KPrepRTable(UInt, UInt);
 void _KLinkReturn(Reg dest);
 void _KReturn(Reg src); 
 void _KReturnConst(void);
@@ -66,6 +66,8 @@ void _KLinkArgConst(void);
 void _KUnlinkArg(UInt dest); 
 
 void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...); 
+
+void _KPrintData(); // deprecated?
 
 
 /* level management */
