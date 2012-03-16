@@ -35,18 +35,16 @@ DEBUG_INFO_FILE = sregions.txt
 #endif
 #endef
 
-DF_LINK_OUTPUT_FILE = $(dir $(LINK_OUTPUT_FILE))df-$(notdir $(LINK_OUTPUT_FILE))
-
 # ---------------------------------------------------------------------------
 # Rules (alpha order)
 # ---------------------------------------------------------------------------
 #
 
 # Creates all the instrumented assembly
-link: $(LINK_OUTPUT_FILE) $(DF_LINK_OUTPUT_FILE)
+link: $(LINK_OUTPUT_FILE)
 
 # Compiles and links the source with the kremlin library
-$(LINK_OUTPUT_FILE): $(DF_LINK_OUTPUT_FILE) $(OBJ_SOURCES) $(KREMLIN_LIB)
+$(LINK_OUTPUT_FILE): $(OBJ_SOURCES) $(KREMLIN_LIB)
 	$(LD) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(OBJ_SOURCES) $(KREMLIN_LIB) -o $@
 
 	# XXX: Side effect of making the executable!
@@ -54,10 +52,7 @@ $(LINK_OUTPUT_FILE): $(DF_LINK_OUTPUT_FILE) $(OBJ_SOURCES) $(KREMLIN_LIB)
 	# robustness!
 	objdump $@ -t | grep "_krem_" | sed 's/^.*krem_prefix//g; s/_krem_/\t/g' > sregions.txt
 
-$(DF_LINK_OUTPUT_FILE): $(OBJ_SOURCES) $(DF_LIB)
-	$(LD) $(LDFLAGS) $(LOADLIBES) $(LDLIBS) $(CFLAGS) $(OBJ_SOURCES) $(DF_LIB) -o $@
-
 clean::
-	$(RM) $(LINK_OUTPUT_FILE) $(DF_LINK_OUTPUT_FILE)
+	$(RM) $(LINK_OUTPUT_FILE)
 
 endif # LINK_MK
