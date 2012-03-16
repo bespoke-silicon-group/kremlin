@@ -113,7 +113,7 @@ namespace {
 				*dump_raw_os << "\n";
 
 				for(Function::iterator bb = func->begin(), bb_e = func->end(); bb != bb_e; ++bb) {
-					*dump_raw_os << "\tBB: " << bb->getName().str() << "\n";
+					*dump_raw_os << "\t" << bb->getName().str() << "\n";
 
 					for(BasicBlock::iterator inst = bb->begin(), inst_e = bb->end(); inst != inst_e; ++inst) {
 						// See if this is a call to a kremlib function
@@ -127,7 +127,7 @@ namespace {
 							  )
 							{
 								// print out this instruction
-								*dump_raw_os << "\t\t" << *ci;
+								*dump_raw_os << "\t\t" << *ci << "\n";
 							}
 						}
 						else if(isa<ReturnInst>(inst)) {
@@ -138,10 +138,14 @@ namespace {
 								|| isa<SwitchInst>(inst)
 							   )
 						{
-							*dump_raw_os << "\t\t" << *inst;
+							*dump_raw_os << "\t\t" << *inst << "\n";
 						}
 					}
+
+					*dump_raw_os << "\n";
 				}
+
+				*dump_raw_os << "\n\n";
 			}
 
 			dump_file.close();
