@@ -27,8 +27,6 @@
 using namespace llvm;
 
 namespace {
-	static cl::opt<std::string> RegionIDMapFile("map-file",cl::desc("File containing mapping for region IDs"),cl::value_desc("filename"),cl::init("region-id-map.txt"));
-
 	struct KremlibDump : public ModulePass {
 		static char ID;
 
