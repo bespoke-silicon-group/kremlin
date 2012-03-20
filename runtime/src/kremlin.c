@@ -1129,6 +1129,7 @@ void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off
         MSG(3, " ts_calc1 %u | ts_calc2 %u | cdt %u | value %u\n", ts_calc1, ts_calc2, cdt, value);
         RegionUpdateCp(region, value);
     }
+}
 
 void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
     MSG(1, "KBinary ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
