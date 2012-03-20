@@ -49,18 +49,19 @@ typedef struct _RegionField_t {
 	UInt64 tpWork;
 	UInt64 isDoall;
 	UInt64 childCnt;
-
+#ifdef EXTRA_STATS
 	UInt64 readCnt;
 	UInt64 writeCnt;
 	UInt64 readLineCnt;
 	UInt64 writeLineCnt;
 	UInt64 loadCnt;
 	UInt64 storeCnt;
+#endif
 } RegionField;
 
 
 void CRegionInit();
-void CRegionFinish(char* file);
+void CRegionDeinit(char* file);
 void CRegionEnter(SID sid, CID callSite);
 void CRegionLeave(RegionField* info);
 

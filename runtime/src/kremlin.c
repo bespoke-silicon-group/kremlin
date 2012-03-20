@@ -6,12 +6,13 @@
 #include <string.h>
 #include <sys/time.h>
 #include "kremlin.h"
+#include "arg.h"
 #include "debug.h"
 #include "kremlin_deque.h"
 #include "CRegion.h"
 #include "hash_map.h"
 #include "Vector.h"
-//#include "MShadow.h"
+#include "MShadow.h"
 #include "RShadow.h"
 #include "RShadow.c"
 #include "interface.h"
@@ -33,9 +34,9 @@ static UInt64	loadCnt = 0llu;
 static UInt64	storeCnt = 0llu;
 
 
-UInt64 _regionFuncCnt;
-UInt64 _setupTableCnt;
-int _requireSetupTable;
+static UInt64 _regionFuncCnt;
+static UInt64 _setupTableCnt;
+static int _requireSetupTable;
 
 
 Time* (*MShadowGet)(Addr, Index, Version*, UInt32) = NULL;
@@ -244,24 +245,24 @@ static void RegionReallocArrays(int newSize) {
  * Arg Management
  *
  * Function Arg Transfer Sequence
- * 1) caller calls "prepareCall" to reset argFifo
- * 2) for each arg, the caller calls linkArgToLocal or linkArgToConst
- * 3) callee function enters with "logEnterRegion"
- * 4) callee links each arg with transferAndUnlinkArg by 
+ * 1) caller calls "_KPrepCall" to reset argFifo
+ * 2) for each arg, the caller calls _KLinkArg or _KLinkArgConst
+ * 3) callee function enters with "_KEnterRegion"
+ * 4) callee links each arg with _KUnlinkArg by 
  * dequeing a register number from fifo,
- * in the same order used in linkArgXXXX.
+ * in the same order used in _KLinkArg
  *
  * FIFO size is conservatively set to 64, 
  * which is already very large for # of args for a function call.
  *
  * Is single FIFO enough in Kremlin?
  *   Yes, function args will be prepared and processed 
- *   before and after logRegionEntry.
+ *   before and after KEnterRegion.
  *   The fifo can be reused for the next function calls.
  *   
  * Why reset the queue every time?
  *   uninstrumented functions (e.g. library) do not have 
- *  "transferAndUnlinkArg" call, so there could be 
+ *  "_KUnlinkArg" call, so there could be 
  *  remaining args from previous function calls
  *  
  * 
@@ -403,35 +404,6 @@ static void RegionDeinitFunc()
 /*****************************************************************
  * Region Management
  *****************************************************************/
-#if 0
-typedef struct _CDep {
-	Time* time;
-	int size;	
-	int nextWriteIndex;
-	Time* current;
-} CDep;
-
-
-#define CDEP_INIT_SIZE	64
-
-void CDepAlloc(CDep* dep) {
-	dep->size = CDEP_INIT_SIZE;
-	dep->nextWriteIndex = 0;
-	dep->time = malloc(sizeof(Time) * dep->size);
-}
-
-void CDepRealloc(CDep* dep) {
-	int oldSize = dep->size;
-	assert(dep->nextWriteIndex == oldSize);
-	dep->size *= 2;
-	dep->time = realloc(dep->time, sizeof(Time) * dep->size);
-}
-
-void CDepFree(CDep* dep) {
-	free(dep->time);
-}
-#endif
-
 typedef struct _region_t {
 	UInt32 code;
 	Version version;
@@ -454,7 +426,7 @@ typedef struct _region_t {
 } Region;
 
 
-Region* regionInfo = NULL;
+static Region* regionInfo = NULL;
 static int regionSize;
 
 static int RegionSize() {
@@ -500,12 +472,6 @@ static inline Region* RegionGet(Level level) {
 	assert(ret->code == 0xDEADBEEF);
 	return ret;
 }
-
-#if 0
-static Version RegionGetVersion(Level level) {
-	return RegionGet(level)->version;
-}
-#endif
 
 static void RegionDeinit() {
 	RegionDeinitFunc();
@@ -578,20 +544,29 @@ static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level
     region->readLineCnt = 0LL;
     region->writeLineCnt = 0LL;
 #endif
-	
-	
 }
 
-Table* cTable;
-int cTableReadPtr = 0;
-Time* cTableCurrentBase;
 
-#define CDEP_INIT_ENTRY	256
-#define CDEP_INIT_INDEX	64
+
+/****************************************************************
+ *
+ * Kremlib Compiler Interface Functions
+ *
+ *****************************************************************/
+
+/*****************************************************************
+ * Control Dependence Management
+ *****************************************************************/
+#define CDEP_ROW 256
+#define CDEP_COL 64
+
+static Table* cTable;
+static int cTableReadPtr = 0;
+static Time* cTableCurrentBase;
 
 inline void CDepInit() {
 	cTableReadPtr = 0;
-	cTable = TableCreate(CDEP_INIT_ENTRY, CDEP_INIT_INDEX);
+	cTable = TableCreate(CDEP_ROW, CDEP_COL);
 }
 
 inline void CDepDeinit() {
@@ -611,51 +586,15 @@ inline Time CDepGet(Index index) {
 	return *(cTableCurrentBase + index);
 }
 
-/****************************************************************
- *
- * Kremlib Compiler Interface Functions
- *
- *****************************************************************/
-
-#ifdef KREMLIN_DEBUG
-#define idbgAction(op,...) { \
-if(__kremlin_idbg) { \
-	if(__kremlin_idbg_run_state == Waiting) { \
-		fprintf(stdout, __VA_ARGS__); \
-	} \
-	iDebugHandler(op); \
-} \
-}
-
-
-/*
-static inline void idbgAction(char* inst_str, UInt op) {
-	if(__kremlin_idbg) {
-		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, inst_str);
-		}
-		iDebugHandler(op);
-	}
-}
-*/
-#endif
-
-/*****************************************************************
- * Control Dependence Management
- *****************************************************************/
-
 void _KPushCDep(Reg cond) {
-    MSG(3, "push ControlDep ts[%u]\n", cond);
+    MSG(3, "Push CDep ts[%u]\n", cond);
+	idbgAction(KREM_ADD_CD,"## KPushCDep(cond=%u)\n",cond);
+
 	checkRegion();
     if (!isKremlinOn()) {
 		return;
 	}
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_ADD_CD,"## addControlDep(cond=%u)\n",cond);
-#endif
-
-#ifndef WORK_ONLY
 	cTableReadPtr++;
 	int indexSize = getIndexDepth();
 
@@ -677,24 +616,19 @@ void _KPushCDep(Reg cond) {
 	TableCopy(cTable, cTableReadPtr, lTable, cond, 0, indexSize);
 	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
 	assert(cTableReadPtr < cTable->row);
-#endif
 	checkRegion();
 }
 
 void _KPopCDep() {
-    MSG(3, "pop  ControlDep\n");
+    MSG(3, "Pop CDep\n");
+	idbgAction(KREM_REMOVE_CD, "## KPopCDep()\n");
+
     if (!isKremlinOn()) {
 		return;
 	}
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_REMOVE_CD, "## removeControlDep()\n");
-#endif
-
-#ifndef WORK_ONLY
 	cTableReadPtr--;
 	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
-#endif
 }
 
 /*****************************************************************
@@ -723,8 +657,8 @@ void _KPopCDep() {
 
 
 void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
-    MSG(1, "prepareCall\n");
-    if(!isKremlinOn()) { 
+    MSG(1, "KPrepCall\n");
+    if (!isKremlinOn()) { 
 		return; 
 	}
 
@@ -735,29 +669,34 @@ void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
 	lastCallSiteId = callSiteId;
 }
 
-// TODO: need to think how to pass args without TEntry
-void _KLinkArg(Reg src) {
-    MSG(1, "linkArgToLocal to ts[%u]\n", src);
+void _KEnqArg(Reg src) {
+    MSG(1, "Enque Arg Reg [%u]\n", src);
     if (!isKremlinOn())
         return;
 	ArgFifoPush(src);
 }
 
 #define DUMMY_ARG		-1
-
-// special case for constant arg
-void _KLinkArgConst() {
-    MSG(1, "linkArgToConst\n");
+void _KEnqArgConst() {
+    MSG(1, "Enque Const Arg\n");
     if (!isKremlinOn())
         return;
 
 	ArgFifoPush(DUMMY_ARG); // dummy arg
 }
+void _KLinkArg(Reg src) {
+	_KEnqArg(src);
+}
+
+void _KLinkArgConst() {
+	_KEnqArgConst();
+}
+
 
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
-void _KUnlinkArg(Reg dest) {
-    MSG(3, "transfer arg data to ts[%u] \n", dest);
+void _KDeqArg(Reg dest) {
+    MSG(3, "Deq Arg to Reg[%u] \n", dest);
     if (!isKremlinOn())
         return;
 
@@ -777,21 +716,26 @@ void _KUnlinkArg(Reg dest) {
     MSG(3, "\n", dest);
 }
 
+void _KUnlinkArg(Reg dest) {
+	_KDeqArg(dest); 
+}
 
 /**
  * Setup the local shadow register table.
  * @param maxVregNum	Number of virtual registers to allocate.
  */
-void _KPrepRTable(UInt maxVregNum, UInt maxLoopDepth) {
-    MSG(1, "setupLocalTable size %u \n", maxVregNum);
-    if(!isKremlinOn()) {
+void _KPrepRTable(UInt maxVregNum, UInt levelsToNextFunc) {
+	int tableHeight = maxVregNum;
+	int tableWidth = getCurrentLevel() + levelsToNextFunc + 1;
+    MSG(1, "KPrep RShadow Table row = %d, col = %d (cur level = %d)\n",
+		 tableHeight, tableWidth, getCurrentLevel());
+
+    if (!isKremlinOn()) {
 		 return; 
 	}
 
-#ifndef WORK_ONLY
     assert(_requireSetupTable == 1);
-
-    Table* table = TableCreate(maxVregNum, getIndexSize());
+    Table* table = TableCreate(tableHeight, tableWidth);
     FuncContext* funcHead = RegionGetFunc();
 	assert(funcHead != NULL);
     assert(funcHead->table == NULL);
@@ -801,7 +745,6 @@ void _KPrepRTable(UInt maxVregNum, UInt maxLoopDepth) {
     RShadowActivateTable(funcHead->table);
     _setupTableCnt++;
     _requireSetupTable = 0;
-#endif
 }
 
 // This function is called before 
@@ -809,18 +752,14 @@ void _KPrepRTable(UInt maxVregNum, UInt maxLoopDepth) {
 // Save the return register name in caller's context
 
 void _KLinkReturn(Reg dest) {
-    MSG(1, "prepare return storage ts[%u]\n", dest);
+    MSG(1, "_KLinkReturn with reg %u\n", dest);
+	idbgAction(KREM_ARVL,"## _KLinkReturn(dest=%u)\n",dest);
+
     if (!isKremlinOn())
         return;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_ARVL,"## addReturnValueLink(dest=%u)\n",dest);
-#endif
-
-#ifndef WORK_ONLY
 	FuncContext* caller = RegionGetFunc();
 	RegionSetRetReg(caller, dest);
-#endif
 }
 
 // This is called right before callee's "_KExitRegion"
@@ -828,16 +767,12 @@ void _KLinkReturn(Reg dest) {
 // update the caller register that will hold the return value
 //
 void _KReturn(Reg src) {
-    MSG(1, "write return value ts[%u]\n", src);
+    MSG(1, "_KReturn with reg %u\n", src);
+	idbgAction(KREM_FUNC_RETURN,"## _KReturn (src=%u)\n",src);
+
     if (!isKremlinOn())
         return;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_FUNC_RETURN,"## logFuncReturn(src=%u)\n",src);
-#endif
-
-
-#ifndef WORK_ONLY
     FuncContext* callee = RegionGetFunc();
     FuncContext* caller = RegionGetCallerFunc();
 
@@ -854,19 +789,13 @@ void _KReturn(Reg src) {
 		TableCopy(caller->table, ret, callee->table, src, 0, indexSize);
 	
     MSG(1, "end write return value 0x%x\n", RegionGetFunc());
-#endif
 }
 
 void _KReturnConst(void) {
-    MSG(1, "logFuncReturnConst\n");
+    MSG(1, "_KReturnConst\n");
+	idbgAction(KREM_FUNC_RETURN,"## _KReturnConst()\n");
     if (!isKremlinOn())
         return;
-
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_FUNC_RETURN,"## logFuncReturnConst()\n");
-#endif
-
-#ifndef WORK_ONLY
 
     // Assert there is a function context before the top.
 	FuncContext* caller = RegionGetCallerFunc();
@@ -876,24 +805,11 @@ void _KReturnConst(void) {
 		return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
+    for (index = 0; index < caller->table->col; index++) {
 		Time cdt = CDepGet(index);
 		TableSetValue(caller->table, cdt, RegionGetRetReg(caller), index);
     }
-#endif
 }
-
-#if 0
-void logBBVisit(UInt bb_id) {
-    if (!isKremlinOn()) return;
-
-#ifdef MANAGE_BB_INFO
-    MSG(1, "logBBVisit(%u)\n", bb_id);
-    __prevBB = __currentBB;
-    __currentBB = bb_id;
-#endif
-}
-#endif
 
 
 /*****************************************************************
@@ -919,23 +835,11 @@ void _KTurnOn() {
 
 /**
  * end profiling
- *
- * pop the root region pushed in _KTurnOn()
  */
 void _KTurnOff() {
     kremlinOn = 0;
     MSG(0, "_KTurnOff\n");
 	fprintf(stderr, "[kremlin] Logging stopped.\n");
-}
-
-void pauseProfiler() {
-	kremlinOn = 0;
-	fprintf(stderr, "[kremlin] Logging paused.\n");
-}
-
-void resumeProfiler() {
-	kremlinOn = 1;
-	fprintf(stderr, "[kremlin] Logging resumed.\n");
 }
 
 
@@ -944,17 +848,12 @@ void resumeProfiler() {
  *****************************************************************/
 
 void _KEnterRegion(SID regionId, RegionType regionType) {
+	iDebugHandlerRegionEntry(regionId);
+	idbgAction(KREM_REGION_ENTRY,"## KEnterRegion(regionID=%llu,regionType=%u)\n",regionId,regionType);
+
     if (!isKremlinOn()) { 
 		return; 
 	}
-
-#ifdef KREMLIN_DEBUG
-	if(__kremlin_idbg) {
-		iDebugHandlerRegionEntry(regionId);
-	}
-
-	idbgAction(KREM_REGION_ENTRY,"## logRegionEntry(regionID=%llu,regionType=%u)\n",regionId,regionType);
-#endif
 
     incrementRegionLevel();
     Level level = getCurrentLevel();
@@ -988,13 +887,11 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
 	CRegionEnter(regionId, callSiteId);
 
-#ifndef WORK_ONLY
 	if (isInstrumentable()) {
     	//RegionPushCDep(region, 0);
 		CDepInitRegion(getIndex(level));
 		assert(CDepGet(getIndex(level)) == 0ULL);
 	}
-#endif
 	MSG(0, "\n");
 }
 
@@ -1027,7 +924,7 @@ RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWor
 	field.callSite = callSiteId;
 	field.spWork = spWork;
 	field.tpWork = tpWork;
-	field.isDoall = isDoall;
+	field.isDoall = isDoall; 
 	field.childCnt = region_info->childCount;
 
 #ifdef EXTRA_STATS
@@ -1052,16 +949,13 @@ RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWor
  */
 
 void _KExitRegion(SID regionId, RegionType regionType) {
+	idbgAction(KREM_REGION_EXIT, "## KExitRegion(regionID=%llu,regionType=%u)\n",regionId,regionType);
+
     if (!isKremlinOn()) { 
 		return; 
 	}
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_REGION_EXIT, "## logRegionExit(regionID=%llu,regionType=%u)\n",regionId,regionType);
-#endif
-
     Level level = getCurrentLevel();
-
 	Region* region = RegionGet(level);
     SID sid = regionId;
 	SID parentSid = 0;
@@ -1150,12 +1044,12 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 
 
 /*****************************************************************
- * logReduction / logBinary
+ * KReduction, KBinary, KBinaryConst
  *****************************************************************/
 
 
 void* _KReduction(UInt opCost, Reg dest) {
-    MSG(3, "logReductionVar ts[%u] with cost = %d\n", dest, opCost);
+    MSG(3, "KReduction ts[%u] with cost = %d\n", dest, opCost);
     if (!isKremlinOn() || !isInstrumentable())
 		return;
 
@@ -1164,22 +1058,15 @@ void* _KReduction(UInt opCost, Reg dest) {
 }
 
 void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
-    MSG(3, "binOp ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
+    MSG(3, "KBinary ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
+	idbgAction(KREM_BINOP,"## _KBinary(opCost=%u,src0=%u,src1=%u,dest=%u)\n",opCost,src0,src1,dest);
+
     if (!isKremlinOn())
         return NULL;
-
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_BINOP,"## _KBinary(opCost=%u,src0=%u,src1=%u,dest=%u)\n",opCost,src0,src1,dest);
-#endif
 
     addWork(opCost);
 	Index depth = getIndexDepth();
 	
-	//Time* tArray0 = RShadowGet(src0, depth);
-	//Time* tArray1 = RShadowGet(src1, depth);
-	//Time* outArray = RegionGetTArray();
-
-#ifndef WORK_ONLY
 	Index index;
 
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1190,8 +1077,6 @@ void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
 		assert(cdt <= getTimetick() - region->start);
         Time ts0 = RShadowGetItem(src0, index);
         Time ts1 = RShadowGetItem(src1, index);
-		//Time ts0 = tArray0[index];
-		//Time ts1 = tArray1[index];
 
         Time greater0 = (ts0 > ts1) ? ts0 : ts1;
         Time greater1 = (cdt > greater0) ? cdt : greater0;
@@ -1206,30 +1091,16 @@ void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
 		// region info is level based
         RegionUpdateCp(region, value);
     }
-#endif
 	return NULL;
 }
 
 void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
-    MSG(3, "binOpConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
+    MSG(3, "KBinaryConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
+	idbgAction(KREM_BINOP,"## _KBinaryConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
     if (!isKremlinOn())
         return NULL;
 
-#ifdef KREMLIN_DEBUG
-	/*
-	if(__kremlin_idbg) {
-		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## _KBinaryConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
-		}
-		iDebugHandler(KREM_BINOP);
-	}
-	*/
-	idbgAction(KREM_BINOP,"## _KBinaryConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
-#endif
-
     addWork(opCost);
-
-#ifndef WORK_ONLY
 	Table* table = RShadowGetTable();
 	Time* base = table->array; 
 
@@ -1249,50 +1120,26 @@ void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
    	    MSG(3, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
 		RegionUpdateCp(region, value);
     }
-
-//    return entryDest;
     return NULL;
-#else
-    return NULL;
-#endif
 }
 
 
 void* _KAssign(Reg src, Reg dest) {
     MSG(1, "_KAssign ts[%u] <- ts[%u]\n", dest, src);
+	idbgAction(KREM_BINOP,"## _KAssign(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
+
     if (!isKremlinOn())
     	return NULL;
 
-#ifdef KREMLIN_DEBUG
-	if(__kremlin_idbg) {
-		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## _KAssign(src=%u,dest=%u)\n\t",src,dest);
-		}
-	}
-#endif
-    
     return _KBinaryConst(0, src, dest);
 }
 
 void* _KAssignConst(UInt dest) {
     MSG(1, "_KAssignConst ts[%u]\n", dest);
+	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest=%u)\n",dest);
     if (!isKremlinOn())
         return NULL;
 
-#ifdef KREMLIN_DEBUG
-	/*
-	if(__kremlin_idbg) {
-		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## _KAssignConst(dest=%u)\n",dest);
-		}
-		iDebugHandler(KREM_ASSIGN_CONST);
-	}
-	*/
-	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest=%u)\n",dest);
-#endif
-
-
-#ifndef WORK_ONLY
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
@@ -1301,38 +1148,21 @@ void* _KAssignConst(UInt dest) {
 		RShadowSetItem(cdt, dest, index);
         RegionUpdateCp(region, cdt);
     }
-#endif
     return NULL;
 }
 
 void* _KLoad(Addr addr, Reg dest, UInt32 size) {
     MSG(0, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
-	if (size > 8ULL) {
-		fprintf(stderr, "size = %d sizeof(UInt32) = %d\n", size, sizeof(UInt32));
-		assert(0);
-	}
+	idbgAction(KREM_LOAD, "## logLoadInst(Addr=0x%x,dest=%u,size=%u)\n",
+		addr, dest, size);
+
 	assert(size <= 8);
 	checkRegion();
     if (!isKremlinOn())
     	return NULL;
 
-#ifdef KREMLIN_DEBUG
-	/*
-	if(__kremlin_idbg) {
-		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## logLoadInst(Addr=0x%x,dest=%u,size=%u)\n",addr,dest,size);
-		}
-		iDebugHandler(KREM_LOAD);
-	}
-	*/
-	idbgAction(KREM_LOAD,"## logLoadInst(Addr=0x%x,dest=%u,size=%u)\n",addr,dest,size);
-#endif
-
-
-	incIndentTab();
     addWork(LOAD_COST);
 
-#ifndef WORK_ONLY
 	Index index;
 	Index depth = getIndexDepth();
 	Level minLevel = getLevel(0);
@@ -1341,13 +1171,12 @@ void* _KLoad(Addr addr, Reg dest, UInt32 size) {
     for (index = 0; index < depth; index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-    	//MSG(0, "%d 1 cp = %d\n", index, region->cp);
 		Time cdt = CDepGet(index);
 		Time ts0 = tArray[index];
         Time greater1 = (cdt > ts0) ? cdt : ts0;
         Time value = greater1 + LOAD_COST;
 
-        MSG(3, "logLoadInst level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, "KLoad level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " addr 0x%x dest %u\n", addr, dest);
         MSG(3, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
 		checkTimestamp(index, region, ts0);
@@ -1355,27 +1184,18 @@ void* _KLoad(Addr addr, Reg dest, UInt32 size) {
         RegionUpdateCp(region, value);
     }
 
-	decIndentTab();
     MSG(3, "load ts[%u] over\n\n");
-    //return entryDest;
     return NULL;
-#else
-    return NULL;
-#endif
 }
 
 void* _KLoad1(Addr addr, UInt src1, UInt dest, UInt32 size) {
     MSG(0, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
+	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
     if (!isKremlinOn())
 		return NULL;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_LOAD,"## logLoadInst1Src(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
-#endif
-
     addWork(LOAD_COST);
 
-#ifndef WORK_ONLY
     Level minLevel = getStartLevel();
 
 	Index index;
@@ -1392,23 +1212,18 @@ void* _KLoad1(Addr addr, UInt src1, UInt dest, UInt32 size) {
         Time max2 = (max1 > tsSrc1) ? max1 : tsSrc1;
 		Time value = max2 + LOAD_COST;
 
-        MSG(3, "logLoadInst1Src level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, "KLoad1 level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
         MSG(3, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
 		checkTimestamp(index, region, tsAddr);
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
-
     }
 
-    //return entryDest;
     return NULL;
-#else
-    return NULL;
-#endif
 }
 
-// TODO: implement these
+// TODO: will be removed once kremlin-cc is updated with new APIs
 void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
 void* _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
 void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
@@ -1417,16 +1232,13 @@ void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt de
 void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
 	assert(size <= 8);
     MSG(0, "store size %d ts[0x%x] = ts[%u] + %u\n", size, dest_addr, src, STORE_COST);
+	idbgAction(KREM_STORE,"## KStore(src=%u,dest_addr=0x%x,size=%u)\n",src,dest_addr,size);
     if (!isKremlinOn())
     	return NULL;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_STORE,"## logStoreInst(src=%u,dest_addr=0x%x,size=%u)\n",src,dest_addr,size);
-#endif
 
     addWork(STORE_COST);
 
-#ifndef WORK_ONLY
 	Index index;
 	Time* tArray = RegionGetTArray();
 
@@ -1447,24 +1259,19 @@ void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
 
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
-#endif
-    //return entryDest;
     return NULL;
 }
 
 
 void* _KStoreConst(Addr dest_addr, UInt32 size) {
-    MSG(0, "storeConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
+    MSG(0, "KStoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
+	idbgAction(KREM_STORE,"## KStoreConst (dest_addr=0x%x,size=%u)\n",dest_addr,size);
     if (!isKremlinOn())
         return NULL;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_STORE,"## logStoreInstConst(dest_addr=0x%x,size=%u)\n",dest_addr,size);
-#endif
 
     addWork(STORE_COST);
 
-#ifndef WORK_ONLY
 	Index index;
 	Time* tArray = RegionGetTArray();
 
@@ -1479,7 +1286,6 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
     }
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
-#endif
     return NULL;
 }
 
@@ -1487,17 +1293,9 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
 // this function is the same as _KAssignConst but helps to quickly
 // identify induction variables in the source code
 void* _KInduction(UInt dest) {
-    MSG(1, "logInductionVar to %u\n", dest);
+    MSG(1, "KInduction to %u\n", dest);
     if (!isKremlinOn())
 		return NULL;
-
-#ifdef KREMLIN_DEBUG
-	if(__kremlin_idbg) {
-		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## logInductionVar(dest=%u)\n\t",dest);
-		}
-	}
-#endif
 
     return _KAssignConst(dest);
 }
@@ -1510,16 +1308,11 @@ void* _KInduction(UInt dest) {
  ******************************************************************/
 
 void* _KPhi1To1(UInt dest, UInt src, UInt cd) {
-    MSG(1, "logPhiNode1CD ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
+    MSG(1, "KPhi1To1 ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
+	idbgAction(KREM_PHI,"## KPhi1To1 (dest=%u,src=%u,cd=%u)\n",dest,src,cd);
     if (!isKremlinOn())
 		return NULL;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_PHI,"## logPhiNode1CD(dest=%u,src=%u,cd=%u)\n",dest,src,cd);
-#endif
-
-
-#ifndef WORK_ONLY
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
@@ -1527,30 +1320,20 @@ void* _KPhi1To1(UInt dest, UInt src, UInt cd) {
 		Time ts_cd = RShadowGetItem(cd, index);
         Time max = (ts_src > ts_cd) ? ts_src : ts_cd;
 		RShadowSetItem(max, dest, index);
-        MSG(3, "logPhiNode1CD level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, "KPhi1To1 level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " src %u cd %u dest %u\n", src, cd, dest);
         MSG(3, " ts_src %u ts_cd %u max %u\n", ts_src, ts_cd, max);
     }
-
-    //return entryDest;
     return NULL;
-#else
-    return NULL;
-#endif
 }
 
 void* _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2) {
-    MSG(1, "logPhiNode2CD ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
+    MSG(1, "KPhi2To1 ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
+	idbgAction(KREM_PHI,"## KPhi2To1 (dest=%u,src=%u,cd1=%u,cd2=%u)\n",dest,src,cd1,cd2);
     if (!isKremlinOn())
     	return NULL;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_PHI,"## logPhiNode2CD(dest=%u,src=%u,cd1=%u,cd2=%u)\n",dest,src,cd1,cd2);
-#endif
-
-#ifndef WORK_ONLY
 	Index index;
-
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Time ts_src = RShadowGetItem(src, index);
@@ -1561,32 +1344,22 @@ void* _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2) {
 
 		RShadowSetItem(max2, dest, index);
 
-        MSG(2, "logPhiNode2CD level %u version %u \n", i, RegionGetVersion(i));
+        MSG(2, "KPhi2To1 level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u dest %u\n", src, cd1, cd2, dest);
         MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u max %u\n", ts_src, ts_cd1, ts_cd2, max2);
     }
 
     //return entryDest;
     return NULL;
-#else
-    return NULL;
-#endif
 }
 
 void* _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
-    MSG(1, "logPhiNode3CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
-
+    MSG(1, "KPhi3To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
+	idbgAction(KREM_PHI,"## KPhi3To1 (dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u)\n",dest,src,cd1,cd2,cd3);
     if (!isKremlinOn())
     	return NULL;
 
-
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_PHI,"## logPhiNode3CD(dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u)\n",dest,src,cd1,cd2,cd3);
-#endif
-
-#ifndef WORK_ONLY
 	Index index;
-
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Time ts_src = RShadowGetItem(src, index);
@@ -1599,32 +1372,23 @@ void* _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 
 		RShadowSetItem(max3, dest, index);
 
-        MSG(2, "logPhiNode3CD level %u version %u \n", i, RegionGetVersion(i));
+        MSG(2, "KPhi3To1 level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u dest %u\n", src, cd1, cd2, cd3, dest);
         MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u max %u\n", ts_src, ts_cd1, ts_cd2, ts_cd3, max3);
     }
 
-    //return entryDest;
     return NULL;
-#else
-    return NULL;
-#endif
 }
 
 void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
-    MSG(1, "logPhiNode4CD ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
+    MSG(1, "KPhi4To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
 		dest, src, cd1, cd2, cd3, cd4);
-
+	idbgAction(KREM_PHI,"## KPhi4To1 (dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",
+		dest,src,cd1,cd2,cd3,cd4);
     if (!isKremlinOn())
     	return NULL;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_PHI,"## logPhiNode4CD(dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",dest,src,cd1,cd2,cd3,cd4);
-#endif
-
-#ifndef WORK_ONLY
 	Index index;
-
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Time ts_src = RShadowGetItem(src, index);
@@ -1639,30 +1403,24 @@ void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 
 		RShadowSetItem(max4, dest, index);
 
-        MSG(2, "logPhiNode4CD level %u version %u \n", i, RegionGetVersion(i));
+        MSG(2, "KPhi4To1 level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", src, cd1, cd2, cd3, cd4, dest);
-        MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_src, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
+        MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", 
+			ts_src, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
     }
 
-    //return entryDest;
     return NULL;
-#else
-    return NULL;
-#endif
 }
 
 void* _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
-    MSG(1, "log4CDToPhiNode ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
+    MSG(1, "KPhi4To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
 		dest, dest, cd1, cd2, cd3, cd4);
+	idbgAction(KREM_CD_TO_PHI,"## KPhi4To1 (dest=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",
+		dest,cd1,cd2,cd3,cd4);
 
     if (!isKremlinOn())
 		return NULL;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_CD_TO_PHI,"## log4CDToPhiNode(dest=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",dest,cd1,cd2,cd3,cd4);
-#endif
-
-#ifndef WORK_ONLY
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
@@ -1677,32 +1435,23 @@ void* _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
         Time max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
 		RShadowSetItem(max4, dest, index);
 
-        MSG(2, "log4CDepoPhiNode4CD level %u version %u \n", i, RegionGetVersion(i));
+        MSG(2, "KPhi4To1 level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", cd1, cd2, cd3, cd4, dest);
         MSG(2, " ts_dest %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_dest, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
     }
-   // return entryDest;
     return NULL;
-#else
-    return NULL;
-#endif
 }
 
 #define MAX_ENTRY 10
 
 void* _KPhiAddCond(UInt dest, UInt src) {
-    MSG(1, "logPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
+    MSG(1, "KPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
+	idbgAction(KREM_CD_TO_PHI,"## KPhiAddCond (dest=%u,src=%u)\n",dest,src);
 
     if (!isKremlinOn())
     	return;
 
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_CD_TO_PHI,"## logPhiNodeAddCondition(dest=%u,src=%u)\n",dest,src);
-#endif
-
-#ifndef WORK_ONLY
 	Index index;
-
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
@@ -1711,12 +1460,10 @@ void* _KPhiAddCond(UInt dest, UInt src) {
         Time value = (ts0 > ts1) ? ts0 : ts1;
 		RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
-        MSG(2, "logPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
+        MSG(2, "KPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u dest %u\n", src, dest);
         MSG(2, " ts0 %u ts1 %u value %u\n", ts0, ts1, value);
     }
-	
-#endif
 }
 
 
@@ -1763,7 +1510,6 @@ void MShadowDeinit() {
 			MShadowDeinitDummy();
 			break;
 	}
-
 }
 
 static UInt hasInitialized = 0;
@@ -1844,10 +1590,7 @@ void _KPrintData() {}
 // use estimated cost for a callee function we cannot instrument
 // TODO: implement new shadow mem interface
 void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
-
-#ifdef KREMLIN_DEBUG
-	idbgAction(KREM_CD_TO_PHI,"## logLibraryCall(cost=%u,dest=%u,num_in=%u,...)\n",cost,dest,num_in);
-#endif
+	idbgAction(KREM_CD_TO_PHI,"## KCallLib(cost=%u,dest=%u,num_in=%u,...)\n",cost,dest,num_in);
 
 #if 0
     if (!isKremlinOn())
@@ -1856,7 +1599,6 @@ void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
     MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
     addWork(cost);
 
-#ifndef WORK_ONLY
     TEntry* entrySrc[MAX_ENTRY];
     TEntry* entryDest = getLTEntry(dest);
 
@@ -1891,10 +1633,7 @@ void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 
 		updateCP(value, i);
     }
-    return entryDest;
-#else
     return NULL;
-#endif
 #endif
     
 }
@@ -1912,13 +1651,10 @@ void _KMalloc(Addr addr, size_t size, UInt dest) {
     
     MSG(1, "logMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
 
-#ifndef WORK_ONLY
-
     // Don't do anything if malloc returned NULL
     if(!addr) { return; }
 
     createMEntry(addr,size);
-#endif
 #endif
 }
 
@@ -1932,7 +1668,6 @@ void _KFree(Addr addr) {
     // Calls to free with NULL just return.
     if(addr == NULL) return;
 
-#ifndef WORK_ONLY
     size_t mem_size = getMEntry(addr);
 
     Addr a;
@@ -1952,7 +1687,6 @@ void _KFree(Addr addr) {
 
         updateCP(value, i);
     }
-#endif
 #endif
 }
 
@@ -1981,15 +1715,6 @@ void printActiveRegionStack() {
 
 	for(i = 0; i <= level; ++i) {
 		Region* region = RegionGet(i);
-
-		/*
-		UInt32 code;
-		Version version;
-		SID	regionId;
-		RegionType regionType;
-		Time start;
-		Time cp;
-		*/
 		fprintf(stdout,"#%d: ",i);
 		if(region->regionType == RegionFunc) {
 			fprintf(stdout,"type=FUNC ");
@@ -2156,6 +1881,19 @@ void _KInvokeThrew(UInt64 id)
 }
 
 #endif
+
+#if 0
+void logBBVisit(UInt bb_id) {
+    if (!isKremlinOn()) return;
+
+#ifdef MANAGE_BB_INFO
+    MSG(1, "logBBVisit(%u)\n", bb_id);
+    __prevBB = __currentBB;
+    __currentBB = bb_id;
+#endif
+}
+#endif
+
 
 
 #endif 

@@ -191,10 +191,12 @@ static void updateCRegion(CRegion* region, RegionField* info) {
 	if (region->maxChildCount < info->childCnt) 
 		region->maxChildCount = info->childCnt;
 
+#ifdef EXTRA_STATS
 	region->readCnt += info->readCnt;
 	region->writeCnt += info->writeCnt;
 	region->loadCnt += info->loadCnt;
 	region->storeCnt += info->storeCnt;
+#endif
 	assert(region->numInstance >= 0);
 	region->numInstance++;
 

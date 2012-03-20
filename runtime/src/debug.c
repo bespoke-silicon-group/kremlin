@@ -12,7 +12,7 @@ VECTOR_DEFINE_PROTOTYPES(RegionIds, SID);
 VECTOR_DEFINE_FUNCTIONS(RegionIds, SID, VECTOR_COPY, VECTOR_NO_DELETE);
 
 int	__kremlin_debug = 1;
-int  __kremlin_debug_level = 3;
+int  __kremlin_debug_level = KREMLIN_DEBUG_LEVEL;
 
 int __kremlin_idbg = 0;
 
@@ -61,6 +61,10 @@ char** tokenizeString(char* str) {
 }
 
 void iDebugHandlerRegionEntry(SID regionId) {
+#ifdef KREMLIN_DEBUG
+	if (!__kremlin_idbg)
+		return;
+
 	if(__kremlin_idbg_run_state == RunUntilFinish) return;
 
 	int i;
@@ -77,6 +81,7 @@ void iDebugHandlerRegionEntry(SID regionId) {
 		}
 		*/
 	}
+#endif
 }
 
 void iDebugHandler(UInt kremFunc) {

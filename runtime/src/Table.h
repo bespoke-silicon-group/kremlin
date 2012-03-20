@@ -91,6 +91,7 @@ static inline void TableCopy(Table* destTable, int destReg, Table* srcTable, int
 	int indexDest = TableGetOffset(destTable, destReg, start);
 	int indexSrc = TableGetOffset(srcTable, srcReg, start);
 	MSG(3, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
+
 	if (size == 0)
 		return;
 	assert(size >= 0);
@@ -102,6 +103,7 @@ static inline void TableCopy(Table* destTable, int destReg, Table* srcTable, int
 	Time* srcAddr = (Time*)&(srcTable->array[indexSrc]);
 	Time* destAddr = (Time*)&(destTable->array[indexDest]);
 	memcpy(destAddr, srcAddr, size * sizeof(Time));
+
 }
 
 

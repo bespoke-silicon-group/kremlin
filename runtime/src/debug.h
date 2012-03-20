@@ -4,6 +4,7 @@
 #include <signal.h>
 #include "kremlin.h"
 //#define KREMLIN_DEBUG	1
+#define KREMLIN_DEBUG_LEVEL 1
 
 /* WARNING!!!!
  *
@@ -24,17 +25,28 @@ void printRegisterTimes(Reg reg);
 void printMemoryTimes(Addr addr, Index size);
 
 void dbg_int(int sig);
+void DebugDeinit();
+
 #ifdef KREMLIN_DEBUG 
     void MSG(int level, char* format, ...);
 	void updateTabString();
 	void incIndentTab();
 	void decIndentTab();
 	void iDebugHandler();
+	#define idbgAction(op, ...) { \
+		if (__kremlin_idbg) { \
+			if (__kremlin_idbg_run_state == Waiting) { \
+				fprintf(stdout, __VA_ARGS__); \
+			} \
+			iDebugHandler(op); \
+		} \
+	}
 #else
     #define MSG(level, a, args...)  ((void)0)
     #define incIndentTab()          ((void)0)
     #define decIndentTab()          ((void)0)
     #define updateTabString()       ((void)0)
+	#define idbgAction(op, ...) 	((void)0)
 #endif
 
 
