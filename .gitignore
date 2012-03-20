@@ -9,6 +9,7 @@
 *.bc
 *.ll
 *.log
+*.kdump
 *.pyc
 nesting.dot
 sregions.txt
