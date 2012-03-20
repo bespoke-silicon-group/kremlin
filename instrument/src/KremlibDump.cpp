@@ -117,6 +117,7 @@ namespace {
 			kremlib_calls.insert("_KTurnOff");
 			kremlib_calls.insert("_KEnterRegion");
 			kremlib_calls.insert("_KExitRegion");
+			kremlib_calls.insert("_KPrepRTable");
 
 			// C++ stuff
 			kremlib_calls.insert("_KPrepInvoke");
