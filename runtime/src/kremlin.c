@@ -1072,55 +1072,6 @@ void* _KReduction(UInt opCost, Reg dest) {
     return NULL;
 }
 
-#if 0
-void logTimestamp(UInt32 dest, UInt32 numIn, ...)
-{
-	if (!isKremlinOn())
-		return;
-
-	int minLevel = MIN_REGION_LEVEL;
-	int maxLevel = MIN(MAX_REGION_LEVEL, getLevelNum());
-	int i = 0;
-
-	TEntry* entryDest = getLTEntry(dest);
-
-	TEntryAllocAtLeastLevel(entryDest,
-			maxLevel);
-	for (i = minLevel; i < maxLevel;
-			i++) {
-		UInt version =
-			getVersion(i);
-		UInt64 max =
-			getCdt(i,
-					version);
-
-		MSG(2, "logTs level %u %version %%u %\n", %i, %version);
-
-		int argIdx;
-		va_list args;
-		va_start(args, numIn);
-		for(argIdx = 0; argIdx < numIn; argIdx++)
-		{   
-			UInt32 srcId = va_arg(args, UInt32);
-			TEntry* entrySrc = getLTEntry(srcId);
-			UInt64 base = getTimestamp(entrySrc, i, version);
-			UInt32 offset = va_arg(args, UInt32);
-
-			MSG(2, " src: %u %ts_val: %%u\n", %srcId, %base %+ %offset);
-
-			max = MAX(max, base + offset);
-		}
-		va_end(args);
-
-		MSG(2, " dest %u %max_ts_val: %%u\n", %dest, %max);
-
-		updateTimestamp(entryDest, i, version, max);
-		updateCP(max, i);
-	}
-
-}
-#endif
-
 void _KTimestamp(UInt32 dest, UInt32 numIn, ...) {
     MSG(1, "KTimestamp ts[%u] = (0..%u) \n", dest,numIn);
 	idbgAction(KREM_TS,"## _KTimestamp(dest=%u,numIn=%u,...)\n",dest,numIn);
