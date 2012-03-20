@@ -43,7 +43,7 @@ void* _KInsertValueConst(UInt dest);
 void* _KInduction(UInt dest); 
 void* _KReduction(UInt opCost, UInt dest); 
 
-void* _KLoad(Addr src_addr, UInt dest, UInt32 num_in, ...); 
+void* _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...); 
 void* _KLoad0(Addr src_addr, UInt dest, UInt32 size); 
 void* _KLoad1(Addr src_addr, UInt src1, UInt dest, UInt32 size);
 void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 size);

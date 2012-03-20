@@ -29,13 +29,13 @@ LoadHandler::LoadHandler(TimestampPlacer& ts_placer) :
     LLVMTypes types(m.getContext());
     vector<const Type*> args;
 
-    args += types.pi8(), types.i32(), types.i32();
+    args += types.pi8(), types.i32(), types.i32(), types.i32();
     FunctionType* func_type = FunctionType::get(types.voidTy(), args, true);
     log_func = cast<Function>(m.getOrInsertFunction("_KLoad", func_type));
 
     // Make specialized functions.
     args.clear();
-    args += types.pi8(), types.i32();
+    args += types.pi8(), types.i32(), types.i32();
     for(int i = 0; i < MAX_SPECIALIZED; i++)
     {
         FunctionType* func_type = FunctionType::get(types.voidTy(), args, false);
@@ -75,7 +75,7 @@ void LoadHandler::handle(llvm::Instruction& inst)
     GetElementPtrInst* gepi = dyn_cast<GetElementPtrInst>(load.getPointerOperand());
 
     size_t num_conds = 0;
-    size_t num_conds_idx = args.size(); // Placeholder for num_conds
+    size_t num_conds_idx = args.size() + 1; // Placeholder for num_conds
     if(gepi)
     {
         for(User::op_iterator gepi_op = gepi->idx_begin(), gepi_ops_end = gepi->idx_end(); 
@@ -100,6 +100,9 @@ void LoadHandler::handle(llvm::Instruction& inst)
         }
     }
 
+	push_int(8); // XXX
+
+	// try to find a specialized version
     Function* log_func = this->log_func;
     SpecializedFuncs::iterator it = specialized_funcs.find(num_conds);
     if(it != specialized_funcs.end())
