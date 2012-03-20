@@ -1,5 +1,6 @@
 #ifndef _TABLE_H
 #define _TABLE_H
+#include "debug.h"
 #include "ktypes.h"
 
 
@@ -33,8 +34,8 @@ static inline Table* TableCreate(int row, int col) {
 	ret->col = col;
 	// should be initialized with zero
 	ret->array = (Time*) calloc(row * col, sizeof(Time));
-	MSG(1, "TableCreate: ret = 0x%llx row = %d, col = %d\n", ret, row, col);
-	MSG(1, "TableCreate: ret->array = 0x%llx \n", ret->array);
+	MSG(3, "TableCreate: ret = 0x%llx row = %d, col = %d\n", ret, row, col);
+	MSG(3, "TableCreate: ret->array = 0x%llx \n", ret->array);
 	return ret;
 }
 
@@ -63,6 +64,7 @@ static inline int TableGetOffset(Table* table, int row, int col) {
 }
 
 static inline Time* TableGetElementAddr(Table* table, int row, int col) {
+	MSG(3, "TableGetElementAddr\n");
 	int offset = TableGetOffset(table, row, col);
 	Time* ret = &(table->array[offset]);
 	return ret;
@@ -70,6 +72,7 @@ static inline Time* TableGetElementAddr(Table* table, int row, int col) {
 
 
 static inline Time TableGetValue(Table* table, int row, int col) {
+	MSG(3, "TableGetValue\n");
 	assert(table != NULL);
 	int offset = TableGetOffset(table, row, col);
 	Time ret = table->array[offset];
@@ -77,6 +80,7 @@ static inline Time TableGetValue(Table* table, int row, int col) {
 }
 
 static inline void TableSetValue(Table* table, Time time, int row, int col) {
+	MSG(3, "TableSetValue\n");
 	assert(table != NULL);
 	int offset = TableGetOffset(table, row, col);
 	table->array[offset] = time;
@@ -86,11 +90,13 @@ static inline void TableSetValue(Table* table, Time time, int row, int col) {
  * Copy values of a register to another table
  */
 static inline void TableCopy(Table* destTable, int destReg, Table* srcTable, int srcReg, int start, int size) {
+	MSG(3, "TableCopy: srcTable(%d from [%d,%d]) destTable(%d from [%d,%d]) start = %d, size = %d\n", 
+		srcReg, srcTable->row, srcTable->col, destReg, destTable->row, destTable->col, 
+		start, size);
 	assert(destTable != NULL);
 	assert(srcTable != NULL);
 	int indexDest = TableGetOffset(destTable, destReg, start);
 	int indexSrc = TableGetOffset(srcTable, srcReg, start);
-	MSG(3, "RShadowCopy: indexDest = %d,indexSrc = %d, start = %d, size = %d\n", indexDest, indexSrc, start, size);
 
 	if (size == 0)
 		return;
@@ -103,7 +109,6 @@ static inline void TableCopy(Table* destTable, int destReg, Table* srcTable, int
 	Time* srcAddr = (Time*)&(srcTable->array[indexSrc]);
 	Time* destAddr = (Time*)&(destTable->array[indexDest]);
 	memcpy(destAddr, srcAddr, size * sizeof(Time));
-
 }
 
 
