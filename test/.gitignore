@@ -1,2 +1,15 @@
+df-*
+a.out
+
+###############################
+# results of testing commands #
+###############################
+
 kremlin.bin.reference
 referenceBuild.out
+
+referenceBuildAll
+referenceCheckAll
+sregionsBuildAll
+sregionsCheckAll
+valgrindCheckAll
