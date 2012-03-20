@@ -37,8 +37,6 @@ class ReductionVars : public llvm::FunctionPass
 
     void getArrayReductionVars(llvm::LoopInfo& LI, llvm::Loop* loop, std::set<llvm::Instruction*>& red_var_ops);
     bool isReductionOpType(llvm::Instruction* inst);
-
-
 };
 
 #endif // REDUCTION_VARS_H
