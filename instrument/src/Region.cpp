@@ -2,16 +2,30 @@
 #include <sstream>
 #include <iomanip>
 
+/**
+ * @param that The other region to compare.
+ * @return true if the id of this region is less than the other.
+ */
 bool Region::operator<(const Region& that) const
 {
 	return getId() < that.getId();
 }
 
+/**
+ * @param that The other region to compare.
+ * @return true if the id of this region is equal than the other.
+ */
 bool Region::operator==(const Region& that) const
 {
 	return getId() == that.getId();
 }
 
+/**
+ * Formats the region id, type, file and line information into a string.
+ *
+ * @param buf The buffer to place the formatted data.
+ * @return The buffer.
+ */
 std::string& Region::formatToString(std::string& buf) const
 {
 	std::ostringstream os;
