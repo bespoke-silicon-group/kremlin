@@ -36,6 +36,27 @@ namespace {
 
 		KremlibDump() : ModulePass(ID), log(PassLog::get()) {}
 
+		void printCallArgs(CallInst* ci, raw_os_ostream*& os) {
+			*os << "(";
+
+			for(unsigned i = 0; i < ci->getNumArgOperands(); ++i) {
+				if(i > 0) *os << ", ";
+
+				Value* arg = ci->getArgOperand(i);
+				if(ConstantInt* con = dyn_cast<ConstantInt>(arg)) {
+					*os << con->getZExtValue();
+				}
+				else if(arg->hasName()){
+					*os << arg->getName();
+				}
+				else {
+					*os << *arg;
+				}
+			}
+
+			*os << ")";
+		}
+
 		virtual bool runOnModule(Module &M) {
 			LLVMTypes types(M.getContext());
 
@@ -98,6 +119,7 @@ namespace {
 			kremlib_calls.insert("turnOffProfiler");
 			kremlib_calls.insert("logRegionEntry");
 			kremlib_calls.insert("logRegionExit");
+			kremlib_calls.insert("setupLocalTable");
 
 			// C++ stuff
 			kremlib_calls.insert("prepareInvoke");
@@ -128,24 +150,25 @@ namespace {
 							  )
 							{
 								// print out this instruction
-								*dump_raw_os << "\t\t" << called_func->getName() << "(";
+								*dump_raw_os << "\t\t" << called_func->getName();
+								printCallArgs(ci,dump_raw_os);
+								*dump_raw_os << "\n";
+							}
+							else {
+								// avoid printing this if it's an LLVM
+								// debugging function
+								if(!(called_func && called_func->isIntrinsic()
+									&& called_func->hasName() &&
+									called_func->getName().find("llvm.dbg") != std::string::npos))
+								{
+									
+									Value* called_val = ci->getCalledValue();
+									*dump_raw_os << "\t\tCALL ";
+									if(called_val->hasName()) *dump_raw_os << called_val->getName();
 
-								for(unsigned i = 0; i < ci->getNumArgOperands(); ++i) {
-									if(i > 0) *dump_raw_os << ", ";
-
-									Value* arg = ci->getArgOperand(i);
-									if(ConstantInt* con = dyn_cast<ConstantInt>(arg)) {
-										*dump_raw_os << con->getZExtValue();
-									}
-									else if(arg->hasName()){
-										*dump_raw_os << arg->getName();
-									}
-									else {
-										*dump_raw_os << *arg;
-									}
+									printCallArgs(ci,dump_raw_os);
+									*dump_raw_os << "\n";
 								}
-
-								*dump_raw_os << ")\n";
 							}
 						}
 						else if(isa<ReturnInst>(inst)) {
