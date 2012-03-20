@@ -181,7 +181,7 @@ static inline Level getIndex(Level level) {
 
 static Time	timetick = 0llu;
 
-inline void addWork(int work) {
+inline void _KWork(UInt32 work) {
 	timetick += work;
 }
 
@@ -1068,7 +1068,7 @@ void* _KReduction(UInt opCost, Reg dest) {
     if (!isKremlinOn() || !isInstrumentable())
 		return;
 
-    addWork(opCost);
+    _KWork(opCost);
     return NULL;
 }
 
@@ -1138,7 +1138,7 @@ void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
     if (!isKremlinOn())
         return NULL;
 
-    addWork(opCost);
+    _KWork(opCost);
 	Index depth = getIndexDepth();
 	
 	Index index;
@@ -1174,7 +1174,7 @@ void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
     if (!isKremlinOn())
         return NULL;
 
-    addWork(opCost);
+    _KWork(opCost);
 	Table* table = RShadowGetTable();
 	Time* base = table->array; 
 
@@ -1235,7 +1235,7 @@ void* _KLoad(Addr addr, Reg dest, UInt32 size) {
     if (!isKremlinOn())
     	return NULL;
 
-    addWork(LOAD_COST);
+    _KWork(LOAD_COST);
 
 	Index index;
 	Index depth = getIndexDepth();
@@ -1273,7 +1273,7 @@ void* _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
     if (!isKremlinOn())
 		return NULL;
 
-    addWork(LOAD_COST);
+    _KWork(LOAD_COST);
 
     Level minLevel = getStartLevel();
 
@@ -1316,7 +1316,7 @@ void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
     	return NULL;
 
 
-    addWork(STORE_COST);
+    _KWork(STORE_COST);
 
 	Index index;
 	Time* tArray = RegionGetTArray();
@@ -1349,7 +1349,7 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
         return NULL;
 
 
-    addWork(STORE_COST);
+    _KWork(STORE_COST);
 
 	Index index;
 	Time* tArray = RegionGetTArray();
@@ -1691,7 +1691,7 @@ void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
         return NULL;
 
     MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
-    addWork(cost);
+    _KWork(cost);
 
     TEntry* entrySrc[MAX_ENTRY];
     TEntry* entryDest = getLTEntry(dest);
@@ -1770,7 +1770,7 @@ void _KFree(Addr addr) {
 	}
 
     freeMEntry(addr);
-	addWork(FREE_COST);
+	_KWork(FREE_COST);
 	// make sure CP is at least the time needed to complete the free
     int minLevel = getStartLevel();
     int maxLevel = getEndLevel();

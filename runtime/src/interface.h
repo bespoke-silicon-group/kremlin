@@ -29,6 +29,7 @@ void _KExitRegion(UInt64 region_id, UInt region_type);
 void _KTimestamp(UInt32 dest, UInt32 numIn, ...);
 void _KTimestamp1(UInt32 dest, UInt32 src, UInt32 off);
 void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off2);
+void _KWork(UInt32 work);
 
 // BEGIN deprecated?
 void* _KBinary(UInt opCost, UInt src0, UInt src1, UInt dest); 
