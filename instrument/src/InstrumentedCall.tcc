@@ -12,6 +12,9 @@
 
 using namespace llvm;
 
+/**
+ * Constructs a new instrumented call.
+ */
 template <typename Callable>
 InstrumentedCall<Callable>::InstrumentedCall(Callable* ci, uint64_t bb_call_idx) :
     InstrumentationCall(NULL, NULL, INSERT_BEFORE, NULL),
@@ -25,6 +28,9 @@ InstrumentedCall<Callable>::~InstrumentedCall()
 {
 }
 
+/**
+ * @return The id.
+ */
 template <typename Callable>
 unsigned long long InstrumentedCall<Callable>::getId() const
 {
@@ -137,6 +143,9 @@ Function* InstrumentedCall<Callable>::untangleCall(Callable* ci)
 //    }
 //}
 
+/**
+ * Adds a global variable with the encoded debug information.
+ */
 template <typename Callable>
 void InstrumentedCall<Callable>::instrument()
 {
@@ -148,6 +157,12 @@ void InstrumentedCall<Callable>::instrument()
     new GlobalVariable(*m, types.i8(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i8(), 0), Twine(formatToString(encoded_name)));
 }
 
+/**
+ * Formats the call to a string.
+ *
+ * @param buf The buffer to place the formatted data.
+ * @return The passed buffer.
+ */
 template <typename Callable>
 std::string& InstrumentedCall<Callable>::formatToString(std::string& buf) const
 {

@@ -8,11 +8,8 @@ template <typename Callable>
 class InstrumentedCall : public FormattableToString, public InstrumentationCall
 {
     public:
+    /// The Id type
     typedef unsigned long long Id;
-
-    private:
-    Callable* ci;
-    Id id;
 
     public:
     static llvm::Function* untangleCall(Callable* ci);
@@ -24,6 +21,11 @@ class InstrumentedCall : public FormattableToString, public InstrumentationCall
     virtual void instrument();
 
     Id getId() const;
+
+    private:
+    Callable* ci;
+    Id id;
+
 };
 
 #include "InstrumentedCall.tcc"
