@@ -15,17 +15,22 @@ class InstrumentationCall
 		INSERT_AFTER
 	};
 
-    private:
+	public:
+	InstrumentationCall(llvm::CallInst* instrumentationCall, 
+        llvm::Instruction* insertTarget, 
+        InsertLocation insertLocation, 
+        llvm::Instruction* generatedFrom);
+
+    virtual ~InstrumentationCall();
+
+    virtual void instrument() = 0;
+
+    protected:
     llvm::Instruction* generatedFrom;
 	llvm::Instruction* insertTarget;
 	InsertLocation insertLocation;
     llvm::CallInst* instrumentationCall;
 
-	public:
-	InstrumentationCall(llvm::CallInst* instrumentationCall, llvm::Instruction* insertTarget, InsertLocation insertLocation, llvm::Instruction* generatedFrom);
-    virtual ~InstrumentationCall();
-
-    virtual void instrument() = 0;
 };
 
 #endif // INSTRUMENTATION_CALL_H

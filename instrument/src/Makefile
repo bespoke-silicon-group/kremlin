@@ -33,15 +33,16 @@ override LLVMToolDir = $(LLVM_INSTALL_BIN_DIR)
 
 # Add the common directory to the list of includes.
 CXX.Flags += -I../../common/include
-LD.Flags += -L$(LLVM_INSTALL_LIB_DIR) -lrt
+LD.Flags += -L$(LLVM_INSTALL_LIB_DIR) -lrt 
 
 ifdef DEBUG
 override ENABLE_OPTIMIZED=0
 else
 ENABLE_OPTIMIZED=1
+endif
+
 #uncomment the following line if you want to build with support for gprof profiling
 #ENABLE_PROFILING=1
-endif
 
 # If we don't need RTTI or EH, there's no reason to export anything
 # from the hello plugin.

@@ -3,6 +3,9 @@
 
 // #include <boost/exception.hpp>
 
+/**
+ * Unsupported operations.
+ */
 class UnsupportedOperationException : public std::exception // boost::exception
 {
 };

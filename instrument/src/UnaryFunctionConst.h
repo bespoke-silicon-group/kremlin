@@ -1,10 +1,20 @@
 #ifndef UNARY_FUNCTION_CONST_H
 #define UNARY_FUNCTION_CONST_H
 
+/**
+ * Base class for const unary function objects.
+ * @tparam ArgType      The type of the argument of the unary function.
+ * @tparam ResultType   The result type of the unary function.
+ */
 template <typename ArgType, typename ResultType>
 struct UnaryFunctionConst : public std::unary_function<ArgType, ResultType>
 {
-	virtual ResultType operator()(ArgType) const = 0;
+    /**
+     * An unary function.
+     *
+     * @param arg The argument.
+     */
+	virtual ResultType operator()(ArgType arg) const = 0;
 	virtual ~UnaryFunctionConst() {};
 };
 

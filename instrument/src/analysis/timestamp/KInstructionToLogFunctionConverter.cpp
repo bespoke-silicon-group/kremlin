@@ -1,0 +1,80 @@
+#define DEBUG_TYPE __FILE__
+#include <boost/bind.hpp>
+#include <boost/function.hpp>
+#include <boost/lexical_cast.hpp>
+#include <llvm/Constants.h>
+#include <llvm/Support/Debug.h>
+
+#include "analysis/timestamp/KInstructionToLogFunctionConverter.h"
+#include "analysis/timestamp/TimestampCandidate.h"
+#include "LLVMTypes.h"
+#include "foreach.h"
+
+#define NUM_SPECIALIZED 3
+
+using namespace llvm;
+using namespace boost;
+using namespace std;
+
+InstructionToLogFunctionConverter::InstructionToLogFunctionConverter(llvm::Module& m, InstIds& inst_to_id) :
+    inst_to_id(inst_to_id),
+    log(PassLog::get()),
+    log_func(NULL),
+    m(m)
+{
+    std::vector<const Type*> args;
+    LLVMTypes types(m.getContext());
+
+    args.push_back(types.i32()); // dest virtual reg num
+    args.push_back(types.i32()); // num operands
+    FunctionType* log_func_type = FunctionType::get(types.voidTy(), args, true);
+
+    // if the cast fails, another func with the same name and different prototype exists.
+    log_func = cast<Function>(m.getOrInsertFunction("_KTimestamp", log_func_type)); 
+
+    // Custom functions
+    args.pop_back();
+    for(size_t i = 0; i < NUM_SPECIALIZED; i++)
+    {
+        FunctionType* func_type = FunctionType::get(types.voidTy(), args, false);
+        func_map.insert(make_pair(i, cast<Function>(m.getOrInsertFunction("_KTimestamp" + lexical_cast<string>(i), func_type))));
+
+        args.push_back(types.i32()); // src reg num
+        args.push_back(types.i32()); // src timestamp
+    }
+}
+
+InstructionToLogFunctionConverter::~InstructionToLogFunctionConverter()
+{
+}
+
+llvm::CallInst* InstructionToLogFunctionConverter::operator()(const Value* inst, const Timestamp& ts) const
+{
+    LOG_DEBUG() << "Converting inst: " << *inst << "\n";
+
+    std::vector<Value*> args;
+    LLVMTypes types(m.getContext());
+    function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back, 
+        ref(args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
+
+    push_int(inst_to_id.getId(*inst)); // dest id.
+
+    // Look up the custom function
+    FuncMap::const_iterator it = func_map.find(ts.size());
+    Function* func;
+    if(it == func_map.end())
+    {
+        func = log_func;
+        push_int(ts.size()); // num args.
+    }
+    else
+        func = it->second;
+
+    foreach(const TimestampCandidate& cand, ts)
+    {
+        push_int(inst_to_id.getId(*cand.getBase())); // vtable index
+        push_int(cand.getOffset()); // constant work
+    }
+
+    return CallInst::Create(func, args.begin(), args.end(), "");
+}
