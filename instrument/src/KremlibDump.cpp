@@ -163,8 +163,15 @@ namespace {
 								{
 									
 									Value* called_val = ci->getCalledValue();
-									*dump_raw_os << "\t\tCALL ";
+									*dump_raw_os << "\t\tCALL: ";
+
+									// print out, e.g. "bar =", if call inst is
+									// named (so we can see where the return
+									// value is being stored).
+									if(ci->hasName()) *dump_raw_os << ci->getName() << " = ";
+
 									if(called_val->hasName()) *dump_raw_os << called_val->getName();
+									else *dump_raw_os << "(UNNAMED)";
 
 									printCallArgs(ci,dump_raw_os);
 									*dump_raw_os << "\n";
