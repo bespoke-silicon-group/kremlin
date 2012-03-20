@@ -23,7 +23,7 @@ StoreInstHandler::StoreInstHandler(TimestampPlacer& ts_placer) :
     Module& m = *ts_placer.getFunc().getParent();
     LLVMTypes types(m.getContext());
     vector<const Type*> args;
-    args += types.i32(), types.pi8();
+    args += types.i32(), types.pi8(), types.i32();
     FunctionType* func_type = FunctionType::get(types.voidTy(), args, false);
 
     log_func = cast<Function>(m.getOrInsertFunction("_KStore", func_type));
@@ -59,6 +59,8 @@ void StoreInstHandler::handle(llvm::Instruction& inst)
     // the dest is already in ptr form so we simply use that
     CastInst& cast_inst = *CastInst::CreatePointerCast(si.getPointerOperand(),types.pi8(),"inst_arg_ptr"); // dest addr
     args += &cast_inst;
+
+    args += ConstantInt::get(types.i32(),8); // size of access (XXX)
 
     // Add the cast, call and the timestamp to store.
     CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");

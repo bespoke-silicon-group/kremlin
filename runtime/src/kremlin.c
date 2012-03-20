@@ -1211,7 +1211,7 @@ void* _KAssignConst(UInt dest) {
 }
 
 // TODO: implement
-void* _KLoad(Addr src_addr, UInt dest, UInt32 num_in, ...) {}
+void* _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...) {}
 
 void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
     MSG(0, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
@@ -1286,9 +1286,9 @@ void* _KLoad1(Addr addr, UInt src1, UInt dest, UInt32 size) {
 }
 
 // TODO: will be removed once kremlin-cc is updated with new APIs
-void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
-void* _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
-void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return _KLoad(src_addr,dest, width); }
+void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return _KLoad0(src_addr,dest, width); }
+void* _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return _KLoad0(src_addr,dest, width); }
+void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return _KLoad0(src_addr,dest, width); }
 
 
 void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
