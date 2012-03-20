@@ -224,28 +224,6 @@ struct CriticalPath : public ModulePass
         AU.addRequired<DominatorTree>();
     }
 
-    // returns a list of instructions that are considered end points.
-    // these will be either return instructions or the instruction right before an "unreachable" instruction
-    std::set<Instruction*> getFunctionEndPoints(Function* func) {
-        std::set<Instruction*> end_pts;
-
-        for (Function::iterator blk = func->begin(), blk_end = func->end(); blk != blk_end; ++blk) {
-            if(isa<ReturnInst>(blk->getTerminator()))
-                end_pts.insert(blk->getTerminator());
-            else if(isa<UnreachableInst>(blk->getTerminator())) {
-                BasicBlock::iterator noreturn_call = blk->getTerminator();
-                --noreturn_call;
-
-                // we expect this to be a function with the noreturn attribute so issue a warning if it isn't
-                if(!isa<CallInst>(noreturn_call))
-                    LOG_WARN() << "something other than a function call came before unreachable instruction.\n";
-
-                end_pts.insert(noreturn_call);
-            }
-        }
-
-        return end_pts;
-    }
 };  // end of struct CriticalPath
 
 char CriticalPath::ID = 0;
