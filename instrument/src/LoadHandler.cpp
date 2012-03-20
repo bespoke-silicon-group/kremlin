@@ -29,13 +29,13 @@ LoadHandler::LoadHandler(TimestampPlacer& ts_placer) :
     LLVMTypes types(m.getContext());
     vector<const Type*> args;
 
-    args += types.i32(), types.pi8(), types.i32();
+    args += types.pi8(), types.i32(), types.i32();
     FunctionType* func_type = FunctionType::get(types.voidTy(), args, true);
     log_func = cast<Function>(m.getOrInsertFunction("_KLoad", func_type));
 
     // Make specialized functions.
     args.clear();
-    args += types.i32(), types.pi8();
+    args += types.pi8(), types.i32();
     for(int i = 0; i < MAX_SPECIALIZED; i++)
     {
         FunctionType* func_type = FunctionType::get(types.voidTy(), args, false);
@@ -63,11 +63,11 @@ void LoadHandler::handle(llvm::Instruction& inst)
     function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back,
         ref(args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
 
-    push_int(ts_placer.getId(load)); // Dest ID
-
     // the mem loc is already in ptr form so we simply use that
     CastInst& ptr_cast = *CastInst::CreatePointerCast(load.getPointerOperand(),types.pi8(),"inst_arg_ptr");
     args.push_back(&ptr_cast);
+
+    push_int(ts_placer.getId(load)); // Dest ID
 
     // If this load uses a getelementptr inst for its address, we need
     // to check for any non-constant ops (other than the pointer index)
