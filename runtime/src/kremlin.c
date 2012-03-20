@@ -610,8 +610,8 @@ void _KPushCDep(Reg cond) {
 	}
 
 	Table* ltable = RShadowGetTable();
-	assert(lTable->col >= indexSize);
-	assert(cTable->col >= indexSize);
+	//assert(lTable->col >= indexSize);
+	//assert(cTable->col >= indexSize);
 
 	TableCopy(cTable, cTableReadPtr, lTable, cond, 0, indexSize);
 	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
@@ -723,12 +723,21 @@ void _KUnlinkArg(Reg dest) {
 /**
  * Setup the local shadow register table.
  * @param maxVregNum	Number of virtual registers to allocate.
+ * @param maxNestLevel	Max relative region depth that can touch the table.
+ *
+ * A RTable is used by regions in the same function. 
+ * Fortunately, it is possible to set the size of the table using 
+ * both compile-time and runtime information. 
+ *  - row: maxVregNum, as each row represents a virtual register
+ *  - col: getCurrentLevel() + 1 + maxNestLevel
+ *		maxNestLevel represents the max depth of a region that can use 
+ *		the RTable. 
  */
-void _KPrepRTable(UInt maxVregNum, UInt levelsToNextFunc) {
+void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
 	int tableHeight = maxVregNum;
-	int tableWidth = getCurrentLevel() + levelsToNextFunc + 1;
-    MSG(1, "KPrep RShadow Table row = %d, col = %d (cur level = %d)\n",
-		 tableHeight, tableWidth, getCurrentLevel());
+	int tableWidth = getCurrentLevel() + maxNestLevel + 1;
+    MSG(1, "KPrep RShadow Table row=%d, col=%d (curLevel=%d, maxNestLevel=%d)\n",
+		 tableHeight, tableWidth, getCurrentLevel(), maxNestLevel);
 
     if (!isKremlinOn()) {
 		 return; 
@@ -1058,7 +1067,7 @@ void* _KReduction(UInt opCost, Reg dest) {
 }
 
 void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
-    MSG(3, "KBinary ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
+    MSG(1, "KBinary ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
 	idbgAction(KREM_BINOP,"## _KBinary(opCost=%u,src0=%u,src1=%u,dest=%u)\n",opCost,src0,src1,dest);
 
     if (!isKremlinOn())
@@ -1095,7 +1104,7 @@ void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
 }
 
 void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
-    MSG(3, "KBinaryConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
+    MSG(1, "KBinaryConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
 	idbgAction(KREM_BINOP,"## _KBinaryConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
     if (!isKremlinOn())
         return NULL;
@@ -1126,7 +1135,7 @@ void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
 
 void* _KAssign(Reg src, Reg dest) {
     MSG(1, "_KAssign ts[%u] <- ts[%u]\n", dest, src);
-	idbgAction(KREM_BINOP,"## _KAssign(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
+	//idbgAction(KREM_BINOP,"## _KAssign(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
 
     if (!isKremlinOn())
     	return NULL;

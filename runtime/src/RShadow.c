@@ -28,74 +28,38 @@
 
 static Table*	lTable;
 
-static void initMemoryPool(Index depth) {
-	//fprintf(stderr, "[kremlin] # of instrumented levels = %d\n", depth);
-	//maxRegionLevel = depth;
-
-	// Set TEntry Size
-#if 0
-    size_t versionSize = sizeof(Version) * depth;
-    size_t timeSize = sizeof(Timestamp) * depth;
-    size_t spaceToAlloc = sizeof(TEntry) + versionSize + timeSize;
-#endif
-
-#ifdef EXTRA_STATS
-#if 0
-    size_t readVersionSize = sizeof(UInt32) * depth;
-    size_t readTimeSize = sizeof(UInt64) * depth;
-    spaceToAlloc += readVersionSize + readTimeSize;
-#endif
-#endif
-	//PoolCreate(&tEntryPool, spaceToAlloc, memPool, (void*(*)(void*, size_t))MemMapAllocatorMalloc);
-}
-
-static void finalizeMemoryPool() {
-    //PoolDelete(&tEntryPool);
-}
-
-#if 0
-// preconditions: lTable != NULL
-TEntry* getLTEntry(Reg vreg) {
-#ifndef WORK_ONLY
-	if (vreg >= lTable->entrySize) {
-		fprintf(stderr,"ERROR: vreg = %lu, lTable size = %d\n", vreg, lTable->entrySize);
-		assert(0);
-	}
-	//assert(vreg < lTable->size);
-	return lTable->array[vreg];	
-#else
-	return (TEntry*)1;
-#endif
-}
-#endif
-
 
 /*
  * Register Shadow Memory 
  */
 
 UInt RShadowInit(Index depth) {
-	initMemoryPool(depth);
 
 }
 
 UInt RShadowDeinit() {
-	finalizeMemoryPool();
 }
 
 
 inline Time RShadowGetItem(Reg reg, Index index) {
+	MSG(3, "RShadowGet [%d, %d] in table [%d, %d]\n",
+		reg, index, lTable->row, lTable->col);
+	assert(reg < lTable->row);	
+	assert(index < lTable->col);
 	int offset = TableGetOffset(lTable, reg, index);
 	Time ret = lTable->array[offset];
 	return ret;
 }
 
 inline void RShadowSetItem(Time time, Reg reg, Index index) {
+	MSG(3, "RShadowSet [%d, %d] in table [%d, %d]\n",
+		reg, index, lTable->row, lTable->col);
+	assert(reg < lTable->row);
+	assert(index < lTable->col);
 	int offset = TableGetOffset(lTable, reg, index);
 	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
 		&(lTable->array[offset]), time, reg, index, offset);
 	assert(lTable != NULL);
-	assert(reg < lTable->row);
 	lTable->array[offset] = time;
 }
 
@@ -132,6 +96,11 @@ inline void RShadowActivateTable(Table* table) {
 }
 
 inline void RShadowRestartIndex(Index index) {
+	if (index >= lTable->col)
+		return;
+
+	MSG(3, "RShadowRestartIndex col [%d] in table [%d, %d]\n",
+		index, lTable->row, lTable->col);
 	Reg i;
 	assert(lTable != NULL);
 	for (i=0; i<lTable->row; i++) {
