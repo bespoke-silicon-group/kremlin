@@ -26,12 +26,19 @@ void _KEnterRegion(UInt64 region_id, UInt region_type);
 void _KExitRegion(UInt64 region_id, UInt region_type);
 
 /* The following funcs are inserted by the critical path instrumentation pass */
+void _KTimestamp(UInt32 dest, UInt32 numIn, ...);
+void _KTimestamp1(UInt32 dest, UInt32 src, UInt32 off);
+void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off2);
+
+// BEGIN deprecated?
 void* _KBinary(UInt opCost, UInt src0, UInt src1, UInt dest); 
 void* _KBinaryConst(UInt opCost, UInt src, UInt dest); 
 void* _KAssign(UInt src, UInt dest);
 void* _KAssignConst(UInt dest); 
 void* _KInsertValue(UInt src, UInt dest); 
 void* _KInsertValueConst(UInt dest); 
+// END deprecated?
+
 void* _KInduction(UInt dest); 
 void* _KReduction(UInt opCost, UInt dest); 
 
