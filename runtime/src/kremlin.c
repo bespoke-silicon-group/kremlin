@@ -1072,6 +1072,64 @@ void* _KReduction(UInt opCost, Reg dest) {
     return NULL;
 }
 
+// TODO: implement
+void _KTimestamp(UInt32 dest, UInt32 numIn, ...) {}
+
+void _KTimestamp1(UInt32 dest, UInt32 src, UInt32 off) {
+    MSG(3, "KTimestamp1 ts[%u] = ts[%u] + %u\n", dest, src, off);
+	idbgAction(KREM_TS,"## _KTimestamp1(dest=%u,src=%u,off=%u)\n",dest,src,off);
+
+    if (!isKremlinOn())
+        return;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		// CDep and shadow memory are index based
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time cdt = CDepGet(index);
+		assert(cdt <= getTimetick() - region->start);
+
+        Time ts_calc = RShadowGetItem(src, index) + off;
+
+        Time value = (cdt > ts_calc) ? cdt : ts_calc;
+		RShadowSetItem(value, dest, index);
+
+        MSG(3, "kTime1 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src %u | off %u | dest %u\n", src, off, dest);
+        MSG(3, " ts_calc %u | cdt %u | value %u\n", ts_calc, cdt, value);
+        RegionUpdateCp(region, value);
+    }
+}
+
+void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off2) {
+    MSG(3, "KTimestamp2 ts[%u] = max(ts[%u] + %u,ts[%u] + %u)\n", dest, src1, off1, src2, off2);
+	idbgAction(KREM_TS,"## _KTimestamp(dest=%u,src1=%u,off1=%u,src2=%u,off2=%u)\n",dest,src1,off1,src2,off2);
+
+    if (!isKremlinOn())
+        return;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time cdt = CDepGet(index);
+		assert(cdt <= getTimetick() - region->start);
+
+        Time ts_calc1 = RShadowGetItem(src1, index) + off1;
+        Time ts_calc2 = RShadowGetItem(src2, index) + off2;
+
+        Time greater = (ts_calc1 > ts_calc2) ? ts_calc1 : ts_calc2;
+        Time value = (cdt > greater) ? cdt : greater;
+
+		RShadowSetItem(value, dest, index);
+
+        MSG(3, "kTime2 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src1 %u | off1 %u | src2 %u | off2 %u | dest %u\n", src1, off1, src2, off2, dest);
+        MSG(3, " ts_calc1 %u | ts_calc2 %u | cdt %u | value %u\n", ts_calc1, ts_calc2, cdt, value);
+        RegionUpdateCp(region, value);
+    }
+
 void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
     MSG(1, "KBinary ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
 	idbgAction(KREM_BINOP,"## _KBinary(opCost=%u,src0=%u,src1=%u,dest=%u)\n",opCost,src0,src1,dest);
