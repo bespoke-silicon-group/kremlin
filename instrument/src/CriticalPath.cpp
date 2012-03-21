@@ -167,6 +167,9 @@ struct CriticalPath : public ModulePass
 			cih.addIgnore("free");
             placer.registerHandler(dmh);
 
+            DynamicMemoryHandler dmh(placer);
+            placer.registerHandler(dmh);
+
             FunctionArgsHandler func_args(placer);
             placer.registerHandler(func_args);
 
