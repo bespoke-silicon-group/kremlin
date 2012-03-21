@@ -88,6 +88,7 @@ Function* CallInstHandler::untangleCall(Callable& ci)
 
 void CallInstHandler::handle(llvm::Instruction& inst)
 {
+	LOG_DEBUG() << "handling: " << inst << "\n";
     CallInst& call_inst = *cast<CallInst>(&inst);
 
     LLVMTypes types(call_inst.getContext());
