@@ -19,15 +19,20 @@ class CallInstHandler : public TimestampPlacerHandler
     template <typename Callable>
     static llvm::Function* untangleCall(Callable& ci);
 
+	void addIgnore(std::string func_name);
+
     private:
     uint32_t call_idx;
     PassLog& log;
     llvm::Function* link_arg_const_func;
     llvm::Function* link_arg_func;
     Opcodes opcodes;
+	std::vector<std::string> ignored_funcs;
     llvm::Function* prepare_call_func;
     llvm::Function* ret_val_link_func;
     TimestampPlacer& ts_placer;
+
+	bool shouldHandle(llvm::Function *func);
 };
 
 #endif // CALL_INST_HANDLER
