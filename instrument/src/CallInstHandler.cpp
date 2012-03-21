@@ -86,6 +86,22 @@ Function* CallInstHandler::untangleCall(Callable& ci)
     return called_func;
 }
 
+void CallInstHandler::addIgnore(string func_name)
+{
+	ignored_funcs += func_name;
+}
+
+bool CallInstHandler::shouldHandle(Function *func) {
+	if (func->isIntrinsic()) return false;
+	else if (!func->hasName()) return false;
+
+	foreach(string name, ignored_funcs) {
+		if (func->getName().compare(name) == 0 ) return false;
+	}
+
+	return true;
+}
+
 void CallInstHandler::handle(llvm::Instruction& inst)
 {
 	LOG_DEBUG() << "handling: " << inst << "\n";
@@ -97,9 +113,10 @@ void CallInstHandler::handle(llvm::Instruction& inst)
     Function* raw_called_func = call_inst.getCalledFunction();
 
     // don't do anything for LLVM instrinsic functions since we know we'll never instrument those functions
-    if(raw_called_func && raw_called_func->isIntrinsic())
+    //if(raw_called_func && raw_called_func->isIntrinsic())
+    if(raw_called_func && !shouldHandle(raw_called_func))
     {
-        LOG_DEBUG() << "ignoring call to LLVM intrinsic function: " << raw_called_func->getName() << "\n";
+        LOG_DEBUG() << "ignoring call to function: " << raw_called_func->getName() << "\n";
         return;
     }
 
