@@ -38,6 +38,7 @@
 #include "TimestampPlacer.h"
 #include "StoreInstHandler.h"
 #include "CallInstHandler.h"
+#include "DynamicMemoryHandler.h"
 #include "PhiHandler.h"
 #include "FunctionArgsHandler.h"
 #include "ReturnHandler.h"
@@ -163,6 +164,9 @@ struct CriticalPath : public ModulePass
 
             CallInstHandler cih(placer);
             placer.registerHandler(cih);
+
+            DynamicMemoryHandler dmh(placer);
+            placer.registerHandler(dmh);
 
             FunctionArgsHandler func_args(placer);
             placer.registerHandler(func_args);
