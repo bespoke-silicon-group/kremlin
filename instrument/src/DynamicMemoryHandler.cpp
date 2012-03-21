@@ -6,6 +6,9 @@
 #include "DynamicMemoryHandler.h"
 #include "ReturnsRealValue.h"
 
+// for untangle() function
+#include "CallInstHandler.h"
+
 using namespace llvm;
 using namespace boost;
 using namespace boost::assign;
@@ -25,7 +28,6 @@ DynamicMemoryHandler::DynamicMemoryHandler(TimestampPlacer& ts_placer) :
 
 	args += types.pi8(), types.i64(), types.i32();
 
-    // link_arg_const
     FunctionType* malloc_call = FunctionType::get(types.voidTy(), args, false);
     malloc_func = cast<Function>(
         m.getOrInsertFunction("_KMalloc", malloc_call));
@@ -61,47 +63,22 @@ bool DynamicMemoryHandler::isNBitIntPointer(Value* val, unsigned n) {
 	return isa<IntegerType>(val_ele_type) && (cast<IntegerType>(val_ele_type)->getBitWidth() == n);
 }
 
-// This function tries to untangle some strangely formed function calls.  If
-// the call inst is a normal call inst then it just returns the function that
-// is returned by ci.getCalledFunction(). Otherwise, it checks to see if the
-// first op of the call is a constant bitcast op that can result from LLVM not
-// knowing the function declaration ahead of time. If it detects this
-// situation, it will grab the function that is being cast and return that.
-// TODO: remove this and use the version in CallInstHandler
-template <typename Callable>
-Function* DynamicMemoryHandler::untangleCall(Callable& ci)
-{
-    if(ci.getCalledFunction()) { return ci.getCalledFunction(); }
-
-    Value* op0 = ci.getCalledValue(); // TODO: rename this to called_val
-    if(!isa<User>(op0)) {
-        LOG_DEBUG() << "skipping op0 of callinst because it isn't a User: " << *op0 << "\n";
-        return NULL;
-    }
-
-    User* user = cast<User>(op0);
-
-    Function* called_func = NULL;
-
-    // check if the user is a constant bitcast expr with a function as the first operand
-    if(isa<ConstantExpr>(user)) { 
-        if(isa<Function>(user->getOperand(0))) {
-            //LOG_DEBUG() << "untangled function ref from bitcast expr\n";
-            called_func = cast<Function>(user->getOperand(0));
-        }
-    }
-
-    return called_func;
+Instruction* DynamicMemoryHandler::getNextInst(Instruction *inst) {
+	BasicBlock::iterator bb_it = *inst;
+	++bb_it;
+	return bb_it;
 }
 
 void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 {
+	LOG_DEBUG() << "handling: " << inst << "\n";
+
     CallInst& call_inst = *cast<CallInst>(&inst);
 
     LLVMTypes types(call_inst.getContext());
     vector<Value*> args;
 
-	Function *called_func = untangleCall(call_inst);
+	Function *called_func = CallInstHandler::untangleCall(call_inst);
 
 	// calls to malloc and calloc get _KMalloc(addr, size) call
 	if(called_func 
@@ -122,10 +99,9 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
         CallInst* malloc_call = CallInst::Create(malloc_func, args.begin(), args.end(), "");
 
-		// XXX: this probably should use the placer system but there currently
-		// isn't an easy way to say "place this AFTER said instruction"
-        //ts_placer.add(*malloc_call, call_inst.getParent()->getTerminator());
-		malloc_call->insertAfter(&call_inst);
+		// XXX: this is a slightly hackish way of getting call to KMalloc
+		// inserted immediately after the call to malloc
+        ts_placer.add(*malloc_call, *getNextInst(&call_inst));
 		
 		args.clear();
 	}
@@ -146,9 +122,9 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
         CallInst* free_call = CallInst::Create(free_func, args.begin(), args.end(), "");
 
-		// XXX: see note above about using placer here
-        //ts_placer.add(*free_call, call_inst);
-		free_call->insertAfter(&call_inst);
+		// XXX: this is a slightly hackish way of getting call to KFree
+		// inserted immediately after the call to free
+        ts_placer.add(*free_call, *getNextInst(&call_inst));
 
 		args.clear();
 	}
@@ -176,9 +152,10 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
         CallInst* realloc_call = CallInst::Create(realloc_func, args.begin(), args.end(), "");
 
-		// XXX: see note above about using placer here
-        //ts_placer.add(*realloc_call, call_inst);
-		realloc_call->insertAfter(&call_inst);
+		// XXX: this is a slightly hackish way of getting call to KRealloc
+		// inserted immediately after the call to realloc
+        ts_placer.add(*realloc_call, *getNextInst(&call_inst));
+
 		args.clear();
 	}
 

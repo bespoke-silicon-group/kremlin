@@ -17,9 +17,8 @@ class DynamicMemoryHandler : public TimestampPlacerHandler
     virtual void handle(llvm::Instruction& inst);
 
     private:
-    template <typename Callable>
-    llvm::Function* untangleCall(Callable& ci);
 	bool isNBitIntPointer(llvm::Value *val, unsigned n);
+	llvm::Instruction* getNextInst(llvm::Instruction *inst);
 
     uint32_t call_idx;
     PassLog& log;
