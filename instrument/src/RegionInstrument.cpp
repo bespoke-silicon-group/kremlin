@@ -117,6 +117,8 @@ namespace {
 				loops.insert(loops.end(),subloops.begin(),subloops.end());
 			}
 
+			max_depth *= 2; // account for loop body regions
+
 			return loops;
 		}
 
