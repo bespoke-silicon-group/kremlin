@@ -16,10 +16,10 @@ class CallInstHandler : public TimestampPlacerHandler
     virtual const Opcodes& getOpcodes();
     virtual void handle(llvm::Instruction& inst);
 
-    private:
     template <typename Callable>
-    llvm::Function* untangleCall(Callable& ci);
+    static llvm::Function* untangleCall(Callable& ci);
 
+    private:
     uint32_t call_idx;
     PassLog& log;
     llvm::Function* link_arg_const_func;
