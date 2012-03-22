@@ -28,8 +28,7 @@ class ReductionVars : public llvm::FunctionPass
     PassLog& log;
     std::set<llvm::Instruction*> red_var_ops;
    
-    private:
-    std::vector<llvm::Instruction*> getUsesInLoop(llvm::LoopInfo& LI, llvm::Loop* loop, llvm::Value* val);
+    std::vector<llvm::Instruction*> getNonPhiUsesInLoop(llvm::LoopInfo& LI, llvm::Loop* loop, llvm::Value* val);
     void getReductionVars(llvm::LoopInfo& LI, llvm::Loop* loop);
 
     llvm::Instruction* getReductionVarOp(llvm::LoopInfo& LI, llvm::Loop* loop, llvm::Value *val);
@@ -38,6 +37,7 @@ class ReductionVars : public llvm::FunctionPass
 
     void getArrayReductionVars(llvm::LoopInfo& LI, llvm::Loop* loop, std::set<llvm::Instruction*>& red_var_ops);
     bool isReductionOpType(llvm::Instruction* inst);
+
 
 };
 
