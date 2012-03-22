@@ -23,6 +23,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/raw_os_ostream.h"
 
+#include <sstream> // for stringstream
+
 
 using namespace llvm;
 
@@ -34,7 +36,13 @@ namespace {
 
 		KremlibDump() : ModulePass(ID), log(PassLog::get()) {}
 
-		void printCallArgs(CallInst* ci, raw_os_ostream*& os) {
+		std::string toHex(unsigned long long num) {
+			std::stringstream stream;
+			stream << std::hex << num;
+			return stream.str();
+		}
+
+		void printCallArgs(CallInst* ci, raw_os_ostream*& os, bool print_first_hex) {
 			*os << "(";
 
 			for(unsigned i = 0; i < ci->getNumArgOperands(); ++i) {
@@ -42,7 +50,8 @@ namespace {
 
 				Value* arg = ci->getArgOperand(i);
 				if(ConstantInt* con = dyn_cast<ConstantInt>(arg)) {
-					*os << con->getZExtValue();
+					if (i == 0 && print_first_hex) *os << toHex(con->getZExtValue());
+					else *os << con->getZExtValue();
 				}
 				else if(arg->hasName()){
 					*os << arg->getName();
@@ -147,9 +156,15 @@ namespace {
 								&& kremlib_calls.find(called_func->getName().str()) != kremlib_calls.end()
 							  )
 							{
-								// print out this instruction
 								*dump_raw_os << "\t\t" << called_func->getName();
-								printCallArgs(ci,dump_raw_os);
+								// if this is enter or exit region function we
+								// want the first number to be printed as hex
+								// (easier to debug since it's a large number
+								// and region descriptor file uses hex for
+								// region ID)
+								bool is_entry_or_exit_func = called_func->getName().compare("_KEnterRegion") == 0 
+									|| called_func->getName().compare("_KExitRegion") == 0;
+								printCallArgs(ci,dump_raw_os,is_entry_or_exit_func);
 								*dump_raw_os << "\n";
 							}
 							else {
@@ -171,7 +186,7 @@ namespace {
 									if(called_val->hasName()) *dump_raw_os << called_val->getName();
 									else *dump_raw_os << "(UNNAMED)";
 
-									printCallArgs(ci,dump_raw_os);
+									printCallArgs(ci,dump_raw_os,false);
 									*dump_raw_os << "\n";
 								}
 							}
