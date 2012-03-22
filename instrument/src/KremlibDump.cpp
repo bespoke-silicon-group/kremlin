@@ -77,11 +77,17 @@ namespace {
 			std::set<std::string> kremlib_calls;
 			kremlib_calls.insert("_KBinary");
 			kremlib_calls.insert("_KBinaryConst");
+			kremlib_calls.insert("_KWork");
+			kremlib_calls.insert("_KTimestamp");
+			kremlib_calls.insert("_KTimestamp0");
+			kremlib_calls.insert("_KTimestamp1");
+			kremlib_calls.insert("_KTimestamp2");
 			kremlib_calls.insert("_KAssign");
 			kremlib_calls.insert("_KAssignConst");
 			kremlib_calls.insert("_KInsertVal");
 			kremlib_calls.insert("_KInsertValConst");
 			kremlib_calls.insert("_KLoad");
+			kremlib_calls.insert("_KLoad0");
 			kremlib_calls.insert("_KLoad1");
 			kremlib_calls.insert("_KLoad2");
 			kremlib_calls.insert("_KLoad3");
