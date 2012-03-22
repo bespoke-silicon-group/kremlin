@@ -38,7 +38,7 @@ namespace {
 
 		std::string toHex(unsigned long long num) {
 			std::stringstream stream;
-			stream << std::hex << num;
+			stream << "0x" << std::hex << num;
 			return stream.str();
 		}
 
