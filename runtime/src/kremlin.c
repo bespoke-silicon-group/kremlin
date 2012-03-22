@@ -1123,15 +1123,6 @@ void _KTimestamp0(UInt32 dest) {
 	_KAssignConst(dest);
 }
 
-// TODO: not 100% sure this is the correct functionality
-void _KTimestamp0(UInt32 dest) {
-    MSG(1, "KTimestamp0 to %u\n", dest);
-    if (!isKremlinOn())
-		return NULL;
-
-	_KAssignConst(dest);
-}
-
 void _KTimestamp1(UInt32 dest, UInt32 src, UInt32 off) {
     MSG(3, "KTimestamp1 ts[%u] = ts[%u] + %u\n", dest, src, off);
 	idbgAction(KREM_TS,"## _KTimestamp1(dest=%u,src=%u,off=%u)\n",dest,src,off);
