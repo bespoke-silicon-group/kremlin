@@ -48,5 +48,6 @@ typedef enum RegionType {RegionFunc, RegionLoop, RegionLoopBody} RegionType;
 #define KREM_CD_TO_PHI 9
 #define KREM_ADD_CD 10
 #define KREM_REMOVE_CD 11
+#define KREM_TS 12
 
 #endif
