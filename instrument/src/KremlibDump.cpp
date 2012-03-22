@@ -76,13 +76,14 @@ namespace {
 				  )
 				{
 					*os << "\t\t" << called_func->getName();
-					// if this is enter or exit region function we
-					// want the first number to be printed as hex
-					// (easier to debug since it's a large number
-					// and region descriptor file uses hex for
-					// region ID)
+					// If this is enter or exit region function we want the
+					// first number to be printed as hex (easier to debug
+					// since it's a large number and region descriptor file
+					// uses hex for region ID). Same goes for callsite id in
+					// KPrepCall.
 					bool is_entry_or_exit_func = called_func->getName().compare("_KEnterRegion") == 0 
-						|| called_func->getName().compare("_KExitRegion") == 0;
+						|| called_func->getName().compare("_KExitRegion") == 0
+						|| called_func->getName().compare("_KPrepCall") == 0;
 					printCallArgs(ci,os,is_entry_or_exit_func);
 					*os << "\n";
 				}
