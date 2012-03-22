@@ -65,13 +65,13 @@ Function* CallInstHandler::untangleCall(Callable& ci)
 {
     if(ci.getCalledFunction()) { return ci.getCalledFunction(); }
 
-    Value* op0 = ci.getCalledValue(); // TODO: rename this to called_val
-    if(!isa<User>(op0)) {
-        LOG_DEBUG() << "skipping op0 of callinst because it isn't a User: " << *op0 << "\n";
+    Value* called_val = ci.getCalledValue();
+    if(!isa<User>(called_val)) {
+        LOG_DEBUG() << "skipping called_val of callinst because it isn't a User: " << *called_val << "\n";
         return NULL;
     }
 
-    User* user = cast<User>(op0);
+    User* user = cast<User>(called_val);
 
     Function* called_func = NULL;
 
