@@ -24,8 +24,8 @@ int main() {
 
 	int i;
 	for(i = 0; i < 10; ++i) {
-		array1[10] = foo();
-		array2[10] = foo();
+		array1[i] = foo();
+		array2[i] = foo();
 	}
 
 	int x = 0;
