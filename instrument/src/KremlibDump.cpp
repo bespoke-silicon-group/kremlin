@@ -23,6 +23,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/raw_os_ostream.h"
 
+#include <sstream> // for stringstream
+
 
 using namespace llvm;
 
@@ -34,7 +36,13 @@ namespace {
 
 		KremlibDump() : ModulePass(ID), log(PassLog::get()) {}
 
-		void printCallArgs(CallInst* ci, raw_os_ostream*& os) {
+		std::string toHex(unsigned long long num) {
+			std::stringstream stream;
+			stream << "0x" << std::hex << num;
+			return stream.str();
+		}
+
+		void printCallArgs(CallInst* ci, raw_os_ostream*& os, bool print_first_hex) {
 			*os << "(";
 
 			for(unsigned i = 0; i < ci->getNumArgOperands(); ++i) {
@@ -42,7 +50,8 @@ namespace {
 
 				Value* arg = ci->getArgOperand(i);
 				if(ConstantInt* con = dyn_cast<ConstantInt>(arg)) {
-					*os << con->getZExtValue();
+					if (i == 0 && print_first_hex) *os << toHex(con->getZExtValue());
+					else *os << con->getZExtValue();
 				}
 				else if(arg->hasName()){
 					*os << arg->getName();
@@ -55,26 +64,88 @@ namespace {
 			*os << ")";
 		}
 
-		virtual bool runOnModule(Module &M) {
-			LLVMTypes types(M.getContext());
+		void processInstruction(Instruction *inst, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
+			// See if this is a call to a kremlib function
+			// If it is, we print it out.
+			if(CallInst* ci = dyn_cast<CallInst>(inst)) {
+				Function* called_func = ci->getCalledFunction();
+				if(
+					called_func
+					&& called_func->hasName()
+					&& kremlib_calls.find(called_func->getName().str()) != kremlib_calls.end()
+				  )
+				{
+					*os << "\t\t" << called_func->getName();
+					// if this is enter or exit region function we
+					// want the first number to be printed as hex
+					// (easier to debug since it's a large number
+					// and region descriptor file uses hex for
+					// region ID)
+					bool is_entry_or_exit_func = called_func->getName().compare("_KEnterRegion") == 0 
+						|| called_func->getName().compare("_KExitRegion") == 0;
+					printCallArgs(ci,os,is_entry_or_exit_func);
+					*os << "\n";
+				}
+				else {
+					// avoid printing this if it's an LLVM
+					// debugging function
+					if(!(called_func && called_func->isIntrinsic()
+						&& called_func->hasName() &&
+						called_func->getName().find("llvm.dbg") != std::string::npos))
+					{
+						
+						Value* called_val = ci->getCalledValue();
+						*os << "\t\tCALL: ";
 
-			std::string dump_filename = M.getModuleIdentifier();
-			dump_filename = dump_filename.substr(0,dump_filename.find_first_of("."));
-			dump_filename.append(".kdump");
+						// print out, e.g. "bar =", if call inst is
+						// named (so we can see where the return
+						// value is being stored).
+						if(ci->hasName()) *os << ci->getName() << " = ";
 
-			std::ofstream dump_file;
-			dump_file.open(dump_filename.c_str());
+						if(called_val->hasName()) *os << called_val->getName();
+						else *os << "(UNNAMED)";
 
-			log.debug() << "Writing kremlib calls to " << dump_filename << "\n";
+						printCallArgs(ci,os,false);
+						*os << "\n";
+					}
+				}
+			}
+			else if(isa<ReturnInst>(inst)) {
+				*os << "\t\tRETURN\n";
+			}
+			else if(
+					isa<BranchInst>(inst)
+					|| isa<SwitchInst>(inst)
+				   )
+			{
+				*os << "\t\t" << *inst << "\n";
+			}
+		}
 
-			if(!dump_file.is_open()) {
-				log.fatal() << "Could not open file: " << dump_filename << ".Aborting.\n";
-				return false;
+		void processBasicBlock(BasicBlock *bb, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
+			*os << "\t" << bb->getName().str() << "\n";
+
+			for(BasicBlock::iterator inst = bb->begin(), inst_e = bb->end(); inst != inst_e; ++inst) {
+				processInstruction(inst,kremlib_calls,os);
 			}
 
-			raw_os_ostream* dump_raw_os =  new raw_os_ostream(dump_file);
+			*os << "\n";
+		}
 
-			std::set<std::string> kremlib_calls;
+		void processFunction(Function *func, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
+			*os << "FUNCTION: ";
+			if(func->hasName()) { *os << func->getName().str(); }
+			else { *os << "(unnamed)"; }
+			*os << "\n";
+
+			for(Function::iterator bb = func->begin(), bb_e = func->end(); bb != bb_e; ++bb) {
+				processBasicBlock(bb,kremlib_calls,os);
+			}
+
+			*os << "\n\n";
+		}
+
+		void addKremlibCallsToSet(std::set<std::string>& kremlib_calls) {
 			kremlib_calls.insert("_KBinary");
 			kremlib_calls.insert("_KBinaryConst");
 			kremlib_calls.insert("_KAssign");
@@ -125,77 +196,36 @@ namespace {
 			kremlib_calls.insert("_KInvokeOkay");
 			kremlib_calls.insert("cppEntry");
 			kremlib_calls.insert("cppExit");
+		}
+
+		virtual bool runOnModule(Module &M) {
+			LLVMTypes types(M.getContext());
+
+			std::string dump_filename = M.getModuleIdentifier();
+			dump_filename = dump_filename.substr(0,dump_filename.find_first_of("."));
+			dump_filename.append(".kdump");
+
+			std::ofstream dump_file;
+			dump_file.open(dump_filename.c_str());
+
+			log.debug() << "Writing kremlib calls to " << dump_filename << "\n";
+
+			if(!dump_file.is_open()) {
+				log.fatal() << "Could not open file: " << dump_filename << ".Aborting.\n";
+				return false;
+			}
+
+			raw_os_ostream* dump_raw_os =  new raw_os_ostream(dump_file);
+
+			std::set<std::string> kremlib_calls;
+			addKremlibCallsToSet(kremlib_calls);
 
 			// Now we'll look for calls to logRegionEntry/Exit and replace old region ID with mapped value
 			for(Module::iterator func = M.begin(), f_e = M.end(); func != f_e; ++func) {
-				*dump_raw_os << "FUNCTION: ";
-				if(func->hasName()) { *dump_raw_os << func->getName().str(); }
-				else { *dump_raw_os << "(unnamed)"; }
-				*dump_raw_os << "\n";
-
-				for(Function::iterator bb = func->begin(), bb_e = func->end(); bb != bb_e; ++bb) {
-					*dump_raw_os << "\t" << bb->getName().str() << "\n";
-
-					for(BasicBlock::iterator inst = bb->begin(), inst_e = bb->end(); inst != inst_e; ++inst) {
-						// See if this is a call to a kremlib function
-						// If it is, we print it out.
-						if(CallInst* ci = dyn_cast<CallInst>(inst)) {
-							Function* called_func = ci->getCalledFunction();
-							if(
-								called_func
-								&& called_func->hasName()
-								&& kremlib_calls.find(called_func->getName().str()) != kremlib_calls.end()
-							  )
-							{
-								// print out this instruction
-								*dump_raw_os << "\t\t" << called_func->getName();
-								printCallArgs(ci,dump_raw_os);
-								*dump_raw_os << "\n";
-							}
-							else {
-								// avoid printing this if it's an LLVM
-								// debugging function
-								if(!(called_func && called_func->isIntrinsic()
-									&& called_func->hasName() &&
-									called_func->getName().find("llvm.dbg") != std::string::npos))
-								{
-									
-									Value* called_val = ci->getCalledValue();
-									*dump_raw_os << "\t\tCALL: ";
-
-									// print out, e.g. "bar =", if call inst is
-									// named (so we can see where the return
-									// value is being stored).
-									if(ci->hasName()) *dump_raw_os << ci->getName() << " = ";
-
-									if(called_val->hasName()) *dump_raw_os << called_val->getName();
-									else *dump_raw_os << "(UNNAMED)";
-
-									printCallArgs(ci,dump_raw_os);
-									*dump_raw_os << "\n";
-								}
-							}
-						}
-						else if(isa<ReturnInst>(inst)) {
-							*dump_raw_os << "\t\tRETURN\n";
-						}
-						else if(
-								isa<BranchInst>(inst)
-								|| isa<SwitchInst>(inst)
-							   )
-						{
-							*dump_raw_os << "\t\t" << *inst << "\n";
-						}
-					}
-
-					*dump_raw_os << "\n";
-				}
-
-				*dump_raw_os << "\n\n";
+				processFunction(func,kremlib_calls,dump_raw_os);
 			}
 
 			dump_file.close();
-			//raw_os_ostream->close();
 
 			return false;
 		}// end runOnModule(...)
