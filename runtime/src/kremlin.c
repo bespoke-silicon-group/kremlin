@@ -1194,7 +1194,7 @@ void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
 
 void* _KAssign(Reg src, Reg dest) {
     MSG(1, "_KAssign ts[%u] <- ts[%u]\n", dest, src);
-	idbgAction(KREM_BINOP,"## _KAssign(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
+	idbgAction(KREM_BINOP,"## _KAssign(src=%u,dest=%u)\n",src,dest);
 
     if (!isKremlinOn())
     	return NULL;
