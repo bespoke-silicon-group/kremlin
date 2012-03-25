@@ -113,12 +113,18 @@ static inline Index getIndexDepth() {
 }
 
 static inline void updateIndexDepth(Level newLevel) {
+	if (!KConfigLimitLevel()) {
+		nInstrument = newLevel + 1;
+		return;
+	}
+
 	if (newLevel < getMinLevel()) {
 		nInstrument = 0;
 		return;
 	}
 
-	nInstrument = getEndLevel() -getStartLevel() + 1;	
+	nInstrument = getEndLevel() - getStartLevel() + 1;	
+	return;
 }
 
 

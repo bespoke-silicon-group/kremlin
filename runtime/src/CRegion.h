@@ -4,17 +4,10 @@
 #include "ktypes.h"
 
 typedef struct _cregion_t {
-	UInt64 id;
-	UInt64 sid;
-	UInt64 callSite;
 	UInt64 totalWork;
 	UInt64 totalCP;
 	double minSP;
 	double maxSP;
-
-	UInt64 totalChildCount;
-	UInt64 minChildCount;
-	UInt64 maxChildCount;
 
 	UInt64 tpWork;
 	UInt64 spWork;
@@ -24,21 +17,38 @@ typedef struct _cregion_t {
 	UInt64 loadCnt;
 	UInt64 storeCnt;
 	
-	UInt64 numInstance;
-	UInt64 childNum;
 	UInt64 isDoall;
 
-} CRegion;
+} CStat;
 
 typedef struct _cnode_t CNode;
 
 struct _cnode_t {
+	// identity
+	UInt64 id;
+	UInt64 sid;
+	UInt64 callSite;
+	UInt64 numInstance;
+
+	UInt64 totalChildCount;
+	UInt64 minChildCount;
+	UInt64 maxChildCount;
+
+	// for debugging 
 	UInt32 code;
+
+	// change to type?
+	Bool   isRecursive;
+
+	// contents
+	// add more pointers based on type?
+	CStat* region;
+
+	// management of tree
 	CNode* parent;
 	CNode* firstChild;
 	CNode* next;	
 	UInt64 childrenSize;
-	CRegion* region;
 };
 
 typedef struct _RegionField_t {

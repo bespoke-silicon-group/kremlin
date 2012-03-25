@@ -2,6 +2,7 @@
 #include "config.h"
 
 typedef struct _config_ {
+	Bool  limitLevel;
 	Level minLevel;
 	Level maxLevel;
 
@@ -21,6 +22,7 @@ static KConfig config;
 
 
 void KConfigInit() {
+	config.limitLevel = 0;
 	config.useCompression = 0;
 	config.useVerify = 0;
 	config.minLevel = 0;
@@ -32,6 +34,9 @@ void KConfigInit() {
 	config.gcPeriod = 1024;
 }
 
+Bool KConfigLimitLevel() {
+	return config.limitLevel;
+}
 
 void   KConfigSetMinLevel(Level level) {
 	config.minLevel = level;
