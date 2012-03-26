@@ -248,6 +248,9 @@ unsigned int ConstantWorkOpHandler::getWork(Instruction* inst) const
         case Instruction::UIToFP:
         case Instruction::Unreachable:
         case Instruction::ZExt:
+		// XXX: not sure what the cost of these should be
+        case Instruction::ExtractValue:
+        case Instruction::InsertValue:
             return 0;
     }
     throw UnknownOpCodeException(inst);
