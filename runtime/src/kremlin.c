@@ -658,6 +658,7 @@ void _KPopCDep() {
 
 void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
     MSG(1, "KPrepCall\n");
+	idbgAction(KREM_PREP_CALL, "## _KPrepCall(callSiteId=%llu,calledRegionId=%llu)\n",callSiteId,calledRegionId);
     if (!isKremlinOn()) { 
 		return; 
 	}
@@ -671,6 +672,7 @@ void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
 
 void _KEnqArg(Reg src) {
     MSG(1, "Enque Arg Reg [%u]\n", src);
+	idbgAction(KREM_LINK_ARG,"## _KEnqArg(src=%u)\n",src);
     if (!isKremlinOn())
         return;
 	ArgFifoPush(src);
@@ -679,6 +681,7 @@ void _KEnqArg(Reg src) {
 #define DUMMY_ARG		-1
 void _KEnqArgConst() {
     MSG(1, "Enque Const Arg\n");
+	idbgAction(KREM_LINK_ARG,"## _KEnqArgConst()\n");
     if (!isKremlinOn())
         return;
 
@@ -697,6 +700,7 @@ void _KLinkArgConst() {
 // should be called in the order of linkArgToLocal
 void _KDeqArg(Reg dest) {
     MSG(3, "Deq Arg to Reg[%u] \n", dest);
+	idbgAction(KREM_UNLINK_ARG,"## _KDeqArg(dest=%u)\n",dest);
     if (!isKremlinOn())
         return;
 
@@ -738,6 +742,7 @@ void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
 	int tableWidth = getCurrentLevel() + maxNestLevel + 1;
     MSG(1, "KPrep RShadow Table row=%d, col=%d (curLevel=%d, maxNestLevel=%d)\n",
 		 tableHeight, tableWidth, getCurrentLevel(), maxNestLevel);
+	idbgAction(KREM_PREP_REG_TABLE,"## _KPrepRTable(maxVregNum=%u,maxNestLevel=%u)\n",maxVregNum,maxNestLevel);
 
     if (!isKremlinOn()) {
 		 return; 
@@ -1059,6 +1064,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 
 void* _KReduction(UInt opCost, Reg dest) {
     MSG(3, "KReduction ts[%u] with cost = %d\n", dest, opCost);
+	idbgAction(KREM_REDUCTION, "## KReduction(opCost=%u,dest=%u)\n",opCost,dest);
     if (!isKremlinOn() || !isInstrumentable())
 		return;
 
@@ -1160,6 +1166,7 @@ void _KTimestamp(UInt32 dest, UInt32 numIn, ...) {
 // XXX: not 100% sure this is the correct functionality
 void _KTimestamp0(UInt32 dest) {
     MSG(1, "KTimestamp0 to %u\n", dest);
+	idbgAction(KREM_TS,"## _KTimestamp0(dest=%u)\n",dest);
     if (!isKremlinOn())
 		return NULL;
 
@@ -1433,7 +1440,7 @@ void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
 
 void* _KStoreConst(Addr dest_addr, UInt32 size) {
     MSG(0, "KStoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
-	idbgAction(KREM_STORE,"## KStoreConst (dest_addr=0x%x,size=%u)\n",dest_addr,size);
+	idbgAction(KREM_STORE,"## _KStoreConst(dest_addr=0x%x,size=%u)\n",dest_addr,size);
     if (!isKremlinOn())
         return NULL;
 
@@ -1462,6 +1469,7 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
 // identify induction variables in the source code
 void* _KInduction(UInt dest) {
     MSG(1, "KInduction to %u\n", dest);
+	idbgAction(KREM_INDUCTION,"## _KInduction(dest=%u)\n",dest);
     if (!isKremlinOn())
 		return NULL;
 
@@ -1814,6 +1822,7 @@ void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 
 // FIXME: support 64 bit address
 void _KMalloc(Addr addr, size_t size, UInt dest) {
+	// TODO: idbgAction
 #if 0
     if (!isKremlinOn()) return;
     
@@ -1828,6 +1837,7 @@ void _KMalloc(Addr addr, size_t size, UInt dest) {
 
 // TODO: implement for new shadow mem interface
 void _KFree(Addr addr) {
+	// TODO: idbgAction
 #if 0
     if (!isKremlinOn()) return;
 
@@ -1862,6 +1872,7 @@ void _KFree(Addr addr) {
 // XXX: This is wrong. Values in the realloc'd location should still have the
 // same timestamp.
 void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
+	// TODO: idbgAction
 #if 0
     if (!isKremlinOn())
         return;
