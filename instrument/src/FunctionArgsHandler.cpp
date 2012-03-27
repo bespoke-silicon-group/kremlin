@@ -22,6 +22,15 @@ FunctionArgsHandler::FunctionArgsHandler(TimestampPlacer& ts_placer)
     Function& log_func = *cast<Function>(m.getOrInsertFunction("_KUnlinkArg", func_type));
 
     // Add transfer and unlink to all the arguments passed by value.
+	// @TRICKY The exception is for main, which /likely/ isn't called from
+	// somewhere and therefore won't have args to unlink. This might cause
+	// funkiness in programs that do call main from somewhere inside the
+	// program.
+
+	// @TODO This likely needs fixed for Fortran (and maybe C++) programs
+	// which has a different name for main
+	if(func.hasName() && func.getName().compare("main") == 0) return;
+
     Instruction* last_inst = func.getEntryBlock().getFirstNonPHI();
     for(Function::arg_iterator arg_it = func.arg_begin(), arg_end = func.arg_end(); arg_it != arg_end; ++arg_it)
     {
