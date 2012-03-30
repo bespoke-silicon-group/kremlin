@@ -931,14 +931,13 @@ static void handleFuncRegionExit() {
 /**
  * Creates RegionField and fills it based on inputs.
  */
-RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 tpWork, UInt64 isDoall, Region* region_info) {
+RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 isDoall, Region* region_info) {
 	RegionField field;
 
     field.work = work;
     field.cp = cp;
 	field.callSite = callSiteId;
 	field.spWork = spWork;
-	field.tpWork = tpWork;
 	field.isDoall = isDoall; 
 	field.childCnt = region_info->childCount;
 
@@ -1037,16 +1036,14 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 #endif
 
 	UInt64 spWork = (UInt64)((double)work / sp);
-	UInt64 tpWork = cp;
 
 	// due to floating point variables,
-	// spWork or tpWork can be larger than work
+	// spWork can be larger than work
 	if (spWork > work) { spWork = work; }
-	if (tpWork > work) { tpWork = work; }
 
 	CID cid = RegionGetFunc()->callSiteId;
     RegionField field = fillRegionField(work, cp, cid, 
-						spWork, tpWork, isDoall, region);
+						spWork, isDoall, region);
 	CRegionLeave(&field);
         
     if (regionType == RegionFunc) { 

@@ -3,14 +3,28 @@
 
 #include "ktypes.h"
 
-typedef struct _cregion_t {
+typedef struct _cstat_t CStat;
+typedef struct _cnode_t CNode;
+typedef struct _r_tree_t CTree;
+typedef struct _cstack_item_t CItem;
+
+// CNode types:
+// NORMAL - summarizing non-recursive region
+// EXT_R  - entry to a recursive region tree
+// SELF_R - leaf node in a recursive region tree
+//          pointing to the root of the current tree
+//          converted from NORMAL when a recursion is detected
+
+enum _cnode_type {NORMAL, EXT_R, SELF_R};
+typedef enum _cnode_type CNodeType;
+
+struct _cstat_t {
 	UInt64 totalWork;
-	UInt64 totalCP;
 	double minSP;
 	double maxSP;
 
-	UInt64 tpWork;
 	UInt64 spWork;
+	UInt64 tpWork;
 
 	UInt64 readCnt;
 	UInt64 writeCnt;
@@ -19,15 +33,22 @@ typedef struct _cregion_t {
 	
 	UInt64 isDoall;
 
-} CStat;
+	// double linked-list for
+	// efficient accounting in recursion
+	UInt64 index;
+	CStat* next;	
+	CStat* prev;	
+};
 
-typedef struct _cnode_t CNode;
+
+
 
 struct _cnode_t {
 	// identity
+	CNodeType type;
 	UInt64 id;
 	UInt64 sid;
-	UInt64 callSite;
+	UInt64 cid;
 	UInt64 numInstance;
 
 	UInt64 totalChildCount;
@@ -42,21 +63,38 @@ struct _cnode_t {
 
 	// contents
 	// add more pointers based on type?
-	CStat* region;
+	CStat* stat;
 
 	// management of tree
 	CNode* parent;
 	CNode* firstChild;
-	CNode* next;	
+	CNode* next; // for siblings	
+	CTree* tree; // for linking a CTree
 	UInt64 childrenSize;
 };
+
+struct _cstack_item_t {
+	CNode* node;
+	// doubly linked list
+	CItem* prev;
+	CItem* next;	
+};
+
+struct _r_tree_t {
+	UInt64 id;
+	int maxDepth;
+	int currentDepth;
+	CNode* root;
+	CNode* parent;
+
+	CItem* stackTop;
+}; 
 
 typedef struct _RegionField_t {
 	UInt64 work;
 	UInt64 cp;
 	UInt64 callSite;
 	UInt64 spWork;
-	UInt64 tpWork;
 	UInt64 isDoall;
 	UInt64 childCnt;
 #ifdef EXTRA_STATS
