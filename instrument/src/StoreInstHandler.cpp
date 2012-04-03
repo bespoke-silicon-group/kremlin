@@ -60,7 +60,8 @@ void StoreInstHandler::handle(llvm::Instruction& inst)
     CastInst& cast_inst = *CastInst::CreatePointerCast(si.getPointerOperand(),types.pi8(),"inst_arg_ptr"); // dest addr
     args += &cast_inst;
 
-    args += ConstantInt::get(types.i32(),8); // size of access (XXX)
+	// TODO FIXME: get the correct size here
+    args += ConstantInt::get(types.i32(),8); // size of access
 
     // Add the cast, call and the timestamp to store.
     CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
