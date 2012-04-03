@@ -140,7 +140,7 @@ void TimestampPlacer::registerHandler(TimestampBlockHandler& handler)
  * @return The call instruction to calculate the timestamp.
  */
 
-// XXX: Design hack. Refactor away please!
+// TODO: Design hack. Refactor away please!
 // This should really only provide the interface of requesting that timestamps
 // be present before some instruction or getting the timestamp of some value,
 // but not necessarily making it available. TimestampAnalysis should
