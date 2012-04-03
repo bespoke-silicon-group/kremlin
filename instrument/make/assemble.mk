@@ -19,7 +19,9 @@ include $(KREMLIN_INSTRUMENT_MAKE_DIR)/useTemp.mk
 ASM_FROM_SOURCES := $(filter %.s, $(SOURCES))
 SOURCES := $(filter-out %.s, $(SOURCES))
 
+ifdef KREMLIN_VERBOSE_BUILD
 $(info SOURCES minus assembly: $(SOURCES))
+endif
 
 # All the assembly files that have been instrumented or not.
 # Need to add this in a seperate step since we can't simple add.
@@ -53,7 +55,9 @@ $(eval OUTPUT_FILE := $$(2))
 # Rules (alpha order)
 # -------------------
 
+ifdef KREMLIN_VERBOSE_BUILD
 $$(info ASM_TO_O: SOURCE_FILE: $(SOURCE_FILE) OUTPUT_FILE: $(OUTPUT_FILE) ASM_OUTPUT_FILE: $(ASM_OUTPUT_FILE))
+endif
 
 # GCC always overwrites its output files, so mark it as phony so make will
 # overwrite it also.
