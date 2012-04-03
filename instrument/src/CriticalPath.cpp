@@ -64,27 +64,12 @@ struct CriticalPath : public ModulePass
 
     PassLog& log;
 
-    std::map<std::string,unsigned int> uninstrumented_func_cost_map;
-
     boost::ptr_vector<InstrumentationCall> instrumentationCalls;
 
     CriticalPath() : ModulePass(ID), log(PassLog::get()) {}
     virtual ~CriticalPath() {}
 
     virtual bool runOnModule(Module &m) {
-
-        uninstrumented_func_cost_map["sin"] = 10;
-        uninstrumented_func_cost_map["cos"] = 10;
-        uninstrumented_func_cost_map["log"] = 10;
-        uninstrumented_func_cost_map["sqrt"] = 10;
-
-        uninstrumented_func_cost_map["ceil"] = 1;
-        uninstrumented_func_cost_map["floor"] = 1;
-        uninstrumented_func_cost_map["fabs"] = 1;
-
-        uninstrumented_func_cost_map["feof"] = 2;
-
-
         // Instrument the module
         instrumentModule(m);
 
