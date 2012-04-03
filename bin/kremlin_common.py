@@ -98,7 +98,7 @@ def create_kremlin_mk(src_lang):
 
     lang_ext = ""
 
-    print "args: " + " ".join(args)
+    #print "args: " + " ".join(args)
 
     make_target, make_defines = get_make_target(options)
 
@@ -108,7 +108,7 @@ def create_kremlin_mk(src_lang):
     def write_makefile(out):
         def write_stdout_and_makefile(str):
             line = str + "\n"
-            sys.stdout.write(line)
+            #sys.stdout.write(line)
             out.write(line)
 
         write = write_stdout_and_makefile
@@ -142,7 +142,7 @@ def create_kremlin_mk(src_lang):
     makefile.close()
 
     # Run make
-    print "running: " + ' '.join(make_args)
+    #print "running: " + ' '.join(make_args)
 
     make_process = subprocess.Popen(make_args, stdin = subprocess.PIPE)
     # write_makefile(make_process.stdin)
