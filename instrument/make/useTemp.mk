@@ -57,7 +57,9 @@ $(eval USER_FILE := $$(addsuffix $(2), $(SOURCE_BASE)))
 # Rules (alpha order)
 # -------------------
 
+ifdef KREMLIN_VERBOSE_BUILD
 $$(info Creating rule for $(SOURCE_FILE) -> $(OUTPUT_FILE) -> $(USER_FILE))
+endif
 
 # Mark the output file as phony because we just created it. Consequently,
 # it'll always be newer than the dependencies and never be made. Furthermore,

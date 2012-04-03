@@ -41,7 +41,7 @@ $(ALL_KREMLIN_OBJECTS_WITH_PATH): %.o: %.c
 
 # Archives the kremlin objects into a static library
 $(KREMLIN_LIB): $(ALL_KREMLIN_OBJECTS_IN_LIB)
-	ranlib $@
+	@ranlib $@
 
 clean::
 	-@$(RM) $(KREMLIN_LIB)

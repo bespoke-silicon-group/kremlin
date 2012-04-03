@@ -15,9 +15,13 @@ LLVM_BIN_DIR = $(KREMLIN_INSTRUMENT_LLVM_BIN_DIR)
 
 ifdef DEBUG
 RELEASE_OR_DEBUG = Debug+Asserts
+ifdef KREMLIN_VERBOSE_BUILD
 $(info setting to debug)
+endif
 else
+ifdef KREMLIN_VERBOSE_BUILD
 $(info setting to release)
+endif
 RELEASE_OR_DEBUG = Release+Asserts
 endif # $(DEBUG) == 1
 LLVM_LIB_DIR = $(LLVM_OBJ_DIR)/$(RELEASE_OR_DEBUG)/lib
@@ -117,13 +121,14 @@ $(eval PASS_NAME := $$(patsubst -%,%,$(2)))
 $(eval EXTRA_FLAGS := $$(value $(strip $(3))))
 
 # Print args
-ifneq ($(strip $(DEBUG_MAKE)),)
+#ifneq ($(strip $(DEBUG_MAKE)),)
+ifdef KREMLIN_VERBOSE_BUILD
 $$(info beginning rule defs for $(PASS_NAME). Args: $$$$(1): $$(1), $$$$(2): $$(2), $$$$(3): $$(3))
-endif # DEBUG_MAKE
+endif
 
 # Create a rule to run the pass.
 %.$(PASS_NAME).bc: %.bc $(call OPT_PASS_SHARED_OBJ, $(1))
-	$(OPT) $(OPT_FLAGS) $(call OPT_LOAD_PASS_SHARED_OBJ,$(1)) $(2) $(EXTRA_FLAGS) -o $$@ $$<  &>$$*.$(PASS_NAME).log
+	@$(OPT) $(OPT_FLAGS) $(call OPT_LOAD_PASS_SHARED_OBJ,$(1)) $(2) $(EXTRA_FLAGS) -o $$@ $$<  &>$$*.$(PASS_NAME).log
 
 # Create a rule to make the shared object if required.
 ifneq ($(strip $(call OPT_PASS_SHARED_OBJ) $(1)),)
@@ -146,10 +151,12 @@ $(call OPT_PASS_SHARED_OBJ, $(1)): $(ALWAYS-MAKE)
 endif # DEFINED_PASS_SO_ALREADY
 endif # PASS_SO
 
+ifdef KREMLIN_VERBOSE_BUILD
 $$(info DEFINED_$(PASS_NAME)_RULE: $$(DEFINED_$(PASS_NAME)_RULE))
 $$(info $$(and $(strip $(call OPT_PASS_SHARED_OBJ) $(1)), $$(DEFINED_$(PASS_NAME)_RULE)))
 $$(info sod obj dir: $$(LLVM_OBJ_DIR))
 $$(info kremlin instrument source dir: $$(KREMLIN_INSTRUMENT_SRC_DIR))
+endif
 
 endef # RULES_FOR_SO
 
