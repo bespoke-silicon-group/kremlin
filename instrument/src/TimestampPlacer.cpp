@@ -49,7 +49,7 @@ void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, llvm::Inst
 {
     set<Instruction*> users;
     users += &user;
-    placer.add(inst, users);
+    placer.addInstForPlacement(inst, users);
 }
 
 /**
@@ -60,7 +60,7 @@ void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, llvm::Inst
  */
 void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, const std::set<llvm::Instruction*> users)
 {
-    placer.add(inst, users);
+    placer.addInstForPlacement(inst, users);
 }
 
 /**
@@ -193,5 +193,5 @@ void TimestampPlacer::insertInstrumentation()
         }
     }
 
-    placer.place();
+    placer.placeInsts();
 }
