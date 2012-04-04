@@ -3,6 +3,7 @@
 #include <llvm/Module.h>
 #include "StoreInstHandler.h"
 #include "LLVMTypes.h"
+#include "MemoryInstHelper.h"
 
 using namespace llvm;
 using namespace boost;
@@ -60,8 +61,8 @@ void StoreInstHandler::handle(llvm::Instruction& inst)
     CastInst& cast_inst = *CastInst::CreatePointerCast(si.getPointerOperand(),types.pi8(),"inst_arg_ptr"); // dest addr
     args += &cast_inst;
 
-	// TODO FIXME: get the correct size here
-    args += ConstantInt::get(types.i32(),8); // size of access
+	// size of access
+    args += ConstantInt::get(types.i32(),MemoryInstHelper::getTypeSizeInBytes(&si));
 
     // Add the cast, call and the timestamp to store.
     CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
