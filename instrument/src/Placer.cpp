@@ -45,7 +45,7 @@ Placer::~Placer()
  * Places all instructions that haven't been placed yet at the latest point
  * possible while respecting all dependencies.
  */
-void Placer::place()
+void Placer::placeInsts()
 {
     // The algorithm:
     // We are given a DAG of nodes with dependencies representing edges and
@@ -145,7 +145,7 @@ void Placer::place()
  * @param call The instruction to insert.
  * @param users The users of the instruction.
  */
-void Placer::add(llvm::Instruction& call, const std::set<llvm::Instruction*>& users)
+void Placer::addInstForPlacement(llvm::Instruction& call, const std::set<llvm::Instruction*>& users)
 {
     // Make the node.
     Node& node = getOrCreateNode(call);

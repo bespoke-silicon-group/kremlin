@@ -17,8 +17,8 @@ class Placer
     Placer(llvm::Function& func, llvm::DominatorTree& dt);
     virtual ~Placer();
 
-    void place();
-    void add(llvm::Instruction& inst, const std::set<llvm::Instruction*>& users);
+    void placeInsts();
+    void addInstForPlacement(llvm::Instruction& inst, const std::set<llvm::Instruction*>& users);
 
     private:
     struct Node
