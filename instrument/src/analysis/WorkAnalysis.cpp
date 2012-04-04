@@ -63,6 +63,6 @@ void WorkAnalysis::handleBasicBlock(llvm::BasicBlock& bb)
 
     args.push_back(ConstantInt::get(types.i32(), work, false));
     CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
-    //ts_placer.add(ci, *bb.getTerminator());
-    ts_placer.add(ci, *bb.getFirstNonPHI());
+    //ts_placer.constrainInstPlacement(ci, *bb.getTerminator());
+    ts_placer.constrainInstPlacement(ci, *bb.getFirstNonPHI());
 }

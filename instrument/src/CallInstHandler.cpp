@@ -145,7 +145,7 @@ void CallInstHandler::handle(llvm::Instruction& inst)
         args.clear();
         push_int(types.i32(), ts_placer.getId(call_inst)); // dest ID
         CallInst* ret_val_link = CallInst::Create(ret_val_link_func, args.begin(), args.end(), "");
-        ts_placer.add(*ret_val_link, *last_func);
+        ts_placer.constrainInstPlacement(*ret_val_link, *last_func);
         last_func = ret_val_link;
     }
 
@@ -166,11 +166,11 @@ void CallInstHandler::handle(llvm::Instruction& inst)
                 push_int(types.i32(), ts_placer.getId(arg)); // Source ID.
                 to_add = CallInst::Create(link_arg_func, args.begin(), args.end(), "");
 
-                ts_placer.requestTimestamp(arg, *to_add);
+                ts_placer.requireValTimestampBeforeUser(arg, *to_add);
             }
             else // this is a constant so call linkArgToConst instead (which takes no args)
                 to_add = CallInst::Create(link_arg_const_func, args.begin(), args.end(), "");
-            ts_placer.add(*to_add, *last_func);
+            ts_placer.constrainInstPlacement(*to_add, *last_func);
             last_func = to_add;
         }
     } // end for(arg_it)
@@ -182,5 +182,5 @@ void CallInstHandler::handle(llvm::Instruction& inst)
     push_int(types.i64(), 0);              // Caller region ID. TODO: implement
     CallInst& prepare_call = 
         *CallInst::Create(prepare_call_func, args.begin(), args.end(), "");
-    ts_placer.add(prepare_call, *last_func);
+    ts_placer.constrainInstPlacement(prepare_call, *last_func);
 }

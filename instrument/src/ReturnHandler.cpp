@@ -64,9 +64,9 @@ void ReturnHandler::handle(llvm::Instruction& inst)
             LOG_DEBUG() << "returning non-const value\n";
         }
         CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
-        ts_placer.add(ci, ri);
+        ts_placer.constrainInstPlacement(ci, ri);
 
         if(!isa<Constant>(&ret_val)) 
-            ts_placer.requestTimestamp(ret_val, ci);
+            ts_placer.requireValTimestampBeforeUser(ret_val, ci);
     }
 }

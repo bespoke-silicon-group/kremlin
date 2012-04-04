@@ -101,7 +101,7 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
 		// XXX: this is a slightly hackish way of getting call to KMalloc
 		// inserted immediately after the call to malloc
-        ts_placer.add(*malloc_call, *getNextInst(&call_inst));
+        ts_placer.constrainInstPlacement(*malloc_call, *getNextInst(&call_inst));
 		
 		args.clear();
 	}
@@ -124,7 +124,7 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
 		// XXX: this is a slightly hackish way of getting call to KFree
 		// inserted immediately after the call to free
-        ts_placer.add(*free_call, *getNextInst(&call_inst));
+        ts_placer.constrainInstPlacement(*free_call, *getNextInst(&call_inst));
 
 		args.clear();
 	}
@@ -154,7 +154,7 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
 		// XXX: this is a slightly hackish way of getting call to KRealloc
 		// inserted immediately after the call to realloc
-        ts_placer.add(*realloc_call, *getNextInst(&call_inst));
+        ts_placer.constrainInstPlacement(*realloc_call, *getNextInst(&call_inst));
 
 		args.clear();
 	}

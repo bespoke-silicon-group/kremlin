@@ -22,22 +22,25 @@ class TimestampPlacer
     public:
     TimestampPlacer(llvm::Function& func, FuncAnalyses& analyses, TimestampAnalysis& ts_analysis, InstIds& inst_ids);
 
-    void add(llvm::Instruction& inst, llvm::Instruction& dependency);
-    void add(llvm::Instruction& inst, const std::set<llvm::Instruction*> dependencies);
-    void clearHandlers();
-    FuncAnalyses& getAnalyses();
     llvm::Function& getFunc();
-    unsigned int getId(const llvm::Value& inst);
+    FuncAnalyses& getAnalyses();
+
     void registerHandler(TimestampPlacerHandler& handler);
     void registerHandler(TimestampBlockHandler& handler);
+    void clearHandlers();
+
+    unsigned int getId(const llvm::Value& inst);
 
     /// Get the timestamp of a value.
     const Timestamp& getTimestamp(llvm::Value& value);
 
-    /// Requests that a timestamp be present before the user needs.
-    llvm::Instruction& requestTimestamp(llvm::Value& value, llvm::Instruction& user);
+    void constrainInstPlacement(llvm::Instruction& inst, llvm::Instruction& dependency);
+    void constrainInstPlacement(llvm::Instruction& inst, const std::set<llvm::Instruction*> dependencies);
 
-    void run();
+    /// requires that a value's timestamp be present before the user needs.
+    llvm::Instruction& requireValTimestampBeforeUser(llvm::Value& value, llvm::Instruction& user);
+
+    void insertInstrumentation();
     
     private:
     struct PlacedTimestamp

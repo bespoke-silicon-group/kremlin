@@ -43,7 +43,7 @@ FunctionArgsHandler::FunctionArgsHandler(TimestampPlacer& ts_placer)
 
             // insert at the very beginning of the function
             CallInst& ci = *CallInst::Create(&log_func, args.begin(), args.end(), "");
-            ts_placer.add(ci, *last_inst);
+            ts_placer.constrainInstPlacement(ci, *last_inst);
             last_inst = &ci;
         }
     }
