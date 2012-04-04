@@ -165,7 +165,7 @@ struct CriticalPath : public ModulePass
             WorkAnalysis wa(placer, const_work_op_handler);
             placer.registerHandler(wa);
 
-            placer.run();
+            placer.insertInstrumentation();
 
             // XXX: Ideally, we only want one round of placing!!
             placer.clearHandlers();
@@ -173,19 +173,19 @@ struct CriticalPath : public ModulePass
             PhiHandler ph(placer);
             placer.registerHandler(ph);
 
-            placer.run();
+            placer.insertInstrumentation();
             placer.clearHandlers();
 
             ControlDependencePlacer cdp(placer);
             placer.registerHandler(cdp);
 
-            placer.run();
+            placer.insertInstrumentation();
             placer.clearHandlers();
 
             LocalTableHandler ltable(placer, inst_ids);
             placer.registerHandler(ltable);
 
-            placer.run();
+            placer.insertInstrumentation();
 
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&end_time);
 

@@ -49,19 +49,19 @@ void ControlDependencePlacer::handleBasicBlock(llvm::BasicBlock& bb)
 
         args.clear();
         CallInst& remove_call = *CallInst::Create(remove_func, args.begin(), args.end(), "");
-        ts_placer.add(remove_call, *bb.getTerminator());
+        ts_placer.constrainInstPlacement(remove_call, *bb.getTerminator());
 
         set<Instruction*> deps;
         deps += bb.getFirstNonPHI(), &remove_call;
         args += ConstantInt::get(types.i32(), ts_placer.getId(ctrl_dep), false);
         CallInst& add_call = *CallInst::Create(add_func, args.begin(), args.end(), "");
-        ts_placer.add(add_call, deps);
+        ts_placer.constrainInstPlacement(add_call, deps);
 
-        ts_placer.requestTimestamp(ctrl_dep, add_call);
+        ts_placer.requireValTimestampBeforeUser(ctrl_dep, add_call);
     }
 
     // Branch conditions technically are live out still.
     Value* this_block_ctrl_val = cd.getControllingCondition(&bb);
     if(this_block_ctrl_val && !isa<Constant>(this_block_ctrl_val))
-        ts_placer.requestTimestamp(*this_block_ctrl_val, *bb.getTerminator());
+        ts_placer.requireValTimestampBeforeUser(*this_block_ctrl_val, *bb.getTerminator());
 }

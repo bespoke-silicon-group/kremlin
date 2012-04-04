@@ -113,7 +113,7 @@ void LoadHandler::handle(llvm::Instruction& inst)
         args.insert(args.begin() + num_conds_idx, ConstantInt::get(types.i32(), num_conds, false));
 
     CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
-    ts_placer.add(ci, load);
-    ts_placer.add(ptr_cast, ci);
+    ts_placer.constrainInstPlacement(ci, load);
+    ts_placer.constrainInstPlacement(ptr_cast, ci);
 }
 
