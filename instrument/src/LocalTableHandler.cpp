@@ -28,7 +28,7 @@ LocalTableHandler::LocalTableHandler(TimestampPlacer& ts_placer, InstIds& inst_i
     args += ConstantInt::get(types.i32(), inst_ids.getCount());
     args += ConstantInt::get(types.i32(), 0); // placeholder
     CallInst& ci = *CallInst::Create(&log_func, args.begin(), args.end(), "");
-    ts_placer.add(ci, *func.getEntryBlock().getFirstNonPHI());
+    ts_placer.constrainInstPlacement(ci, *func.getEntryBlock().getFirstNonPHI());
 }
 
 const TimestampPlacerHandler::Opcodes& LocalTableHandler::getOpcodes()

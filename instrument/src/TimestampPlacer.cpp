@@ -45,7 +45,7 @@ TimestampPlacer::TimestampPlacer(llvm::Function& func, FuncAnalyses& analyses, T
  * @param inst  The instruction to place.
  * @param user  The user of the instruction.
  */
-void TimestampPlacer::add(llvm::Instruction& inst, llvm::Instruction& user)
+void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, llvm::Instruction& user)
 {
     set<Instruction*> users;
     users += &user;
@@ -58,7 +58,7 @@ void TimestampPlacer::add(llvm::Instruction& inst, llvm::Instruction& user)
  * @param inst  The instruction to place.
  * @param users The set of all the users of the instruction.
  */
-void TimestampPlacer::add(llvm::Instruction& inst, const std::set<llvm::Instruction*> users)
+void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, const std::set<llvm::Instruction*> users)
 {
     placer.add(inst, users);
 }
@@ -146,9 +146,9 @@ void TimestampPlacer::registerHandler(TimestampBlockHandler& handler)
 // but not necessarily making it available. TimestampAnalysis should
 // recursively call getTimestamp for instructions that can be determined
 // statically. When the timestamp must be computed at runtime, a call to
-// requestTimestamp should be placed. This will cause timestamps to be
+// requireValTimestampBeforeUser should be placed. This will cause timestamps to be
 // completely lazy and only computed when needed.
-llvm::Instruction& TimestampPlacer::requestTimestamp(llvm::Value& value, llvm::Instruction& user)
+llvm::Instruction& TimestampPlacer::requireValTimestampBeforeUser(llvm::Value& value, llvm::Instruction& user)
 {
     Timestamps::iterator it = timestamps.find(&value);
     CallInst* ci;
@@ -164,19 +164,19 @@ llvm::Instruction& TimestampPlacer::requestTimestamp(llvm::Value& value, llvm::I
         // generated. This preseves control dependencies.
         Instruction* inst = dyn_cast<Instruction>(pval);
         if(inst)
-            add(*ci, *inst->getParent()->getTerminator());
+            constrainInstPlacement(*ci, *inst->getParent()->getTerminator());
     }
     else
         ci = it->second->ci;
 
-    add(*ci, user);
+    constrainInstPlacement(*ci, user);
     return *ci;
 }
 
 /**
  * Instruments the function.
  */
-void TimestampPlacer::run()
+void TimestampPlacer::insertInstrumentation()
 {
     foreach(BasicBlock& bb, func)
     {

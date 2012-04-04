@@ -141,7 +141,7 @@ Timestamp& ConstantWorkOpHandler::getTimestamp(llvm::Value* val, Timestamp& ts)
         DEBUG(LOG_DEBUG() << operand << "\n");
         if(isLiveInRegion(bb, operand))
         {
-            ts_placer.requestTimestamp(operand, inst);
+            ts_placer.requireValTimestampBeforeUser(operand, inst);
             ts.insert(&operand, work);
         }
         else
@@ -158,7 +158,7 @@ Timestamp& ConstantWorkOpHandler::getTimestamp(llvm::Value* val, Timestamp& ts)
 
         if(isLiveInRegion(bb, ctrl_value))
         {
-            ts_placer.requestTimestamp(ctrl_value, inst);
+            ts_placer.requireValTimestampBeforeUser(ctrl_value, inst);
             ts.insert(&ctrl_value, work);
         }
         else

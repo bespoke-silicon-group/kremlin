@@ -65,7 +65,7 @@ void StoreInstHandler::handle(llvm::Instruction& inst)
 
     // Add the cast, call and the timestamp to store.
     CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
-    ts_placer.add(cast_inst, ci);
-    ts_placer.add(ci, inst);
-    ts_placer.requestTimestamp(src, ci);
+    ts_placer.constrainInstPlacement(cast_inst, ci);
+    ts_placer.constrainInstPlacement(ci, inst);
+    ts_placer.requireValTimestampBeforeUser(src, ci);
 }

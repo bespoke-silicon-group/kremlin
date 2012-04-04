@@ -34,7 +34,7 @@ void GlobalTableAllocator::addAlloc(llvm::Value& ptr, llvm::Value& size, llvm::I
     vector<Value*> args;
     args += &ptr, &size;
     CallInst& ci = *CallInst::Create(alloc_func, args.begin(), args.end(), "");
-    ts_placer.add(ci, use);
+    ts_placer.constrainInstPlacement(ci, use);
 }
 
 void GlobalTableAllocator::addFree(llvm::Value& ptr, llvm::Instruction& use)
@@ -42,5 +42,5 @@ void GlobalTableAllocator::addFree(llvm::Value& ptr, llvm::Instruction& use)
     vector<Value*> args;
     args += &ptr;
     CallInst& ci = *CallInst::Create(free_func, args.begin(), args.end(), "");
-    ts_placer.add(ci, use);
+    ts_placer.constrainInstPlacement(ci, use);
 }
