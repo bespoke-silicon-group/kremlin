@@ -5,6 +5,7 @@
 #include "analysis/InductionVariables.h"
 #include "LoadHandler.h"
 #include "LLVMTypes.h"
+#include "MemoryInstHelper.h"
 
 #define MAX_SPECIALIZED 5
 
@@ -100,7 +101,7 @@ void LoadHandler::handle(llvm::Instruction& inst)
         }
     }
 
-	push_int(8); // XXX
+	push_int(MemoryInstHelper::getTypeSizeInBytes(&load));
 
 	// try to find a specialized version
     Function* log_func = this->log_func;
