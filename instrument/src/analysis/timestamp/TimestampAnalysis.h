@@ -28,22 +28,19 @@ class TimestampAnalysis
     /// The handlers for classes of instructions.
     typedef std::map<ValueClassifier::Class, TimestampHandler*> Handlers;
 
-    public:
-
     TimestampAnalysis(FuncAnalyses& func_analyses);
     virtual ~TimestampAnalysis();
 
-    const Timestamp& getTimestamp(llvm::Value* inst);
+    const Timestamp& getTimestamp(llvm::Value* input_val);
     void registerHandler(TimestampHandler& handler);
 
     private:
-    TimestampHandler* getHandler(llvm::Value* val) const;
+    TimestampHandler* getHandler(llvm::Value* input_val) const;
 
-    private:
-    ValueClassifier classifier;
+    ValueClassifier _classifier;
     PassLog& log;
-    Timestamps timestamps;
-    Handlers handlers;
+    Timestamps _timestamps;
+    Handlers _handlers;
 };
 
 #endif // TIMESTAMP_ANALYSIS_H

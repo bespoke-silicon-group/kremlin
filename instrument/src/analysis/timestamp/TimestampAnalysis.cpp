@@ -11,7 +11,7 @@ using namespace std;
  * Constructs a new analysis for the function.
  */
 TimestampAnalysis::TimestampAnalysis(FuncAnalyses& func_analyses) :
-    classifier(func_analyses.rv),
+    _classifier(func_analyses.rv),
     log(PassLog::get())
 {
 }
@@ -25,36 +25,40 @@ TimestampAnalysis::~TimestampAnalysis()
  * calculated dynamically, it is assumed to be calculated elsewhere and
  * retrievable by reading its timestamp in the virtual register table.
  */
-const Timestamp& TimestampAnalysis::getTimestamp(llvm::Value* val) 
+const Timestamp& TimestampAnalysis::getTimestamp(llvm::Value* input_val) 
 {
-    Timestamps::iterator it = timestamps.find(val);
-    Timestamp* ts;
-    if(it == timestamps.end())
+    Timestamp* timestamp_of_val;
+    Timestamps::iterator timestamp_iter = _timestamps.find(input_val);
+    if(timestamp_iter == _timestamps.end())
     {
-        auto_ptr<Timestamp> auto_ts(ts = new Timestamp());
-        getHandler(val)->getTimestamp(val, *auto_ts);
-        timestamps.insert(val, auto_ts);
+		// create a timestamp if one doesn't currently exist for input_val
+        auto_ptr<Timestamp> timestamp_ptr_of_val(timestamp_of_val = new Timestamp());
+        getHandler(input_val)->getTimestamp(input_val, *timestamp_ptr_of_val);
+        _timestamps.insert(input_val, timestamp_ptr_of_val);
     }
     else
-        ts = it->second;
+	{
+		// grab existing timestamp
+        timestamp_of_val = timestamp_iter->second;
+	}
 
-    LOG_DEBUG() << "TS for " << *val << ": " << *ts << "\n";
-    return *ts;
+    LOG_DEBUG() << "TS for " << *input_val << ": " << *timestamp_of_val << "\n";
+    return *timestamp_of_val;
 }
 
 /**
  * @return The handler for the particular value.
  */
-TimestampHandler* TimestampAnalysis::getHandler(llvm::Value* val) const
+TimestampHandler* TimestampAnalysis::getHandler(llvm::Value* input_val) const
 {
-    Handlers::const_iterator found = handlers.find(classifier(val));
+    Handlers::const_iterator handler_iter = _handlers.find(_classifier(input_val));
 
-    if(found == handlers.end())
+    if(handler_iter == _handlers.end())
     {
-        DEBUG(LOG_WARN() << "Failed to find handler for inst " << *val << "\n");
+        DEBUG(LOG_WARN() << "Failed to find handler for inst " << *input_val << "\n");
         return NULL;
     }
-    return found->second;
+    return handler_iter->second;
 }
 
 /**
@@ -64,7 +68,7 @@ TimestampHandler* TimestampAnalysis::getHandler(llvm::Value* val) const
 void TimestampAnalysis::registerHandler(TimestampHandler& handler)
 {
     ValueClassifier::Class clazz = handler.getTargetClass();
-    assert(handlers.find(clazz) == handlers.end() && "Already registered for this class");
+    assert(_handlers.find(clazz) == _handlers.end() && "Already registered for this class");
 
-    handlers.insert(std::make_pair(clazz, &handler));
+    _handlers.insert(std::make_pair(clazz, &handler));
 }
