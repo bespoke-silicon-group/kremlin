@@ -167,7 +167,7 @@ struct CriticalPath : public ModulePass
 
             placer.insertInstrumentation();
 
-            // XXX: Ideally, we only want one round of placing!!
+            // TODO: Ideally, we only want one round of placing!!
             placer.clearHandlers();
 
             PhiHandler ph(placer);
@@ -199,7 +199,8 @@ struct CriticalPath : public ModulePass
             else padding = "";
 
 
-            LOG_DEBUG() << "elapsed time for instrumenting " << func.getName() << ": " << elapsed_time.tv_sec << "." << padding << elapsed_time_ms << " s\n";
+            LOG_DEBUG() << "elapsed time for instrumenting " << func.getName() 
+			<< ": " << elapsed_time.tv_sec << "." << padding << elapsed_time_ms << " s\n";
         }
 
         foreach(InstrumentationCall& c, instrumentationCalls)
