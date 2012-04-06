@@ -39,26 +39,26 @@ using namespace llvm;
  * Constructs the handler for constant work ops with their default costs.
  */
 ConstantWorkOpHandler::ConstantWorkOpHandler(TimestampAnalysis& timestampAnalysis, TimestampPlacer& ts_placer, InductionVariables& induc_vars) :
-	int_add(INT_ADD),
-	int_sub(INT_SUB),
-	int_mul(INT_MUL),
-	int_div(INT_DIV),
-	int_mod(INT_MOD),
-	int_cmp(INT_CMP),
-	fp_add(FP_ADD),
-	fp_sub(FP_SUB),
-	fp_mul(FP_MUL),
-	fp_div(FP_DIV),
-	fp_mod(FP_MOD),
-	fp_cmp(FP_CMP),
-	logic(LOGIC),
-    mem_load(LOAD),
-    mem_store(STORE),
-    cd(ts_placer.getAnalyses().cd),
-    induc_vars(induc_vars),
-    li(ts_placer.getAnalyses().li),
-    timestampAnalysis(timestampAnalysis),
-    ts_placer(ts_placer)
+	int_add_cost(INT_ADD),
+	int_sub_cost(INT_SUB),
+	int_mul_cost(INT_MUL),
+	int_div_cost(INT_DIV),
+	int_mod_cost(INT_MOD),
+	int_cmp_cost(INT_CMP),
+	fp_add_cost(FP_ADD),
+	fp_sub_cost(FP_SUB),
+	fp_mul_cost(FP_MUL),
+	fp_div_cost(FP_DIV),
+	fp_mod_cost(FP_MOD),
+	fp_cmp_cost(FP_CMP),
+	logic_op_cost(LOGIC),
+    mem_load_cost(LOAD),
+    mem_store_cost(STORE),
+    _controlDep(ts_placer.getAnalyses().cd),
+    _inductionVars(induc_vars),
+    _loopInfo(ts_placer.getAnalyses().li),
+    _timestampAnalysis(timestampAnalysis),
+    _timestampPlacer(ts_placer)
 {
 }
 
@@ -85,43 +85,38 @@ ValueClassifier::Class ConstantWorkOpHandler::getTargetClass() const
 bool ConstantWorkOpHandler::isLiveInRegion(llvm::BasicBlock& bb, llvm::Value& incoming_val)
 {
     //LOG_DEBUG() << "isLive for bb: " << bb.getName() << " val: " << incoming_val << "\n";
-    Loop* loop = li.getLoopFor(&bb);
+    Loop* loop_associated_with_bb = _loopInfo.getLoopFor(&bb);
 
     // Can't come before a loop that doesn't exist.
-    if(!loop)
-        return false;
-
-    //LOG_DEBUG() << "bb is a loop\n";
+    if(loop_associated_with_bb == NULL) return false;
 
     Instruction* incoming_inst = dyn_cast<Instruction>(&incoming_val);
-    if(!incoming_inst)
-        return false;
+    if(!incoming_inst) return false;
 
-    //LOG_DEBUG() << "val is an inst\n";
-
-    BasicBlock& incoming_bb = *incoming_inst->getParent();
+    BasicBlock& bb_of_incoming_inst = *incoming_inst->getParent();
 
     // Case when incoming is outside the loop.
-    Loop* incoming_inst_loop = li.getLoopFor(&incoming_bb);
-    if(!incoming_inst_loop)
-        return true;
-
-    //LOG_DEBUG() << "incoming val is in a loop\n";
+    Loop* loop_associated_with_incoming_inst = _loopInfo.getLoopFor(&bb_of_incoming_inst);
+    if(loop_associated_with_incoming_inst == NULL) return true;
 
     // Case when incoming is in the loop header and bb is not.
-    if(incoming_inst_loop->getHeader() == &incoming_bb && incoming_inst_loop == loop && loop->getHeader() != &bb)
+    if(
+		loop_associated_with_incoming_inst->getHeader() == &bb_of_incoming_inst 
+		&& loop_associated_with_incoming_inst == loop_associated_with_bb 
+		&& loop_associated_with_bb->getHeader() != &bb
+	  )
         return true;
 
-    //LOG_DEBUG() << "incoming_bb " << incoming_bb.getName() << " is header: " << (incoming_inst_loop->getHeader() == &incoming_bb) << "\n";
-    //LOG_DEBUG() << "!bb is header: " << (loop->getHeader() != &bb) << "\n";
-    //LOG_DEBUG() << "loops ==?: "  << (incoming_inst_loop == loop) << "\n";
+    //LOG_DEBUG() << "bb_of_incoming_inst " << bb_of_incoming_inst.getName()
+	//<< " is header: " << (loop_associated_with_incoming_inst->getHeader() == &bb_of_incoming_inst) << "\n";
+    //LOG_DEBUG() << "!bb is header: " << (loop_associated_with_bb->getHeader() != &bb) << "\n";
+    //LOG_DEBUG() << "loops ==?: "  << (loop_associated_with_incoming_inst ==
+	//loop_associated_with_bb) << "\n";
     //LOG_DEBUG() << "incoming was in not (in the loop header of the same loop and not of the block)\n";
 
     // Case when incoming is not in our loop
-    if(incoming_inst_loop != loop)
+    if(loop_associated_with_incoming_inst != loop_associated_with_bb)
         return true;
-
-    //LOG_DEBUG() << "incoming was in not in our loop\n";
 
     return false;
 }
@@ -132,40 +127,62 @@ bool ConstantWorkOpHandler::isLiveInRegion(llvm::BasicBlock& bb, llvm::Value& in
 Timestamp& ConstantWorkOpHandler::getTimestamp(llvm::Value* val, Timestamp& ts)
 {
     Instruction& inst = *cast<Instruction>(val);
-    BasicBlock& bb = *inst.getParent();
+    BasicBlock& bb_of_inst = *inst.getParent();
+
     DEBUG(LOG_DEBUG() << "Getting timestamp of " << *val << " operands: \n");
-    unsigned int work = getWork(&inst);
-    for(size_t i = 0; i < inst.getNumOperands(); i++)
+
+	/*
+	 * We are going to check each operand of the instruction to see if it is
+	 * live-in to the instruction's region. If it is, we make sure that
+	 * operand's timestamp is available before instruction and add a candidate
+	 * based off the operand and the work for the instruction. If it's not
+	 * live-in, we add candidate timestamps  based off the candidate timestamps
+	 * associated with the operand.
+	 */
+    unsigned int work_of_inst = getWork(&inst);
+    for(size_t op_idx = 0; op_idx < inst.getNumOperands(); ++op_idx)
     {
-        Value& operand = *inst.getOperand(i);
-        DEBUG(LOG_DEBUG() << operand << "\n");
-        if(isLiveInRegion(bb, operand))
+        Value& inst_operand = *inst.getOperand(op_idx);
+        DEBUG(LOG_DEBUG() << inst_operand << "\n");
+		// TODO: factor out common functionality (see TODO below)
+        if(isLiveInRegion(bb_of_inst, inst_operand))
         {
-            ts_placer.requireValTimestampBeforeUser(operand, inst);
-            ts.insert(&operand, work);
+            _timestampPlacer.requireValTimestampBeforeUser(inst_operand, inst);
+            ts.addCandidate(&inst_operand, work_of_inst);
         }
         else
         {
-            const Timestamp& op_ts = timestampAnalysis.getTimestamp(&operand);
-            foreach(const TimestampCandidate& cand, op_ts)
-                ts.insert(cand.getBase(), cand.getOffset() + work);
+            const Timestamp& inst_operand_timestamp = _timestampAnalysis.getTimestamp(&inst_operand);
+            foreach(const TimestampCandidate& cand, inst_operand_timestamp)
+			{
+                ts.addCandidate(cand.getBase(), cand.getOffset() + work_of_inst);
+			}
         }
     }
-    BasicBlock* controller = cd.getControllingBlock(inst.getParent(), false);
-    if(controller)
-    {
-        Value& ctrl_value = *cd.getControllingCondition(controller);
 
-        if(isLiveInRegion(bb, ctrl_value))
+	/*
+	 * For the controlling condition of the instruction's basic block, we
+	 * follow the same procedure of checking if it's in the region and
+	 * creating candidate timestamps accordingly.
+	 */
+    BasicBlock* controlling_bb = _controlDep.getControllingBlock(&bb_of_inst, false);
+    if(controlling_bb)
+    {
+        Value& controlling_cond = *_controlDep.getControllingCondition(controlling_bb);
+
+		// TODO: factor out common functionality (see TODO above)
+        if(isLiveInRegion(bb_of_inst, controlling_cond))
         {
-            ts_placer.requireValTimestampBeforeUser(ctrl_value, inst);
-            ts.insert(&ctrl_value, work);
+            _timestampPlacer.requireValTimestampBeforeUser(controlling_cond, inst);
+            ts.addCandidate(&controlling_cond, work_of_inst);
         }
         else
         {
-            const Timestamp& ctrl_ts = timestampAnalysis.getTimestamp(&ctrl_value);
-            foreach(const TimestampCandidate& cand, ctrl_ts)
-                ts.insert(cand.getBase(), cand.getOffset() + work);
+            const Timestamp& controlling_cond_timestamp = _timestampAnalysis.getTimestamp(&controlling_cond);
+            foreach(const TimestampCandidate& cand, controlling_cond_timestamp)
+			{
+                ts.addCandidate(cand.getBase(), cand.getOffset() + work_of_inst);
+			}
         }
     }
 
@@ -177,56 +194,62 @@ Timestamp& ConstantWorkOpHandler::getTimestamp(llvm::Value* val, Timestamp& ts)
  */
 unsigned int ConstantWorkOpHandler::getWork(Instruction* inst) const
 {
-    BinaryOperator* bo;
+    BinaryOperator* binary_op;
     PHINode* phi;
     if(
         // No constant binary ops.
-        (bo = dyn_cast<BinaryOperator>(inst)) && 
-        isa<Constant>(bo->getOperand(0)) &&
-        isa<Constant>(bo->getOperand(1)) ||
+        (binary_op = dyn_cast<BinaryOperator>(inst))
+		&& isa<Constant>(binary_op->getOperand(0))
+		&& isa<Constant>(binary_op->getOperand(1))
+		
+		||
         
         // No induction variables.
-        (phi = dyn_cast<PHINode>(inst)) && induc_vars.isInductionVariable(*phi) || induc_vars.isInductionIncrement(*inst))
+        (phi = dyn_cast<PHINode>(inst)) 
+		&& _inductionVars.isInductionVariable(*phi)
+		
+		|| _inductionVars.isInductionIncrement(*inst)
+	   )
     {
         return 0;
     }
 
     switch(inst->getOpcode()) {
         case Instruction::Add:
-            return int_add;
+            return int_add_cost;
         case Instruction::FAdd:
-            return fp_add;
+            return fp_add_cost;
         case Instruction::Sub:
-            return int_sub;
+            return int_sub_cost;
         case Instruction::FSub:
-            return fp_sub;
+            return fp_sub_cost;
         case Instruction::Mul:
-            return int_mul;
+            return int_mul_cost;
         case Instruction::FMul:
-            return fp_mul;
+            return fp_mul_cost;
         case Instruction::UDiv:
         case Instruction::SDiv:
         case Instruction::URem:
         case Instruction::SRem:
-            return int_div;
+            return int_div_cost;
         case Instruction::FDiv:
         case Instruction::FRem:
-            return fp_div;
+            return fp_div_cost;
         case Instruction::Shl:
         case Instruction::LShr:
         case Instruction::AShr:
         case Instruction::And:
         case Instruction::Or:
         case Instruction::Xor:
-            return logic;
+            return logic_op_cost;
         case Instruction::ICmp:
-            return int_cmp;
+            return int_cmp_cost;
         case Instruction::FCmp:
-            return fp_cmp;
+            return fp_cmp_cost;
         case Instruction::Store:
-            return mem_store;
+            return mem_store_cost;
         case Instruction::Load:
-            return mem_load;
+            return mem_load_cost;
         case Instruction::Alloca:
         case Instruction::BitCast:
         case Instruction::Br:
@@ -303,21 +326,21 @@ void ConstantWorkOpHandler::parseFromFile(const std::string& filename) {
         std::string cost_name = tokens[0];
 
         // assign cost to correct field
-        if(cost_name == "INT_ADD") { int_add = cost; }
-        else if(cost_name == "INT_SUB") { int_sub = cost; }
-        else if(cost_name == "INT_MUL") { int_mul = cost; }
-        else if(cost_name == "INT_DIV") { int_div = cost; }
-        else if(cost_name == "INT_MOD") { int_mod = cost; }
-        else if(cost_name == "INT_CMP") { int_cmp = cost; }
-        else if(cost_name == "FP_ADD") { fp_add = cost; }
-        else if(cost_name == "FP_SUB") { fp_sub = cost; }
-        else if(cost_name == "FP_MUL") { fp_mul = cost; }
-        else if(cost_name == "FP_DIV") { fp_div = cost; }
-        else if(cost_name == "FP_MOD") { fp_mod = cost; }
-        else if(cost_name == "FP_CMP") { fp_cmp = cost; }
-        else if(cost_name == "LOGIC") { logic = cost; }
-        else if(cost_name == "MEM_LOAD") { mem_load = cost; }
-        else if(cost_name == "MEM_STORE") { mem_store = cost; }
+        if(cost_name == "INT_ADD") { int_add_cost = cost; }
+        else if(cost_name == "INT_SUB") { int_sub_cost = cost; }
+        else if(cost_name == "INT_MUL") { int_mul_cost = cost; }
+        else if(cost_name == "INT_DIV") { int_div_cost = cost; }
+        else if(cost_name == "INT_MOD") { int_mod_cost = cost; }
+        else if(cost_name == "INT_CMP") { int_cmp_cost = cost; }
+        else if(cost_name == "FP_ADD") { fp_add_cost = cost; }
+        else if(cost_name == "FP_SUB") { fp_sub_cost = cost; }
+        else if(cost_name == "FP_MUL") { fp_mul_cost = cost; }
+        else if(cost_name == "FP_DIV") { fp_div_cost = cost; }
+        else if(cost_name == "FP_MOD") { fp_mod_cost = cost; }
+        else if(cost_name == "FP_CMP") { fp_cmp_cost = cost; }
+        else if(cost_name == "LOGIC") { logic_op_cost = cost; }
+        else if(cost_name == "MEM_LOAD") { mem_load_cost = cost; }
+        else if(cost_name == "MEM_STORE") { mem_store_cost = cost; }
         else {
             std::cerr << "ERROR: unknown op name (" << cost_name << ") in op cost file.\n";
             assert(0);
@@ -331,21 +354,6 @@ template <typename Ostream>
 Ostream& operator<<(Ostream& os, const ConstantWorkOpHandler& costs)
 {
     throw UnsupportedOperationException();
-//    os << "op costs:" << "\n";
-//    os << "\tINT_ADD: " << costs.int_add << "\n";
-//    os << "\tINT_SUB: " << costs.int_sub << "\n";
-//    os << "\tINT_MUL: " << costs.int_mul << "\n";
-//    os << "\tINT_DIV: " << costs.int_div << "\n";
-//    os << "\tINT_MOD: " << costs.int_mod << "\n";
-//    os << "\tINT_CMP: " << costs.int_cmp << "\n";
-//    os << "\tFP_ADD: " << costs.fp_add << "\n";
-//    os << "\tFP_SUB: " << costs.fp_sub << "\n";
-//    os << "\tFP_MUL: " << costs.fp_mul << "\n";
-//    os << "\tFP_DIV: " << costs.fp_div << "\n";
-//    os << "\tFP_MOD: " << costs.fp_mod << "\n";
-//    os << "\tFP_CMP: " << costs.fp_cmp << "\n";
-//    os << "\tLOGIC: " << costs.logic << "\n";
-
     return os;
 }
 
