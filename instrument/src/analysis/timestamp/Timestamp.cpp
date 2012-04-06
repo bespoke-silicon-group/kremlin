@@ -18,7 +18,7 @@ Timestamp::~Timestamp()
  */
 Timestamp::iterator Timestamp::begin()
 {
-    return timestamps.begin();
+    return _timestamp_candidates.begin();
 }
 
 /**
@@ -26,7 +26,7 @@ Timestamp::iterator Timestamp::begin()
  */
 Timestamp::const_iterator Timestamp::begin() const
 {
-    return timestamps.begin();
+    return _timestamp_candidates.begin();
 }
 
 /**
@@ -34,7 +34,7 @@ Timestamp::const_iterator Timestamp::begin() const
  */
 Timestamp::iterator Timestamp::end()
 {
-    return timestamps.end();
+    return _timestamp_candidates.end();
 }
 
 /**
@@ -42,7 +42,7 @@ Timestamp::iterator Timestamp::end()
  */
 Timestamp::const_iterator Timestamp::end() const
 {
-    return timestamps.end();
+    return _timestamp_candidates.end();
 }
 
 /**
@@ -50,23 +50,21 @@ Timestamp::const_iterator Timestamp::end() const
  * the base plus the constant offset. If the base timestamp already existed,
  * only the one with the greatest offset will exist.
  *
- * @param base The LLVM Value the base timestamp is calculated from.
- * @param offset The constant amount of work from the base value.
+ * @param base_val The LLVM Value the base timestamp is calculated from.
+ * @param time_offset The constant amount of work from the base value.
  */
-void Timestamp::insert(llvm::Value* base, unsigned int offset)
+void Timestamp::addCandidate(llvm::Value* base_val, unsigned int time_offset)
 {
-    // Only insert of the one to be inserted dominates the one that exists.
-    TimestampCandidate cand(base, offset);
-    Candidates::iterator it = timestamps.find(cand);
-    if(it != timestamps.end())
+    // Only insert if the one to be inserted dominates the one that exists.
+    TimestampCandidate candidate(base_val, time_offset);
+    Candidates::iterator candidate_iter = _timestamp_candidates.find(candidate);
+    if(candidate_iter != _timestamp_candidates.end())
     {
         // Do nothing if the existing ts dominates the one to insert.
-        if(it->getOffset() >= offset)
-            return;
-        else
-            timestamps.erase(cand);
+        if(candidate_iter->getOffset() >= time_offset) return;
+        else _timestamp_candidates.erase(candidate);
     }
-    timestamps.insert(new TimestampCandidate(base, offset));
+    _timestamp_candidates.insert(new TimestampCandidate(base_val, time_offset));
 }
 
 /**
@@ -74,7 +72,7 @@ void Timestamp::insert(llvm::Value* base, unsigned int offset)
  */
 size_t Timestamp::size() const
 {
-    return timestamps.size();
+    return _timestamp_candidates.size();
 }
 
 /**

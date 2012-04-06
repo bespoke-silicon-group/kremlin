@@ -13,8 +13,8 @@ class TimestampCandidate
     unsigned int getOffset() const;
 
     private:
-    llvm::Value* base;
-    unsigned int offset;
+    llvm::Value* _baseVal;
+    unsigned int _timeOffset;
 };
 
 bool operator<(const TimestampCandidate& t1, const TimestampCandidate& t2);

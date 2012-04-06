@@ -9,6 +9,6 @@ ValueClassifier::Class LiveInHandler::getTargetClass() const
 
 Timestamp& LiveInHandler::getTimestamp(llvm::Value* val, Timestamp& ts)
 {
-    ts.insert(val, 0);
+    ts.addCandidate(val, 0);
     return ts;
 }
