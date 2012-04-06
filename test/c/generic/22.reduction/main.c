@@ -32,6 +32,9 @@ int main() {
 		}
 	}
 
+	printf("sum_1d = %d\n",sum_1d);
+	printf("sum_2d = %d\n",sum_2d);
+
 	// diff_1d should not be a reduction var (sub isn't commutative)
 	// Therefore, this loop should be DOACROSS if things are working
 	// correctly.
@@ -40,11 +43,15 @@ int main() {
 		diff_1d -= array_1d[i];
 	}
 
+	printf("diff_1d = %d\n",diff_1d);
+
 	// global_sum is a global reduction variable over 1d array
 	global_sum = 0;
 	for(i = 0; i < 10; i=i+2) {
 		global_sum += (array_1d[i] - array_1d[i-1]);
 	}
+
+	printf("global_sum = %d\n",global_sum);
 
 	return 0;
 }
