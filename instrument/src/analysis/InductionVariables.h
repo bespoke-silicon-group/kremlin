@@ -4,6 +4,7 @@
 #include <set>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Instructions.h>
+#include "PassLog.h"
 
 class InductionVariables
 {
@@ -21,11 +22,14 @@ class InductionVariables
     // Gets the induction var increment.
     llvm::Instruction* getCanonicalInductionVariableIncrement(llvm::PHINode* ind_var, llvm::Loop* loop) const;
 
-    // adds all the canon ind. var increments for a loop (including its subloops) to canon_incs set
-    void addCIVIToSet(llvm::Loop* loop, std::set<llvm::PHINode*>& canon_indvs, std::set<llvm::Instruction*>& canon_incs);
+    // adds all the canon ind. var increments for a loop (including its
+	// subloops) to ind_var_increment_ops set
+    void gatherInductionVarIncrements(llvm::Loop* loop, Variables& ind_vars, Increments& ind_var_increment_ops);
 
-    Variables variables;
-    Increments increments;
+    Variables _inductionVars;
+    Increments _inductionVarIncrementOps;
+
+	PassLog& log;
 };
 
 #endif // INDUCTION_VARIABLES_H
