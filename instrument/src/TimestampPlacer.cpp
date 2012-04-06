@@ -26,16 +26,16 @@ TimestampPlacer::PlacedTimestamp::PlacedTimestamp(const Timestamp& ts, llvm::Cal
  *
  * @param func          The function to instrument.
  * @param analyses      The analyses for the function.
- * @param ts_analysis   The analysis that recursively calculates timestamps.
+ * @param timestamp_analysis   The analysis that recursively calculates timestamps.
  * @param inst_ids      The map of instructions to their virtual register table
  *                      index.
  */
-TimestampPlacer::TimestampPlacer(llvm::Function& func, FuncAnalyses& analyses, TimestampAnalysis& ts_analysis, InstIds& inst_ids) :
-    analyses(analyses),
-    func(func),
-    inst_ids(inst_ids),
-    placer(func, analyses.dt),
-    ts_analysis(ts_analysis)
+TimestampPlacer::TimestampPlacer(llvm::Function& func, FuncAnalyses& analyses, TimestampAnalysis& timestamp_analysis, InstIds& inst_ids) :
+    _analyses(analyses),
+    _func(func),
+    _instIds(inst_ids),
+    _placer(func, analyses.dt),
+    _timestampAnalysis(timestamp_analysis)
 {
 }
 
@@ -49,7 +49,7 @@ void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, llvm::Inst
 {
     set<Instruction*> users;
     users += &user;
-    placer.addInstForPlacement(inst, users);
+    _placer.addInstForPlacement(inst, users);
 }
 
 /**
@@ -60,7 +60,7 @@ void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, llvm::Inst
  */
 void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, const std::set<llvm::Instruction*> users)
 {
-    placer.addInstForPlacement(inst, users);
+    _placer.addInstForPlacement(inst, users);
 }
 
 /**
@@ -68,8 +68,8 @@ void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, const std:
  */
 void TimestampPlacer::clearHandlers()
 {
-    signals.clear();
-    bb_sig.reset();
+    _signals.clear();
+    _basicBlockSignal.reset();
 }
 
 /**
@@ -77,7 +77,7 @@ void TimestampPlacer::clearHandlers()
  */
 FuncAnalyses& TimestampPlacer::getAnalyses()
 {
-    return analyses;
+    return _analyses;
 }
 
 /**
@@ -85,7 +85,7 @@ FuncAnalyses& TimestampPlacer::getAnalyses()
  */
 llvm::Function& TimestampPlacer::getFunc()
 {
-    return func;
+    return _func;
 }
 
 /**
@@ -93,7 +93,7 @@ llvm::Function& TimestampPlacer::getFunc()
  */
 unsigned int TimestampPlacer::getId(const llvm::Value& inst)
 {
-    return inst_ids.getId(inst);
+    return _instIds.getId(inst);
 }
 
 /**
@@ -106,12 +106,12 @@ void TimestampPlacer::registerHandler(TimestampPlacerHandler& handler)
     // Register opcodes this handler cares about
     foreach(unsigned int opcode, handler.getOpcodes())
     {
-        Signals::iterator it = signals.find(opcode);
         Signal* sig;
-        if(it == signals.end())
-            sig = signals.insert(opcode, new Signal()).first->second;
+        Signals::iterator signal_iter = _signals.find(opcode);
+        if(signal_iter == _signals.end())
+            sig = _signals.insert(opcode, new Signal()).first->second;
         else
-            sig = it->second;
+            sig = signal_iter->second;
 
         sig->connect(bind(&TimestampPlacerHandler::handle, &handler, _1));
     }
@@ -124,10 +124,10 @@ void TimestampPlacer::registerHandler(TimestampPlacerHandler& handler)
  */
 void TimestampPlacer::registerHandler(TimestampBlockHandler& handler)
 {
-    if(!bb_sig)
-        bb_sig.reset(new BasicBlockSignal());
+    if(!_basicBlockSignal)
+        _basicBlockSignal.reset(new BasicBlockSignal());
 
-    bb_sig->connect(bind(&TimestampBlockHandler::handleBasicBlock, &handler, _1));
+    _basicBlockSignal->connect(bind(&TimestampBlockHandler::handleBasicBlock, &handler, _1));
 }
 
 /**
@@ -154,8 +154,8 @@ llvm::Instruction& TimestampPlacer::requireValTimestampBeforeUser(llvm::Value& v
     CallInst* ci;
     if(it == timestamps.end())
     {
-        const Timestamp& ts = ts_analysis.getTimestamp(&value);
-        InstructionToLogFunctionConverter converter(*func.getParent(), inst_ids);
+        const Timestamp& ts = _timestampAnalysis.getTimestamp(&value);
+        InstructionToLogFunctionConverter converter(*_func.getParent(), _instIds);
         ci = converter(&value, ts);
         Value* pval = &value;
         timestamps.insert(pval, new PlacedTimestamp(ts, ci));
@@ -178,20 +178,20 @@ llvm::Instruction& TimestampPlacer::requireValTimestampBeforeUser(llvm::Value& v
  */
 void TimestampPlacer::insertInstrumentation()
 {
-    foreach(BasicBlock& bb, func)
+    foreach(BasicBlock& bb, _func)
     {
-        if(bb_sig)
-            (*bb_sig)(bb);
+        if(_basicBlockSignal)
+            (*_basicBlockSignal)(bb);
 
         foreach(Instruction& inst, bb)
         {
-            Signals::iterator it = signals.find(inst.getOpcode());
-            if(it != signals.end())
+            Signals::iterator it = _signals.find(inst.getOpcode());
+            if(it != _signals.end())
 
                 // Call the signal with the instruction.
                 (*it->second)(inst);
         }
     }
 
-    placer.placeInsts();
+    _placer.placeInsts();
 }
