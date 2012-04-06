@@ -20,7 +20,7 @@
 class TimestampPlacer
 {
     public:
-    TimestampPlacer(llvm::Function& func, FuncAnalyses& analyses, TimestampAnalysis& ts_analysis, InstIds& inst_ids);
+    TimestampPlacer(llvm::Function& func, FuncAnalyses& analyses, TimestampAnalysis& timestamp_analysis, InstIds& inst_ids);
 
     llvm::Function& getFunc();
     FuncAnalyses& getAnalyses();
@@ -56,14 +56,14 @@ class TimestampPlacer
     typedef boost::ptr_map<unsigned int, Signal> Signals;
     typedef boost::signals2::signal<void(llvm::BasicBlock&)> BasicBlockSignal;
 
-    FuncAnalyses& analyses;
-    boost::scoped_ptr<BasicBlockSignal> bb_sig;
-    llvm::Function& func;
-    InstIds& inst_ids;
-    Placer placer;
-    Signals signals;
+    FuncAnalyses& _analyses;
+    boost::scoped_ptr<BasicBlockSignal> _basicBlockSignal;
+    llvm::Function& _func;
+    InstIds& _instIds;
+    Placer _placer;
+    Signals _signals;
     Timestamps timestamps;
-    TimestampAnalysis& ts_analysis;
+    TimestampAnalysis& _timestampAnalysis;
 };
 
 #endif // TIMESTAMP_PLACER_H
