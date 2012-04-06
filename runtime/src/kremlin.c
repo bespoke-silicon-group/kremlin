@@ -1359,7 +1359,7 @@ void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
         RegionUpdateCp(region, value);
     }
 
-    MSG(3, "load ts[%u] over\n\n");
+    MSG(3, "load ts[%u] completed\n\n");
     return NULL;
 }
 
@@ -1434,6 +1434,7 @@ void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
 
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
+    MSG(0, "store ts[0x%x] completed\n", dest_addr);
     return NULL;
 }
 
