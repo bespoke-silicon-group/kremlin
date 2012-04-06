@@ -56,8 +56,6 @@ bool ReductionVars::isReductionOpType(Instruction* inst)
 {
     if( inst->getOpcode() == Instruction::Add
       || inst->getOpcode() == Instruction::FAdd
-      || inst->getOpcode() == Instruction::Sub
-      || inst->getOpcode() == Instruction::FSub
       || inst->getOpcode() == Instruction::Mul
       || inst->getOpcode() == Instruction::FMul
       ) { return true; }
@@ -196,10 +194,12 @@ void ReductionVars::getArrayReductionVars(LoopInfo& li, Loop* loop, std::set<Ins
 			// of reduction variables to see if this value's GEPS are used by
 			// a load and store (respectively) that are part of a reduction op
 			// sequence.
+#if 0
             else if(gep_vector.size() == 2) {
 				Value* ptr_val = (*gp_it).first;
                 red_var_op = getArrayReductionVarOp(li,loop,ptr_val);
             }
+#endif
 
             if(red_var_op) {
                 LOG_INFO() << "identified reduction variable operator (array, used in function: "
