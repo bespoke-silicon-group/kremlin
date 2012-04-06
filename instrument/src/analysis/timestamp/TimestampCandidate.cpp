@@ -11,8 +11,8 @@ using namespace llvm;
  */
 TimestampCandidate::TimestampCandidate(
     llvm::Value* base, unsigned int offset) :
-    base(base),
-    offset(offset)
+    _baseVal(base),
+    _timeOffset(offset)
 {
 }
 
@@ -25,7 +25,7 @@ TimestampCandidate::~TimestampCandidate()
  */
 Value* TimestampCandidate::getBase() const
 {
-    return base;
+    return _baseVal;
 }
 
 /**
@@ -33,7 +33,7 @@ Value* TimestampCandidate::getBase() const
  */
 unsigned int TimestampCandidate::getOffset() const
 {
-    return offset;
+    return _timeOffset;
 }
 
 /**

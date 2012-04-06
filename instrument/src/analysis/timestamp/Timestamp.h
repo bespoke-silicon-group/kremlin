@@ -21,7 +21,6 @@ class Timestamp
     /// The timestamp candidates iterator.
     typedef Candidates::const_iterator const_iterator;
 
-    public:
     Timestamp();
     virtual ~Timestamp();
 
@@ -30,12 +29,12 @@ class Timestamp
     iterator end();
     const_iterator end() const;
 
-    void insert(llvm::Value* base, unsigned int offset);
+    void addCandidate(llvm::Value* base_val, unsigned int time_offset);
 
     size_t size() const;
 
     private:
-    Candidates timestamps;
+    Candidates _timestamp_candidates;
 };
 
 bool operator<(const Timestamp& t1, const Timestamp& t2);

@@ -26,75 +26,75 @@ class ConstantWorkOpHandler : public TimestampHandler
 	/**
 	 * The cost of an integer add operation.
 	 */
-	unsigned int int_add;
+	unsigned int int_add_cost;
 
 	/**
 	 * The cost of an integer subtract operation.
 	 */
-	unsigned int int_sub;
+	unsigned int int_sub_cost;
 
 	/**
 	 * The cost of an integer multiplication operation.
 	 */
-	unsigned int int_mul;
+	unsigned int int_mul_cost;
 
 	/**
 	 * The cost of an integer division operation.
 	 */
-	unsigned int int_div;
+	unsigned int int_div_cost;
 	
 	/**
 	 * The cost of an integer modulus operation.
 	 */
-	unsigned int int_mod;
+	unsigned int int_mod_cost;
 
 	/**
 	 * The cost of an integer compare operation.
 	 */
-	unsigned int int_cmp;
+	unsigned int int_cmp_cost;
 
 	/**
 	 * The cost of an floating point add operation.
 	 */
-	unsigned int fp_add;
+	unsigned int fp_add_cost;
 
 	/**
 	 * The cost of an floating point subtract operation.
 	 */
-	unsigned int fp_sub;
+	unsigned int fp_sub_cost;
 
 	/**
 	 * The cost of an floating point multiplication operation.
 	 */
-	unsigned int fp_mul;
+	unsigned int fp_mul_cost;
 
 	/**
 	 * The cost of an floating point division operation.
 	 */
-	unsigned int fp_div;
+	unsigned int fp_div_cost;
 	
 	/**
 	 * The cost of an floating point modulus operation.
 	 */
-	unsigned int fp_mod;
+	unsigned int fp_mod_cost;
 
 	/**
 	 * The cost of an floating point compare operation.
 	 */
-	unsigned int fp_cmp;
+	unsigned int fp_cmp_cost;
 
 	/**
 	 * The cost of logic operations.
 	 */
-	unsigned int logic;
-    unsigned int mem_load;
-    unsigned int mem_store;
+	unsigned int logic_op_cost;
+    unsigned int mem_load_cost;
+    unsigned int mem_store_cost;
 
-    ControlDependence& cd;
-    InductionVariables& induc_vars;
-    llvm::LoopInfo& li;
-    TimestampAnalysis& timestampAnalysis;
-    TimestampPlacer& ts_placer;
+    ControlDependence& _controlDep;
+    InductionVariables& _inductionVars;
+    llvm::LoopInfo& _loopInfo;
+    TimestampAnalysis& _timestampAnalysis;
+    TimestampPlacer& _timestampPlacer;
 
     bool isLiveInRegion(llvm::BasicBlock& bb, llvm::Value& incoming_val);
 
