@@ -10,7 +10,7 @@
 class WorkAnalysis : public TimestampBlockHandler
 {
     public:
-    WorkAnalysis(TimestampPlacer& ts_placer, const ConstantWorkOpHandler& work_handler);
+    WorkAnalysis(TimestampPlacer& timestamp_placer, const ConstantWorkOpHandler& work_handler);
     virtual ~WorkAnalysis() {}
 
     void handleBasicBlock(llvm::BasicBlock& bb);
@@ -18,9 +18,9 @@ class WorkAnalysis : public TimestampBlockHandler
     private:
     uint64_t getWork(llvm::BasicBlock& bb) const;
 
-    TimestampPlacer& ts_placer;
-    llvm::Function* log_func;
-    const ConstantWorkOpHandler& work_handler;
+    TimestampPlacer& _timestampPlacer;
+    llvm::Function* _instrumentationFunc;
+    const ConstantWorkOpHandler& _workHandler;
 };
 
 #endif // WORK_ANALYSIS_H
