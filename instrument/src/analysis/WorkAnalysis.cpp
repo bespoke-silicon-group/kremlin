@@ -11,22 +11,22 @@ using namespace std;
 /**
  * Constructs a new handler.
  *
- * @param ts_placer The placer this handler is associated with.
+ * @param timestamp_placer The placer this handler is associated with.
  * @param work_handler Calculates the work of instructions.
  */
-WorkAnalysis::WorkAnalysis(TimestampPlacer& ts_placer, const ConstantWorkOpHandler& work_handler) :
-    ts_placer(ts_placer),
-    work_handler(work_handler)
+WorkAnalysis::WorkAnalysis(TimestampPlacer& timestamp_placer, const ConstantWorkOpHandler& work_handler) :
+    _timestampPlacer(timestamp_placer),
+    _workHandler(work_handler)
 {
-    std::vector<const Type*> args;
-    Module& m = *ts_placer.getFunc().getParent();
+    std::vector<const Type*> arg_types;
+    Module& m = *_timestampPlacer.getFunc().getParent();
     LLVMTypes types(m.getContext());
 
-    args.push_back(types.i32()); // work
-    FunctionType* func_type = FunctionType::get(types.voidTy(), args, false);
+    arg_types.push_back(types.i32()); // work
+    FunctionType* func_type = FunctionType::get(types.voidTy(), arg_types, false);
 
     // if the cast fails, another func with the same name and different prototype exists.
-    log_func = cast<Function>(m.getOrInsertFunction("_KWork", func_type)); 
+    _instrumentationFunc = cast<Function>(m.getOrInsertFunction("_KWork", func_type)); 
 }
 
 /**
@@ -38,9 +38,9 @@ uint64_t WorkAnalysis::getWork(BasicBlock& bb) const
     uint64_t work = 0;
     foreach(Instruction& inst, bb)
     {
-        work += work_handler.getWork(&inst);
+        work += _workHandler.getWork(&inst);
 
-        DEBUG(LOG_DEBUG() << inst << " work: " << work_handler.getWork(&inst) << "\n");
+        DEBUG(LOG_DEBUG() << inst << " work: " << _workHandler.getWork(&inst) << "\n");
     }
 
     return work;
@@ -53,16 +53,15 @@ uint64_t WorkAnalysis::getWork(BasicBlock& bb) const
  */
 void WorkAnalysis::handleBasicBlock(llvm::BasicBlock& bb)
 {
-    vector<Value*> args;
+    int64_t work_in_bb = getWork(bb);
+    if(work_in_bb == 0) return;
+
     LLVMTypes types(bb.getContext());
+    vector<Value*> call_args;
+    call_args.push_back(ConstantInt::get(types.i32(), work_in_bb, false));
+    CallInst& func_call = *CallInst::Create(_instrumentationFunc, call_args.begin(), call_args.end(), "");
 
-    int64_t work = getWork(bb);
-
-    if(!work)
-        return;
-
-    args.push_back(ConstantInt::get(types.i32(), work, false));
-    CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
-    //ts_placer.constrainInstPlacement(ci, *bb.getTerminator());
-    ts_placer.constrainInstPlacement(ci, *bb.getFirstNonPHI());
+	// Place at the beginning of basic block to avoid cp > work errors during
+	// runtime.
+    _timestampPlacer.constrainInstPlacement(func_call, *bb.getFirstNonPHI());
 }
