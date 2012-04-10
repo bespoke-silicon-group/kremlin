@@ -46,8 +46,8 @@ void* _KReduction(UInt opCost, UInt dest);
 
 void* _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...); 
 void* _KLoad0(Addr src_addr, UInt dest, UInt32 size); 
-void* _KLoad1(Addr src_addr, UInt src1, UInt dest, UInt32 size);
-void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 size);
+void* _KLoad1(Addr src_addr, UInt dest, UInt src1, UInt32 size);
+void* _KLoad2(Addr src_addr, UInt dest, UInt src1, UInt src2, UInt32 size);
 void* _KStore(UInt src, Addr dest_addr, UInt32 size); 
 void* _KStoreConst(Addr dest_addr, UInt32 size); 
 
