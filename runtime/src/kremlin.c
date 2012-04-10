@@ -1363,7 +1363,7 @@ void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
     return NULL;
 }
 
-void* _KLoad1(Addr addr, UInt src1, UInt dest, UInt32 size) {
+void* _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
     MSG(0, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
 	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
     if (!isKremlinOn())
