@@ -6,7 +6,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef long long int integer;
+// specify "long long int" when shadow mem version doesn't handle 32-bit arrays
+//typedef long long int integer;
+typedef int integer;
+
+integer maxOf3(integer int1, integer int2, integer int3) {
+	integer max;
+	if(int1 <= int2) max = int2;
+	else max = int1;
+
+	if(max <= int3) return int3;
+	else return max;
+}
 
 int main(int argc, char** argv) {
 	int max_rows, max_cols, penalty;
@@ -29,7 +40,6 @@ int main(int argc, char** argv) {
 
 	int i;
 	for( i = 0 ; i < max_cols-2 ; i++){
-
 		int idx;
 		for( idx = 0 ; idx <= i ; idx++){
 			int index = (idx + 1) * max_cols + (i + 1 - idx);
@@ -38,11 +48,7 @@ int main(int argc, char** argv) {
 			integer drop = input_itemsets[index-1] - penalty;
 			integer insert = input_itemsets[index-max_cols]  - penalty;
 
-			integer max;
-			if(match <= drop) max = drop;
-			else max = match;
-
-			if(max <= insert) max = insert;
+			integer max = maxOf3(match,drop,insert);
 
 			input_itemsets[index] = max;
 		}
