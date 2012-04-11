@@ -1068,7 +1068,6 @@ void* _KReduction(UInt opCost, Reg dest) {
     if (!isKremlinOn() || !isInstrumentable())
 		return;
 
-    //_KWork(opCost);
     return NULL;
 }
 
@@ -1236,7 +1235,6 @@ void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
     if (!isKremlinOn())
         return NULL;
 
-    //_KWork(opCost);
 	Index depth = getIndexDepth();
 	
 	Index index;
@@ -1272,7 +1270,6 @@ void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
     if (!isKremlinOn())
         return NULL;
 
-    //_KWork(opCost);
 	Table* table = RShadowGetTable();
 	Time* base = table->array; 
 
@@ -1336,8 +1333,6 @@ void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
     if (!isKremlinOn())
     	return NULL;
 
-    //_KWork(LOAD_COST);
-
 	Index index;
 	Index depth = getIndexDepth();
 	Level minLevel = getLevel(0);
@@ -1368,8 +1363,6 @@ void* _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
 	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
     if (!isKremlinOn())
 		return NULL;
-
-    //_KWork(LOAD_COST);
 
     Level minLevel = getStartLevel();
 
@@ -1412,8 +1405,6 @@ void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
     	return NULL;
 
 
-    //_KWork(STORE_COST);
-
 	Index index;
 	Time* tArray = RegionGetTArray();
 
@@ -1444,9 +1435,6 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
 	idbgAction(KREM_STORE,"## _KStoreConst(dest_addr=0x%x,size=%u)\n",dest_addr,size);
     if (!isKremlinOn())
         return NULL;
-
-
-    //_KWork(STORE_COST);
 
 	Index index;
 	Time* tArray = RegionGetTArray();
