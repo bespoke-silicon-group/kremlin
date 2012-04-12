@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-from sys import exit
+import sys
 
 class Function:
 	def __init__(self,name,raw_lines):
-		self.name = name
+		self.name = name.strip()
 		self.basic_blocks = []
 		self.subregions = [] # list of top level regions
 		self.top_level_blocks = [] # list of basic blocks that aren't in subregion
@@ -69,20 +69,52 @@ class Function:
 		for bb in basic_blocks_to_process:
 			self.process_bb(bb,region_stack_copy)
 
-	def write_dot_graph(self):
-		print "Not implemented yet"
+	def write_dot_graph(self,filename_prefix):
+		dot_filename = filename_prefix + "-" + self.name + ".dot"
+		output_file = open(dot_filename,"w")
+
+		output_file.write("digraph G {\n")
+
+		for reg in self.subregions:
+			reg.write_dot(output_file,1)
+
+		for bb in self.top_level_blocks:
+			bb.write_dot(output_file,1)
+
+		output_file.write("}\n")
+		output_file.close()
+
+def get_indent_string(indent_level):
+	tabs = ["\t" for i in range(indent_level)]
+	indent_str = "".join(tabs)
+	return indent_str
 
 class Region:
 	def __init__(self,id,type):
-		self.id = id
-		self.type = type
+		self.id = id.strip()
+		self.type = type.strip()
 		self.subregions = []
 		self.basic_blocks = []
+
+	def write_dot(self,file,indent_level):
+		indent_base = get_indent_string(indent_level)
+		file.write(indent_base + "subgraph cluster_" + self.id + " {\n")
+
+		for reg in self.subregions:
+			reg.write_dot(file,indent_level+1)
+		for bb in self.basic_blocks:
+			bb.write_dot(file,indent_level+1)
+
+		indent_body = get_indent_string(indent_level+1)
+		file.write("\n"); # pleasing-to-the-eye blank line after edges
+		file.write(indent_body + "style = dashed;\n")
+		file.write(indent_body + "label = \"region: " + self.id + "\";")
+		file.write(indent_base + "}\n\n")
 
 class BasicBlock:
 	def __init__(self,name,name_to_node,raw_lines):
 		#print "processing BB: %s" % name
-		self.name = name
+		self.name = name.strip()
 		self.nodes = []
 		self.edges = []
 		self.parent_region = None
@@ -94,6 +126,20 @@ class BasicBlock:
 		self.name_to_node = name_to_node
 		self.processed = False
 		self.process_raw_lines(raw_lines)
+
+	def write_dot(self,file,indent_level):
+		indent_base = get_indent_string(indent_level)
+		file.write(indent_base + "subgraph cluster_" + self.name + " {\n")
+
+		indent_body = get_indent_string(indent_level+1)
+
+		for src,dest in self.edges:
+			file.write(indent_body + src.name + " -> " + dest.name + ";\n")
+
+		file.write("\n"); # pleasing-to-the-eye blank line after edges
+		file.write(indent_body + "style = dashed;\n")
+		file.write(indent_body + "label = \"BB: " + self.name + "\";\n")
+		file.write(indent_base + "}\n\n")
 
 	def process_raw_lines(self,raw_lines):
 		for line in raw_lines:
@@ -109,9 +155,14 @@ class BasicBlock:
 
 		if "=" in line:
 			line_splits = line.split('= ')
-			line = line_splits[1]
+			if line.find('=') < line.find('('):
+				line = line_splits[1]
+			else:
+				line = line_splits[0]
 
-		called_func_name = line[1][0:line[1].find('(')+1]
+		called_func_name = line[:line.find('(')]
+		assert called_func_name != "", "no called func name!"
+
 		cs_name = ""
 		if self.callsite_name != "":
 			cs_name = self.callsite_name
@@ -257,18 +308,21 @@ class BasicBlock:
 
 class Node:
 	def __init__(self,name,type):
-		self.name = name
-		self.type = type
+		self.name = name.strip()
+		self.type = type.strip()
 
 class CallNode(Node):
 	def __init__(self,name,callsite_id):
-		self.name = name
+		self.name = name.strip()
 		self.type = "CALL"
-		self.callsite_id = callsite_id
+		self.callsite_id = callsite_id.strip()
 
-def main():
-	kdump_filename = "main.kdump" # FIXME
+def main(args):
+	kdump_filename = args[0]
 	kdump_file = open(kdump_filename,"r")
+
+	kdump_basename = kdump_filename[kdump_filename.rfind('/')+1:]
+	kdump_basename = kdump_basename[:kdump_basename.find('.')]
 
 	curr_func_name = ""
 	raw_func_lines = []
@@ -284,7 +338,7 @@ def main():
 			assert curr_func_name == end_func_name, "ending function (%s) that isn't current one (%s)" % (end_func_name,curr_func_name)
 			if len(raw_func_lines) != 0:
 				func = Function(curr_func_name,raw_func_lines)
-				func.write_dot_graph()
+				func.write_dot_graph(kdump_basename)
 
 			# clear out (now obsolete) func name and raw lines
 			curr_func_name = ""
@@ -293,4 +347,5 @@ def main():
 			raw_func_lines.append(line)
 
 if __name__ == "__main__":
-	main()
+	assert len(sys.argv) == 2, "usage: %s <kdump file>" % sys.argv[0]
+	main(sys.argv[1:])
