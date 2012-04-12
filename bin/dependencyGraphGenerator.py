@@ -313,10 +313,10 @@ class BasicBlock:
 	 	# ignore function region enter/exit
 		elif "_KEnterRegion" == func_name:
 			if args[1] != "0":
-				region_events.append((args[0],args[1],"enter"))
+				self.region_events.append((args[0],args[1],"enter"))
 		elif "_KExitRegion" == func_name:
 			if args[1] != "0":
-				region_events.append((args[0],args[1],"exit"))
+				self.region_events.append((args[0],args[1],"exit"))
 		elif "_KPrepRTable" == func_name:
 			for idx in range(int(args[0])):
 				node_name = "Reg" + str(idx)
@@ -344,7 +344,7 @@ def main(args):
 	raw_func_lines = []
 
 	for line in kdump_file:
-		if len(line) == 0: continue
+		if line == "\n": continue
 		elif "FUNCTION_BEGIN" in line:
 			assert len(curr_func_name) == 0, "trying to start new func before ending old one (%s)" % curr_func_name
 			curr_func_name = line.split(': ')[1]
