@@ -111,6 +111,22 @@ class Function:
 			output_file.write(",color=" + node.color)
 			output_file.write("];\n")
 
+		for name,node in self.name_to_node.items():
+			output_file.write("\t" + name + "[")
+
+			if node.type == "CALL":
+				output_file.write("label=\"" + name + "()")
+				if node.callsite_id != "":
+					output_file.write("\\nCS: " + node.callsite_id)
+				output_file.write("\",shape=diamond")
+			elif node.type == "MEM":
+				output_file.write("label=\"" + name + "\"")
+				output_file.write(",shape=box")
+			else:
+				output_file.write("label=\"" + name + " : " + node.type + "\"")
+
+			output_file.write("]\n")
+
 		output_file.write("}\n")
 		output_file.close()
 
