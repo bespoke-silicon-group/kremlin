@@ -150,7 +150,10 @@ struct CriticalPath : public ModulePass
             CallInstHandler cih(placer);
             placer.registerHandler(cih);
 			cih.addIgnore("printf");
+			cih.addIgnore("fprintf");
 			cih.addIgnore("puts");
+			cih.addIgnore("scanf");
+			cih.addIgnore("fscanf");
 			cih.addIgnore("atoi");
 
             DynamicMemoryHandler dmh(placer);
