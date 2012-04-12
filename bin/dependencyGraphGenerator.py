@@ -114,7 +114,7 @@ class Region:
 class BasicBlock:
 	def __init__(self,name,name_to_node,raw_lines):
 		#print "processing BB: %s" % name
-		self.name = name.strip()
+		self.name = name.strip().replace('.','_')
 		self.nodes = []
 		self.edges = []
 		self.parent_region = None
