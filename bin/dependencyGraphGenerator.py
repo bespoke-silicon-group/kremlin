@@ -8,6 +8,7 @@ class Function:
 		self.subregions = [] # list of top level regions
 		self.top_level_blocks = [] # list of basic blocks that aren't in subregion
 		self.name_to_node = dict()
+		self.name_to_bb = dict()
 		self.name_to_node["MEM"] = Node("MEM","MEM")
 		self.process_raw_lines(raw_lines)
 		if len(self.basic_blocks) != 0:
@@ -27,6 +28,7 @@ class Function:
 				assert curr_bb_name == end_bb_name, "ending bb (%s) that wasn't active bb (%s)" % (end_bb_name,curr_bb_name)
 				new_bb = BasicBlock(curr_bb_name,self.name_to_node,raw_bb_lines)
 				self.basic_blocks.append(new_bb)
+				self.name_to_bb[new_bb.name] = new_bb
 				curr_bb_name = ""
 				raw_bb_lines = []
 			else:
@@ -65,7 +67,11 @@ class Function:
 		else:
 			self.top_level_blocks.append(basic_block)
 
-		basic_blocks_to_process = [bb for bb in basic_block.next_basic_blocks if not bb.processed]
+		basic_blocks_to_process = []
+		for bb_name in basic_block.next_basic_blocks:
+			bb = self.name_to_bb[bb_name]
+			if not bb.processed: basic_blocks_to_process.append(bb)
+
 		for bb in basic_blocks_to_process:
 			self.process_bb(bb,region_stack_copy)
 
@@ -124,12 +130,11 @@ class Region:
 		indent_body = get_indent_string(indent_level+1)
 		file.write("\n"); # pleasing-to-the-eye blank line after edges
 		file.write(indent_body + "style = dashed;\n")
-		file.write(indent_body + "label = \"region: " + self.id + "\";")
+		file.write(indent_body + "label = \"region: " + self.id + "\";\n")
 		file.write(indent_base + "}\n\n")
 
 class BasicBlock:
 	def __init__(self,name,name_to_node,raw_lines):
-		#print "processing BB: %s" % name
 		self.name = name.strip().replace('.','_')
 		self.nodes = []
 		self.edges = []
@@ -202,15 +207,12 @@ class BasicBlock:
 		# strip off TERMINATOR: part
 		term_string = term_string[11:].strip()
 
-		self.basic_blocks = term_string.split(', ')
+		term_string_splits = term_string.split()
+		self.next_basic_blocks = [bb.replace('.','_') for bb in term_string_splits]
 
 	def process_lib_call(self,line):
 		""" Returns pair of func name and list of arg strings"""
 		def parse_lib_call_string(call_string):
-			# first in list should be name, second should be arg list string
-			#call_string_splits = call_string.split('()')
-			#print call_string_splits
-
 			open_paren_idx = call_string.find('(')
 			called_func_name = call_string[0:open_paren_idx]
 			args = call_string[open_paren_idx+1:-1]
