@@ -125,7 +125,7 @@ class Function:
 			else:
 				output_file.write("label=\"" + name + " : " + node.type + "\"")
 
-			output_file.write("]\n")
+			output_file.write("];\n")
 
 		output_file.write("}\n")
 		output_file.close()
