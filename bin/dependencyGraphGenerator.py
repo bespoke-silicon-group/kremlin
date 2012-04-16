@@ -69,7 +69,6 @@ class Function:
 		for bb_name in basic_block.next_basic_blocks:
 			bb = self.name_to_bb[bb_name]
 			if not bb.marked_for_processing:
-				print "\tadding bb %s to process list" % bb.name
 				basic_blocks_to_process.append(bb)
 				bb.marked_for_processing = True
 
@@ -240,7 +239,7 @@ class BasicBlock:
 		if "_KTimestamp" == func_name:
 			dest_name = "Reg" + args[0]
 			dest_node = self.name_to_node[dest_name]
-			dest_node.type = "TS";
+			dest_node.type = "TS"
 			num_deps = int(args[1])
 			for idx in range(num_deps):
 				dependency_name = "Reg" + args[2+2*idx]
@@ -248,17 +247,17 @@ class BasicBlock:
 		elif "_KTimestamp0" == func_name:
 			dest_name = "Reg" + args[0]
 			dest_node = self.name_to_node[dest_name]
-			dest_node.type = "TS0";
+			dest_node.type = "TS0"
 		elif "_KTimestamp1" == func_name:
 			dest_name = "Reg" + args[0]
 			dest_node = self.name_to_node[dest_name]
-			dest_node.type = "TS1";
+			dest_node.type = "TS1"
 			dependency_name = "Reg" + args[1]
 			self.edges.append((self.name_to_node[dependency_name],dest_node))
 		elif "_KTimestamp2" == func_name:
 			dest_name = "Reg" + args[0]
 			dest_node = self.name_to_node[dest_name]
-			dest_node.type = "TS2";
+			dest_node.type = "TS2"
 
 			dep1_name = "Reg" + args[1]
 			self.edges.append((self.name_to_node[dep1_name],dest_node))
@@ -267,7 +266,7 @@ class BasicBlock:
 		elif "_KLoad" == func_name:
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
-			dest_node.type = "LD";
+			dest_node.type = "LD"
 
 			self.edges.append((self.name_to_node["MEM"],dest_node))
 			num_deps = int(args[3])
@@ -278,13 +277,13 @@ class BasicBlock:
 		elif "_KLoad0" == func_name:
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
-			dest_node.type = "LD0";
+			dest_node.type = "LD0"
 
 			self.edges.append((self.name_to_node["MEM"],dest_node))
 		elif "_KLoad1" == func_name:
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
-			dest_node.type = "LD1";
+			dest_node.type = "LD1"
 
 			self.edges.append((self.name_to_node["MEM"],dest_node))
 			dependency_name = "Reg" + args[2]
@@ -292,7 +291,7 @@ class BasicBlock:
 		elif "_KLoad2" == func_name:
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
-			dest_node.type = "LD2";
+			dest_node.type = "LD2"
 
 			self.edges.append((self.name_to_node["MEM"],dest_node))
 			dep1_name = "Reg" + args[2]
