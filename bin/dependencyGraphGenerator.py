@@ -339,10 +339,29 @@ class BasicBlock:
 				node_name = "Reg" + str(idx)
 				self.name_to_node[node_name] = Node(node_name,"UNDEF");
 
-class Node:
+class Node(object):
 	def __init__(self,name,type):
 		self.name = name.strip()
+		#self.set_type(type.strip())
 		self.type = type.strip()
+
+	def get_type(self):
+		return self._type
+
+	def set_type(self,type):
+		self._type = type
+		if "LD" in self._type:
+			self.shape = "house"
+		elif "ST" in type:
+			self.shape = "invhouse"
+		elif "MEM" in type:
+			self.shape = "box"
+		elif "CALL" in type:
+			self.shape = "diamond"
+		else:
+			self.shape = "ellipse"
+
+	type = property(get_type,set_type)
 
 class CallNode(Node):
 	def __init__(self,name,callsite_id):
