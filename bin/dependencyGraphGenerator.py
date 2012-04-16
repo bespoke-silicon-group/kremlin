@@ -41,8 +41,6 @@ class Function:
 		self.process_bb(entry_bb,region_stack)
 
 	def process_bb(self,basic_block,region_stack):
-		basic_block.processed = True
-
 		region_stack_copy = [reg for reg in region_stack]
 
 		for region_id,region_type,event in basic_block.region_events:
@@ -158,6 +156,7 @@ class BasicBlock:
 		self.callsite_name = "" # used for handling KPrepCall neatly
 		self.arg_links = [] # used for adding edges on KLinkArg
 		self.return_link = "" # used for handling KLinkReturn
+		self.curr_store_num = 0 # used for uniquifying store node names
 		self.name_to_node = name_to_node
 		self.marked_for_processing = False
 		self.process_raw_lines(raw_lines)
@@ -299,14 +298,16 @@ class BasicBlock:
 			self.edges.append((self.name_to_node[dep1_name],dest_node))
 			dep2_name = "Reg" + args[3]
 			self.edges.append((self.name_to_node[dep2_name],dest_node))
-		# TODO: With current method, store won't show what BB the store
-		# happened in. Need to fix this. Might do this by creating an edge class
-		# that allows us to specify a label (which can indicate BB where store
-		# happened.
 		elif "_KStore" == func_name:
-			mem_node = self.name_to_node["MEM"]
+			store_name = self.name + "_st_" + str(self.curr_store_num)
+			self.curr_store_num = self.curr_store_num + 1
+			store_node = Node(store_name,"ST")
+			self.name_to_node[store_name] = store_node
+
 			dependency_name = "Reg" + args[0]
-			self.edges.append((self.name_to_node[dependency_name],mem_node))
+			mem_node = self.name_to_node["MEM"]
+			self.edges.append((self.name_to_node[dependency_name],store_node))
+			self.edges.append((store_node,mem_node))
 		elif "_KPrepCall" == func_name:
 			if self.callsite_name != "": sys.exit("last callsite_name not cleared")
 			self.callsite_name = args[0]
