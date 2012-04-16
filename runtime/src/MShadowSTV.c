@@ -1,6 +1,5 @@
 #include "kremlin.h"
 
-
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */
@@ -12,7 +11,7 @@
 #include "debug.h"
 //#include "MShadow.h"
 
-//#define USE_CACHE
+#define DEBUGLEVEL 3
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 
@@ -125,7 +124,9 @@ static Time* TimeTableAlloc(int type, int depth) {
 
 	//fprintf(stderr, "TAlloc: type = %d, depth = %d\n", type, depth);
 	int nEntry = getTimeTableEntrySize(type);
-	return (Time*) malloc(sizeof(Time) * nEntry * depth);
+	Time* ret = (Time*) calloc(sizeof(Time) * nEntry * depth, 1);
+	MSG(DEBUGLEVEL, "TTableAlloc: 0x%llx\n", ret);
+	return ret;
 }
 
 static void TimeTableFree(Time* table, int type) {
@@ -149,7 +150,9 @@ static int TimeTableGetIndex(Addr addr, int depth, int type) {
 
 static inline Time* TimeTableGetAddr(SegEntry* entry, Addr addr) {
 	int index = TimeTableGetIndex(addr, entry->depth, entry->type);
-	return &(entry->tTable[index]);
+	Time* ret = &(entry->tTable[index]);
+	MSG(DEBUGLEVEL, "TTableGetAddr : 0x%llx\n", ret);
+	return ret;
 }
 
 static inline Version* VersionGetAddr(SegEntry* entry, Addr addr) {
@@ -361,7 +364,7 @@ static SegTable* STableGetSegTable(Addr addr) {
 	}
 
 	// not found - create an entry
-	MSG(0, "STable Creating a new Entry..\n");
+	MSG(DEBUGLEVEL, "STable Creating a new Entry..\n");
 	stat.nSTableEntry++;
 
 	SegTable* ret = SegTableAlloc();
@@ -373,24 +376,20 @@ static SegTable* STableGetSegTable(Addr addr) {
 
 
 static Time* _MShadowGetSTV(Addr addr, Index size, Version* vArray, UInt32 width) {
-	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
+	MSG(DEBUGLEVEL, "MShadowGet 0x%llx, size %d\n", addr, size);
 
 	if (size < 1)
 		return NULL;
 
 	SegEntry* segEntry = NULL;
+#if 1
 	int type = TYPE_32BIT;
 	if (width  > 4)
 		type = TYPE_64BIT;
+#endif
 
-#ifdef USE_CACHE
-	L1Entry* entry = getEntry(addr);
-	assert(entry->segEntry != NULL);
-	segEntry = entry->segEntry;
-#else	
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
-#endif
 	return SegTableGetTime(segEntry, addr, size, vArray, type);
 }
 
@@ -399,19 +398,16 @@ static void _MShadowSetSTV(Addr addr, Index size, Version* vArray, Time* tArray,
 		return;
 
 	SegEntry* segEntry = NULL;
+	//int type = TYPE_32BIT;
+#if 1
 	int type = TYPE_32BIT;
 	if (width  > 4)
 		type = TYPE_64BIT;
+#endif
 
-#ifdef USE_CACHE
-	L1Entry* entry = getEntry(addr);
-	assert(entry->segEntry != NULL);
-	segEntry = entry->segEntry;
-#else	
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
 	//assert(entry->segEntry != NULL);
-#endif
 	SegTableSetTime(segEntry, addr, size, vArray, tArray, type);
 }
 

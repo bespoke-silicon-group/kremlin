@@ -1,4 +1,4 @@
-#include <stdio.h>
+
 #include <stdlib.h>
 #include "config.h"
 #include "kremlin.h"
@@ -25,13 +25,13 @@ static void   CPositionSetTree(CTree*);
 static void   CPositionSetNode(CNode*);
 static char*  CPositionToStr();
 
+static void   CRegionPush(CNode* node);
+static CNode* CRegionPop();
 
 static CStat* CStatCreate(int index);
 static void   CStatDelete(CStat* region);
-static CStat* CStatForward(CStat* current);
-static CStat* CStatBackward(CStat* current);
 
-static CNode* CNodeCreate(SID sid, CID cid); 
+static CNode* CNodeCreate(SID sid, CID cid, RegionType type); 
 static CNode* CNodeCreateExtRNode(SID sid, CID cid, CTree* childTree); 
 static void   CNodeConvertToSelfRNode(CNode* node, CTree* tree);
 //static CNode* CNodeCreateSelfRNode(SID sid, CID cid, CTree* childTree); 
@@ -45,6 +45,9 @@ static void   CNodeReplaceChild(CNode*, CNode*, CNode*);
 static char*  CNodeToString(CNode* node); 
 static Bool   CNodeIsSelfRNode(CTree* tree, CNode* node);
 static CNodeType CNodeGetType(CNode* node);
+
+static CStat* CNodeStatForward(CNode* current);
+static CStat* CNodeStatBackward(CNode* current);
 
 static CTree* CTreeCreate(CNode* root); 
 static void   CTreeDelete(CTree* tree);
@@ -64,7 +67,14 @@ static void emitRegion(FILE* fp, CNode* node, UInt level);
  *********************************/
 
 void CRegionInit() {
+	CNode* root = CNodeCreate(0, 0, RegionFunc); // dummy root node
+	CTree* tree = CTreeCreate(root);
 	CPositionInit();
+	CPositionSetTree(tree);
+	assert(root != NULL);
+	CPositionSetNode(root);
+
+
 	//fprintf(stderr, "cregionInit..");
 	//CRegion* region = createCRegion(0, 0);
 	//root = createCNode(NULL, region);
@@ -74,60 +84,66 @@ void CRegionInit() {
 }
 
 void CRegionDeinit(char* file) {
+	assert(CRegionPop() == NULL);
 	emit(file);
 }
 
 void printPosition() {
-	MSG(0, "Curr %s Node: %s\n", CPositionToStr(), CNodeToString(CPositionGetNode()));
+	MSG(3, "Curr %s Node: %s\n", CPositionToStr(), CNodeToString(CPositionGetNode()));
 }
 
-void CRegionEnter(SID sid, CID cid) {
-
-	CTree* tree = CPositionGetTree();
+void CRegionEnter(SID sid, CID cid, RegionType type) {
 	CNode* parent = CPositionGetNode();
 	CNode* child = NULL;
 
 	// corner case: no graph exists 
-	if (tree == NULL) {
+#if 0
+	if (parent == NULL) {
 		child = CNodeCreate(sid, cid);
-		CPositionSet(CTreeCreate(child), child);
+		CPositionSetNode(child);
+		CRegionPush(child);
 		MSG(0, "CRegionEnter: sid: root -> 0x%llx, callSite: 0x%llx\n", 
 			sid, cid);
 		return;
 	}
+#endif
 	
 	assert(parent != NULL);
-	MSG(0, "CRegionEnter: sid: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
+	MSG(3, "CRegionEnter: sid: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
 		parent->sid, sid, cid);
 
 	// make sure a child node exist
 	child = CNodeFindChild(parent, sid, cid);
 	if (child == NULL) {
 		// case 3) step a - new node required
-		child = CNodeCreate(sid, cid);
+		child = CNodeCreate(sid, cid, type);
 		CNodeLink(parent, child);
-		CTreeHandleRecursion(tree, child);
+		if (KConfigGetRSummarySupport())
+			CTreeHandleRecursion(CPositionGetTree(), child);
 	} 
 
+	CNodeStatForward(child);
+
+	assert(child != NULL);
 	// set position, push the current region to the current tree
 	switch (child->type) {
-	case SELF_R:
-		CPositionSetNode(tree->root);
-		CTreeEnterNode(tree, child);
+	case R_INIT:
+		CPositionSetNode(child);
 		break;
-	case EXT_R:
-		CPositionSet(child->tree, child->tree->root);
-		CTreeEnterNode(tree, child);
+	case R_SINK:
+		assert(child->recursion != NULL);
+		CPositionSetNode(child->recursion);
+		CNodeStatForward(child->recursion);
 		break;
 	case NORMAL:
 		CPositionSetNode(child);
-		CTreeEnterNode(tree, child);
 		break;
 	}
-	CStatForward(child->stat);
+	CRegionPush(child);
 	printPosition();
+	//assert(child->stat != NULL);
 
-	MSG(0, "CRegionEnter: End\n"); 
+	MSG(3, "CRegionEnter: End\n"); 
 }
 
 // at the end of a region execution,
@@ -135,22 +151,87 @@ void CRegionEnter(SID sid, CID cid) {
 // update the passed info and 
 // set current pointer to one level higher
 void CRegionLeave(RegionField* info) {
-	MSG(0, "CRegionLeave: \n"); 
+	MSG(3, "CRegionLeave: Begin\n"); 
 	// don't update if we didn't give it any info
 	// this happens when we are out of range for logging
-	CTree* tree = CPositionGetTree();
 	CNode* current = CPositionGetNode();
+	CNode* popped = CRegionPop();
+	assert(popped != NULL);
 	assert(current != NULL);
 
+	MSG(3, "Curr %s Node: %s\n", CPositionToStr(), CNodeToString(current));
+#if 0
 	if (info != NULL) {
 		assert(current != NULL);
-		assert(current->stat != NULL);
-		//CNodeUpdate(current, info);
+		//assert(current->stat != NULL);
+		CNodeUpdate(current, info);
 	}
-	CTreeDecDepth(tree);
-	CStatBackward(current);
-	CPositionSetNode(current->parent);	
+#endif
+	assert(info != NULL);
+	CNodeUpdate(current, info);
+	assert(current->stat != NULL);
+	MSG(3, "Update Node 0 - ID: %d Page: %d\n", current->id, current->stat->index);
+	CNodeStatBackward(current);
+	assert(current->parent != NULL);
+
+	if (current->type == R_INIT) {
+		CPositionSetNode(popped->parent);	
+
+	} else {
+		CPositionSetNode(current->parent);	
+	}
+
+	if (popped->type == R_SINK) {
+		CNodeUpdate(popped, info);
+		MSG(3, "Update Node 1 - ID: %d Page: %d\n", popped->id, popped->stat->index);
+		CNodeStatBackward(popped);
+	} 
 	printPosition();
+	MSG(3, "CRegionLeave: End \n"); 
+}
+
+/**
+ * CRegionPush / CRegionPop
+ *
+ */
+
+static CItem* stackTop;
+
+static void CRegionPush(CNode* node) {
+	MSG(3, "CRegionPush: ");
+	CItem* prev = stackTop;
+	CItem* item = (CItem*)MemPoolAllocSmall(sizeof(CItem));
+	item->prev = NULL;
+
+	if (prev == NULL) {
+		item->next = NULL;
+
+	} else {
+		item = (CItem*)MemPoolAllocSmall(sizeof(CItem));
+		item->next = prev;
+		prev->prev = item;
+
+	} 
+	item->node = node;
+	stackTop = item;
+	MSG(3, "%s\n", CNodeToString(node));
+}
+
+static CNode* CRegionPop() {
+	MSG(3, "CRegionPop: ");
+	if (stackTop == NULL) {
+		MSG(3, "NONE\n");
+		return NULL;
+	}
+
+	assert(stackTop != NULL);	
+	CNode* ret = stackTop->node;
+	MSG(3, "%s\n", CNodeToString(ret));
+	CItem* toDelete = stackTop;
+	stackTop = toDelete->next;
+	MemPoolFreeSmall(toDelete, sizeof(CItem));
+	
+	return ret;
 }
 
 
@@ -161,7 +242,6 @@ void CRegionLeave(RegionField* info) {
 static CPosition _curPosition;
 
 static void CPositionInit() {
-	_curPosition.tree = NULL;
 	_curPosition.node = NULL;
 }
 
@@ -187,14 +267,17 @@ static CNode* CPositionGetNode() {
 	return _curPosition.node;
 }
 
+#if 0
 static void CPositionSet(CTree* tree, CNode* node) {
 	_curPosition.tree = tree;
 	_curPosition.node = node;
 
 }
+#endif
 
 
 static void CPositionSetNode(CNode* node) {
+	assert(node != NULL);
 	_curPosition.node = node;
 
 }
@@ -206,11 +289,9 @@ static void CPositionSetTree(CTree* tree) {
 
 static char _bufCur[16];
 static char* CPositionToStr() {
-	CTree* tree = CPositionGetTree();
 	CNode* node = CPositionGetNode();
-	UInt64 treeId = (tree == NULL) ? 0 : tree->id;
 	UInt64 nodeId = (node == NULL) ? 0 : node->id;
-	sprintf(_bufCur, "<%2d:%5d>", treeId, nodeId);
+	sprintf(_bufCur, "<%5d>", nodeId);
 	return _bufCur;
 }
 
@@ -231,8 +312,13 @@ static CStat* CStatCreate(int index) {
 	ret->writeCnt = 0;
 	ret->loadCnt = 0;
 	ret->storeCnt = 0;
-	ret->isDoall = 1;
 
+	// iteration info	
+	ret->totalIterCount = 0;
+	ret->minIterCount = 0xFFFFFFFFFFFFFFFFULL;
+	ret->maxIterCount = 0;
+
+	ret->numInstance = 0;
 	ret->index = index;
 	ret->next = NULL;
 	ret->prev = NULL;
@@ -251,15 +337,19 @@ static void CStatUpdate(CStat* stat, RegionField* info) {
 	MSG(3, "CStatUpdate: work = %d, spWork = %d\n", info->work, info->spWork);
 	
 	double sp = (double)info->work / (double)info->spWork;
+	stat->numInstance++;
 	if (stat->minSP > sp) stat->minSP = sp;
 	if (stat->maxSP < sp) stat->maxSP = sp;
 	stat->totalWork += info->work;
 	stat->tpWork += info->cp;
 	stat->spWork += info->spWork;
 
-		// handle P bit for DOALL identification
-	if (info->isDoall == 0)
-		stat->isDoall = 0;
+	stat->totalIterCount += info->childCnt;
+	if (stat->minIterCount > info->childCnt) 
+		stat->minIterCount = info->childCnt;
+	if (stat->maxIterCount < info->childCnt) 
+		stat->maxIterCount = info->childCnt;
+
 
 #ifdef EXTRA_STATS
 	stat->readCnt += info->readCnt;
@@ -269,29 +359,53 @@ static void CStatUpdate(CStat* stat, RegionField* info) {
 #endif
 }
 
-static CStat* CStatForward(CStat* current) {
-	if (current == NULL)
-		return CStatCreate(0);
+/****************************
+ * CNode Related Routines 
+ ***************************/
 
+static CStat* CNodeStatForward(CNode* node) {
+	assert(node != NULL);
+	CStat* current = node->stat;
+	int index = 0;
+	if (current != NULL)
+		index = current->index + 1;
+
+	MSG(1, "CStatForward id %d to page %d\n", node->id, index);
+	if (node->statStart == NULL) {
+		CStat* ret = CStatCreate(0);
+		node->stat = ret;
+		node->statStart = ret;
+		return ret;
+	}
+
+	if (current == NULL) {
+		node->stat = node->statStart;
+		return node->stat;
+	}
+
+	assert(current != NULL);
 	if (current->next != NULL) {
 		assert(current->next->index == current->index + 1);
+		node->stat = current->next;
 		return current->next;
 	}
 	
 	CStat* ret = CStatCreate(current->index + 1);
 	current->next = ret;
+	ret->prev = current;
+	node->stat = ret;
 	return ret;
 }
 
-static CStat* CStatBackward(CStat* current) {
-	assert(current->prev != NULL);
-	assert(current->prev->index == current->index - 1);
-	return current->prev;
+static CStat* CNodeStatBackward(CNode* node) {
+	assert(node != NULL);
+	CStat* current = node->stat;
+	assert(current != NULL);
+	MSG(1, "CStatBackward id %d from page %d\n", node->id, current->index);
+	//assert(current->prev->index == current->index - 1);
+	//return current->prev;
+	node->stat = current->prev;
 }
-
-/****************************
- * CNode Related Routines 
- ***************************/
 
 static void CNodeUpdate(CNode* node, RegionField* info) {
 	assert(info != NULL);
@@ -300,16 +414,14 @@ static void CNodeUpdate(CNode* node, RegionField* info) {
 	MSG(3, "current region: id(0x%lx), sid(0x%lx), cid(0x%lx)\n", 
 			node->id, node->sid, node->cid);
 
-	assert(node->cid == info->callSite);
+	//assert(node->cid == info->callSite);
 	assert(node->numInstance >= 0);
 
-	node->numInstance++;
-	node->totalChildCount += info->childCnt;
-	if (node->minChildCount > info->childCnt) 
-		node->minChildCount = info->childCnt;
-	if (node->maxChildCount < info->childCnt) 
-		node->maxChildCount = info->childCnt;
+	// handle P bit for DOALL identification
+	if (info->isDoall == 0)
+		node->isDoall = 0;
 
+	node->numInstance++;
 	CStatUpdate(node->stat, info);
 }
 
@@ -317,13 +429,18 @@ static CNode* CNodeFindChild(CNode* node, UInt64 sid, UInt64 callSite) {
 	CNode* child = node->firstChild;
 	//fprintf(stderr, "looking for sid : 0x%llx, callSite: 0x%llx\n", sid, callSite);
 	while (child != NULL) {
-		//fprintf(stderr, "\tcandidate sid : 0x%llx, callSite: 0x%llx\n", region->sid, region->callSite);
-		if (child->sid == sid && child->cid == callSite) {
-			return child;
-		} else {
+		//fprintf(stderr, "\tcandidate sid : 0x%llx, callSite: 0x%llx\n", child->sid, child->cid);
+		if (child->sid != sid)
 			child = child->next;
-		}
+		else if (child->rType != RegionFunc)
+			return child;
+		else if (child->cid == callSite) 
+			return child;
+		else
+			child = child->next;
 	}
+
+	//fprintf(stderr, "\tnot found, creating one..\n");
 	return NULL;
 }
 
@@ -340,33 +457,33 @@ static UInt64 lastId = 0;
 static UInt64 CNodeAllocId() { return ++lastId; }
 
 
-static CNode* CNodeCreate(SID sid, CID cid) {
+static CNode* CNodeCreate(SID sid, CID cid, RegionType type) {
 	CNode* ret = (CNode*)MemPoolAllocSmall(sizeof(CNode));
 	MSG(3, "CNode: created CNode at 0x%x\n", ret);
 
 	// basic info
 	ret->type = NORMAL;
+	ret->rType = type;
 	ret->id = CNodeAllocId();
 	ret->sid = sid;
 	ret->cid = cid;
 	ret->childrenSize = 0;
+	ret->recursion = NULL;
 	ret->firstChild = NULL;
 	ret->numInstance = 0;
-
-	// child info	
-	ret->totalChildCount = 0;
-	ret->minChildCount = 0xFFFFFFFFFFFFFFFFULL;
-	ret->maxChildCount = 0;
+	ret->isDoall = 1;
 
 	// debug info
 	ret->code = 0xDEADBEEF;
 
 	// stat
 	ret->stat = NULL;
+	ret->statStart = NULL;
 
 	return ret;
 }
 
+#if 0
 static CNode* CNodeCreateExtRNode(SID sid, CID cid, CTree* childTree) {
 	CNode* ret = CNodeCreate(sid, cid);
 	ret->type = EXT_R;
@@ -379,7 +496,7 @@ static void CNodeConvertToSelfRNode(CNode* node, CTree* tree) {
 	node->tree = tree;
 	node->type = SELF_R;
 }
-
+#endif
 
 static Bool CNodeIsRNode(CNode* node) {
 	return (node->tree != NULL);
@@ -431,12 +548,9 @@ static void CNodeReplaceChild(CNode* parent, CNode* oldRegion, CNode* newRegion)
 /**
  * Convert a subgraph into a recursive node
  */
-static CNode* CNodeConvertToRecursive(CNode* base) {
-	CNode* ret = CNodeCreate(base->sid, base->cid);
-	return ret;
-}
 
 static char _buf[256];
+static char* _strType[] = {"NORM", "RINIT", "RSINK"};
 static char* CNodeToString(CNode* node) {
 	if (node == NULL) {
 		sprintf(_buf, "NULL"); 
@@ -445,9 +559,22 @@ static char* CNodeToString(CNode* node) {
 
 	UInt64 parentId = (node->parent == NULL) ? 0 : node->parent->id;
 	UInt64 childId = (node->firstChild == NULL) ? 0 : node->firstChild->id;
-	sprintf(_buf, "id: %d, parent: %d, firstChild: %d, sid: %llx", 
-		node->id, parentId, childId, node->sid);
+	sprintf(_buf, "id: %d, type: %5s, parent: %d, firstChild: %d, sid: %llx", 
+		node->id, _strType[node->type], parentId, childId, node->sid);
 	return _buf;
+}
+
+static int CNodeGetStatSize(CNode* node) {
+	if (node->statStart == NULL)
+		return 0;
+	
+	int num = 0;
+	CStat* current = node->statStart;
+	while (current != NULL) {
+		num++;
+		current = current->next;
+	}
+	return num;
 }
 
 
@@ -510,19 +637,19 @@ static void CTreeDelete(CTree* tree) {
 }
 
 static CNode* CTreeFindAncestorBySid(CTree* tree, CNode* child) {
-	MSG(0, "CTreeFindAncestor: sid: 0x%llx....", child->sid);
+	MSG(3, "CTreeFindAncestor: sid: 0x%llx....", child->sid);
 	SID sid = child->sid;
 	CNode* node = child->parent;
 	
 	while (node != NULL) {
 		if (node->sid == sid) {
-			MSG(0, "found\n");
+			MSG(3, "found\n");
 			return node;
 		}
 
 		node = node->parent;
 	}
-	MSG(0, "not found\n");
+	MSG(3, "not found\n");
 	return NULL;
 }
 
@@ -534,41 +661,6 @@ static CTree* CTreeConvertFromSubTree(CNode* root, CNode* recurseNode) {
 	recurseNode->tree = ret;
 	return ret;
 }	
-
-/**
- * CTreeEnterNode / CTreeExitNode
- *
- * CTree manages a stack for active regions. 
- * CTreeEnterNode / CTreeExitNode push/pop CNode at the stack.
- */
-
-static void CTreeEnterNode(CTree* tree, CNode* node) {
-	CItem* prev = tree->stackTop;
-	CItem* item = (CItem*)MemPoolAllocSmall(sizeof(CItem));
-	item->prev = NULL;
-
-	if (prev == NULL) {
-		item->next = NULL;
-
-	} else {
-		item = (CItem*)MemPoolAllocSmall(sizeof(CItem));
-		item->next = prev;
-		prev->prev = item;
-
-	} 
-	item->node = node;
-	tree->stackTop = item;
-}
-
-static CNode* CTreeExitNode(CTree* tree) {
-	assert(tree->stackTop != NULL);	
-	CNode* ret = tree->stackTop->node;
-	CItem* toDelete = tree->stackTop;
-	tree->stackTop = toDelete->next;
-	MemPoolFreeSmall(toDelete, sizeof(CItem));
-	
-	return ret;
-}
 
 static void CTreeHandleRecursion(CTree* tree, CNode* child) {
 	// detect a recursion with a new node
@@ -584,16 +676,20 @@ static void CTreeHandleRecursion(CTree* tree, CNode* child) {
 
 	if (ancestor == NULL) {
 		return;
-
+#if 0
 	} else if (ancestor == tree->root) {
 		CNodeConvertToSelfRNode(child, tree);
 		return;
+#endif
 
 	} else {
 		assert(ancestor->parent != NULL);
-		CTree* rTree = CTreeConvertFromSubTree(ancestor, child);	
-		CNode* rNode = CNodeCreateExtRNode(ancestor->sid, ancestor->cid, rTree);
-		CNodeReplaceChild(ancestor->parent, ancestor, rNode);
+		//CTree* rTree = CTreeConvertFromSubTree(ancestor, child);	
+		//CNode* rNode = CNodeCreateExtRNode(ancestor->sid, ancestor->cid, rTree);
+		//CNodeReplaceChild(ancestor->parent, ancestor, rNode);
+		ancestor->type = R_INIT;
+		child->type = R_SINK;
+		child->recursion = ancestor;
 		return;
 	}
 }
@@ -608,12 +704,12 @@ static int numCreated = 0;
 
 static void emit(char* file) {
 	FILE* fp = fopen(file, "w");
-	emitRegion(fp, CPositionGetTree()->root, 0);
+	emitRegion(fp, CPositionGetTree()->root->firstChild, 0);
 	fclose(fp);
 	fprintf(stderr, "[kremlin] Created %d Emitted (all %d leaves %d)\n", 
 		numCreated, numEntries, numEntriesLeaf);
 
-	fp = fopen("kremlin_region_graph.dot","w");
+	//fp = fopen("kremlin_region_graph.dot","w");
 	/*
 	fprintf(fp,"digraph G {\n");
 	emitDOT(fp,root);
@@ -627,22 +723,119 @@ static Bool isEmittable(Level level) {
 	//return TRUE;
 }
 
+/**
+ * emitNode - emit a node specific info
+ *
+ * - 64bit ID
+ * - 64bit SID
+ * - 64bit CID
+ * - 64bit type
+ * - 64bit recurse id
+ * - 64bit # of instances
+ * - 64bit DOALL flag
+ * - 64bit child count (C)
+ * - C * 64bit ID for children
+ *
+ * Total (40 + C * 8) bytes
+ */
+
+static void emitNode(FILE* fp, CNode* node) {
+	numCreated++;
+	MSG(1, "Node id: %d, sid: %llx type: %d numInstance: %d nChildren: %d DOALL: %d\n", 
+		node->id, node->sid, node->type, node->numInstance, node->childrenSize, node->isDoall);
+	fwrite(&node->id, sizeof(Int64), 1, fp);
+	fwrite(&node->sid, sizeof(Int64), 1, fp);
+	fwrite(&node->cid, sizeof(Int64), 1, fp);
+
+	assert(node->type >=0 && node->type <= 2);
+	UInt64 nodeType = node->type;
+	fwrite(&nodeType, sizeof(Int64), 1, fp);
+	
+	UInt64 targetId = (node->recursion == NULL) ? 0 : node->recursion->id;
+	fwrite(&targetId, sizeof(Int64), 1, fp);
+	fwrite(&node->numInstance, sizeof(Int64), 1, fp);
+	fwrite(&node->isDoall, sizeof(Int64), 1, fp);
+	fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
+
+	CNode* current = node->firstChild;
+	int i;
+	UInt64 size = node->childrenSize;
+	for (i=0; i<size; i++) {
+		assert(current != NULL);
+		fwrite(&current->id, sizeof(Int64), 1, fp);    
+		current = current->next;
+	}           
+	assert(current == NULL);
+}
+
+/**
+ * emitStat - emit a level of stat
+ *
+ * - 64bit work
+ * - 64bit tpWork (work after total-parallelism is applied)
+ * - 64bit spWork (work after self-parallelism is applied)
+ * - 2 * 64bit min / max SP
+ * - 3 * 64bit total / min / max iteration count
+ *
+ * Total 64 bytes
+ */
+
+
+static void emitStat(FILE* fp, CStat* stat) {
+	MSG(3, "\t[%d] stat: sWork = %d, pWork = %d, nInstance = %d\n", 
+		stat->index, stat->totalWork, stat->spWork, stat->numInstance);
+		
+	fwrite(&stat->numInstance, sizeof(Int64), 1, fp);
+	fwrite(&stat->totalWork, sizeof(Int64), 1, fp);
+	fwrite(&stat->tpWork, sizeof(Int64), 1, fp);
+	fwrite(&stat->spWork, sizeof(Int64), 1, fp);
+
+	UInt64 minSPInt = (UInt64)(stat->minSP * 100.0);
+	UInt64 maxSPInt = (UInt64)(stat->maxSP * 100.0);
+	fwrite(&minSPInt, sizeof(Int64), 1, fp);
+	fwrite(&maxSPInt, sizeof(Int64), 1, fp);
+
+	fwrite(&stat->totalIterCount, sizeof(Int64), 1, fp);
+	fwrite(&stat->minIterCount, sizeof(Int64), 1, fp);
+	fwrite(&stat->maxIterCount, sizeof(Int64), 1, fp);
+
+}
+
+/**
+ * emitRegion - emit a region tree
+ *
+ * for each region, here is the summarized binary format.
+ *  - Node Info (emitNode)
+ *  - N (64bit), which is # of stats
+ *  - N * Stat Info (emitStat)
+ * 
+ */
 
 static void emitRegion(FILE* fp, CNode* node, UInt level) {
-	CStat* stat = node->stat;
+	CStat* stat = node->statStart;
+	UInt64 statSize = CNodeGetStatSize(node);
 	//fprintf(stderr, "emitting region %llu at level %u\n", node->region->id,level);
+	MSG(3, "Emitting Node %d with %d stats\n", node->id, statSize);
     assert(fp != NULL);
     assert(node != NULL);
     assert(stat != NULL);
 	//assert(region->numInstance > 0);
-
-	UInt64 size = node->childrenSize;
-
-	if (isEmittable(level))
-	{
+	
+	if (isEmittable(level)) {
 		numEntries++;
-		if(size == 0) { numEntriesLeaf++; }
+		if(node->childrenSize == 0)  
+			numEntriesLeaf++; 
 
+		emitNode(fp, node);
+
+		fwrite(&statSize, sizeof(Int64), 1, fp);
+		while (stat != NULL) {
+			emitStat(fp, stat);	
+			stat = stat->next;
+		}
+	}
+
+#if 0
 		fwrite(&node->id, sizeof(Int64), 1, fp);
 		fwrite(&node->sid, sizeof(Int64), 1, fp);
 		fwrite(&node->cid, sizeof(Int64), 1, fp);
@@ -662,22 +855,19 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 		fwrite(&node->minChildCount, sizeof(Int64), 1, fp);
 		fwrite(&node->maxChildCount, sizeof(Int64), 1, fp);
 		fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
-
 		CNode* current = node->firstChild;
-
 		int i;
 		for (i=0; i<size; i++) {
 			assert(current != NULL);
 			fwrite(&current->id, sizeof(Int64), 1, fp);    
 			current = current->next;
-		}           
-		assert(current == NULL);
-	}
+		}    
+#endif
+
 
 	CNode* current = node->firstChild;
-
 	int i;
-	for (i=0; i<size; i++) {
+	for (i=0; i<node->childrenSize; i++) {
 		emitRegion(fp, current, level+1);
         current = current->next;
 	}

@@ -9,6 +9,7 @@ typedef struct _config_ {
 	UInt8 useCompression;
 	UInt8 shadowType;
 	UInt8 useVerify;
+	UInt8 enableRecursion;
 
 	UInt32 regionDepth;
 	UInt32 cbufferSize;
@@ -30,8 +31,16 @@ void KConfigInit() {
 	config.cbufferSize = 4096;
 	config.cacheSize = 4;
 	config.regionDepth = 20;
-	config.shadowType = 2;
+	config.shadowType = 1;
 	config.gcPeriod = 1024;
+	config.enableRecursion = 1;
+}
+
+void KConfigDisableRSummary() {
+	config.enableRecursion = 0;
+}
+Bool KConfigGetRSummarySupport() {
+	return config.enableRecursion;
 }
 
 Bool KConfigLimitLevel() {
@@ -113,6 +122,7 @@ UInt32 KConfigGetGCPeriod() {
 void KConfigSetGCPeriod(UInt32 period) {
 	config.gcPeriod = period;
 }
+
 
 #if 0
 void setTableType(int type) {

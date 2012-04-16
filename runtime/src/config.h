@@ -28,5 +28,7 @@ Level  KConfigGetIndexSize();
 void   KConfigSetGCPeriod(UInt32);
 UInt32 KConfigGetGCPeriod();
 
+void KConfigDisableRSummary();
+Bool KConfigGetRSummarySupport();
 
 #endif

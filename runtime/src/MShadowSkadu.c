@@ -316,9 +316,8 @@ static inline Time LTableGetTime(LTable* lTable, Index level, Addr addr, Version
 		ret = 0ULL;
 
 	} else if (version == verCurrent) {
-		MSG(0, "\t\t\tversion = %d, %d\n", version, verCurrent);
 		ret = TimeTableGet(table, addr, verCurrent, type);
-
+		MSG(0, "\t\tlv %d: \tversion = [%d, %d] value = %d\n", level, version, verCurrent, ret);
 	} 
 
 	return ret;
@@ -353,6 +352,7 @@ static inline void LTableSetTime(LTable* lTable, Index level, Addr addr, Version
 		} else {
 			// exists but version is old so clean it and reuse
 			TimeTableClean(table);
+			TimeTableSet(table, addr, value, verCurrent, type);
 		}
 	}
 	LTableSetVer(lTable, level, verCurrent);
@@ -558,7 +558,7 @@ static void TVCacheDeinit() {
 /*
  * Fetch / Evict from TVCache to TVStorage
  */
-
+static Addr debugAddr = NULL;
 
 static void TVCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, Version* vArray, int type) {
 	if (addr == NULL)
@@ -583,12 +583,15 @@ static void TVCacheEvict(Time* tArray, Addr addr, int size, Version oldVersion, 
 	//fprintf(stderr, "\tTVCacheEvict lTable=%llx, 0x%llx, size=%d, effectiveSize=%d \n", lTable, addr, size, startInvalid);
 	if (useCompression())
 		CBufferAccess(lTable);
+	
+	
+	check(addr, tArray, startInvalid, 3);
 }
 
 static void TVCacheFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
 	MSG(0, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
 	//fprintf(stderr, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
-	LTable* lTable = LTableGet(addr,vArray);
+	LTable* lTable = LTableGet(addr, vArray);
 
 	int i;
 	for (i=0; i<size; i++) {

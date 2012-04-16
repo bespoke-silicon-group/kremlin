@@ -93,6 +93,12 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			continue;
 		}
 #endif
+		str_start = strstr(argv[i],"disable-rsummary");
+		if(str_start) {
+			KConfigDisableRSummary();
+			continue;
+		}
+
 
 		str_start = strstr(argv[i],"mshadow-type");
 		if(str_start) {

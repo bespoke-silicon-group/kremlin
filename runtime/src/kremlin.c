@@ -900,7 +900,7 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 
     FuncContext* funcHead = RegionGetFunc();
 	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
-	CRegionEnter(regionId, callSiteId);
+	CRegionEnter(regionId, callSiteId, regionType);
 
 	if (isInstrumentable()) {
     	//RegionPushCDep(region, 0);
@@ -1191,6 +1191,11 @@ void* _KLoad(Addr addr, Reg dest, UInt32 size) {
         MSG(3, "KLoad level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " addr 0x%x dest %u\n", addr, dest);
         MSG(3, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
+		if (ts0 > getTimetick()) {
+			fprintf(stderr, "@index %d, %lld, %lld, %lld, %lld\n", 
+				index, tArray[0], tArray[1], tArray[2], tArray[3]);
+			assert(0);
+		}
 		checkTimestamp(index, region, ts0);
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
@@ -1200,7 +1205,7 @@ void* _KLoad(Addr addr, Reg dest, UInt32 size) {
     return NULL;
 }
 
-void* _KLoad1(Addr addr, UInt src1, UInt dest, UInt32 size) {
+void* _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
     MSG(0, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
 	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
     if (!isKremlinOn())
@@ -1557,7 +1562,22 @@ static Bool kremlinInit() {
     return TRUE;
 }
 
+/*
+   if a program exits out of main(),
+   kremlinCleanup() enforces 
+   KExitRegion() calls for active regions
+ */
+void kremlinCleanup() {
+    Level level = getCurrentLevel();
+	int i;
+	for (i=level; i>=0; i--) {
+		Region* region = RegionGet(i);
+		_KExitRegion(region->regionId, region->regionType);
+	}
+}
+
 static Bool kremlinDeinit() {
+	kremlinCleanup();
     if(--hasInitialized) {
         MSG(0, "kremlinDeinit skipped\n");
         return FALSE;

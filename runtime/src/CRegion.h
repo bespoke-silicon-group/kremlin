@@ -10,12 +10,10 @@ typedef struct _cstack_item_t CItem;
 
 // CNode types:
 // NORMAL - summarizing non-recursive region
-// EXT_R  - entry to a recursive region tree
-// SELF_R - leaf node in a recursive region tree
-//          pointing to the root of the current tree
-//          converted from NORMAL when a recursion is detected
+// R_INIT - recursion init node
+// R_SINK - recursion sink node that connects to a R_INIT
 
-enum _cnode_type {NORMAL, EXT_R, SELF_R};
+enum _cnode_type {NORMAL, R_INIT, R_SINK};
 typedef enum _cnode_type CNodeType;
 
 struct _cstat_t {
@@ -31,11 +29,14 @@ struct _cstat_t {
 	UInt64 loadCnt;
 	UInt64 storeCnt;
 	
-	UInt64 isDoall;
+	UInt64 totalIterCount;
+	UInt64 minIterCount;
+	UInt64 maxIterCount;
 
 	// double linked-list for
 	// efficient accounting in recursion
 	UInt64 index;
+	UInt64 numInstance;
 	CStat* next;	
 	CStat* prev;	
 };
@@ -46,14 +47,12 @@ struct _cstat_t {
 struct _cnode_t {
 	// identity
 	CNodeType type;
+	RegionType rType;
 	UInt64 id;
 	UInt64 sid;
 	UInt64 cid;
 	UInt64 numInstance;
-
-	UInt64 totalChildCount;
-	UInt64 minChildCount;
-	UInt64 maxChildCount;
+	UInt64 isDoall;
 
 	// for debugging 
 	UInt32 code;
@@ -63,6 +62,7 @@ struct _cnode_t {
 
 	// contents
 	// add more pointers based on type?
+	CStat* statStart;
 	CStat* stat;
 
 	// management of tree
@@ -70,6 +70,7 @@ struct _cnode_t {
 	CNode* firstChild;
 	CNode* next; // for siblings	
 	CTree* tree; // for linking a CTree
+	CNode* recursion;
 	UInt64 childrenSize;
 };
 
@@ -110,7 +111,7 @@ typedef struct _RegionField_t {
 
 void CRegionInit();
 void CRegionDeinit(char* file);
-void CRegionEnter(SID sid, CID callSite);
+void CRegionEnter(SID sid, CID callSite, RegionType type);
 void CRegionLeave(RegionField* info);
 
 #endif
