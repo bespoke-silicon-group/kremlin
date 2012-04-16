@@ -70,7 +70,10 @@ class Function:
 		basic_blocks_to_process = []
 		for bb_name in basic_block.next_basic_blocks:
 			bb = self.name_to_bb[bb_name]
-			if not bb.processed: basic_blocks_to_process.append(bb)
+			if not bb.marked_for_processing:
+				print "\tadding bb %s to process list" % bb.name
+				basic_blocks_to_process.append(bb)
+				bb.marked_for_processing = True
 
 		for bb in basic_blocks_to_process:
 			self.process_bb(bb,region_stack_copy)
@@ -145,7 +148,7 @@ class BasicBlock:
 		self.arg_links = [] # used for adding edges on KLinkArg
 		self.return_link = "" # used for handling KLinkReturn
 		self.name_to_node = name_to_node
-		self.processed = False
+		self.marked_for_processing = False
 		self.process_raw_lines(raw_lines)
 
 	def write_dot(self,file,indent_level):
