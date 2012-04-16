@@ -268,24 +268,19 @@ class BasicBlock:
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "LD"
 
-			self.edges.append((self.name_to_node["MEM"],dest_node))
 			num_deps = int(args[3])
 			for idx in range(num_deps):
 				dependency_name = "Reg" + args[4+idx]
 				self.edges.append((self.name_to_node[dependency_name],dest_node))
-
 		elif "_KLoad0" == func_name:
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "LD0"
-
-			self.edges.append((self.name_to_node["MEM"],dest_node))
 		elif "_KLoad1" == func_name:
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "LD1"
 
-			self.edges.append((self.name_to_node["MEM"],dest_node))
 			dependency_name = "Reg" + args[2]
 			self.edges.append((self.name_to_node[dependency_name],dest_node))
 		elif "_KLoad2" == func_name:
@@ -293,7 +288,6 @@ class BasicBlock:
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "LD2"
 
-			self.edges.append((self.name_to_node["MEM"],dest_node))
 			dep1_name = "Reg" + args[2]
 			self.edges.append((self.name_to_node[dep1_name],dest_node))
 			dep2_name = "Reg" + args[3]
@@ -307,7 +301,6 @@ class BasicBlock:
 			dependency_name = "Reg" + args[0]
 			mem_node = self.name_to_node["MEM"]
 			self.edges.append((self.name_to_node[dependency_name],store_node))
-			self.edges.append((store_node,mem_node))
 		elif "_KPrepCall" == func_name:
 			if self.callsite_name != "": sys.exit("last callsite_name not cleared")
 			self.callsite_name = args[0]
