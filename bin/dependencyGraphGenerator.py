@@ -132,8 +132,19 @@ class Region:
 
 		indent_body = get_indent_string(indent_level+1)
 		file.write("\n"); # pleasing-to-the-eye blank line after edges
-		file.write(indent_body + "style = dashed;\n")
-		file.write(indent_body + "label = \"region: " + self.id + "\";\n")
+		#file.write(indent_body + "style = filled;\n")
+		if self.type == "1":
+			file.write(indent_body + "color = orange;\n")
+		else:
+			file.write(indent_body + "color = blue;\n")
+
+		file.write(indent_body + "label = \"")
+		if self.type == "1":
+			file.write("loop")
+		elif self.type == "2":
+			file.write("loop body")
+		file.write(" (id: " + self.id + ")\";\n")
+
 		file.write(indent_base + "}\n\n")
 
 class BasicBlock:
@@ -323,7 +334,7 @@ class BasicBlock:
 			if args[1] != "0":
 				self.region_events.append((args[0],args[1],"exit"))
 		elif "_KPrepRTable" == func_name:
-			for idx in range(int(args[0])):
+			for idx in range(1,int(args[0])):
 				node_name = "Reg" + str(idx)
 				self.name_to_node[node_name] = Node(node_name,"UNDEF");
 
