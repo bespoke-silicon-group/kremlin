@@ -120,9 +120,10 @@ class Function:
 					output_file.write("\\nCS: " + node.callsite_id)
 				output_file.write("\",")
 			else:
-				output_file.write("label=\"" + name + " : " + node.type + "\",")
+				output_file.write("label=\"" + name + " : " + node.type + "\"")
 
-			output_file.write("shape=" + node.shape)
+			output_file.write(",shape=" + node.shape)
+			output_file.write(",color=" + node.color)
 			output_file.write("];\n")
 
 		output_file.write("}\n")
@@ -416,7 +417,6 @@ class BasicBlock(Rankable):
 class Node(object):
 	def __init__(self,name,type):
 		self.name = name.strip()
-		#self.set_type(type.strip())
 		self.type = type.strip()
 
 	def get_type(self):
