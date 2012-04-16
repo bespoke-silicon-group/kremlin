@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import copy
 
 class Function:
 	def __init__(self,name,raw_lines):
@@ -16,6 +17,7 @@ class Function:
 	def process_raw_lines(self,raw_lines):
 		curr_bb_name = ""
 		raw_bb_lines = []
+		bb_rank = 0
 
 		for line in raw_lines:
 			if len(line) == 0: continue
@@ -25,7 +27,8 @@ class Function:
 			elif "BB_END" in line:
 				end_bb_name = line.split(': ')[1]
 				assert curr_bb_name == end_bb_name, "ending bb (%s) that wasn't active bb (%s)" % (end_bb_name,curr_bb_name)
-				new_bb = BasicBlock(curr_bb_name,self.name_to_node,raw_bb_lines)
+				new_bb = BasicBlock(curr_bb_name,self.name_to_node,raw_bb_lines,bb_rank)
+				bb_rank = bb_rank + 1
 				self.basic_blocks.append(new_bb)
 				self.name_to_bb[new_bb.name] = new_bb
 				curr_bb_name = ""
@@ -64,6 +67,10 @@ class Function:
 		else:
 			self.top_level_blocks.append(basic_block)
 
+		for active_region in region_stack_copy:
+			if basic_block.rank < active_region.rank:
+				active_region.rank = basic_block.rank
+
 		basic_blocks_to_process = []
 		for bb_name in basic_block.next_basic_blocks:
 			bb = self.name_to_bb[bb_name]
@@ -80,11 +87,13 @@ class Function:
 
 		output_file.write("digraph G {\n")
 
-		for reg in self.subregions:
-			reg.write_dot(output_file,1)
+		# sort subregions and basic_blocks
+		clusters = copy.copy(self.subregions)
+		clusters.extend(self.top_level_blocks)
+		sorted_clusters = sorted(clusters,key=lambda x: x.rank)
 
-		for bb in self.top_level_blocks:
-			bb.write_dot(output_file,1)
+		for cluster in sorted_clusters:
+			cluster.write_dot(output_file,1)
 
 		for name,node in self.name_to_node.items():
 			output_file.write("\t" + name + "[")
@@ -108,21 +117,28 @@ def get_indent_string(indent_level):
 	indent_str = "".join(tabs)
 	return indent_str
 
-class Region:
+class Rankable(object):
+	def __init__(self,rank):
+		self.rank = rank
+
+class Region(Rankable):
 	def __init__(self,id,type):
 		self.id = id.strip()
 		self.type = type.strip()
 		self.subregions = []
 		self.basic_blocks = []
+		super(Region,self).__init__(1000000)
 
 	def write_dot(self,file,indent_level):
 		indent_base = get_indent_string(indent_level)
 		file.write(indent_base + "subgraph cluster_" + self.id + " {\n")
 
-		for reg in self.subregions:
-			reg.write_dot(file,indent_level+1)
-		for bb in self.basic_blocks:
-			bb.write_dot(file,indent_level+1)
+		clusters = copy.copy(self.subregions)
+		clusters.extend(self.basic_blocks)
+		sorted_clusters = sorted(clusters,key=lambda x: x.rank)
+
+		for cluster in sorted_clusters:
+			cluster.write_dot(file,indent_level+1)
 
 		indent_body = get_indent_string(indent_level+1)
 		file.write("\n"); # pleasing-to-the-eye blank line after edges
@@ -141,9 +157,10 @@ class Region:
 
 		file.write(indent_base + "}\n\n")
 
-class BasicBlock:
-	def __init__(self,name,name_to_node,raw_lines):
+class BasicBlock(Rankable):
+	def __init__(self,name,name_to_node,raw_lines,rank):
 		self.name = name.strip().replace('.','_')
+		super(BasicBlock,self).__init__(rank)
 		self.nodes = []
 		self.edges = []
 		self.parent_region = None
