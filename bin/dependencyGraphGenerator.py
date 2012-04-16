@@ -118,13 +118,14 @@ class Function:
 				output_file.write("label=\"" + name + "()")
 				if node.callsite_id != "":
 					output_file.write("\\nCS: " + node.callsite_id)
-				output_file.write("\",shape=diamond")
+				#output_file.write("\",shape=diamond")
+				output_file.write("\",")
 			elif node.type == "MEM":
-				output_file.write("label=\"" + name + "\"")
-				output_file.write(",shape=box")
+				output_file.write("label=\"" + name + "\",")
 			else:
-				output_file.write("label=\"" + name + " : " + node.type + "\"")
+				output_file.write("label=\"" + name + " : " + node.type + "\",")
 
+			output_file.write("shape=" + node.shape)
 			output_file.write("];\n")
 
 		output_file.write("}\n")
