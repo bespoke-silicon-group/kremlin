@@ -9,7 +9,6 @@ class Function:
 		self.top_level_blocks = [] # list of basic blocks that aren't in subregion
 		self.name_to_node = dict()
 		self.name_to_bb = dict()
-		self.name_to_node["MEM"] = Node("MEM","MEM")
 		self.process_raw_lines(raw_lines)
 		if len(self.basic_blocks) != 0:
 			self.form_subregions()
@@ -94,10 +93,7 @@ class Function:
 				output_file.write("label=\"" + name + "()")
 				if node.callsite_id != "":
 					output_file.write("\\nCS: " + node.callsite_id)
-				#output_file.write("\",shape=diamond")
 				output_file.write("\",")
-			elif node.type == "MEM":
-				output_file.write("label=\"" + name + "\",")
 			else:
 				output_file.write("label=\"" + name + " : " + node.type + "\",")
 
@@ -299,7 +295,6 @@ class BasicBlock:
 			self.name_to_node[store_name] = store_node
 
 			dependency_name = "Reg" + args[0]
-			mem_node = self.name_to_node["MEM"]
 			self.edges.append((self.name_to_node[dependency_name],store_node))
 		elif "_KPrepCall" == func_name:
 			if self.callsite_name != "": sys.exit("last callsite_name not cleared")
