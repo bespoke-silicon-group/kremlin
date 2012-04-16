@@ -418,6 +418,7 @@ class BasicBlock(Rankable):
 class Node(object):
 	def __init__(self,name,type):
 		self.name = name.strip()
+		#self.set_type(type.strip())
 		self.type = type.strip()
 
 	def get_type(self):
