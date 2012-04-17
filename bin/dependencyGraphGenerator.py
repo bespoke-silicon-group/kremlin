@@ -86,6 +86,7 @@ class Function:
 		output_file = open(dot_filename,"w")
 
 		output_file.write("digraph G {\n")
+		output_file.write("\tcompound = true;") # allows edges to BBs
 
 		# sort subregions and basic_blocks
 		clusters = copy.copy(self.subregions)
@@ -171,6 +172,7 @@ class BasicBlock(Rankable):
 		self.arg_links = [] # used for adding edges on KLinkArg
 		self.return_link = "" # used for handling KLinkReturn
 		self.curr_store_num = 0 # used for uniquifying store node names
+		self.control_dep_name = "" # for drawing control dep edges
 		self.name_to_node = name_to_node
 		self.marked_for_processing = False
 		self.process_raw_lines(raw_lines)
@@ -183,6 +185,10 @@ class BasicBlock(Rankable):
 
 		for src,dest in self.edges:
 			file.write(indent_body + src.name + " -> " + dest.name + ";\n")
+
+		if len(self.control_dep_name) != 0 and len(self.nodes) != 0:
+			file.write(indent_body + self.control_dep_name + " -> " + self.nodes[0].name)
+			file.write(" [lhead=cluster_" + self.name + ",style=dotted,weight=3.0];\n")
 
 		file.write("\n"); # pleasing-to-the-eye blank line after edges
 		file.write(indent_body + "style = dashed;\n")
@@ -254,6 +260,7 @@ class BasicBlock(Rankable):
 			dest_name = "Reg" + args[0]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "TS"
+			self.nodes.append(dest_node)
 			num_deps = int(args[1])
 			for idx in range(num_deps):
 				dependency_name = "Reg" + args[2+2*idx]
@@ -262,16 +269,19 @@ class BasicBlock(Rankable):
 			dest_name = "Reg" + args[0]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "TS0"
+			self.nodes.append(dest_node)
 		elif "_KTimestamp1" == func_name:
 			dest_name = "Reg" + args[0]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "TS1"
+			self.nodes.append(dest_node)
 			dependency_name = "Reg" + args[1]
 			self.edges.append((self.name_to_node[dependency_name],dest_node))
 		elif "_KTimestamp2" == func_name:
 			dest_name = "Reg" + args[0]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "TS2"
+			self.nodes.append(dest_node)
 
 			dep1_name = "Reg" + args[1]
 			self.edges.append((self.name_to_node[dep1_name],dest_node))
@@ -281,6 +291,7 @@ class BasicBlock(Rankable):
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "LD"
+			self.nodes.append(dest_node)
 
 			num_deps = int(args[3])
 			for idx in range(num_deps):
@@ -290,10 +301,12 @@ class BasicBlock(Rankable):
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "LD0"
+			self.nodes.append(dest_node)
 		elif "_KLoad1" == func_name:
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "LD1"
+			self.nodes.append(dest_node)
 
 			dependency_name = "Reg" + args[2]
 			self.edges.append((self.name_to_node[dependency_name],dest_node))
@@ -301,6 +314,7 @@ class BasicBlock(Rankable):
 			dest_name = "Reg" + args[1]
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "LD2"
+			self.nodes.append(dest_node)
 
 			dep1_name = "Reg" + args[2]
 			self.edges.append((self.name_to_node[dep1_name],dest_node))
@@ -311,6 +325,7 @@ class BasicBlock(Rankable):
 			self.curr_store_num = self.curr_store_num + 1
 			store_node = Node(store_name,"ST")
 			self.name_to_node[store_name] = store_node
+			self.nodes.append(store_node)
 
 			dependency_name = "Reg" + args[0]
 			self.edges.append((self.name_to_node[dependency_name],store_node))
@@ -332,6 +347,9 @@ class BasicBlock(Rankable):
 
 			src_node = self.name_to_node["Reg" + args[0]]
 			self.edges.append((src_node,ret_node))
+
+		elif "_KPushCDep" == func_name:
+			self.control_dep_name = "Reg" + args[0]
 
 	 	# ignore function region enter/exit
 		elif "_KEnterRegion" == func_name:
