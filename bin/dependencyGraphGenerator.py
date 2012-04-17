@@ -361,6 +361,10 @@ class BasicBlock(Rankable):
 			self.callsite_name = args[0]
 		elif "_KLinkArg" == func_name:
 			self.arg_links.append("Reg" + args[0])
+		elif "_KUnlinkArg" == func_name:
+			dest_name = "Reg" + args[0]
+			dest_node = self.name_to_node[dest_name]
+			dest_node.type = "ARG"
 		elif "_KLinkReturn" == func_name:
 			if self.return_link != "": sys.exit("last return_link not cleared")
 			self.return_link = "Reg" + args[0]
