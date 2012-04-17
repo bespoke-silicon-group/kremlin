@@ -329,6 +329,26 @@ class BasicBlock(Rankable):
 
 			dependency_name = "Reg" + args[0]
 			self.edges.append((self.name_to_node[dependency_name],store_node))
+		elif "_KPhi" in func_name:
+			dest_name = "Reg" + args[0]
+			dest_node = self.name_to_node[dest_name]
+			dest_node.type = "PHI"
+
+			"""
+			if "Cond" not in func_name:
+				num_conds = int(func_name[5])
+				range_max = num_conds + 2 # +1 for src, +1 for range() not not inclusive of second arg
+			elif "_KPhiCond4To1" == func_name:
+				range_max = 5
+			elif "_PhiAddCond" == func_name:
+				range_max = 2
+
+			for idx in range(1,range_max):
+				dep_name = "Reg" + args[idx]
+				dep_node = self.name_to_node[dep_name]
+				self.edges.append((dep_node,dest_node))
+			"""
+
 		elif "_KPrepCall" == func_name:
 			if self.callsite_name != "": sys.exit("last callsite_name not cleared")
 			self.callsite_name = args[0]
@@ -381,11 +401,15 @@ class Node(object):
 			self.shape = "box"
 		elif "CALL" in type:
 			self.shape = "diamond"
+		elif "PHI" in type:
+			self.shape = "invtriangle"
 		else:
 			self.shape = "ellipse"
 
 		if "LD" in type or "ST" == type:
 			self.color = "red"
+		elif "PHI" in type:
+			self.color = "purple"
 		else:
 			self.color = "black"
 
