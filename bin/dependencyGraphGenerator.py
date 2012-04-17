@@ -364,6 +364,8 @@ class BasicBlock(Rankable):
 		elif "_KLinkReturn" == func_name:
 			if self.return_link != "": sys.exit("last return_link not cleared")
 			self.return_link = "Reg" + args[0]
+			ret_link_node = self.name_to_node[self.return_link]
+			ret_link_node.type = "RET"
 		# like KStore, this doesn't indicate what BB return happened in
 		elif "_KReturn" == func_name:
 			ret_node = None
