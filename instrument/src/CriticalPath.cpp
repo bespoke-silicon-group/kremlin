@@ -154,6 +154,8 @@ struct CriticalPath : public ModulePass
 			cih.addIgnore("puts");
 			cih.addIgnore("scanf");
 			cih.addIgnore("fscanf");
+			cih.addIgnore("fclose");
+			cih.addIgnore("exit");
 			cih.addIgnore("atoi");
 
             DynamicMemoryHandler dmh(placer);
