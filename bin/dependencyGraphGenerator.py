@@ -187,8 +187,11 @@ class BasicBlock(Rankable):
 			file.write(indent_body + src.name + " -> " + dest.name + ";\n")
 
 		if len(self.control_dep_name) != 0 and len(self.nodes) != 0:
-			file.write(indent_body + self.control_dep_name + " -> " + self.nodes[0].name)
-			file.write(" [lhead=cluster_" + self.name + ",style=dotted,weight=3.0];\n")
+			for node in self.nodes:
+				if isinstance(node,CallNode) and len(node.callsite_id) != 0:
+					file.write(indent_body + self.control_dep_name + " -> " + node.name)
+					file.write(" [lhead=cluster_" + self.name + ",style=dotted,weight=3.0];\n")
+					break
 
 		file.write("\n"); # pleasing-to-the-eye blank line after edges
 		file.write(indent_body + "style = dashed;\n")
