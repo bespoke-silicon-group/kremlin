@@ -352,6 +352,10 @@ class BasicBlock(Rankable):
 				self.edges.append((dep_node,dest_node))
 			"""
 
+		elif "_KInduction" == func_name:
+			dest_name = "Reg" + args[0]
+			dest_node = self.name_to_node[dest_name]
+			dest_node.type = "IND"
 		elif "_KPrepCall" == func_name:
 			if self.callsite_name != "": sys.exit("last callsite_name not cleared")
 			self.callsite_name = args[0]
@@ -406,6 +410,8 @@ class Node(object):
 			self.shape = "diamond"
 		elif "PHI" in type:
 			self.shape = "invtriangle"
+		elif "IND" in type:
+			self.shape = "egg"
 		else:
 			self.shape = "ellipse"
 
