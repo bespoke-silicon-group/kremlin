@@ -188,7 +188,7 @@ class BasicBlock(Rankable):
 
 		if len(self.control_dep_name) != 0 and len(self.nodes) != 0:
 			for node in self.nodes:
-				if isinstance(node,CallNode) and len(node.callsite_id) != 0:
+				if not isinstance(node,CallNode) or len(node.callsite_id) != 0:
 					file.write(indent_body + self.control_dep_name + " -> " + node.name)
 					file.write(" [lhead=cluster_" + self.name + ",style=dotted,weight=3.0];\n")
 					break
