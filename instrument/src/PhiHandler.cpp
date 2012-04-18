@@ -95,24 +95,24 @@ class IsPredecessor : public std::unary_function<BasicBlock*, bool> {
  * @param ts_placer The timestamp placer this handler is associated with.
  */
 PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
-    cd(ts_placer.getAnalyses().cd),
-    dt(ts_placer.getAnalyses().dt),
-    ind_vars(ts_placer.getAnalyses().li),
-    li(ts_placer.getAnalyses().li),
+    controlDependence(ts_placer.getAnalyses().cd),
+    dominatorTree(ts_placer.getAnalyses().dt),
+    inductionVars(ts_placer.getAnalyses().li),
+    loopInfo(ts_placer.getAnalyses().li),
     log(PassLog::get()),
-    reduction_vars(ts_placer.getAnalyses().rv),
-    ts_placer(ts_placer)
+    reductionVars(ts_placer.getAnalyses().rv),
+    timestampPlacer(ts_placer)
 {
     // Set up the opcodes
     opcodes += Instruction::PHI;
 
-    // Setup the log_func
-    Module& m = *ts_placer.getFunc().getParent();
+    // Setup the phiLoggingFunc
+    Module& m = *timestampPlacer.getFunc().getParent();
     LLVMTypes types(m.getContext());
     vector<const Type*> args;
     args += types.i32(), types.i32(), types.i32();
     FunctionType* func_type = FunctionType::get(types.voidTy(), args, true);
-    log_func = cast<Function>(m.getOrInsertFunction("_KPhi", func_type));
+    phiLoggingFunc = cast<Function>(m.getOrInsertFunction("_KPhi", func_type));
 
     // Setup specialized funcs
     args.clear();
@@ -123,21 +123,21 @@ PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
         FunctionType* type = FunctionType::get(types.voidTy(), args, false);
         Function* func = cast<Function>(m.getOrInsertFunction(
                 "_KPhi" + lexical_cast<string>(i) + "To1", type));
-        log_funcs.insert(make_pair(i, func));
+        specializedPhiLoggingFuncs.insert(make_pair(i, func));
     }
 
-    // add_cond_func
+    // addCondFunc
     args.clear();
     args += types.i32(), types.i32();
     FunctionType* add_cond_type = FunctionType::get(types.voidTy(), args, false);
-    add_cond_func = cast<Function>(m.getOrInsertFunction(
+    addCondFunc = cast<Function>(m.getOrInsertFunction(
             "_KPhiAddCond", add_cond_type));
 
-    // induc_var_func
+    // inductionFunc
     args.clear();
     args += types.i32();
     FunctionType* induc_var_type = FunctionType::get(types.voidTy(), args, false);
-    induc_var_func = cast<Function>(m.getOrInsertFunction(
+    inductionFunc = cast<Function>(m.getOrInsertFunction(
             "_KInduction", induc_var_type));
 }
 
@@ -187,9 +187,9 @@ void PhiHandler::handleIndVar(PHINode& phi)
     BasicBlock& in_blk = *phi.getIncomingBlock(const_idx);
 
     // finally, we will insert the call to logAssignmentConst
-    args.push_back(ConstantInt::get(types.i32(), ts_placer.getId(phi), false));
-    CallInst& ci = *CallInst::Create(induc_var_func, args.begin(), args.end(), "");
-    ts_placer.constrainInstPlacement(ci, *in_blk.getTerminator());
+    args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(phi), false));
+    CallInst& ci = *CallInst::Create(inductionFunc, args.begin(), args.end(), "");
+    timestampPlacer.constrainInstPlacement(ci, *in_blk.getTerminator());
 }
 
 /**
@@ -212,8 +212,8 @@ PHINode& PhiHandler::identifyIncomingValueId(PHINode& phi)
         // if incoming val isn't a constant, we grab the it's ID
         if(!isa<Constant>(&incoming_val))
         {
-            incoming_id = ts_placer.getId(incoming_val);
-            ts_placer.requireValTimestampBeforeUser(incoming_val, *incoming_block.getTerminator());
+            incoming_id = timestampPlacer.getId(incoming_val);
+            timestampPlacer.requireValTimestampBeforeUser(incoming_val, *incoming_block.getTerminator());
         }
 
         incoming_val_id.addIncoming(ConstantInt::get(types.i32(),incoming_id), &incoming_block);
@@ -229,9 +229,9 @@ PHINode& PhiHandler::identifyIncomingValueId(PHINode& phi)
  */
 unsigned int PhiHandler::getConditionIdOfBlock(llvm::BasicBlock& bb)
 {
-    Value& controlling_cond = *cd.getControllingCondition(&bb);
-    ts_placer.requireValTimestampBeforeUser(controlling_cond, *bb.getTerminator());
-    return ts_placer.getId(controlling_cond);
+    Value& controlling_cond = *controlDependence.getControllingCondition(&bb);
+    timestampPlacer.requireValTimestampBeforeUser(controlling_cond, *bb.getTerminator());
+    return timestampPlacer.getId(controlling_cond);
 }
 
 /**
@@ -249,7 +249,7 @@ vector<PHINode*>& PhiHandler::getConditions(PHINode& phi, vector<PHINode*>& cont
     // Get all the controllers of every block from the one containing the phi
     // to the block that dominates the phi.
     std::set<BasicBlock*> controllers;
-    cd.getPhiControllingBlocks(phi, controllers);
+    controlDependence.getPhiControllingBlocks(phi, controllers);
 
     foreach(BasicBlock* controller, controllers)
     {
@@ -268,7 +268,7 @@ vector<PHINode*>& PhiHandler::getConditions(PHINode& phi, vector<PHINode*>& cont
             unsigned int incoming_id = 0;
 
             // If this controller dominates incoming block, get the id of condition at end of pred
-            if(dt.dominates(controller, incoming_block)) 
+            if(dominatorTree.dominates(controller, incoming_block)) 
             {
                 LOG_DEBUG() << controller->getName() << " dominates " << incoming_block->getName() << "\n";
 
@@ -301,10 +301,10 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
     IsPredecessor is_predecessor(&bb);
 
     // Only handle loops.
-    if(!li.isLoopHeader(&bb))
+    if(!loopInfo.isLoopHeader(&bb))
         return;
 
-    Loop* loop = li.getLoopFor(&bb);
+    Loop* loop = loopInfo.getLoopFor(&bb);
 
     // Only try if this branches loop header branches to multiple targets.
     TerminatorInst* terminator = bb.getTerminator();
@@ -314,7 +314,7 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
 
     // No need to add conditions if it happens to be a constant. 
     // (e.g. while(true))
-    Value& controlling_cond = *cd.getControllingCondition(&bb);
+    Value& controlling_cond = *controlDependence.getControllingCondition(&bb);
     if(isa<Constant>(&controlling_cond))
         return;
 
@@ -340,8 +340,8 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
     }
 
     // Destination and control ID
-    push_int(ts_placer.getId(phi));
-    push_int(ts_placer.getId(controlling_cond));
+    push_int(timestampPlacer.getId(phi));
+    push_int(timestampPlacer.getId(controlling_cond));
 
     // do..while loops need the condition appended after the loop concludes
     if(is_do_loop)
@@ -350,18 +350,18 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
             BasicBlock* successor = branch_inst->getSuccessor(i);
             if(!is_predecessor(successor) && &bb != successor) 
             {
-                CallInst& ci = *CallInst::Create(add_cond_func, args.begin(), args.end(), "");
-                ts_placer.constrainInstPlacement(ci, *bb.getTerminator());
-                ts_placer.requireValTimestampBeforeUser(controlling_cond, ci);
+                CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
+                timestampPlacer.constrainInstPlacement(ci, *bb.getTerminator());
+                timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
             }
         }
 
     // while loops need the condition appended as soon as the header executes
     else
     { 
-        CallInst& ci = *CallInst::Create(add_cond_func, args.begin(), args.end(), "");
-        ts_placer.constrainInstPlacement(ci, *bb.getTerminator());
-        ts_placer.requireValTimestampBeforeUser(controlling_cond, ci);
+        CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
+        timestampPlacer.constrainInstPlacement(ci, *bb.getTerminator());
+        timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
     }
 }
 
@@ -384,13 +384,13 @@ void PhiHandler::handle(llvm::Instruction& inst)
 {
     PHINode& phi = *cast<PHINode>(&inst);
 
-    if(ind_vars.isInductionVariable(phi))
+    if(inductionVars.isInductionVariable(phi))
     {
         handleIndVar(phi);
         return;
     }
 
-    if(reduction_vars.isReductionVar(&phi))
+    if(reductionVars.isReductionVar(&phi))
     {
         handleReductionVariable(phi);
         return;
@@ -404,11 +404,11 @@ void PhiHandler::handle(llvm::Instruction& inst)
     LOG_DEBUG() << "processing phi node: " << PRINT_VALUE(*i) << "\n";
 
     // Destination ID
-    push_int(ts_placer.getId(phi));
+    push_int(timestampPlacer.getId(phi));
 
     // Incoming Value ID.
     PHINode& incoming_val_id = identifyIncomingValueId(phi);
-    ts_placer.constrainInstPlacement(incoming_val_id, phi);
+    timestampPlacer.constrainInstPlacement(incoming_val_id, phi);
     args.push_back(&incoming_val_id);
 
     std::vector<PHINode*> ctrl_deps;
@@ -417,12 +417,12 @@ void PhiHandler::handle(llvm::Instruction& inst)
     IsPredecessor is_predecessor(phi.getParent());
     unsigned int num_ctrl_deps = ctrl_deps.size();
 
-    SpecializedLogFuncs::iterator it = log_funcs.find(num_ctrl_deps);
-    Function* log_func = this->log_func;
+    SpecializedLogFuncs::iterator it = specializedPhiLoggingFuncs.find(num_ctrl_deps);
+    Function* phiLoggingFunc = this->phiLoggingFunc;
 
     // If specialized, use that func.
-    if(it != log_funcs.end())
-        log_func = it->second;
+    if(it != specializedPhiLoggingFuncs.end())
+        phiLoggingFunc = it->second;
 
     // Otherwise, use var arg and set the num of args.
     else
@@ -432,12 +432,12 @@ void PhiHandler::handle(llvm::Instruction& inst)
     foreach(PHINode* ctrl_dep, ctrl_deps)
     {
         args.push_back(ctrl_dep);       // Add the condition id to the logPhi
-        ts_placer.constrainInstPlacement(*ctrl_dep, phi);  // Make sure the phi instruction comes before the logPhi. 
+        timestampPlacer.constrainInstPlacement(*ctrl_dep, phi);  // Make sure the phi instruction comes before the logPhi. 
     }
 
     // Make and add the call.
-    CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
-    ts_placer.constrainInstPlacement(ci, *phi.getParent()->getFirstNonPHI());
+    CallInst& ci = *CallInst::Create(phiLoggingFunc, args.begin(), args.end(), "");
+    timestampPlacer.constrainInstPlacement(ci, *phi.getParent()->getFirstNonPHI());
 
     args.clear();
 
