@@ -34,18 +34,18 @@ class PhiHandler : public TimestampPlacerHandler
     void handleIndVar(llvm::PHINode& phi);
     void handleReductionVariable(llvm::PHINode& phi);
 
-    llvm::Function* add_cond_func;
-    ControlDependence& cd;
-    llvm::DominatorTree& dt;
-    InductionVariables ind_vars;
-    llvm::Function* induc_var_func;
-    llvm::LoopInfo& li;
+    llvm::Function* addCondFunc;
+    ControlDependence& controlDependence;
+    llvm::DominatorTree& dominatorTree;
+    InductionVariables inductionVars;
+    llvm::Function* inductionFunc;
+    llvm::LoopInfo& loopInfo;
     PassLog& log;
-    llvm::Function* log_func;
-    SpecializedLogFuncs log_funcs;
+    llvm::Function* phiLoggingFunc;
+    SpecializedLogFuncs specializedPhiLoggingFuncs;
     Opcodes opcodes;
-    ReductionVars& reduction_vars;
-    TimestampPlacer& ts_placer;
+    ReductionVars& reductionVars;
+    TimestampPlacer& timestampPlacer;
 };
 
 #endif // PHI_HANDLER_H
