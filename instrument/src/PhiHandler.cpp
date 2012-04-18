@@ -67,6 +67,7 @@ class IsPredecessor : public std::unary_function<BasicBlock*, bool> {
         TerminatorInst* terminator = predecessor->getTerminator();
 
         if(isa<BranchInst>(terminator) || isa<SwitchInst>(terminator))
+		{
             // check all successors to predecessor
             for(unsigned int i = 0; i < terminator->getNumSuccessors(); i++) 
             {
@@ -83,6 +84,7 @@ class IsPredecessor : public std::unary_function<BasicBlock*, bool> {
                 if(results.find(successor) != results.end())
                     results.insert(predecessor);
             }
+		}
 
         return results;
     }
@@ -151,45 +153,45 @@ const TimestampPlacerHandler::Opcodes& PhiHandler::getOpcodes()
  */
 void PhiHandler::handleIndVar(PHINode& phi)
 {
-    LLVMTypes types(phi.getContext());
-
-    std::vector<Value*> args;
-
-    // If this a PHI that is a loop induction var, we only logAssignment when
+    // If this a PHI that is a loop induction var, we only call _KInduction when
     // we first enter the loop so that we don't get caught in a dependency
-    // cycle. For example, the induction var inc would get the time of t_init
+    // cycle. For example, the induction var increment would get the time of t_init
     // for the first iter, which would then force the next iter's t_init to be
     // one higher and so on and so forth...
     LOG_DEBUG() << "processing canonical induction var: " << phi << "\n";
 
-    // Loop through all incoming vals of PHI and find the one that is constant (i.e. initializes the loop to 0).
-    // We then insert a call to logAssignmentConst() to permanently set the time of this to whatever t_init happens
-    // to be in the BB where that value comes from.
-    int const_idx = -1;
+	// Loop through all incoming vals of PHI and find the one that is constant
+	// (i.e. initializes the loop to 0).  We then insert a call to
+	// _KInduction() to permanently set the time of this to whatever
+	// t_init happens to be in the BB where that value comes from.
+    int index_of_const = -1;
 
-    for(unsigned int n = 0; n < phi.getNumIncomingValues(); ++n) {
-        if(isa<ConstantInt>(phi.getIncomingValue(n)) && const_idx == -1) {
-            const_idx = n;
+    for(unsigned int idx = 0; idx < phi.getNumIncomingValues(); ++idx) {
+        if(isa<ConstantInt>(phi.getIncomingValue(idx)) && index_of_const == -1) {
+            index_of_const = idx;
         }
-        else if(isa<ConstantInt>(phi.getIncomingValue(n))) {
+        else if(isa<ConstantInt>(phi.getIncomingValue(idx))) {
             LOG_ERROR() << "found multiple incoming constants to induction var phi node\n";
             log.close();
             assert(0);
         }
     }
 
-    if(const_idx == -1) {
+    if(index_of_const == -1) {
         LOG_ERROR() << "could not find constant incoming value to induction variable phi node\n";
         log.close();
         assert(0);
     }
 
-    BasicBlock& in_blk = *phi.getIncomingBlock(const_idx);
+    BasicBlock& bb_assoc_with_const = *phi.getIncomingBlock(index_of_const);
 
-    // finally, we will insert the call to logAssignmentConst
-    args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(phi), false));
-    CallInst& ci = *CallInst::Create(inductionFunc, args.begin(), args.end(), "");
-    timestampPlacer.constrainInstPlacement(ci, *in_blk.getTerminator());
+    // finally, we will insert the call to _KInduction
+    LLVMTypes types(phi.getContext());
+    std::vector<Value*> log_func_args;
+
+    log_func_args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(phi), false));
+    CallInst& ci = *CallInst::Create(inductionFunc, log_func_args.begin(), log_func_args.end(), "");
+    timestampPlacer.constrainInstPlacement(ci, *bb_assoc_with_const.getTerminator());
 }
 
 /**
@@ -199,8 +201,12 @@ void PhiHandler::handleIndVar(PHINode& phi)
 PHINode& PhiHandler::identifyIncomingValueId(PHINode& phi)
 {
     LLVMTypes types(phi.getContext());
-    PHINode& incoming_val_id = *PHINode::Create(types.i32(), "phi-incoming-val-id");
+    PHINode& incoming_val_id_phi = *PHINode::Create(types.i32(), "phi-incoming-val-id");
 
+	// Construct a phi node corresponding to all non-const incoming value id's
+	// in the input phi. We also make sure that the incoming val's timestamp
+	// is available before the end of the incoming block associated with that
+	// value.
     for(unsigned int i = 0; i < phi.getNumIncomingValues(); i++) 
     {
 
@@ -209,17 +215,17 @@ PHINode& PhiHandler::identifyIncomingValueId(PHINode& phi)
 
         unsigned int incoming_id = 0; // default ID to 0 (i.e. a constant)
 
-        // if incoming val isn't a constant, we grab the it's ID
+        // if incoming val isn't a constant, we grab its ID
         if(!isa<Constant>(&incoming_val))
         {
             incoming_id = timestampPlacer.getId(incoming_val);
             timestampPlacer.requireValTimestampBeforeUser(incoming_val, *incoming_block.getTerminator());
         }
 
-        incoming_val_id.addIncoming(ConstantInt::get(types.i32(),incoming_id), &incoming_block);
+        incoming_val_id_phi.addIncoming(ConstantInt::get(types.i32(),incoming_id), &incoming_block);
     }
 
-    return incoming_val_id;
+    return incoming_val_id_phi;
 }
 
 /**
@@ -237,10 +243,11 @@ unsigned int PhiHandler::getConditionIdOfBlock(llvm::BasicBlock& bb)
 /**
  * Returns all of the condtions the phi node depends on.
  *
- * @return A vector of phi nodes. Each of the phi nodes contains the virtual
- * register table index of the timestamp of the condition or 0 if the
+ * @return A vector of phi nodes. Each of the phi nodes contains either the
+ * virtual register table index of the condition's timestamp OR 0 if the
  * condition is not dominated for the given branch.
  */
+ // TODO: code review... this is black magic right now
 vector<PHINode*>& PhiHandler::getConditions(PHINode& phi, vector<PHINode*>& control_deps)
 {
     LLVMTypes types(phi.getContext());
@@ -297,72 +304,81 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
     function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back, 
         ref(args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
 
-    BasicBlock& bb = *phi.getParent();
-    IsPredecessor is_predecessor(&bb);
+    BasicBlock& phi_bb = *phi.getParent();
 
     // Only handle loops.
-    if(!loopInfo.isLoopHeader(&bb))
-        return;
-
-    Loop* loop = loopInfo.getLoopFor(&bb);
+    if(!loopInfo.isLoopHeader(&phi_bb)) return;
 
     // Only try if this branches loop header branches to multiple targets.
-    TerminatorInst* terminator = bb.getTerminator();
-    BranchInst* branch_inst;
-    if(!(branch_inst = dyn_cast<BranchInst>(terminator)) || !branch_inst->isConditional())
-        return;
+    BranchInst* phi_bb_terminating_branch = dyn_cast<BranchInst>(phi_bb.getTerminator());
+    if(
+		phi_bb_terminating_branch == NULL
+		|| !phi_bb_terminating_branch->isConditional()
+	  ) { return; }
 
     // No need to add conditions if it happens to be a constant. 
     // (e.g. while(true))
-    Value& controlling_cond = *controlDependence.getControllingCondition(&bb);
-    if(isa<Constant>(&controlling_cond))
-        return;
+    Value& controlling_cond = *controlDependence.getControllingCondition(&phi_bb);
+    if(isa<Constant>(&controlling_cond)) return;
+
+    Loop* associated_loop = loopInfo.getLoopFor(&phi_bb);
 
     // Only looks like do loops if there are successors outside the
     // loop and the successor is not the same block.
+	// FIXME: This looks hackish. Can't we do this in one loop instead
+	// of 2???
     bool is_do_loop = true;
-    for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) 
+
+	// First, we'll look for a successor that isn't in the associated loop. If
+	// we find it, we temporarily set is_do_loop to false and rely on the next
+	// step to make sure that the sucessor meets the second condition.
+    for(unsigned int i = 0; i < phi_bb_terminating_branch->getNumSuccessors(); i++) 
     {
-        BasicBlock* successor = branch_inst->getSuccessor(i);
-        if(std::find(loop->block_begin(), loop->block_end(), successor) == loop->block_end()) 
+        BasicBlock* successor = phi_bb_terminating_branch->getSuccessor(i);
+        if(std::find(associated_loop->block_begin(), associated_loop->block_end(), successor) == associated_loop->block_end()) 
         {
             is_do_loop = false;
             break;
         }
     }
-    for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) 
+
+	// XXX! This doesn't make sense to me (-sat).
+    for(unsigned int i = 0; i < phi_bb_terminating_branch->getNumSuccessors(); i++) 
     {
-        BasicBlock* successor = branch_inst->getSuccessor(i);
-        if(&bb == successor) {
+        BasicBlock* successor = phi_bb_terminating_branch->getSuccessor(i);
+        if(&phi_bb == successor)
+		{
             is_do_loop = true;
             break;
         }
     }
 
-    // Destination and control ID
-    push_int(timestampPlacer.getId(phi));
-    push_int(timestampPlacer.getId(controlling_cond));
+    push_int(timestampPlacer.getId(phi)); // id for destination
+    push_int(timestampPlacer.getId(controlling_cond)); // id for controlling cond
+    CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
+
 
     // do..while loops need the condition appended after the loop concludes
     if(is_do_loop)
-        for(unsigned int i = 0; i < branch_inst->getNumSuccessors(); i++) 
+	{
+    	IsPredecessor phi_bb_is_predecessor(&phi_bb);
+        for(unsigned int i = 0; i < phi_bb_terminating_branch->getNumSuccessors(); i++) 
         {
-            BasicBlock* successor = branch_inst->getSuccessor(i);
-            if(!is_predecessor(successor) && &bb != successor) 
+            BasicBlock* successor = phi_bb_terminating_branch->getSuccessor(i);
+            if(!phi_bb_is_predecessor(successor) && &phi_bb != successor) 
             {
-                CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
-                timestampPlacer.constrainInstPlacement(ci, *bb.getTerminator());
-                timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
+				// TODO: FIXME this looks wrong... phi_bb should be replaced
+				// by successor????
+                timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
             }
         }
-
+	}
     // while loops need the condition appended as soon as the header executes
     else
     { 
-        CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
-        timestampPlacer.constrainInstPlacement(ci, *bb.getTerminator());
-        timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
+        timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
     }
+    timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
 }
 
 /**
@@ -396,10 +412,10 @@ void PhiHandler::handle(llvm::Instruction& inst)
         return;
     }
 
-    std::vector<Value*> args;
+    std::vector<Value*> log_func_args;
     LLVMTypes types(phi.getContext());
     function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back, 
-        ref(args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
+        ref(log_func_args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
 
     LOG_DEBUG() << "processing phi node: " << PRINT_VALUE(*i) << "\n";
 
@@ -409,18 +425,20 @@ void PhiHandler::handle(llvm::Instruction& inst)
     // Incoming Value ID.
     PHINode& incoming_val_id = identifyIncomingValueId(phi);
     timestampPlacer.constrainInstPlacement(incoming_val_id, phi);
-    args.push_back(&incoming_val_id);
+    log_func_args.push_back(&incoming_val_id);
 
+	// Create call to KPhi based on the number of control deps associated with
+	// the phi. For speed, we have several specialized versions with common
+	// numbers of control deps to avoid overhead of var arg usage.
     std::vector<PHINode*> ctrl_deps;
     getConditions(phi, ctrl_deps);
 
-    IsPredecessor is_predecessor(phi.getParent());
     unsigned int num_ctrl_deps = ctrl_deps.size();
 
     SpecializedLogFuncs::iterator it = specializedPhiLoggingFuncs.find(num_ctrl_deps);
     Function* phiLoggingFunc = this->phiLoggingFunc;
 
-    // If specialized, use that func.
+    // If we have specialized version, use that func.
     if(it != specializedPhiLoggingFuncs.end())
         phiLoggingFunc = it->second;
 
@@ -431,22 +449,20 @@ void PhiHandler::handle(llvm::Instruction& inst)
     // Push on all the ctrl deps.
     foreach(PHINode* ctrl_dep, ctrl_deps)
     {
-        args.push_back(ctrl_dep);       // Add the condition id to the logPhi
-        timestampPlacer.constrainInstPlacement(*ctrl_dep, phi);  // Make sure the phi instruction comes before the logPhi. 
+        log_func_args.push_back(ctrl_dep);       // Add the condition id to the _KPhi
+        timestampPlacer.constrainInstPlacement(*ctrl_dep, phi);  // Force phi before call to KPhi 
     }
 
     // Make and add the call.
-    CallInst& ci = *CallInst::Create(phiLoggingFunc, args.begin(), args.end(), "");
+    CallInst& ci = *CallInst::Create(phiLoggingFunc, log_func_args.begin(), log_func_args.end(), "");
     timestampPlacer.constrainInstPlacement(ci, *phi.getParent()->getFirstNonPHI());
-
-    args.clear();
 
     // TODO: Causes problem in this case
     //
     // %0 = phi ...
-    // logPhi(%reg0, ...)
+    // _KPhi(%reg0, ...)
     // %1 = icmp %0, ...
-    // logPhiAddCondition(%reg0, %timestamp_of_icmp)
+    // _KPhiAddCond(%reg0, %timestamp_of_icmp)
     // br ...
     //
     // This gets the timestamp of the phi as %reg0. Then we perform a compare
