@@ -337,13 +337,16 @@ class BasicBlock(Rankable):
 			dest_node = self.name_to_node[dest_name]
 			dest_node.type = "PHI"
 
+			if "_KPhiAddCond" == func_name:
+				dep_name = "Reg" + args[1]
+				self.edges.append((self.name_to_node[dep_name],dest_node))
 			"""
 			if "Cond" not in func_name:
 				num_conds = int(func_name[5])
 				range_max = num_conds + 2 # +1 for src, +1 for range() not not inclusive of second arg
 			elif "_KPhiCond4To1" == func_name:
 				range_max = 5
-			elif "_PhiAddCond" == func_name:
+			elif "_KPhiAddCond" == func_name:
 				range_max = 2
 
 			for idx in range(1,range_max):
