@@ -355,13 +355,13 @@ static SegTable* STableGetSegTable(Addr addr) {
 	int i;
 	for (i=0; i<sTable.writePtr; i++) {
 		if (sTable.entry[i].addrHigh == highAddr) {
-			//MSG(0, "STable Found an existing entry..\n");
+			//MSG(1, "STable Found an existing entry..\n");
 			return sTable.entry[i].segTable;	
 		}
 	}
 
 	// not found - create an entry
-	MSG(0, "STable Creating a new Entry..\n");
+	MSG(1, "STable Creating a new Entry..\n");
 	stat.nSTableEntry++;
 
 	SegTable* ret = SegTableAlloc();
@@ -373,7 +373,7 @@ static SegTable* STableGetSegTable(Addr addr) {
 
 
 static Time* _MShadowGetSTV(Addr addr, Index size, Version* vArray, UInt32 width) {
-	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
+	MSG(1, "MShadowGet 0x%llx, size %d\n", addr, size);
 
 	if (size < 1)
 		return NULL;
@@ -395,6 +395,8 @@ static Time* _MShadowGetSTV(Addr addr, Index size, Version* vArray, UInt32 width
 }
 
 static void _MShadowSetSTV(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
+	MSG(1, "MShadowSet 0x%llx, size %d\n", addr, size);
+
 	if (size < 1)
 		return;
 
