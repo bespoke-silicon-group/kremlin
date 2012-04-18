@@ -1321,7 +1321,7 @@ void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
 }
 
 void* _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
-    MSG(0, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
+    MSG(1, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
 	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
     if (!isKremlinOn())
 		return NULL;
@@ -1361,7 +1361,7 @@ void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt de
 
 void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
 	assert(size <= 8);
-    MSG(0, "store size %d ts[0x%x] = ts[%u] + %u\n", size, dest_addr, src, STORE_COST);
+    MSG(1, "store size %d ts[0x%x] = ts[%u] + %u\n", size, dest_addr, src, STORE_COST);
 	idbgAction(KREM_STORE,"## KStore(src=%u,dest_addr=0x%x,size=%u)\n",src,dest_addr,size);
     if (!isKremlinOn())
     	return NULL;
@@ -1385,15 +1385,19 @@ void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
         RegionUpdateCp(region, value);
     }
 
+#ifdef KREMLIN_DEBUG
+	printStoreDebugInfo(src,dest_addr,tArray,getIndexDepth());
+#endif
+
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
-    MSG(0, "store ts[0x%x] completed\n", dest_addr);
+    MSG(1, "store ts[0x%x] completed\n", dest_addr);
     return NULL;
 }
 
 
 void* _KStoreConst(Addr dest_addr, UInt32 size) {
-    MSG(0, "KStoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
+    MSG(1, "KStoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
 	idbgAction(KREM_STORE,"## _KStoreConst(dest_addr=0x%x,size=%u)\n",dest_addr,size);
     if (!isKremlinOn())
         return NULL;
