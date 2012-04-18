@@ -1582,14 +1582,14 @@ void* _KPhiAddCond(UInt dest, UInt src) {
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time ts0 = RShadowGetItem(src, index);
-		Time ts1 = RShadowGetItem(dest, index);
-        Time value = (ts0 > ts1) ? ts0 : ts1;
+		Time ts_src = RShadowGetItem(src, index);
+		Time ts_dest = RShadowGetItem(dest, index);
+        Time value = (ts_src > ts_dest) ? ts_src : ts_dest;
 		RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
         MSG(2, "KPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
         MSG(2, " src %u dest %u\n", src, dest);
-        MSG(2, " ts0 %u ts1 %u value %u\n", ts0, ts1, value);
+        MSG(2, " ts_src %u ts_dest %u value %u\n", ts_src, ts_dest, value);
     }
 }
 
