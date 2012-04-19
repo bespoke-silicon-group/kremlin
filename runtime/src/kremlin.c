@@ -1071,9 +1071,9 @@ void* _KReduction(UInt opCost, Reg dest) {
     return NULL;
 }
 
-void _KTimestamp(UInt32 dest, UInt32 numIn, ...) {
-    MSG(1, "KTimestamp ts[%u] = (0..%u) \n", dest,numIn);
-	idbgAction(KREM_TS,"## _KTimestamp(dest=%u,numIn=%u,...)\n",dest,numIn);
+void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
+    MSG(1, "KTimestamp ts[%u] = (0..%u) \n", dest_reg,num_srcs);
+	idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,num_srcs=%u,...)\n",dest_reg,num_srcs);
 
     if (!isKremlinOn())
 		return NULL;
@@ -1086,113 +1086,109 @@ void _KTimestamp(UInt32 dest, UInt32 numIn, ...) {
 		assert(cdt <= getTimetick() - region->start);
 
 		va_list args;
-		va_start(args,numIn);
+		va_start(args,num_srcs);
 
 		Time curr_max = cdt;
 
         MSG(3, "kTime level %u version %u \n", i, RegionGetVersion(i));
-        MSG(3, " dest %u\t", dest);
+        MSG(3, " dest_reg %u\t", dest_reg);
 
 		int arg_idx;
-		for(arg_idx = 0; arg_idx < numIn; ++arg_idx) {
-			UInt32 src = va_arg(args,UInt32);
-			UInt32 off = va_arg(args,UInt32);
+		for(arg_idx = 0; arg_idx < num_srcs; ++arg_idx) {
+			UInt32 src_reg = va_arg(args,UInt32);
+			UInt32 src_offset = va_arg(args,UInt32);
 
-        	Time ts_calc = RShadowGetItem(src, index) + off;
+        	Time ts_calc = RShadowGetItem(src_reg, index) + src_offset;
 
 			curr_max = MAX(curr_max,ts_calc);
 
-        	MSG(3, "  src%u %u | off%u %u | ts_calc %u\n", arg_idx, src, arg_idx, off, ts_calc);
+        	MSG(3, "  src_reg%u %u | src_offset%u %u | ts_calc %u\n", arg_idx, src_reg, arg_idx, src_offset, ts_calc);
 		}
 
         MSG(3, " cdt %u | curr_max %u\n", cdt, curr_max);
 
-		RShadowSetItem(curr_max, dest, index);
+		RShadowSetItem(curr_max, dest_reg, index);
 
         RegionUpdateCp(region, curr_max);
     }
 }
 
-void* _KAssignConst(UInt dest) {
-    MSG(1, "_KAssignConst ts[%u]\n", dest);
-	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest=%u)\n",dest);
-    if (!isKremlinOn())
-        return NULL;
+void _KAssignConst(UInt dest_reg) {
+    MSG(1, "_KAssignConst ts[%u]\n", dest_reg);
+	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest_reg=%u)\n",dest_reg);
+
+    if (!isKremlinOn()) return NULL;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		RShadowSetItem(cdt, dest, index);
-        RegionUpdateCp(region, cdt);
+		Time control_dep_time = CDepGet(index);
+		RShadowSetItem(control_dep_time, dest_reg, index);
+        RegionUpdateCp(region, control_dep_time);
     }
-    return NULL;
 }
 
 // XXX: not 100% sure this is the correct functionality
-void _KTimestamp0(UInt32 dest) {
-    MSG(1, "KTimestamp0 to %u\n", dest);
-	idbgAction(KREM_TS,"## _KTimestamp0(dest=%u)\n",dest);
+void _KTimestamp0(UInt32 dest_reg) {
+    MSG(1, "KTimestamp0 to %u\n", dest_reg);
+	idbgAction(KREM_TS,"## _KTimestamp0(dest_reg=%u)\n",dest_reg);
     if (!isKremlinOn())
 		return NULL;
 
-	_KAssignConst(dest);
+	_KAssignConst(dest_reg);
 }
 
-void _KTimestamp1(UInt32 dest, UInt32 src, UInt32 off) {
-    MSG(3, "KTimestamp1 ts[%u] = ts[%u] + %u\n", dest, src, off);
-	idbgAction(KREM_TS,"## _KTimestamp1(dest=%u,src=%u,off=%u)\n",dest,src,off);
+void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
+    MSG(3, "KTimestamp1 ts[%u] = ts[%u] + %u\n", dest_reg, src_reg, src_offset);
+	idbgAction(KREM_TS,"## _KTimestamp1(dest_reg=%u,src_reg=%u,src_offset=%u)\n",dest_reg,src_reg,src_offset);
 
-    if (!isKremlinOn())
-        return;
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
-		// CDep and shadow memory are index based
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		assert(cdt <= getTimetick() - region->start);
 
-        Time ts_calc = RShadowGetItem(src, index) + off;
+		Time control_dep_time = CDepGet(index);
+        Time src_dep_time = RShadowGetItem(src_reg, index) + src_offset;
+		assert(control_dep_time <= getTimetick() - region->start);
 
-        Time value = MAX(cdt,ts_calc);
-		RShadowSetItem(value, dest, index);
+        Time dest_time = MAX(control_dep_time,src_dep_time);
+		RShadowSetItem(dest_time, dest_reg, index);
 
         MSG(3, "kTime1 level %u version %u \n", i, RegionGetVersion(i));
-        MSG(3, " src %u | off %u | dest %u\n", src, off, dest);
-        MSG(3, " ts_calc %u | cdt %u | value %u\n", ts_calc, cdt, value);
-        RegionUpdateCp(region, value);
+        MSG(3, " src_reg %u | src_offset %u | dest_reg %u\n", src_reg, src_offset, dest_reg);
+        MSG(3, " src_dep_time %u | control_dep_time %u | dest_time %u\n", src_dep_time, control_dep_time, dest_time);
+        RegionUpdateCp(region, dest_time);
     }
 }
 
-void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off2) {
-    MSG(3, "KTimestamp2 ts[%u] = max(ts[%u] + %u,ts[%u] + %u)\n", dest, src1, off1, src2, off2);
-	idbgAction(KREM_TS,"## _KTimestamp(dest=%u,src1=%u,off1=%u,src2=%u,off2=%u)\n",dest,src1,off1,src2,off2);
+void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset) {
+    MSG(3, "KTimestamp2 ts[%u] = max(ts[%u] + %u,ts[%u] + %u)\n", dest_reg, src1_reg, src1_offset, src2_reg, src2_offset);
+	idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
 
-    if (!isKremlinOn())
-        return;
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		assert(cdt <= getTimetick() - region->start);
+		Time control_dep_time = CDepGet(index);
+		assert(control_dep_time <= getTimetick() - region->start);
 
-        Time ts_calc1 = RShadowGetItem(src1, index) + off1;
-        Time ts_calc2 = RShadowGetItem(src2, index) + off2;
+        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
+        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
 
-        Time greater = MAX(ts_calc1,ts_calc2);
-        Time value = MAX(cdt,greater);
+        Time max_tmp = MAX(src1_dep_time,src2_dep_time);
+        Time dest_time = MAX(control_dep_time,max_tmp);
 
-		RShadowSetItem(value, dest, index);
+		RShadowSetItem(dest_time, dest_reg, index);
 
         MSG(3, "kTime2 level %u version %u \n", i, RegionGetVersion(i));
-        MSG(3, " src1 %u | off1 %u | src2 %u | off2 %u | dest %u\n", src1, off1, src2, off2, dest);
-        MSG(3, " ts_calc1 %u | ts_calc2 %u | cdt %u | value %u\n", ts_calc1, ts_calc2, cdt, value);
-        RegionUpdateCp(region, value);
+        MSG(3, " src1_reg %u | src1_offset %u | src2_reg %u | src2_offset %u | dest_reg %u\n", src1_reg, src1_offset, src2_reg, src2_offset, dest_reg);
+        MSG(3, " src1_dep_time %u | src2_dep_time %u | control_dep_time %u | dest_time %u\n", src1_dep_time, src2_dep_time, control_dep_time, dest_time);
+        RegionUpdateCp(region, dest_time);
     }
 }
 
@@ -1356,7 +1352,7 @@ void* _KInduction(UInt dest) {
     if (!isKremlinOn())
 		return NULL;
 
-    return _KAssignConst(dest);
+    return NULL;
 }
 
 /******************************************************************
