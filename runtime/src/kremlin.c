@@ -1216,7 +1216,7 @@ void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off
 void* _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...) {}
 
 void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
-    MSG(0, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
+    MSG(1, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
 	idbgAction(KREM_LOAD, "## logLoadInst(Addr=0x%x,dest=%u,size=%u)\n",
 		addr, dest, size);
 
