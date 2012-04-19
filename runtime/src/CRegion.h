@@ -112,6 +112,6 @@ typedef struct _RegionField_t {
 void CRegionInit();
 void CRegionDeinit(char* file);
 void CRegionEnter(SID sid, CID callSite, RegionType type);
-void CRegionLeave(RegionField* info);
+void CRegionExit(RegionField* info);
 
 #endif

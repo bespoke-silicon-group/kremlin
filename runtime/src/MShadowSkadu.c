@@ -495,6 +495,13 @@ static inline int getStartInvalidLevel(Version oldVer, Version* vArray, Index si
 static void check(Addr addr, Time* src, int size, int site) {
 #ifndef NDEBUG
 	int i;
+
+	if (addr == 0x669eb0) {
+		for (i=0; i<size; i++) {
+			MSG(0, "%d ", src[i]);
+		}
+		MSG(0, "\n");
+	}
 	for (i=1; i<size; i++) {
 		if (src[i-1] < src[i]) {
 			fprintf(stderr, "site %d Addr %p size %d offset %d val=%ld %ld\n", 
@@ -534,13 +541,13 @@ static void TVCacheInit(int cacheSizeMB) {
 	fprintf(stderr, "MShadowCacheInit: total size: %d MB, lineNum %d, lineShift %d, lineMask 0x%x\n", 
 		cacheSizeMB, lineNum, lineShift, lineMask);
 
-	tagTable = MemPoolCallocSmall(lineNum,sizeof(CacheLine));
-	valueTable[0] = TableCreate(lineNum, KConfigGetRegionDepth());
+	tagTable = MemPoolCallocSmall(lineNum, sizeof(CacheLine));
+	valueTable[0] = TableCreate(lineNum, KConfigGetIndexSize());
 	//valueTable[1] = TableCreate(lineNum, KConfigGetRegionDepth());
 
 
-	MSG(3, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
-		lineNum, KConfigGetRegionDepth(), valueTable[0]->array);
+	MSG(0, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
+		lineNum, KConfigGetIndexSize(), valueTable[0]->array);
 }
 
 static void TVCacheDeinit() {
@@ -622,11 +629,12 @@ static Time* TVCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	int offset = 0;
 	Time* destAddr = getTimeAddr(offset, row, 0);
 
+	check(addr, destAddr, entry->lastSize[0], 0);
 	if (isHit(entry, addr)) {
 		eventReadHit();
-		//MSG(0, "\t cache hit at 0x%llx firstInvalid = %d\n", destAddr, firstInvalid);
+		MSG(0, "\t cache hit at 0x%llx size = %d\n", destAddr, size);
 		TVCacheValidateTag(entry, destAddr, vArray, size);
-		check(addr, destAddr, size, 0);
+		check(addr, destAddr, size, 1);
 
 	} else {
 		// Unfortunately, this access results in a miss
@@ -644,13 +652,14 @@ static Time* TVCacheGet(Addr addr, Index size, Version* vArray, int type) {
 		// 2. read line from MShadow to the evicted line
 		TVCacheFetch(addr, size, vArray, destAddr, type);
 		entry->tag = addr;
-		check(addr, destAddr, size, 1);
+		check(addr, destAddr, size, 2);
 	}
 
 	entry->version[0] = vArray[size-1];
 	if (size > entry->lastSize[0])
 		MSG(0, "\t CacheGet: size increased from %d to %d at addr 0x%llx\n", entry->lastSize[0], size, addr);
 	entry->lastSize[0] = size;
+	check(addr, destAddr, size, 3);
 	return destAddr;
 }
 

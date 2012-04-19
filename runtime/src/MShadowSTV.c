@@ -36,7 +36,6 @@
 
 typedef struct _SegEntry {
 	Time* tTable;
-	//Time tTable[L2_SIZE][32];
 	Version* versions;
 	int type;
 	int depth;
@@ -171,7 +170,7 @@ static SegTable* SegTableAlloc() {
 
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		ret->entry[i].depth = MIN(KConfigGetRegionDepth(), KConfigGetIndexSize());
+		ret->entry[i].depth = KConfigGetIndexSize();
 	}
 
 	stat.nSegTableAllocated++;
@@ -229,57 +228,58 @@ static inline void VersionFree(Version* version) {
 	free(version);
 }
 
-static Time* convertTable(Time* table, int depth) {
+void SegEntryConvertTo32bit(SegEntry* entry) {
+	assert(entry->type == TYPE_64BIT);
 	stat.nTimeTableConverted++;
-	Time* ret = TimeTableAlloc(TYPE_32BIT, depth);
+	int depth = entry->depth;
+	Time* oldTime = entry->tTable;
+	Time* newTime = TimeTableAlloc(TYPE_32BIT, depth);
+	Version* oldVersion = entry->versions;
+	Version* newVersion = VersionAlloc(TYPE_32BIT);
+
 	int nEntry = getTimeTableEntrySize(TYPE_64BIT);
 	int i;
 	
 	for (i=0; i<nEntry; i++) {
-		memcpy(ret + depth*2*i, table + depth*i, sizeof(Time) * depth); 		
-		memcpy(ret + depth*2*i + 1, table + depth*i, sizeof(Time) * depth); 		
+		memcpy(newTime + depth*2*i, oldTime + depth*i, sizeof(Time) * depth); 		
+		memcpy(newTime + depth*2*i + 1, oldTime + depth*i, sizeof(Time) * depth); 		
+		newVersion[i*2] = oldVersion[i];
+		newVersion[i*2 + 1] = oldVersion[i];
 	}
-	return ret;
+
+	TimeTableFree(entry->tTable, entry->type);
+	VersionFree(entry->versions);
+	entry->tTable = newTime;
+	entry->versions = newVersion;
+	entry->type = TYPE_32BIT;
 }
 
-static Version* convertVersion(Version* src) {
+void SegEntryExpandDepth(SegEntry* entry, int newDepth) {
+	int oldDepth = entry->depth;
+	Time* ret = TimeTableAlloc(entry->type, newDepth);
+	int nEntry = getTimeTableEntrySize(TYPE_64BIT);
 	int i;
-	Version* ret = VersionAlloc(TYPE_32BIT);
-	for (i=0; i<getTimeTableEntrySize(TYPE_64BIT); i++) {
-		ret[i*2] = src[i];
-		ret[i*2 + 1] = src[i];
+
+	for (i=0; i<nEntry; i++) {
+		memcpy(ret + newDepth*i, entry->tTable + oldDepth*i, sizeof(Time) * oldDepth); 		
 	}
-	return ret;
+	
+	TimeTableFree(entry->tTable, entry->type);
+	entry->tTable = ret;
+	entry->depth = newDepth;
+	
 }
 
-
-
-static void checkRefresh(SegEntry* entry, Version* vArray, int size, int type) {
-/*
-	Version oldVersion = entry->version;
-	fprintf(stderr, "[%d, %d]\t", oldVersion, vArray[size-1]);
-	if (oldVersion != vArray[size-1]) {
-		refreshTimeTable(entry, vArray, size);
-		entry->version = vArray[size-1];
-		fprintf(stderr, "?");
-	} else {
-		fprintf(stderr, "!");
-	}
-*/
-
+static void SegEntryCheckConversion(SegEntry* entry, Version* vArray, int size, int type) {
+	// check if it requires type conversion
 	if (type == TYPE_32BIT && entry->type == TYPE_64BIT) {
-		Time* converted = convertTable(entry->tTable, entry->depth);
-		TimeTableFree(entry->tTable, entry->type);
-		entry->tTable = converted;
-
-		Version* version = convertVersion(entry->versions);
-		VersionFree(entry->versions);
-		entry->versions = version;
-
-		entry->type = TYPE_32BIT;
+		SegEntryConvertTo32bit(entry);
 	}
-	
-	
+
+	// check if it requires resizing
+	if (entry->depth <= size) {
+		SegEntryExpandDepth(entry, entry->depth * 2);
+	}
 }
 
 static void SegTableSetTime(SegEntry* entry, Addr addr, Index size, Version* vArray, Time* tArray, int type) {
@@ -288,9 +288,10 @@ static void SegTableSetTime(SegEntry* entry, Addr addr, Index size, Version* vAr
 		entry->versions = VersionAlloc(type);
 
 	} else {
-		checkRefresh(entry, vArray, size, type);
+		SegEntryCheckConversion(entry, vArray, size, type);
 	}
 
+	assert(entry->depth > size);
 	Version* vAddr = VersionGetAddr(entry, addr);	
 	Time* tAddr = TimeTableGetAddr(entry, addr);
 	memcpy(tAddr, tArray, sizeof(Time) * size);
@@ -303,9 +304,10 @@ static Time* SegTableGetTime(SegEntry* entry, Addr addr, Index size, Version* vA
 		entry->versions = VersionAlloc(type);
 
 	} else {
-		checkRefresh(entry, vArray, size, type);
+		SegEntryCheckConversion(entry, vArray, size, type);
 	}
 
+	assert(entry->depth > size);
 	Time* tAddr = TimeTableGetAddr(entry, addr);
 	Version* vAddr = VersionGetAddr(entry, addr);	
 	TagValidate(tAddr, vAddr, vArray, size);
@@ -382,11 +384,9 @@ static Time* _MShadowGetSTV(Addr addr, Index size, Version* vArray, UInt32 width
 		return NULL;
 
 	SegEntry* segEntry = NULL;
-#if 1
 	int type = TYPE_32BIT;
 	if (width  > 4)
 		type = TYPE_64BIT;
-#endif
 
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
@@ -398,12 +398,9 @@ static void _MShadowSetSTV(Addr addr, Index size, Version* vArray, Time* tArray,
 		return;
 
 	SegEntry* segEntry = NULL;
-	//int type = TYPE_32BIT;
-#if 1
 	int type = TYPE_32BIT;
 	if (width  > 4)
 		type = TYPE_64BIT;
-#endif
 
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);

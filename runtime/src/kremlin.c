@@ -1029,8 +1029,8 @@ void _KExitRegion(SID regionId, RegionType regionType) {
     }
 
 	if (level < getMaxLevel() && sp < 0.999) {
-		fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld\n", sp, sid, work,
-			region->childrenWork, region->childrenCP);
+		fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
+			region->childrenWork, region->childrenCP, region->cp);
 		assert(0);
 	}
 #endif
@@ -1044,7 +1044,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 	CID cid = RegionGetFunc()->callSiteId;
     RegionField field = fillRegionField(work, cp, cid, 
 						spWork, isDoall, region);
-	CRegionLeave(&field);
+	CRegionExit(&field);
         
     if (regionType == RegionFunc) { 
 		handleFuncRegionExit(); 

@@ -88,7 +88,7 @@ static void printMemStat() {
 	double versionTableSize = timeTableSize;
 
 	int i;
-	for (i=0; i<KConfigGetRegionDepth(); i++) {
+	for (i=0; i<KConfigGetIndexSize(); i++) {
 		fprintf(stderr, "Level [%2d] req Read / Write = %lld, %lld\n",
 			i, stat.reqRead[i-1], stat.reqWrite[i-1]);
 	}
@@ -165,7 +165,7 @@ static SegTable* SegTableAlloc() {
 
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		ret->entry[i].depth = KConfigGetRegionDepth();
+		ret->entry[i].depth = KConfigGetIndexSize();
 	}
 
 	stat.nSegTableAllocated++;

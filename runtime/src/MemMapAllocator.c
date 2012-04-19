@@ -66,7 +66,8 @@ Addr MemPoolCallocSmall(int num, int size) {
 }
 
 void MemPoolFreeSmall(Addr addr, int size) {
-	mpool_free(poolSmall, addr, size);
+	int error = mpool_free(poolSmall, addr, size);
+	assert(error = MPOOL_ERROR_NONE);
 	//MemPoolFree(addr);
 }
 

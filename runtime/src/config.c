@@ -10,8 +10,8 @@ typedef struct _config_ {
 	UInt8 shadowType;
 	UInt8 useVerify;
 	UInt8 enableRecursion;
+	UInt8 enableCRegion;
 
-	UInt32 regionDepth;
 	UInt32 cbufferSize;
 	UInt32 cacheSize;
 
@@ -30,18 +30,28 @@ void KConfigInit() {
 	config.maxLevel = 32;
 	config.cbufferSize = 4096;
 	config.cacheSize = 4;
-	config.regionDepth = 20;
 	config.shadowType = 1;
 	config.gcPeriod = 1024;
 	config.enableRecursion = 1;
+	config.enableCRegion = 1;
 }
 
 void KConfigDisableRSummary() {
 	config.enableRecursion = 0;
 }
+
+void KConfigDisableCRegion() {
+	config.enableCRegion = 0;
+}
+
 Bool KConfigGetRSummarySupport() {
 	return config.enableRecursion;
 }
+
+Bool KConfigGetCRegionSupport() {
+	return config.enableCRegion;
+}
+
 
 Bool KConfigLimitLevel() {
 	return config.limitLevel;
@@ -86,17 +96,6 @@ UInt32 KConfigGetCBufferSize() {
 	return config.cbufferSize;
 }
 
-
-void KConfigSetRegionDepth(int depth) {
-	fprintf(stderr, "[kremlin] Setting region depth to %d\n", depth);
-	config.regionDepth = depth;
-	if (depth > KConfigGetMaxLevel())
-		KConfigSetMaxLevel(depth);
-}
-
-UInt32 KConfigGetRegionDepth() {
-	return config.regionDepth;
-}
 
 void KConfigSetCacheSize(int nMB) {
 	config.cacheSize = nMB;

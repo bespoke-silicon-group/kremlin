@@ -99,16 +99,17 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			continue;
 		}
 
+		str_start = strstr(argv[i],"disable-cregion");
+		if(str_start) {
+			KConfigDisableCRegion();
+			continue;
+		}
+
+
 
 		str_start = strstr(argv[i],"mshadow-type");
 		if(str_start) {
 			KConfigSetShadowType(parseOptionInt(argv[i]));
-			continue;
-		}
-
-		str_start = strstr(argv[i],"depth");
-		if(str_start) {
-			KConfigSetRegionDepth(parseOptionInt(argv[i]));
 			continue;
 		}
 

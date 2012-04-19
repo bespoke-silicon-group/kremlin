@@ -5,6 +5,8 @@
 #include "MemMapAllocator.h"
 #include "CRegion.h"
 
+#define DEBUG_CREGION	3
+
 /**
  * CPosition tracks the current region tree / node
  */
@@ -62,6 +64,17 @@ static void   CTreeHandleRecursion(CTree* tree, CNode* child);
 static void emit(char* file);
 static void emitRegion(FILE* fp, CNode* node, UInt level);
 
+static void* CRegionMemAlloc(int size, int site) {
+	void* ret = MemPoolAllocSmall(size);
+	return ret;
+}
+
+static void CRegionMemFree(void* addr, int size, int site) {
+	MemPoolFreeSmall(addr, size);
+}
+
+
+
 /******************************** 
  * Public Functions
  *********************************/
@@ -73,14 +86,6 @@ void CRegionInit() {
 	CPositionSetTree(tree);
 	assert(root != NULL);
 	CPositionSetNode(root);
-
-
-	//fprintf(stderr, "cregionInit..");
-	//CRegion* region = createCRegion(0, 0);
-	//root = createCNode(NULL, region);
-
-	//current = root;
-	//fprintf(stderr, "done!..\n");
 }
 
 void CRegionDeinit(char* file) {
@@ -89,10 +94,13 @@ void CRegionDeinit(char* file) {
 }
 
 void printPosition() {
-	MSG(3, "Curr %s Node: %s\n", CPositionToStr(), CNodeToString(CPositionGetNode()));
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", CPositionToStr(), CNodeToString(CPositionGetNode()));
 }
 
 void CRegionEnter(SID sid, CID cid, RegionType type) {
+	if (KConfigGetCRegionSupport() == FALSE)
+		return;
+
 	CNode* parent = CPositionGetNode();
 	CNode* child = NULL;
 
@@ -109,7 +117,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 #endif
 	
 	assert(parent != NULL);
-	MSG(3, "CRegionEnter: sid: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
+	MSG(DEBUG_CREGION, "CRegionEnter: sid: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
 		parent->sid, sid, cid);
 
 	// make sure a child node exist
@@ -143,15 +151,18 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	printPosition();
 	//assert(child->stat != NULL);
 
-	MSG(3, "CRegionEnter: End\n"); 
+	MSG(DEBUG_CREGION, "CRegionEnter: End\n"); 
 }
 
 // at the end of a region execution,
 // pass the region exec info.
 // update the passed info and 
 // set current pointer to one level higher
-void CRegionLeave(RegionField* info) {
-	MSG(3, "CRegionLeave: Begin\n"); 
+void CRegionExit(RegionField* info) {
+	if (KConfigGetCRegionSupport() == FALSE)
+		return;
+
+	MSG(DEBUG_CREGION, "CRegionLeave: Begin\n"); 
 	// don't update if we didn't give it any info
 	// this happens when we are out of range for logging
 	CNode* current = CPositionGetNode();
@@ -159,7 +170,7 @@ void CRegionLeave(RegionField* info) {
 	assert(popped != NULL);
 	assert(current != NULL);
 
-	MSG(3, "Curr %s Node: %s\n", CPositionToStr(), CNodeToString(current));
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", CPositionToStr(), CNodeToString(current));
 #if 0
 	if (info != NULL) {
 		assert(current != NULL);
@@ -170,7 +181,7 @@ void CRegionLeave(RegionField* info) {
 	assert(info != NULL);
 	CNodeUpdate(current, info);
 	assert(current->stat != NULL);
-	MSG(3, "Update Node 0 - ID: %d Page: %d\n", current->id, current->stat->index);
+	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", current->id, current->stat->index);
 	CNodeStatBackward(current);
 	assert(current->parent != NULL);
 
@@ -183,11 +194,11 @@ void CRegionLeave(RegionField* info) {
 
 	if (popped->type == R_SINK) {
 		CNodeUpdate(popped, info);
-		MSG(3, "Update Node 1 - ID: %d Page: %d\n", popped->id, popped->stat->index);
+		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", popped->id, popped->stat->index);
 		CNodeStatBackward(popped);
 	} 
 	printPosition();
-	MSG(3, "CRegionLeave: End \n"); 
+	MSG(DEBUG_CREGION, "CRegionLeave: End \n"); 
 }
 
 /**
@@ -196,41 +207,59 @@ void CRegionLeave(RegionField* info) {
  */
 
 static CItem* stackTop;
+static CItem* stackFreelist;
+
+static CItem* CRegionStackAllocItem() {
+	CItem* ret = NULL;
+	if (stackFreelist == NULL) {
+		ret = (CItem*)CRegionMemAlloc(sizeof(CItem), 0);
+	} else {
+		ret = stackFreelist;
+		stackFreelist = ret->next;
+	}
+	return ret;
+}
+
+static void CRegionStackFreeItem(CItem* item) {
+	CItem* old = stackFreelist;
+	item->next = old;
+	stackFreelist = item;
+}
 
 static void CRegionPush(CNode* node) {
-	MSG(3, "CRegionPush: ");
+	MSG(DEBUG_CREGION, "CRegionPush: ");
 	CItem* prev = stackTop;
-	CItem* item = (CItem*)MemPoolAllocSmall(sizeof(CItem));
+	//CItem* item = (CItem*)CRegionMemAlloc(sizeof(CItem), 0);
+	CItem* item = CRegionStackAllocItem();
 	item->prev = NULL;
 
 	if (prev == NULL) {
 		item->next = NULL;
 
 	} else {
-		item = (CItem*)MemPoolAllocSmall(sizeof(CItem));
+		//item = (CItem*)MemPoolAllocSmall(sizeof(CItem));
 		item->next = prev;
 		prev->prev = item;
 
 	} 
 	item->node = node;
 	stackTop = item;
-	MSG(3, "%s\n", CNodeToString(node));
+	MSG(DEBUG_CREGION, "%s\n", CNodeToString(node));
 }
 
 static CNode* CRegionPop() {
-	MSG(3, "CRegionPop: ");
+	MSG(DEBUG_CREGION, "CRegionPop: ");
 	if (stackTop == NULL) {
-		MSG(3, "NONE\n");
 		return NULL;
 	}
 
 	assert(stackTop != NULL);	
 	CNode* ret = stackTop->node;
-	MSG(3, "%s\n", CNodeToString(ret));
+	MSG(DEBUG_CREGION, "%s\n", CNodeToString(ret));
 	CItem* toDelete = stackTop;
 	stackTop = toDelete->next;
-	MemPoolFreeSmall(toDelete, sizeof(CItem));
-	
+	//CRegionMemFree(toDelete, sizeof(CItem), 0);
+	CRegionStackFreeItem(toDelete);
 	return ret;
 }
 
@@ -301,8 +330,9 @@ static char* CPositionToStr() {
  * CStat Related Routines
  *****************************/
 
+
 static CStat* CStatCreate(int index) {
-	CStat* ret = (CStat*)MemPoolAllocSmall(sizeof(CStat));
+	CStat* ret = (CStat*)CRegionMemAlloc(sizeof(CStat), 1);
 	ret->totalWork = 0;
 	ret->tpWork = 0;
 	ret->spWork = 0;
@@ -322,11 +352,12 @@ static CStat* CStatCreate(int index) {
 	ret->index = index;
 	ret->next = NULL;
 	ret->prev = NULL;
+
 	return ret;
 }
 
 static void CStatDelete(CStat* stat) {
-	MemPoolFreeSmall(stat, sizeof(CStat)); 
+	CRegionMemFree(stat, sizeof(CStat), 1); 
 }
 
 
@@ -334,7 +365,7 @@ static void CStatUpdate(CStat* stat, RegionField* info) {
 	assert(stat != NULL);
 	assert(info != NULL);
 
-	MSG(3, "CStatUpdate: work = %d, spWork = %d\n", info->work, info->spWork);
+	MSG(DEBUG_CREGION, "CStatUpdate: work = %d, spWork = %d\n", info->work, info->spWork);
 	
 	double sp = (double)info->work / (double)info->spWork;
 	stat->numInstance++;
@@ -370,7 +401,7 @@ static CStat* CNodeStatForward(CNode* node) {
 	if (current != NULL)
 		index = current->index + 1;
 
-	MSG(1, "CStatForward id %d to page %d\n", node->id, index);
+	MSG(DEBUG_CREGION, "CStatForward id %d to page %d\n", node->id, index);
 	if (node->statStart == NULL) {
 		CStat* ret = CStatCreate(0);
 		node->stat = ret;
@@ -401,7 +432,7 @@ static CStat* CNodeStatBackward(CNode* node) {
 	assert(node != NULL);
 	CStat* current = node->stat;
 	assert(current != NULL);
-	MSG(1, "CStatBackward id %d from page %d\n", node->id, current->index);
+	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", node->id, current->index);
 	//assert(current->prev->index == current->index - 1);
 	//return current->prev;
 	node->stat = current->prev;
@@ -409,9 +440,9 @@ static CStat* CNodeStatBackward(CNode* node) {
 
 static void CNodeUpdate(CNode* node, RegionField* info) {
 	assert(info != NULL);
-	MSG(3, "CRegionUpdate: cid(0x%lx), work(0x%lx), cp(%lx), spWork(%lx)\n", 
+	MSG(DEBUG_CREGION, "CRegionUpdate: cid(0x%lx), work(0x%lx), cp(%lx), spWork(%lx)\n", 
 			info->callSite, info->work, info->cp, info->spWork);
-	MSG(3, "current region: id(0x%lx), sid(0x%lx), cid(0x%lx)\n", 
+	MSG(DEBUG_CREGION, "current region: id(0x%lx), sid(0x%lx), cid(0x%lx)\n", 
 			node->id, node->sid, node->cid);
 
 	//assert(node->cid == info->callSite);
@@ -458,10 +489,11 @@ static UInt64 CNodeAllocId() { return ++lastId; }
 
 
 static CNode* CNodeCreate(SID sid, CID cid, RegionType type) {
-	CNode* ret = (CNode*)MemPoolAllocSmall(sizeof(CNode));
-	MSG(3, "CNode: created CNode at 0x%x\n", ret);
+	CNode* ret = (CNode*)CRegionMemAlloc(sizeof(CNode), 2);
+	MSG(DEBUG_CREGION, "CNode: created CNode at 0x%x\n", ret);
 
 	// basic info
+	ret->parent = NULL;
 	ret->type = NORMAL;
 	ret->rType = type;
 	ret->id = CNodeAllocId();
@@ -617,7 +649,7 @@ static UInt CTreeGetDepth(CTree* tree) {
 }
 
 static CTree* CTreeCreate(CNode* root) {
-	CTree* ret = (CTree*)MemPoolAllocSmall(sizeof(CTree));
+	CTree* ret = (CTree*)CRegionMemAlloc(sizeof(CTree), 3);
 	ret->id = CTreeAllocId();
 	ret->maxDepth = 0;
 	ret->currentDepth = 0;
@@ -637,19 +669,17 @@ static void CTreeDelete(CTree* tree) {
 }
 
 static CNode* CTreeFindAncestorBySid(CTree* tree, CNode* child) {
-	MSG(3, "CTreeFindAncestor: sid: 0x%llx....", child->sid);
+	MSG(DEBUG_CREGION, "CTreeFindAncestor: sid: 0x%llx....", child->sid);
 	SID sid = child->sid;
 	CNode* node = child->parent;
 	
 	while (node != NULL) {
 		if (node->sid == sid) {
-			MSG(3, "found\n");
 			return node;
 		}
 
 		node = node->parent;
 	}
-	MSG(3, "not found\n");
 	return NULL;
 }
 
@@ -741,7 +771,7 @@ static Bool isEmittable(Level level) {
 
 static void emitNode(FILE* fp, CNode* node) {
 	numCreated++;
-	MSG(1, "Node id: %d, sid: %llx type: %d numInstance: %d nChildren: %d DOALL: %d\n", 
+	MSG(DEBUG_CREGION, "Node id: %d, sid: %llx type: %d numInstance: %d nChildren: %d DOALL: %d\n", 
 		node->id, node->sid, node->type, node->numInstance, node->childrenSize, node->isDoall);
 	fwrite(&node->id, sizeof(Int64), 1, fp);
 	fwrite(&node->sid, sizeof(Int64), 1, fp);
@@ -782,7 +812,7 @@ static void emitNode(FILE* fp, CNode* node) {
 
 
 static void emitStat(FILE* fp, CStat* stat) {
-	MSG(3, "\t[%d] stat: sWork = %d, pWork = %d, nInstance = %d\n", 
+	MSG(DEBUG_CREGION, "\t[%d] stat: sWork = %d, pWork = %d, nInstance = %d\n", 
 		stat->index, stat->totalWork, stat->spWork, stat->numInstance);
 		
 	fwrite(&stat->numInstance, sizeof(Int64), 1, fp);
@@ -815,7 +845,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	CStat* stat = node->statStart;
 	UInt64 statSize = CNodeGetStatSize(node);
 	//fprintf(stderr, "emitting region %llu at level %u\n", node->region->id,level);
-	MSG(3, "Emitting Node %d with %d stats\n", node->id, statSize);
+	MSG(DEGBUG_CREGION, "Emitting Node %d with %d stats\n", node->id, statSize);
     assert(fp != NULL);
     assert(node != NULL);
     assert(stat != NULL);
