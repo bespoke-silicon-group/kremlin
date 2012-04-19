@@ -1299,151 +1299,164 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 	}
 }
 
-void _KLoad0(Addr addr, Reg dest, UInt32 size) {
-    MSG(1, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
-	idbgAction(KREM_LOAD, "## logLoadInst(Addr=0x%x,dest=%u,size=%u)\n",
-		addr, dest, size);
-
-	assert(size <= 8);
+void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
+    MSG(1, "load size %d ts[%u] = ts[0x%x] + %u\n", mem_access_size, dest_reg, src_addr, LOAD_COST);
+	idbgAction(KREM_LOAD, "## logLoadInst(Addr=0x%x,dest_reg=%u,mem_access_size=%u)\n",
+		src_addr, dest_reg, mem_access_size);
 
     if (!isKremlinOn()) return;
 
-	Index index;
-	Index depth = getIndexDepth();
-	Level minLevel = getLevel(0);
-	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel), size);
+	assert(mem_access_size <= 8);
+
+	Index region_depth = getIndexDepth();
+	Level min_level = getLevel(0); // XXX: see note in KLoad
+	Time* src_addr_times = MShadowGet(src_addr, region_depth, RegionGetVArray(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
-	printLoadDebugInfo(addr,dest,tArray,depth);
+	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
 #endif
 
-    for (index = 0; index < depth; index++) {
+	Index index;
+    for (index = 0; index < region_depth; index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		Time ts0 = tArray[index];
-        Time greater1 = MAX(cdt,ts0);
-        Time value = greater1 + LOAD_COST;
+
+		Time control_dep_time = CDepGet(index);
+		Time src_addr_time = src_addr_times[index];
+        Time dest_time = MAX(control_dep_time,src_addr_time) + LOAD_COST;
 
         MSG(3, "KLoad level %u version %u \n", i, RegionGetVersion(i));
-        MSG(3, " addr 0x%x dest %u\n", addr, dest);
-        MSG(3, " cdt %u tsAddr %u max %u\n", cdt, ts0, greater1);
-		if (ts0 > getTimetick()) {
-			fprintf(stderr, "@index %d, %lld, %lld, %lld, %lld\n", 
-				index, tArray[0], tArray[1], tArray[2], tArray[3]);
-			assert(0);
-		}
-		checkTimestamp(index, region, ts0);
-        RShadowSetItem(value, dest, index);
-        RegionUpdateCp(region, value);
+        MSG(3, " src_addr 0x%x dest_reg %u\n", src_addr, dest_reg);
+        MSG(3, " control_dep_time %u src_addr_time %u dest_time %u\n", control_dep_time, src_addr_time, dest_time);
+		checkTimestamp(index, region, src_addr_time); // XXX: see note in KLoad0
+        RShadowSetItem(dest_time, dest_reg, index);
+        RegionUpdateCp(region, dest_time);
     }
 
-    MSG(3, "load ts[%u] completed\n\n",dest);
+    MSG(3, "load ts[%u] completed\n\n",dest_reg);
 }
 
-void _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
-    MSG(1, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
-	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
+void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
+    MSG(1, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest_reg, src_addr, src_reg, LOAD_COST);
+	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src_reg=%u,dest_reg=%u,mem_access_size=%u)\n",src_addr,src_reg,dest_reg,mem_access_size);
 
     if (!isKremlinOn()) return;
 
-    Level minLevel = getStartLevel();
+	assert(mem_access_size <= 8);
 
-	Index index;
-	Index depth = getIndexDepth();
-	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel), size);
+	Index region_depth = getIndexDepth();
+    Level min_level = getStartLevel(); // XXX: KLoad/KLoad0 use getLevel(0)
+	Time* src_addr_times = MShadowGet(src_addr, region_depth, RegionGetVArray(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
-	printLoadDebugInfo(addr,dest,tArray,depth);
+	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
 #endif
 
-    for (index = 0; index < depth; index++) {
+	Index index;
+    for (index = 0; index < region_depth; index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		Time tsAddr = tArray[index];
-		Time tsSrc1 = RShadowGetItem(src1, index);
+		Time control_dep_time = CDepGet(index);
+		Time src_addr_time = src_addr_times[index];
+		Time dep_time = RShadowGetItem(src_reg, index);
 
-        Time max1 = MAX(tsAddr,cdt);
-        Time max2 = MAX(max1,tsSrc1);
-		Time value = max2 + LOAD_COST;
+        Time max_dep_time = MAX(src_addr_time,control_dep_time);
+        max_dep_time = MAX(max_dep_time,dep_time);
+		Time dest_time = max_dep_time + LOAD_COST;
 
         MSG(3, "KLoad1 level %u version %u \n", i, RegionGetVersion(i));
-        MSG(3, " addr 0x%x src1 %u dest %u\n", addr, src1, dest);
-        MSG(3, " cdt %u tsAddr %u tsSrc1 %u max %u\n", cdt, tsAddr, tsSrc1, max2);
-		checkTimestamp(index, region, tsAddr);
-        RShadowSetItem(value, dest, index);
-        RegionUpdateCp(region, value);
+        MSG(3, " src_addr 0x%x src_reg %u dest_reg %u\n", src_addr, src_reg, dest_reg);
+        MSG(3, " control_dep_time %u src_addr_time %u dep_time %u max_dep_time %u\n", control_dep_time, src_addr_time, dep_time, max_dep_time);
+		checkTimestamp(index, region, src_addr_time); // XXX: see note in KLoad0
+        RShadowSetItem(dest_time, dest_reg, index);
+        RegionUpdateCp(region, dest_time);
     }
 }
 
-// TODO: will be removed once kremlin-cc is updated with new APIs
-void _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { _KLoad0(src_addr,dest, width); }
-void _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { _KLoad0(src_addr,dest, width); }
-void _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { _KLoad0(src_addr,dest, width); }
+// XXX: KLoad{2,3,4} will soon be deprecated
+void _KLoad2(Addr src_addr, Reg src1_reg, Reg src2_reg, Reg dest_reg, UInt32 mem_access_size) {
+	 _KLoad(src_addr,dest_reg,mem_access_size,2,src1_reg,src2_reg);
+}
+
+void _KLoad3(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3, UInt32 mem_access_size){
+	 _KLoad(src_addr,dest_reg,mem_access_size,3,src1_reg,src2_reg,src3);
+}
+
+void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3, Reg src4, UInt32 mem_access_size) { 
+	 _KLoad(src_addr,dest_reg,mem_access_size,4,src1_reg,src2_reg,src3,src4);
+}
 
 
-void _KStore(UInt src, Addr dest_addr, UInt32 size) {
-	assert(size <= 8);
-    MSG(1, "store size %d ts[0x%x] = ts[%u] + %u\n", size, dest_addr, src, STORE_COST);
-	idbgAction(KREM_STORE,"## KStore(src=%u,dest_addr=0x%x,size=%u)\n",src,dest_addr,size);
+void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
+    MSG(1, "store size %d ts[0x%x] = ts[%u] + %u\n", mem_access_size, dest_addr, src_reg, STORE_COST);
+	idbgAction(KREM_STORE,"## KStore(src_reg=%u,dest_addr=0x%x,mem_access_size=%u)\n",src_reg,dest_addr,mem_access_size);
 
     if (!isKremlinOn()) return;
 
+	assert(mem_access_size <= 8);
+
+	Time* dest_addr_times = RegionGetTArray();
 
 	Index index;
-	Time* tArray = RegionGetTArray();
-
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		Time ts0 = RShadowGetItem(src, index);
-        Time greater1 = MAX(cdt,ts0);
-        Time value = greater1 + STORE_COST;
-		tArray[index] = value;
+
+		Time control_dep_time = CDepGet(index);
+		Time src_time = RShadowGetItem(src_reg, index);
+        Time dest_time = MAX(control_dep_time,src_time) + STORE_COST;
+		dest_addr_times[index] = dest_time;
+        RegionUpdateCp(region, dest_time);
+
+// TODO: EXTRA_STATS is a MESS. Clean is up!
 #ifdef EXTRA_STATS
         region->storeCnt++;
-        //updateWriteMemoryAccess(entryDest, i, RegionGetVersion(i), value);
 #endif
-        RegionUpdateCp(region, value);
+
+		// TODO: add more verbose debug printout with MSG
     }
 
 #ifdef KREMLIN_DEBUG
-	printStoreDebugInfo(src,dest_addr,tArray,getIndexDepth());
+	printStoreDebugInfo(src_reg,dest_addr,dest_addr_times,getIndexDepth());
 #endif
 
-	Level minLevel = getLevel(0);
-	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
+	Level min_level = getLevel(0); // XXX: see notes in KLoads
+	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(min_level), dest_addr_times, mem_access_size);
     MSG(1, "store ts[0x%x] completed\n", dest_addr);
 }
 
 
-void _KStoreConst(Addr dest_addr, UInt32 size) {
+void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
     MSG(1, "KStoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
-	idbgAction(KREM_STORE,"## _KStoreConst(dest_addr=0x%x,size=%u)\n",dest_addr,size);
+	idbgAction(KREM_STORE,"## _KStoreConst(dest_addr=0x%x,mem_access_size=%u)\n",dest_addr,mem_access_size);
 
     if (!isKremlinOn()) return;
 
-	Index index;
-	Time* tArray = RegionGetTArray();
+	assert(mem_access_size <= 8);
 
+	Time* dest_addr_times = RegionGetTArray();
+
+	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Index index = getIndex(i);
-		Time cdt = CDepGet(index);
-        Time value = cdt + STORE_COST;
-		tArray[index] = value;
-		RegionUpdateCp(region, value);
+
+		// XXX: Why was the following line there but not in KStore or anywhere
+		// else????
+		//Index index = getIndex(i);
+
+		Time control_dep_time = CDepGet(index);
+        Time dest_time = control_dep_time + STORE_COST;
+		dest_addr_times[index] = dest_time;
+		RegionUpdateCp(region, dest_time);
     }
 
 #ifdef KREMLIN_DEBUG
-	printStoreConstDebugInfo(dest_addr,tArray,getIndexDepth());
+	printStoreConstDebugInfo(dest_addr,dest_addr_times,getIndexDepth());
 #endif
 
-	Level minLevel = getLevel(0);
-	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
+	Level min_level = getLevel(0);
+	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(min_level), dest_addr_times, mem_access_size);
 }
 
 
