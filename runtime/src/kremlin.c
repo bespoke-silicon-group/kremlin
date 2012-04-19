@@ -1201,13 +1201,29 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 }
 
 
+static inline void printTArray(Time* times, Index depth) {
 	Index index;
+	for (index = 0; index < depth; ++index) {
+		MSG(0,"%u:%llu ",index,times[index]);
+	}
 }
 
+static inline void printLoadDebugInfo(Addr addr, UInt dest, Time* times, Index depth) {
+    MSG(0, "LOAD: ts[%u] = ts[0x%x] -- { ", dest, addr);
+	printTArray(times,depth);
+	MSG(0," }\n");
 }
 
+static inline void printStoreDebugInfo(UInt src, Addr addr, Time* times, Index depth) {
+    MSG(0, "STORE: ts[0x%x] = ts[%u] -- { ", addr, src);
+	printTArray(times,depth);
+	MSG(0," }\n");
 }
 
+static inline void printStoreConstDebugInfo(Addr addr, Time* times, Index depth) {
+    MSG(0, "STORE: ts[0x%x] = const -- { ", addr);
+	printTArray(times,depth);
+	MSG(0," }\n");
 }
 
 // TODO: implement
@@ -1260,9 +1276,14 @@ void _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
     Level minLevel = getStartLevel();
 
 	Index index;
-	Time* tArray = MShadowGet(addr, getIndexDepth(), RegionGetVArray(minLevel), size);
+	Index depth = getIndexDepth();
+	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel), size);
 
-    for (index = 0; index < getIndexDepth(); index++) {
+#ifdef KREMLIN_DEBUG
+	printLoadDebugInfo(addr,dest,tArray,depth);
+#endif
+
+    for (index = 0; index < depth; index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
 		Time cdt = CDepGet(index);
@@ -1314,6 +1335,10 @@ void _KStore(UInt src, Addr dest_addr, UInt32 size) {
         RegionUpdateCp(region, value);
     }
 
+#ifdef KREMLIN_DEBUG
+	printStoreDebugInfo(src,dest_addr,tArray,getIndexDepth());
+#endif
+
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
     MSG(1, "store ts[0x%x] completed\n", dest_addr);
@@ -1338,6 +1363,11 @@ void _KStoreConst(Addr dest_addr, UInt32 size) {
 		tArray[index] = value;
 		RegionUpdateCp(region, value);
     }
+
+#ifdef KREMLIN_DEBUG
+	printStoreConstDebugInfo(dest_addr,tArray,getIndexDepth());
+#endif
+
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
 }
