@@ -33,10 +33,6 @@ void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off
 void _KWork(UInt32 work);
 
 // BEGIN deprecated?
-void* _KBinary(UInt opCost, UInt src0, UInt src1, UInt dest); 
-void* _KBinaryConst(UInt opCost, UInt src, UInt dest); 
-void* _KAssign(UInt src, UInt dest);
-void* _KAssignConst(UInt dest); 
 void* _KInsertValue(UInt src, UInt dest); 
 void* _KInsertValueConst(UInt dest); 
 // END deprecated?
