@@ -34,30 +34,30 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 void _KWork(UInt32 work);
 
 // BEGIN deprecated?
-void* _KInsertValue(UInt src, UInt dest); 
-void* _KInsertValueConst(UInt dest); 
+void _KInsertValue(UInt src, UInt dest); 
+void _KInsertValueConst(UInt dest); 
 // END deprecated?
 
 void _KInduction(UInt dest_reg); 
 void _KReduction(UInt op_cost, UInt dest_reg); 
 
-void* _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...); 
-void* _KLoad0(Addr src_addr, UInt dest, UInt32 size); 
-void* _KLoad1(Addr src_addr, UInt dest, UInt src1, UInt32 size);
-void* _KLoad2(Addr src_addr, UInt dest, UInt src1, UInt src2, UInt32 size);
-void* _KStore(UInt src, Addr dest_addr, UInt32 size); 
-void* _KStoreConst(Addr dest_addr, UInt32 size); 
+void _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...); 
+void _KLoad0(Addr src_addr, UInt dest, UInt32 size); 
+void _KLoad1(Addr src_addr, UInt dest, UInt src1, UInt32 size);
+void _KLoad2(Addr src_addr, UInt dest, UInt src1, UInt src2, UInt32 size);
+void _KStore(UInt src, Addr dest_addr, UInt32 size); 
+void _KStoreConst(Addr dest_addr, UInt32 size); 
 
 void _KMalloc(Addr addr, size_t size, UInt dest);
 void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest);
 void _KFree(Addr addr);
 
-void* _KPhi1To1(UInt dest, UInt src, UInt cd); 
-void* _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2); 
-void* _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3); 
-void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4); 
-void* _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4);
-void* _KPhiAddCond(UInt dest, UInt src);
+void _KPhi1To1(UInt dest, UInt src, UInt cd); 
+void _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2); 
+void _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3); 
+void _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4); 
+void _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4);
+void _KPhiAddCond(UInt dest, UInt src);
 
 void _KPushCDep(Reg cond);
 void _KPopCDep();
@@ -72,7 +72,7 @@ void _KLinkArg(Reg src);
 void _KLinkArgConst(void);
 void _KUnlinkArg(UInt dest); 
 
-void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...); 
+void _KCallLib(UInt cost, UInt dest, UInt num_in, ...); 
 
 void _KPrintData(); // deprecated?
 

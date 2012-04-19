@@ -1217,17 +1217,17 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 }
 
 // TODO: implement
-void* _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...) {}
+void _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...) {}
 
-void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
+void _KLoad0(Addr addr, Reg dest, UInt32 size) {
     MSG(1, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
 	idbgAction(KREM_LOAD, "## logLoadInst(Addr=0x%x,dest=%u,size=%u)\n",
 		addr, dest, size);
 
 	assert(size <= 8);
 	checkRegion();
-    if (!isKremlinOn())
-    	return NULL;
+
+    if (!isKremlinOn()) return;
 
 	Index index;
 	Index depth = getIndexDepth();
@@ -1260,14 +1260,13 @@ void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
     }
 
     MSG(3, "load ts[%u] completed\n\n");
-    return NULL;
 }
 
-void* _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
+void _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
     MSG(1, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest, addr, src1, LOAD_COST);
 	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src1=%u,dest=%u,size=%u)\n",addr,src1,dest,size);
-    if (!isKremlinOn())
-		return NULL;
+
+    if (!isKremlinOn()) return;
 
     Level minLevel = getStartLevel();
 
@@ -1292,22 +1291,20 @@ void* _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
         RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
     }
-
-    return NULL;
 }
 
 // TODO: will be removed once kremlin-cc is updated with new APIs
-void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { return _KLoad0(src_addr,dest, width); }
-void* _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { return _KLoad0(src_addr,dest, width); }
-void* _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { return _KLoad0(src_addr,dest, width); }
+void _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 width) { _KLoad0(src_addr,dest, width); }
+void _KLoad3(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 width) { _KLoad0(src_addr,dest, width); }
+void _KLoad4(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 width) { _KLoad0(src_addr,dest, width); }
 
 
-void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
+void _KStore(UInt src, Addr dest_addr, UInt32 size) {
 	assert(size <= 8);
     MSG(1, "store size %d ts[0x%x] = ts[%u] + %u\n", size, dest_addr, src, STORE_COST);
 	idbgAction(KREM_STORE,"## KStore(src=%u,dest_addr=0x%x,size=%u)\n",src,dest_addr,size);
-    if (!isKremlinOn())
-    	return NULL;
+
+    if (!isKremlinOn()) return;
 
 
 	Index index;
@@ -1335,15 +1332,14 @@ void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
     MSG(1, "store ts[0x%x] completed\n", dest_addr);
-    return NULL;
 }
 
 
-void* _KStoreConst(Addr dest_addr, UInt32 size) {
+void _KStoreConst(Addr dest_addr, UInt32 size) {
     MSG(1, "KStoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
 	idbgAction(KREM_STORE,"## _KStoreConst(dest_addr=0x%x,size=%u)\n",dest_addr,size);
-    if (!isKremlinOn())
-        return NULL;
+
+    if (!isKremlinOn()) return;
 
 	Index index;
 	Time* tArray = RegionGetTArray();
@@ -1359,7 +1355,6 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
     }
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
-    return NULL;
 }
 
 
@@ -1371,11 +1366,10 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
  *  number of incoming dependences
  ******************************************************************/
 
-void* _KPhi1To1(UInt dest, UInt src, UInt cd) {
+void _KPhi1To1(UInt dest, UInt src, UInt cd) {
     MSG(1, "KPhi1To1 ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
 	idbgAction(KREM_PHI,"## KPhi1To1 (dest=%u,src=%u,cd=%u)\n",dest,src,cd);
-    if (!isKremlinOn())
-		return NULL;
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1388,14 +1382,12 @@ void* _KPhi1To1(UInt dest, UInt src, UInt cd) {
         MSG(3, " src %u cd %u dest %u\n", src, cd, dest);
         MSG(3, " ts_src %u ts_cd %u max %u\n", ts_src, ts_cd, max);
     }
-    return NULL;
 }
 
-void* _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2) {
+void _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2) {
     MSG(1, "KPhi2To1 ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
 	idbgAction(KREM_PHI,"## KPhi2To1 (dest=%u,src=%u,cd1=%u,cd2=%u)\n",dest,src,cd1,cd2);
-    if (!isKremlinOn())
-    	return NULL;
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1412,16 +1404,13 @@ void* _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2) {
         MSG(2, " src %u cd1 %u cd2 %u dest %u\n", src, cd1, cd2, dest);
         MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u max %u\n", ts_src, ts_cd1, ts_cd2, max2);
     }
-
-    //return entryDest;
-    return NULL;
 }
 
-void* _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
+void _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     MSG(1, "KPhi3To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
 	idbgAction(KREM_PHI,"## KPhi3To1 (dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u)\n",dest,src,cd1,cd2,cd3);
-    if (!isKremlinOn())
-    	return NULL;
+
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1440,17 +1429,14 @@ void* _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
         MSG(2, " src %u cd1 %u cd2 %u cd3 %u dest %u\n", src, cd1, cd2, cd3, dest);
         MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u max %u\n", ts_src, ts_cd1, ts_cd2, ts_cd3, max3);
     }
-
-    return NULL;
 }
 
 void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     MSG(1, "KPhi4To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
 		dest, src, cd1, cd2, cd3, cd4);
-	idbgAction(KREM_PHI,"## KPhi4To1 (dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",
-		dest,src,cd1,cd2,cd3,cd4);
-    if (!isKremlinOn())
-    	return NULL;
+	idbgAction(KREM_PHI,"## KPhi4To1 (dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n", dest,src,cd1,cd2,cd3,cd4);
+
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1472,18 +1458,15 @@ void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
         MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", 
 			ts_src, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
     }
-
-    return NULL;
 }
 
-void* _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+void _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     MSG(1, "KPhi4To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
 		dest, dest, cd1, cd2, cd3, cd4);
 	idbgAction(KREM_CD_TO_PHI,"## KPhi4To1 (dest=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",
 		dest,cd1,cd2,cd3,cd4);
 
-    if (!isKremlinOn())
-		return NULL;
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1503,17 +1486,15 @@ void* _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
         MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", cd1, cd2, cd3, cd4, dest);
         MSG(2, " ts_dest %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_dest, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
     }
-    return NULL;
 }
 
 #define MAX_ENTRY 10
 
-void* _KPhiAddCond(UInt dest, UInt src) {
+void _KPhiAddCond(UInt dest, UInt src) {
     MSG(1, "KPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
 	idbgAction(KREM_CD_TO_PHI,"## KPhiAddCond (dest=%u,src=%u)\n",dest,src);
 
-    if (!isKremlinOn())
-    	return;
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1668,12 +1649,12 @@ void _KPrintData() {}
 
 // use estimated cost for a callee function we cannot instrument
 // TODO: implement new shadow mem interface
-void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
+void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 	idbgAction(KREM_CD_TO_PHI,"## KCallLib(cost=%u,dest=%u,num_in=%u,...)\n",cost,dest,num_in);
 
 #if 0
     if (!isKremlinOn())
-        return NULL;
+        return;
 
     MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
     _KWork(cost);
@@ -1712,7 +1693,7 @@ void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 
 		updateCP(value, i);
     }
-    return NULL;
+    return;
 #endif
     
 }
