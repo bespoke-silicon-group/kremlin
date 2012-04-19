@@ -1314,10 +1314,6 @@ void _KStore(UInt src, Addr dest_addr, UInt32 size) {
         RegionUpdateCp(region, value);
     }
 
-#ifdef KREMLIN_DEBUG
-	printStoreDebugInfo(src,dest_addr,tArray,getIndexDepth());
-#endif
-
 	Level minLevel = getLevel(0);
 	MShadowSet(dest_addr, getIndexDepth(), RegionGetVArray(minLevel), tArray, size);
     MSG(1, "store ts[0x%x] completed\n", dest_addr);
