@@ -1446,7 +1446,7 @@ void _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
     }
 }
 
-void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+void _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
     MSG(1, "KPhi4To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
 		dest, src, cd1, cd2, cd3, cd4);
 	idbgAction(KREM_PHI,"## KPhi4To1 (dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n", dest,src,cd1,cd2,cd3,cd4);
