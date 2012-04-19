@@ -1146,6 +1146,23 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
     }
 }
 
+void* _KAssignConst(UInt dest) {
+    MSG(1, "_KAssignConst ts[%u]\n", dest);
+	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest=%u)\n",dest);
+    if (!isKremlinOn())
+        return NULL;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time cdt = CDepGet(index);
+		RShadowSetItem(cdt, dest, index);
+        RegionUpdateCp(region, cdt);
+    }
+    return NULL;
+}
+
 // XXX: not 100% sure this is the correct functionality
 void _KTimestamp0(UInt32 dest_reg) {
     MSG(1, "KTimestamp0 to %u\n", dest_reg);
