@@ -1305,7 +1305,6 @@ void _KLoad0(Addr addr, Reg dest, UInt32 size) {
 		addr, dest, size);
 
 	assert(size <= 8);
-	checkRegion();
 
     if (!isKremlinOn()) return;
 
