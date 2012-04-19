@@ -41,12 +41,13 @@ void _KInsertValueConst(UInt dest);
 void _KInduction(UInt dest_reg); 
 void _KReduction(UInt op_cost, UInt dest_reg); 
 
-void _KLoad(Addr src_addr, UInt dest, UInt32 mem_access_size, UInt32 num_srcs, ...); 
-void _KLoad0(Addr src_addr, UInt dest, UInt32 size); 
-void _KLoad1(Addr src_addr, UInt dest, UInt src1, UInt32 size);
-void _KLoad2(Addr src_addr, UInt dest, UInt src1, UInt src2, UInt32 size);
-void _KStore(UInt src, Addr dest_addr, UInt32 size); 
-void _KStoreConst(Addr dest_addr, UInt32 size); 
+// TODO: KLoads/Stores breaks the convention of having the dest followed by the src.
+void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs, ...); 
+void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 memory_access_size); 
+void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 memory_access_size);
+void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 memory_access_size);
+void _KStore(Reg src_reg, Addr dest_addr, UInt32 memory_access_size); 
+void _KStoreConst(Addr dest_addr, UInt32 memory_access_size); 
 
 void _KMalloc(Addr addr, size_t size, UInt dest);
 void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest);
