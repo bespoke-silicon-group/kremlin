@@ -1226,8 +1226,72 @@ static inline void printStoreConstDebugInfo(Addr addr, Time* times, Index depth)
 	MSG(0," }\n");
 }
 
-// TODO: implement
-void _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...) {}
+void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs, ...) {
+    MSG(1, "KLoad ts[%u] = max(ts[0x%x],...,ts_src%u[...]) + %u (access size: %u)\n", dest_reg,src_addr,num_srcs,LOAD_COST,mem_access_size);
+	idbgAction(KREM_LOAD,"## _KLoad(src_addr=0x%x,dest_reg=%u,mem_access_size=%u,num_srcs=%u,...)\n",src_addr,dest_reg,mem_access_size,num_srcs);
+
+	assert(mem_access_size <= 8);
+
+    if (!isKremlinOn()) return;
+
+	Index region_depth = getIndexDepth();
+	Level min_level = getLevel(0); // XXX: this doesn't look right...
+	Time* src_addr_times = MShadowGet(src_addr, region_depth, RegionGetVArray(min_level), mem_access_size);
+
+#ifdef KREMLIN_DEBUG
+	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
+#endif
+
+	// create an array holding the registers that are srcs
+	Reg* src_regs = malloc(num_srcs*sizeof(Reg));
+
+	va_list args;
+	va_start(args,num_srcs);
+
+	int src_idx;
+	for(src_idx = 0; src_idx < num_srcs; ++src_idx) {
+		Reg src_reg = va_arg(args,UInt32);
+		src_regs[src_idx] = src_reg;
+		// TODO: debug print out of src reg
+	}
+
+	Index index;
+    for (index = 0; index < region_depth; index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+
+		Time control_dep_time = CDepGet(index);
+
+		// Find the maximum time of all dependencies. Dependencies include the
+		// time loaded from memory as well as the times for all the "source"
+		// registers that are inputs to this function. These "sources" are the
+		// dependencies needed to calculate the address of the load.
+		Time src_addr_time = src_addr_times[index];
+		Time max_dep_time = src_addr_time;
+
+		int src_idx;
+		for(src_idx = 0; src_idx < num_srcs; ++src_idx) {
+			Time src_time = RShadowGetItem(src_regs[src_idx], index);
+			max_dep_time = MAX(max_dep_time,src_time);
+		}
+
+		// Take into account the cost of the load
+		Time dest_time = max_dep_time + LOAD_COST;
+
+		// TODO: more verbose printout of src dependency times
+        MSG(3, "KLoad level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src_addr 0x%x dest_reg %u\n", src_addr, dest_reg);
+        MSG(3, " control_dep_time %u dest_time %u\n", control_dep_time, dest_time);
+
+		// XXX: Why check timestamp here? Looks like this only occurs in KLoad
+		// insts. If this is necessary, we might need to add checkTimestamp to
+		// each src time (above). At the very least, we can move this check to
+		// right after we calculate src_addr_time.
+		checkTimestamp(index, region, src_addr_time);
+        RShadowSetItem(dest_time, dest_reg, index);
+        RegionUpdateCp(region, dest_time);
+	}
+}
 
 void _KLoad0(Addr addr, Reg dest, UInt32 size) {
     MSG(1, "load size %d ts[%u] = ts[0x%x] + %u\n", size, dest, addr, LOAD_COST);
