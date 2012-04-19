@@ -1068,13 +1068,10 @@ void _KExitRegion(SID regionId, RegionType regionType) {
  *****************************************************************/
 
 
-void* _KReduction(UInt opCost, Reg dest) {
+void _KReduction(UInt opCost, Reg dest) {
     MSG(3, "KReduction ts[%u] with cost = %d\n", dest, opCost);
 	idbgAction(KREM_REDUCTION, "## KReduction(opCost=%u,dest=%u)\n",opCost,dest);
-    if (!isKremlinOn() || !isInstrumentable())
-		return;
-
-    return NULL;
+    if (!isKremlinOn() || !isInstrumentable()) return;
 }
 
 void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
@@ -1357,13 +1354,13 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
 
 // this function is the same as _KAssignConst but helps to quickly
 // identify induction variables in the source code
-void* _KInduction(UInt dest) {
+void _KInduction(UInt dest) {
     MSG(1, "KInduction to %u\n", dest);
 	idbgAction(KREM_INDUCTION,"## _KInduction(dest=%u)\n",dest);
     if (!isKremlinOn())
 		return NULL;
 
-    return NULL;
+	_KAssignConst(dest);
 }
 
 /******************************************************************
