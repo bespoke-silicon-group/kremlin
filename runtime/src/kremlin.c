@@ -1163,7 +1163,7 @@ void _KTimestamp1(UInt32 dest, UInt32 src, UInt32 off) {
 
         Time ts_calc = RShadowGetItem(src, index) + off;
 
-        Time value = (cdt > ts_calc) ? cdt : ts_calc;
+        Time value = MAX(cdt,ts_calc);
 		RShadowSetItem(value, dest, index);
 
         MSG(3, "kTime1 level %u version %u \n", i, RegionGetVersion(i));
@@ -1190,8 +1190,8 @@ void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off
         Time ts_calc1 = RShadowGetItem(src1, index) + off1;
         Time ts_calc2 = RShadowGetItem(src2, index) + off2;
 
-        Time greater = (ts_calc1 > ts_calc2) ? ts_calc1 : ts_calc2;
-        Time value = (cdt > greater) ? cdt : greater;
+        Time greater = MAX(ts_calc1,ts_calc2);
+        Time value = MAX(cdt,greater);
 
 		RShadowSetItem(value, dest, index);
 
@@ -1230,12 +1230,16 @@ void* _KLoad0(Addr addr, Reg dest, UInt32 size) {
 	Level minLevel = getLevel(0);
 	Time* tArray = MShadowGet(addr, depth, RegionGetVArray(minLevel), size);
 
+#ifdef KREMLIN_DEBUG
+	printLoadDebugInfo(addr,dest,tArray,depth);
+#endif
+
     for (index = 0; index < depth; index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
 		Time cdt = CDepGet(index);
 		Time ts0 = tArray[index];
-        Time greater1 = (cdt > ts0) ? cdt : ts0;
+        Time greater1 = MAX(cdt,ts0);
         Time value = greater1 + LOAD_COST;
 
         MSG(3, "KLoad level %u version %u \n", i, RegionGetVersion(i));
@@ -1273,8 +1277,8 @@ void* _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
 		Time tsAddr = tArray[index];
 		Time tsSrc1 = RShadowGetItem(src1, index);
 
-        Time max1 = (tsAddr > cdt) ? tsAddr : cdt;
-        Time max2 = (max1 > tsSrc1) ? max1 : tsSrc1;
+        Time max1 = MAX(tsAddr,cdt);
+        Time max2 = MAX(max1,tsSrc1);
 		Time value = max2 + LOAD_COST;
 
         MSG(3, "KLoad1 level %u version %u \n", i, RegionGetVersion(i));
@@ -1310,7 +1314,7 @@ void* _KStore(UInt src, Addr dest_addr, UInt32 size) {
 		Region* region = RegionGet(i);
 		Time cdt = CDepGet(index);
 		Time ts0 = RShadowGetItem(src, index);
-        Time greater1 = (cdt > ts0) ? cdt : ts0;
+        Time greater1 = MAX(cdt,ts0);
         Time value = greater1 + STORE_COST;
 		tArray[index] = value;
 #ifdef EXTRA_STATS
@@ -1384,7 +1388,7 @@ void* _KPhi1To1(UInt dest, UInt src, UInt cd) {
 		Level i = getLevel(index);
 		Time ts_src = RShadowGetItem(src, index);
 		Time ts_cd = RShadowGetItem(cd, index);
-        Time max = (ts_src > ts_cd) ? ts_src : ts_cd;
+        Time max = MAX(ts_src,ts_cd);
 		RShadowSetItem(max, dest, index);
         MSG(3, "KPhi1To1 level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " src %u cd %u dest %u\n", src, cd, dest);
@@ -1405,8 +1409,8 @@ void* _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2) {
 		Time ts_src = RShadowGetItem(src, index);
 		Time ts_cd1 = RShadowGetItem(cd1, index);
 		Time ts_cd2 = RShadowGetItem(cd2, index);
-        Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
+        Time max1 = MAX(ts_src,ts_cd1);
+        Time max2 = MAX(max1,ts_cd2);
 
 		RShadowSetItem(max2, dest, index);
 
@@ -1432,9 +1436,9 @@ void* _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
 		Time ts_cd1 = RShadowGetItem(cd1, index);
 		Time ts_cd2 = RShadowGetItem(cd2, index);
 		Time ts_cd3 = RShadowGetItem(cd3, index);
-        Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
+        Time max1 = MAX(ts_src,ts_cd1);
+        Time max2 = MAX(max1,ts_cd2);
+        Time max3 = MAX(max2,ts_cd3);
 
 		RShadowSetItem(max3, dest, index);
 
@@ -1462,10 +1466,10 @@ void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 		Time ts_cd2 = RShadowGetItem(cd2, index);
 		Time ts_cd3 = RShadowGetItem(cd3, index);
 		Time ts_cd4 = RShadowGetItem(cd4, index);
-        Time max1 = (ts_src > ts_cd1) ? ts_src : ts_cd1;
-        Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
-        Time max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
+        Time max1 = MAX(ts_src,ts_cd1);
+        Time max2 = MAX(max1,ts_cd2);
+        Time max3 = MAX(max2,ts_cd3);
+        Time max4 = MAX(max3,ts_cd4);
 
 		RShadowSetItem(max4, dest, index);
 
@@ -1495,10 +1499,10 @@ void* _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
 		Time ts_cd2 = RShadowGetItem(cd2, index);
 		Time ts_cd3 = RShadowGetItem(cd3, index);
 		Time ts_cd4 = RShadowGetItem(cd4, index);
-        Time max1 = (ts_dest > ts_cd1) ? ts_dest : ts_cd1;
-        Time max2 = (max1 > ts_cd2) ? max1 : ts_cd2;
-        Time max3 = (max2 > ts_cd3) ? max2 : ts_cd3;
-        Time max4 = (max3 > ts_cd4) ? max3 : ts_cd4;
+        Time max1 = MAX(ts_dest,ts_cd1);
+        Time max2 = MAX(max1,ts_cd2);
+        Time max3 = MAX(max2,ts_cd3);
+        Time max4 = MAX(max3,ts_cd4);
 		RShadowSetItem(max4, dest, index);
 
         MSG(2, "KPhi4To1 level %u version %u \n", i, RegionGetVersion(i));
@@ -1523,7 +1527,7 @@ void* _KPhiAddCond(UInt dest, UInt src) {
 		Region* region = RegionGet(i);
 		Time ts_src = RShadowGetItem(src, index);
 		Time ts_dest = RShadowGetItem(dest, index);
-        Time value = (ts_src > ts_dest) ? ts_src : ts_dest;
+        Time value = MAX(ts_src,ts_dest);
 		RShadowSetItem(value, dest, index);
         RegionUpdateCp(region, value);
         MSG(2, "KPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
