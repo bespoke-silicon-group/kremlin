@@ -38,8 +38,8 @@ void* _KInsertValue(UInt src, UInt dest);
 void* _KInsertValueConst(UInt dest); 
 // END deprecated?
 
-void* _KInduction(UInt dest); 
-void* _KReduction(UInt opCost, UInt dest); 
+void _KInduction(UInt dest); 
+void _KReduction(UInt opCost, UInt dest); 
 
 void* _KLoad(Addr src_addr, UInt dest, UInt32 size, UInt32 num_in, ...); 
 void* _KLoad0(Addr src_addr, UInt dest, UInt32 size); 
