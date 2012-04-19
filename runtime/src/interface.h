@@ -49,16 +49,16 @@ void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 mem
 void _KStore(Reg src_reg, Addr dest_addr, UInt32 memory_access_size); 
 void _KStoreConst(Addr dest_addr, UInt32 memory_access_size); 
 
+void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg); 
+void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg); 
+void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg); 
+void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg); 
+void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg);
+void _KPhiAddCond(Reg dest_reg, Reg src_reg);
+
 void _KMalloc(Addr addr, size_t size, UInt dest);
 void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest);
 void _KFree(Addr addr);
-
-void _KPhi1To1(UInt dest, UInt src, UInt cd); 
-void _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2); 
-void _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3); 
-void _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4); 
-void _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4);
-void _KPhiAddCond(UInt dest, UInt src);
 
 void _KPushCDep(Reg cond);
 void _KPopCDep();
