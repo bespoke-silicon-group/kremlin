@@ -1327,7 +1327,7 @@ void _KLoad0(Addr addr, Reg dest, UInt32 size) {
         RegionUpdateCp(region, value);
     }
 
-    MSG(3, "load ts[%u] completed\n\n");
+    MSG(3, "load ts[%u] completed\n\n",dest);
 }
 
 void _KLoad1(Addr addr, UInt dest, UInt src1, UInt32 size) {
