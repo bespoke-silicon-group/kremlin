@@ -1119,6 +1119,23 @@ void _KTimestamp(UInt32 dest, UInt32 numIn, ...) {
     }
 }
 
+void* _KAssignConst(UInt dest) {
+    MSG(1, "_KAssignConst ts[%u]\n", dest);
+	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest=%u)\n",dest);
+    if (!isKremlinOn())
+        return NULL;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time cdt = CDepGet(index);
+		RShadowSetItem(cdt, dest, index);
+        RegionUpdateCp(region, cdt);
+    }
+    return NULL;
+}
+
 // XXX: not 100% sure this is the correct functionality
 void _KTimestamp0(UInt32 dest) {
     MSG(1, "KTimestamp0 to %u\n", dest);
@@ -1185,96 +1202,14 @@ void _KTimestamp2(UInt32 dest, UInt32 src1, UInt32 off1, UInt32 src2, UInt32 off
     }
 }
 
-void* _KBinary(UInt opCost, Reg src0, Reg src1, Reg dest) {
-    MSG(1, "KBinary ts[%u] = max(ts[%u], ts[%u]) + %u\n", dest, src0, src1, opCost);
-	idbgAction(KREM_BINOP,"## _KBinary(opCost=%u,src0=%u,src1=%u,dest=%u)\n",opCost,src0,src1,dest);
-
-    if (!isKremlinOn())
-        return NULL;
-
-	Index depth = getIndexDepth();
-	
-	Index index;
-
-    for (index = 0; index < getIndexDepth(); index++) {
-		// CDep and shadow memory are index based
-		Level i = getLevel(index);
-		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		assert(cdt <= getTimetick() - region->start);
-        Time ts0 = RShadowGetItem(src0, index);
-        Time ts1 = RShadowGetItem(src1, index);
-
-        Time greater0 = (ts0 > ts1) ? ts0 : ts1;
-        Time greater1 = (cdt > greater0) ? cdt : greater0;
-        Time value = greater1 + opCost;
-		RShadowSetItem(value, dest, index);
-
-        MSG(3, "binOp[%u] level %u version %u \n", opCost, i, RegionGetVersion(i));
-        MSG(3, " src0 %u src1 %u dest %u\n", src0, src1, dest);
-        MSG(3, " ts0 %u ts1 %u cdt %u value %u\n", ts0, ts1, cdt, value);
-		//checkTimestamp(region, ts0);
-		//checkTimestamp(region, ts1);
-		// region info is level based
-        RegionUpdateCp(region, value);
-    }
-	return NULL;
-}
-
-void* _KBinaryConst(UInt opCost, Reg src, Reg dest) {
-    MSG(1, "KBinaryConst ts[%u] = ts[%u] + %u\n", dest, src, opCost);
-	idbgAction(KREM_BINOP,"## _KBinaryConst(opCost=%u,src=%u,dest=%u)\n",opCost,src,dest);
-    if (!isKremlinOn())
-        return NULL;
-
-	Table* table = RShadowGetTable();
-	Time* base = table->array; 
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
-		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		assert(cdt <= getTimetick() - region->start);
-        Time ts0 = RShadowGetItem(src, index);
-        Time greater1 = (cdt > ts0) ? cdt : ts0;
-        Time value = greater1 + opCost;
-		RShadowSetItem(value, dest, index);
-
-        MSG(3, "binOpConst[%u] level %u version %u \n", opCost, i, RegionGetVersion(i));
-	    MSG(3, " src %u dest %u\n", src, dest);
-   	    MSG(3, " ts0 %u cdt %u value %u\n", ts0, cdt, value);
-		RegionUpdateCp(region, value);
-    }
-    return NULL;
 }
 
-
-void* _KAssign(Reg src, Reg dest) {
-    MSG(1, "_KAssign ts[%u] <- ts[%u]\n", dest, src);
-	idbgAction(KREM_BINOP,"## _KAssign(src=%u,dest=%u)\n",src,dest);
-
-    if (!isKremlinOn())
-    	return NULL;
-
-    return _KBinaryConst(0, src, dest);
 }
 
-void* _KAssignConst(UInt dest) {
-    MSG(1, "_KAssignConst ts[%u]\n", dest);
-	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest=%u)\n",dest);
-    if (!isKremlinOn())
-        return NULL;
+}
 
-	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
-		Region* region = RegionGet(i);
-		Time cdt = CDepGet(index);
-		RShadowSetItem(cdt, dest, index);
-        RegionUpdateCp(region, cdt);
-    }
-    return NULL;
 }
 
 // TODO: implement
