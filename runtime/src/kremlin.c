@@ -1058,13 +1058,40 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 
 
 /*****************************************************************
- * KReduction, KBinary, KBinaryConst
+ * KInduction, KReduction, KTimestamp, KAssignConst
  *****************************************************************/
 
+void _KAssignConst(UInt dest_reg) {
+    MSG(1, "_KAssignConst ts[%u]\n", dest_reg);
+	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest_reg=%u)\n",dest_reg);
 
-void _KReduction(UInt opCost, Reg dest) {
-    MSG(3, "KReduction ts[%u] with cost = %d\n", dest, opCost);
-	idbgAction(KREM_REDUCTION, "## KReduction(opCost=%u,dest=%u)\n",opCost,dest);
+    if (!isKremlinOn()) return NULL;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time control_dep_time = CDepGet(index);
+		RShadowSetItem(control_dep_time, dest_reg, index);
+        RegionUpdateCp(region, control_dep_time);
+    }
+}
+
+// This function is mainly to help identify induction variables in the source
+// code.
+void _KInduction(UInt dest_reg) {
+    MSG(1, "KInduction to %u\n", dest_reg);
+	idbgAction(KREM_INDUCTION,"## _KInduction(dest_reg=%u)\n",dest_reg);
+
+    if (!isKremlinOn()) return;
+
+	_KAssignConst(dest_reg);
+}
+
+void _KReduction(UInt op_cost, Reg dest_reg) {
+    MSG(3, "KReduction ts[%u] with cost = %d\n", dest_reg, op_cost);
+	idbgAction(KREM_REDUCTION, "## KReduction(op_cost=%u,dest_reg=%u)\n",op_cost,dest_reg);
+
     if (!isKremlinOn() || !isInstrumentable()) return;
 }
 
@@ -1107,22 +1134,6 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 		RShadowSetItem(curr_max, dest_reg, index);
 
         RegionUpdateCp(region, curr_max);
-    }
-}
-
-void _KAssignConst(UInt dest_reg) {
-    MSG(1, "_KAssignConst ts[%u]\n", dest_reg);
-	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest_reg=%u)\n",dest_reg);
-
-    if (!isKremlinOn()) return NULL;
-
-	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
-		Region* region = RegionGet(i);
-		Time control_dep_time = CDepGet(index);
-		RShadowSetItem(control_dep_time, dest_reg, index);
-        RegionUpdateCp(region, control_dep_time);
     }
 }
 
@@ -1341,16 +1352,6 @@ void* _KStoreConst(Addr dest_addr, UInt32 size) {
 }
 
 
-// this function is the same as _KAssignConst but helps to quickly
-// identify induction variables in the source code
-void _KInduction(UInt dest) {
-    MSG(1, "KInduction to %u\n", dest);
-	idbgAction(KREM_INDUCTION,"## _KInduction(dest=%u)\n",dest);
-    if (!isKremlinOn())
-		return NULL;
-
-	_KAssignConst(dest);
-}
 
 /******************************************************************
  * logPhi Functions
