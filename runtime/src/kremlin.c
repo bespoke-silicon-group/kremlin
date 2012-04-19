@@ -24,7 +24,10 @@
 #define FREE_COST           10
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
+
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
+#define MAX3(a, b, c)   (((MAX(a,b)) > (c)) ? (MAX(a,b)) : (b))
+#define MAX4(a, b, c, d)   ( MAX(MAX(a,b),MAX(c,d)) )
 
 #define isKremlinOn()		(kremlinOn == 1)
 
@@ -1462,139 +1465,135 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
 
 
 /******************************************************************
- * logPhi Functions
+ * KPhi Functions
  *
- *  for the efficiency, we use several versions with different 
- *  number of incoming dependences
+ *  For efficiency, we use several versions with different 
+ *  number of incoming dependences.
  ******************************************************************/
 
-void _KPhi1To1(UInt dest, UInt src, UInt cd) {
-    MSG(1, "KPhi1To1 ts[%u] = max(ts[%u], ts[%u])\n", dest, src, cd);
-	idbgAction(KREM_PHI,"## KPhi1To1 (dest=%u,src=%u,cd=%u)\n",dest,src,cd);
+void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
+    MSG(1, "KPhi1To1 ts[%u] = max(ts[%u], ts[%u])\n", dest_reg, src_reg, ctrl_reg);
+	idbgAction(KREM_PHI,"## KPhi1To1 (dest_reg=%u,src_reg=%u,ctrl_reg=%u)\n",dest_reg,src_reg,ctrl_reg);
+
     if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Time ts_src = RShadowGetItem(src, index);
-		Time ts_cd = RShadowGetItem(cd, index);
-        Time max = MAX(ts_src,ts_cd);
-		RShadowSetItem(max, dest, index);
+
+		Time src_time = RShadowGetItem(src_reg, index);
+		Time ctrl_time = RShadowGetItem(ctrl_reg, index);
+        Time dest_time = MAX(src_time,ctrl_time);
+		RShadowSetItem(dest_time, dest_reg, index);
+
         MSG(3, "KPhi1To1 level %u version %u \n", i, RegionGetVersion(i));
-        MSG(3, " src %u cd %u dest %u\n", src, cd, dest);
-        MSG(3, " ts_src %u ts_cd %u max %u\n", ts_src, ts_cd, max);
+        MSG(3, " src_reg %u ctrl_reg %u dest_reg %u\n", src_reg, ctrl_reg, dest_reg);
+        MSG(3, " src_time %u ctrl_time %u dest_time %u\n", src_time, ctrl_time, dest_time);
     }
 }
 
-void _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2) {
-    MSG(1, "KPhi2To1 ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2);
-	idbgAction(KREM_PHI,"## KPhi2To1 (dest=%u,src=%u,cd1=%u,cd2=%u)\n",dest,src,cd1,cd2);
+void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg) {
+    MSG(1, "KPhi2To1 ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest_reg, src_reg, ctrl1_reg, ctrl2_reg);
+	idbgAction(KREM_PHI,"## KPhi2To1 (dest_reg=%u,src_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u)\n",dest_reg,src_reg,ctrl1_reg,ctrl2_reg);
     if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Time ts_src = RShadowGetItem(src, index);
-		Time ts_cd1 = RShadowGetItem(cd1, index);
-		Time ts_cd2 = RShadowGetItem(cd2, index);
-        Time max1 = MAX(ts_src,ts_cd1);
-        Time max2 = MAX(max1,ts_cd2);
 
-		RShadowSetItem(max2, dest, index);
+		Time src_time = RShadowGetItem(src_reg, index);
+		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
+		Time ctrl2_time = RShadowGetItem(ctrl2_reg, index);
+		Time dest_time = MAX3(src_time,ctrl1_time,ctrl2_time);
 
-        MSG(2, "KPhi2To1 level %u version %u \n", i, RegionGetVersion(i));
-        MSG(2, " src %u cd1 %u cd2 %u dest %u\n", src, cd1, cd2, dest);
-        MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u max %u\n", ts_src, ts_cd1, ts_cd2, max2);
+		RShadowSetItem(dest_time, dest_reg, index);
+
+        MSG(3, "KPhi2To1 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src_reg %u ctrl1_reg %u ctrl2_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, dest_reg);
+        MSG(3, " src_time %u ctrl1_time %u ctrl2_time %u dest_time %u\n", src_time, ctrl1_time, ctrl2_time, dest_time);
     }
 }
 
-void _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {
-    MSG(1, "KPhi3To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest, src, cd1, cd2, cd3);
-	idbgAction(KREM_PHI,"## KPhi3To1 (dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u)\n",dest,src,cd1,cd2,cd3);
+void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg) {
+    MSG(1, "KPhi3To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest_reg, src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg);
+	idbgAction(KREM_PHI,"## KPhi3To1 (dest_reg=%u,src_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u,ctrl3_reg=%u)\n",dest_reg,src_reg,ctrl1_reg,ctrl2_reg,ctrl3_reg);
 
     if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Time ts_src = RShadowGetItem(src, index);
-		Time ts_cd1 = RShadowGetItem(cd1, index);
-		Time ts_cd2 = RShadowGetItem(cd2, index);
-		Time ts_cd3 = RShadowGetItem(cd3, index);
-        Time max1 = MAX(ts_src,ts_cd1);
-        Time max2 = MAX(max1,ts_cd2);
-        Time max3 = MAX(max2,ts_cd3);
 
-		RShadowSetItem(max3, dest, index);
+		Time src_time = RShadowGetItem(src_reg, index);
+		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
+		Time ctrl2_time = RShadowGetItem(ctrl2_reg, index);
+		Time ctrl3_time = RShadowGetItem(ctrl3_reg, index);
+		Time dest_time = MAX4(src_time,ctrl1_time,ctrl2_time,ctrl3_time);
+		RShadowSetItem(dest_time, dest_reg, index);
 
-        MSG(2, "KPhi3To1 level %u version %u \n", i, RegionGetVersion(i));
-        MSG(2, " src %u cd1 %u cd2 %u cd3 %u dest %u\n", src, cd1, cd2, cd3, dest);
-        MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u max %u\n", ts_src, ts_cd1, ts_cd2, ts_cd3, max3);
+        MSG(3, "KPhi3To1 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src_reg %u ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, dest_reg);
+        MSG(3, " src_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u dest_time %u\n", src_time, ctrl1_time, ctrl2_time, ctrl3_time, dest_time);
     }
 }
 
-void _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg) {
     MSG(1, "KPhi4To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
-		dest, src, cd1, cd2, cd3, cd4);
-	idbgAction(KREM_PHI,"## KPhi4To1 (dest=%u,src=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n", dest,src,cd1,cd2,cd3,cd4);
+		dest_reg, src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg);
+	idbgAction(KREM_PHI,"## KPhi4To1 (dest_reg=%u,src_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u,ctrl3_reg=%u,ctrl4_reg=%u)\n", dest_reg,src_reg,ctrl1_reg,ctrl2_reg,ctrl3_reg,ctrl4_reg);
 
     if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Time ts_src = RShadowGetItem(src, index);
-		Time ts_cd1 = RShadowGetItem(cd1, index);
-		Time ts_cd2 = RShadowGetItem(cd2, index);
-		Time ts_cd3 = RShadowGetItem(cd3, index);
-		Time ts_cd4 = RShadowGetItem(cd4, index);
-        Time max1 = MAX(ts_src,ts_cd1);
-        Time max2 = MAX(max1,ts_cd2);
-        Time max3 = MAX(max2,ts_cd3);
-        Time max4 = MAX(max3,ts_cd4);
 
-		RShadowSetItem(max4, dest, index);
+		Time src_time = RShadowGetItem(src_reg, index);
+		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
+		Time ctrl2_time = RShadowGetItem(ctrl2_reg, index);
+		Time ctrl3_time = RShadowGetItem(ctrl3_reg, index);
+		Time ctrl4_time = RShadowGetItem(ctrl4_reg, index);
+		// TODO: MAX5???
+		Time dest_time = MAX(src_time,MAX4(ctrl1_time,ctrl2_time,ctrl3_time,ctrl4_time));
+		RShadowSetItem(dest_time, dest_reg, index);
 
         MSG(2, "KPhi4To1 level %u version %u \n", i, RegionGetVersion(i));
-        MSG(2, " src %u cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", src, cd1, cd2, cd3, cd4, dest);
-        MSG(2, " ts_src %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", 
-			ts_src, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
+        MSG(2, " src_reg %u ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u ctrl4_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg, dest_reg);
+        MSG(2, " src_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u ctrl4_time %u dest_time %u\n", 
+			src_time, ctrl1_time, ctrl2_time, ctrl3_time, ctrl4_time, dest_time);
     }
 }
 
-void _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {
+void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg) {
     MSG(1, "KPhi4To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u], ts[%u])\n", 
-		dest, dest, cd1, cd2, cd3, cd4);
-	idbgAction(KREM_CD_TO_PHI,"## KPhi4To1 (dest=%u,cd1=%u,cd2=%u,cd3=%u,cd4=%u)\n",
-		dest,cd1,cd2,cd3,cd4);
+		dest_reg, dest_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg);
+	idbgAction(KREM_CD_TO_PHI,"## KPhi4To1 (dest_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u,ctrl3_reg=%u,ctrl4_reg=%u)\n",
+		dest_reg,ctrl1_reg,ctrl2_reg,ctrl3_reg,ctrl4_reg);
 
     if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-        Time ts_dest = RShadowGetItem(dest, index);
-		Time ts_cd1 = RShadowGetItem(cd1, index);
-		Time ts_cd2 = RShadowGetItem(cd2, index);
-		Time ts_cd3 = RShadowGetItem(cd3, index);
-		Time ts_cd4 = RShadowGetItem(cd4, index);
-        Time max1 = MAX(ts_dest,ts_cd1);
-        Time max2 = MAX(max1,ts_cd2);
-        Time max3 = MAX(max2,ts_cd3);
-        Time max4 = MAX(max3,ts_cd4);
-		RShadowSetItem(max4, dest, index);
 
-        MSG(2, "KPhi4To1 level %u version %u \n", i, RegionGetVersion(i));
-        MSG(2, " cd1 %u cd2 %u cd3 %u cd4 %u dest %u\n", cd1, cd2, cd3, cd4, dest);
-        MSG(2, " ts_dest %u ts_cd1 %u ts_cd2 %u ts_cd3 %u ts_cd4 %u max %u\n", ts_dest, ts_cd1, ts_cd2, ts_cd3, ts_cd4, max4);
+        Time old_dest_time = RShadowGetItem(dest_reg, index);
+		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
+		Time ctrl2_time = RShadowGetItem(ctrl2_reg, index);
+		Time ctrl3_time = RShadowGetItem(ctrl3_reg, index);
+		Time ctrl4_time = RShadowGetItem(ctrl4_reg, index);
+		// TODO: MAX5???
+		Time new_dest_time = MAX(old_dest_time,MAX4(ctrl1_time,ctrl2_time,ctrl3_time,ctrl4_time));
+		RShadowSetItem(new_dest_time, dest_reg, index);
+
+        MSG(3, "KPhi4To1 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u ctrl4_reg %u dest_reg %u\n", ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg, dest_reg);
+        MSG(3, " old_dest_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u ctrl4_time %u new_dest_time %u\n", old_dest_time, ctrl1_time, ctrl2_time, ctrl3_time, ctrl4_time, new_dest_time);
     }
 }
 
-#define MAX_ENTRY 10
-
-void _KPhiAddCond(UInt dest, UInt src) {
-    MSG(1, "KPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest, src, dest);
-	idbgAction(KREM_CD_TO_PHI,"## KPhiAddCond (dest=%u,src=%u)\n",dest,src);
+void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
+    MSG(1, "KPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest_reg, src_reg, dest_reg);
+	idbgAction(KREM_CD_TO_PHI,"## KPhiAddCond (dest_reg=%u,src_reg=%u)\n",dest_reg,src_reg);
 
     if (!isKremlinOn()) return;
 
@@ -1602,14 +1601,17 @@ void _KPhiAddCond(UInt dest, UInt src) {
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
 		Region* region = RegionGet(i);
-		Time ts_src = RShadowGetItem(src, index);
-		Time ts_dest = RShadowGetItem(dest, index);
-        Time value = MAX(ts_src,ts_dest);
-		RShadowSetItem(value, dest, index);
-        RegionUpdateCp(region, value);
-        MSG(2, "KPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
-        MSG(2, " src %u dest %u\n", src, dest);
-        MSG(2, " ts_src %u ts_dest %u value %u\n", ts_src, ts_dest, value);
+
+		Time src_time = RShadowGetItem(src_reg, index);
+		Time old_dest_time = RShadowGetItem(dest_reg, index);
+        Time new_dest_time = MAX(src_time,old_dest_time);
+		RShadowSetItem(new_dest_time, dest_reg, index);
+
+        RegionUpdateCp(region, new_dest_time);
+
+        MSG(3, "KPhiAddCond level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src_reg %u dest_reg %u\n", src_reg, dest_reg);
+        MSG(3, " src_time %u old_dest_time %u new_dest_time %u\n", src_time, old_dest_time, new_dest_time);
     }
 }
 
@@ -1748,6 +1750,8 @@ void _KPrintData() {}
  * DJ: will be optimized later..
  ************************************************/
 
+
+#define MAX_ENTRY 10
 
 // use estimated cost for a callee function we cannot instrument
 // TODO: implement new shadow mem interface
