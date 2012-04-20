@@ -49,6 +49,7 @@ void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 mem
 void _KStore(Reg src_reg, Addr dest_addr, UInt32 memory_access_size); 
 void _KStoreConst(Addr dest_addr, UInt32 memory_access_size); 
 
+void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...);
 void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg); 
 void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg); 
 void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg); 
