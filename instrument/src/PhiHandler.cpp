@@ -435,14 +435,13 @@ void PhiHandler::handle(llvm::Instruction& inst)
     std::vector<PHINode*> ctrl_deps;
     getConditions(phi, ctrl_deps);
 
-    unsigned int num_ctrl_deps = ctrl_deps.size();
-
-    SpecializedLogFuncs::iterator it = specializedPhiLoggingFuncs.find(num_ctrl_deps);
-    Function* phiLoggingFunc = this->phiLoggingFunc;
+    Function* phi_logging_func = this->phiLoggingFunc;
 
     // If we have specialized version, use that func.
+    unsigned int num_ctrl_deps = ctrl_deps.size();
+    SpecializedLogFuncs::iterator it = specializedPhiLoggingFuncs.find(num_ctrl_deps);
     if(it != specializedPhiLoggingFuncs.end())
-        phiLoggingFunc = it->second;
+        phi_logging_func = it->second;
 
     // Otherwise, use var arg and set the num of args.
     else
@@ -456,7 +455,7 @@ void PhiHandler::handle(llvm::Instruction& inst)
     }
 
     // Make and add the call.
-    CallInst& ci = *CallInst::Create(phiLoggingFunc, log_func_args.begin(), log_func_args.end(), "");
+    CallInst& ci = *CallInst::Create(phi_logging_func, log_func_args.begin(), log_func_args.end(), "");
     timestampPlacer.constrainInstPlacement(ci, *phi.getParent()->getFirstNonPHI());
 
     // TODO: Causes problem in this case
