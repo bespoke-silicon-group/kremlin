@@ -218,7 +218,6 @@ static SEntry* STableGetSEntry(Addr addr) {
 
 /*
  * TVCache: cache for tag vectors
- *
  */ 
 
 typedef struct _CacheEntry {
@@ -229,16 +228,76 @@ typedef struct _CacheEntry {
 
 } CacheLine;
 
-static CacheLine* tagTable;
-static Table* valueTable[2];
+typedef struct _TVCache {
+	CacheLine* tagTable;
+	Table* valueTable;
+} TVCache;
 
-static int lineNum;
-static int lineShift;
-static int lineMask;
-static int bypassCache = 0;
+static TVCache tvCache;
 
-static inline Time* getTimeAddr(int tableNum, int row, int index) {
-	return TableGetElementAddr(valueTable[tableNum], row, index);
+typedef struct _CacheConfig {
+	int  lineCount;
+	int  lineShift;
+	int  depth;
+	Bool enable;
+} CacheConfig;
+
+static CacheConfig cacheConfig;
+
+static Bool TVCacheUseCache() {
+	return cacheConfig.enable;
+}
+
+static void TVCacheSetEnable(Bool enable) {
+	cacheConfig.enable = enable;
+}
+
+static int TVCacheGetLineCount() {
+	return cacheConfig.lineCount;
+}
+
+static int TVCacheGetLineMask() {
+	return cacheConfig.lineCount - 1;
+}
+
+static int TVCacheGetDepth() {
+	return cacheConfig.depth;
+}
+
+static inline int getFirstOnePosition(int input) {
+	int i;
+
+	for (i=0; i<8 * sizeof(int); i++) {
+		if (input & (1 << i))
+			return i;
+	}
+	assert(0);
+	return 0;
+}
+
+static int TVCacheGetLineShift() {
+	return cacheConfig.lineShift;
+}
+
+static void TVCacheConfigure(int sizeMB) {
+	int lineSize = 4;	// 64bit granularity 
+	int lineCount = sizeMB * 1024 * 1024 / lineSize;
+	cacheConfig.lineCount = lineCount;
+	cacheConfig.lineShift = getFirstOnePosition(lineCount);
+	cacheConfig.depth = KConfigGetIndexSize();
+
+	//fprintf(stderr, "MShadowCacheInit: total size: %d MB, lineNum %d, lineShift %d, lineMask 0x%x\n", 
+	//	cacheSizeMB, lineCount, lineShift, lineMask);
+
+	tvCache.tagTable = MemPoolCallocSmall(lineCount, sizeof(CacheLine));
+	tvCache.valueTable = TableCreate(lineCount, cacheConfig.depth);
+
+	MSG(0, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
+		lineCount, KConfigGetIndexSize(), tvCache.valueTable[0]->array);
+}
+
+static inline Time* getTimeAddr(int row, int index) {
+	return TableGetElementAddr(tvCache.valueTable, row, index);
 }
 
 static inline int getLineIndex(Addr addr) {
@@ -248,6 +307,8 @@ static inline int getLineIndex(Addr addr) {
 	assert(ret >= 0 && ret < lineNum);
 #endif
 	int nShift = 3;	
+	int lineMask = TVCacheGetLineMask();
+	int lineShift = TVCacheGetLineShift();
 	int val0 = (((UInt64)addr) >> nShift) & lineMask;
 	int val1 = (((UInt64)addr) >> (nShift + lineShift)) & lineMask;
 	return val0 ^ val1;
@@ -273,22 +334,30 @@ static inline Bool isHit(CacheLine* entry, Addr addr) {
 }
 
 static inline CacheLine* getEntry(int index) {
-	assert(index < lineNum);
-	return &(tagTable[index]);
+	assert(index < TVCacheGetLineCount());
+	return &(tvCache.tagTable[index]);
 }
 
-static inline int getFirstOnePosition(int input) {
-	int i;
-
-	for (i=0; i<8 * sizeof(int); i++) {
-		if (input & (1 << i))
-			return i;
-	}
-	assert(0);
-	return 0;
+static inline CacheLine* TVCacheGetCacheLine(Addr addr) {
+	int row = getLineIndex(addr);
+	return getEntry(row);
 }
-static inline int getAccessWidthType(CacheLine* entry) {
-	return TYPE_64BIT;
+
+static inline Time* TVCacheGetTimeAddr(Addr addr, int type) {
+	int row = getLineIndex(addr);
+	int offset = ((UInt64)addr >> 2) & 0x1;
+	row = row * 2 + offset;
+	return TableGetElementAddr(tvCache.valueTable, row, index);
+}
+
+static inline void TVCacheLookup(Addr addr, CacheLine** entry, int* offset, Time** tArray) {
+	int index = getLineIndex(addr);
+	*offset = ((UInt64)addr >> 2) & 0x1;
+	assert(index < TVCacheGetLineCount());
+	*entry = &(tvCache.tagTable[index]);
+	int tTableIndex = index * 2 + *offset;
+	*tArray = TableGetElementAddr(tvCache.valueTable, tTableIndex, 0);
+	return;
 }
 
 static inline Version LTableGetVer(LTable* lTable, Index level) {
@@ -527,39 +596,40 @@ static inline int hasVersionError(Version* vArray, int size) {
  * TVCache Init/ Deinit
  */
 
-
 static void TVCacheInit(int cacheSizeMB) {
 	if (cacheSizeMB == 0) {
-		bypassCache = 1;
+		TVCacheSetEnable(FALSE);
 		fprintf(stderr, "MShadowCacheInit: Bypass Cache\n"); 
-		return;
+
+	} else {
+		TVCacheSetEnable(TRUE);
+		TVCacheConfigure(cacheSizeMB);
 	}
-	int lineSize = 8;	// 64bit granularity 
-	lineNum = cacheSizeMB * 1024 * 1024 / lineSize;
-	lineShift = getFirstOnePosition(lineNum);
-	lineMask = lineNum - 1;
-	fprintf(stderr, "MShadowCacheInit: total size: %d MB, lineNum %d, lineShift %d, lineMask 0x%x\n", 
-		cacheSizeMB, lineNum, lineShift, lineMask);
-
-	tagTable = MemPoolCallocSmall(lineNum, sizeof(CacheLine));
-	valueTable[0] = TableCreate(lineNum, KConfigGetIndexSize());
-	//valueTable[1] = TableCreate(lineNum, KConfigGetRegionDepth());
-
-
-	MSG(0, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
-		lineNum, KConfigGetIndexSize(), valueTable[0]->array);
 }
 
 static void TVCacheDeinit() {
-	if (bypassCache == 1)
+	if (TVCacheUseCache() == FALSE)
 		return;
 
 	//printStat();
-	MemPoolFreeSmall(tagTable, sizeof(CacheLine) * lineNum);
-	TableFree(valueTable[0]);
+	MemPoolFreeSmall(tvCache.tagTable, sizeof(CacheLine) * TVCacheGetLineCount());
+	TableFree(tvCache.valueTable);
 	//TableFree(valueTable[1]);
 }
 
+/*
+ * TVCache Flush / Resize 
+ */
+
+static void TVCacheFlush() {
+		
+}
+
+static void TVCacheResize(int newSize) {
+	MSG(0, "\tTVCacheResize \n");
+	TVCacheFlush();
+	//TVCacheConfigure(
+}
 
 
 /*
@@ -622,14 +692,21 @@ static inline void TVCacheValidateTag(CacheLine* line, Time* destAddr, Version* 
 		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
 }
 
+static void TVCacheCheckConvert(int size) {
+	int oldDepth = TVCacheGetDepth();
+	if (oldDepth < size) {
+		TVCacheResize(oldDepth + 10);
+	}
+}
+
 static Time* TVCacheGet(Addr addr, Index size, Version* vArray, int type) {
-	int row = getLineIndex(addr);
-	CacheLine* entry = getEntry(row);
-
+	CacheLine* entry = NULL;
+	Time* destAddr = NULL;
 	int offset = 0;
-	Time* destAddr = getTimeAddr(offset, row, 0);
+	TVCacheLookup(addr, &entry, &offset, &destAddr);
+	check(addr, destAddr, entry->lastSize[offset], 0);
 
-	check(addr, destAddr, entry->lastSize[0], 0);
+	TVCacheCheckConvert(size);
 	if (isHit(entry, addr)) {
 		eventReadHit();
 		MSG(0, "\t cache hit at 0x%llx size = %d\n", destAddr, size);
@@ -665,15 +742,18 @@ static Time* TVCacheGet(Addr addr, Index size, Version* vArray, int type) {
 
 
 static void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
-	int row = getLineIndex(addr);
+	CacheLine* entry = NULL;
+	Time* destAddr = NULL;
 	int offset = 0;
-	Time* destAddr = getTimeAddr(offset, row, 0);
+	TVCacheLookup(addr, &entry, &offset, &destAddr);
+
+	TVCacheCheckConvert(size);
 
 	if (type == TYPE_32BIT) {
 		offset = ((UInt64)addr >> 2) & 0x1;
 	}
-	CacheLine* entry = getEntry(row);
-	assert(row < lineNum);
+	//CacheLine* entry = getEntry(row);
+	//assert(row < TVCacheGetLineCount());
 
 #ifndef NDEBUG
 	if (hasVersionError(vArray, size)) {
@@ -757,7 +837,7 @@ static Time* _MShadowGetCache(Addr addr, Index size, Version* vArray, UInt32 wid
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	MSG(0, "MShadowGet 0x%llx, size %d \n", tAddr, size);
 	eventRead();
-	if (bypassCache == 1) {
+	if (TVCacheUseCache() == FALSE) {
 		return NoCacheGet(tAddr, size, vArray, type);
 
 	} else {
@@ -783,7 +863,7 @@ static void _MShadowSetCache(Addr addr, Index size, Version* vArray, Time* tArra
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	MSG(0, "]\n");
 	eventWrite();
-	if (bypassCache == 1) {
+	if (TVCacheUseCache() == FALSE) {
 		NoCacheSet(tAddr, size, vArray, tArray, type);
 
 	} else {

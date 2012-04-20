@@ -84,8 +84,11 @@ static inline Level getCurrentLevel() {
 }
 
 inline void updateMaxActiveLevel(Level level) {
-	if (level > __kremlin_max_active_level)
+	if (level > __kremlin_max_active_level) {
 		__kremlin_max_active_level = level;
+		__kremlin_max_level = level;
+		__kremlin_index_size = KConfigGetMaxLevel() - KConfigGetMinLevel() + 1;
+	}
 }
 
 Level getMaxActiveLevel() {
@@ -1586,7 +1589,7 @@ static Bool kremlinDeinit() {
 	fprintf(stderr,"[kremlin] max active level = %d\n", 
 		getMaxActiveLevel());	
 	_KTurnOff();
-	CRegionDeinit("kremlin.bin");
+	CRegionDeinit(KConfigGetOutFileName());
 	RShadowDeinit();
 	MShadowDeinit();
 	ArgFifoDeinit();

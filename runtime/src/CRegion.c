@@ -736,8 +736,8 @@ static void emit(char* file) {
 	FILE* fp = fopen(file, "w");
 	emitRegion(fp, CPositionGetTree()->root->firstChild, 0);
 	fclose(fp);
-	fprintf(stderr, "[kremlin] Created %d Emitted (all %d leaves %d)\n", 
-		numCreated, numEntries, numEntriesLeaf);
+	fprintf(stderr, "[kremlin] Created File %s : %d Regions Emitted (all %d leaves %d)\n", 
+		file, numCreated, numEntries, numEntriesLeaf);
 
 	//fp = fopen("kremlin_region_graph.dot","w");
 	/*

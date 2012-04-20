@@ -3,8 +3,8 @@
 
 #include <signal.h>
 #include "kremlin.h"
-//#define KREMLIN_DEBUG	1
-#define KREMLIN_DEBUG_LEVEL 1
+//#define KREMLIN_DEBUG	
+#define KREMLIN_DEBUG_LEVEL 0
 
 /* WARNING!!!!
  *
@@ -33,6 +33,8 @@ void DebugDeinit();
 	void incIndentTab();
 	void decIndentTab();
 	void iDebugHandler();
+	#define idbgAction(op, ...) 	((void)0)
+#if 0
 	#define idbgAction(op, ...) { \
 		if (__kremlin_idbg) { \
 			if (__kremlin_idbg_run_state == Waiting) { \
@@ -41,6 +43,7 @@ void DebugDeinit();
 			iDebugHandler(op); \
 		} \
 	}
+#endif
 #else
     #define MSG(level, a, args...)  ((void)0)
     #define incIndentTab()          ((void)0)

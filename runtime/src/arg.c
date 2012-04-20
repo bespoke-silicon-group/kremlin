@@ -37,6 +37,19 @@ int parseOptionInt(char* option_str) {
 	}
 }
 
+char* parseOptionStr(char* option_str) {
+	char *dbg_level_str = strtok(option_str,"= ");
+	dbg_level_str = strtok(NULL,"= ");
+
+	if(dbg_level_str) {
+		return dbg_level_str;
+	}
+	else {
+		fprintf(stderr,"ERROR: Couldn't parse int from option (%s)\n",option_str);
+	}
+}
+
+
 void createOutputFilename() {
 	__kremlin_output_filename[0] = '\0'; // "clear" the old name
 
@@ -98,6 +111,13 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			KConfigDisableRSummary();
 			continue;
 		}
+
+		str_start = strstr(argv[i],"output");
+		if(str_start) {
+			KConfigSetOutFileName(parseOptionStr(argv[i]));
+			continue;
+		}
+
 
 		str_start = strstr(argv[i],"disable-cregion");
 		if(str_start) {

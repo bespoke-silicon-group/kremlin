@@ -14,6 +14,7 @@ typedef struct _config_ {
 
 	UInt32 cbufferSize;
 	UInt32 cacheSize;
+	char  outFileName[64];
 
 	UInt32 gcPeriod;	// garbage collection period 
 								    
@@ -34,6 +35,15 @@ void KConfigInit() {
 	config.gcPeriod = 1024;
 	config.enableRecursion = 1;
 	config.enableCRegion = 1;
+	strcpy(config.outFileName, "kremlin.bin");
+}
+
+void KConfigSetOutFileName(char* name) {
+	strcpy(config.outFileName, name);
+}
+
+char* KConfigGetOutFileName() {
+	return config.outFileName;	
 }
 
 void KConfigDisableRSummary() {
