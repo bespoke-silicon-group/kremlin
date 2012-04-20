@@ -419,7 +419,7 @@ void PhiHandler::handle(llvm::Instruction& inst)
     function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back, 
         ref(log_func_args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
 
-    LOG_DEBUG() << "processing phi node: " << PRINT_VALUE(*i) << "\n";
+    LOG_DEBUG() << "processing phi node: " << PRINT_VALUE(inst) << "\n";
 
     // Destination ID
     push_int(timestampPlacer.getId(phi));
