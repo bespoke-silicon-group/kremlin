@@ -1479,6 +1479,46 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
  *  number of incoming dependences.
  ******************************************************************/
 
+void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
+    MSG(1, "KPhi ts[%u] = max(ts[%u],ts[ctrl0]...ts[ctrl%u])\n", dest_reg, src_reg,num_ctrls);
+	idbgAction(KREM_PHI,"## KPhi (dest_reg=%u,src_reg=%u,num_ctrls=%u)\n",dest_reg,src_reg,num_ctrls,);
+
+    if (!isKremlinOn()) return;
+
+	// create an array holding the registers that are srcs
+	Reg* ctrl_regs = malloc(num_ctrls*sizeof(Reg));
+
+	va_list args;
+	va_start(args,num_ctrls);
+
+	int ctrl_idx;
+	for(ctrl_idx = 0; ctrl_idx < num_ctrls; ++ctrl_idx) {
+		Reg ctrl_reg = va_arg(args,UInt32);
+		ctrl_regs[ctrl_idx] = ctrl_reg;
+		// TODO: debug print out of src reg
+	}
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+
+		Time src_time = RShadowGetItem(src_reg, index);
+		Time dest_time = src_time;
+
+		int ctrl_idx;
+		for(ctrl_idx = 0; ctrl_idx < num_ctrls; ++ctrl_idx) {
+			Time ctrl_time = RShadowGetItem(ctrl_regs[ctrl_idx], index);
+			dest_time = MAX(dest_time,ctrl_time);
+		}
+
+		RShadowSetItem(dest_time, dest_reg, index);
+
+        MSG(3, "KPhi level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src_reg %u dest_reg %u\n", src_reg, dest_reg);
+        MSG(3, " src_time %u dest_time %u\n", src_time, ctrl_time, dest_time);
+    }
+}
+
 void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
     MSG(1, "KPhi1To1 ts[%u] = max(ts[%u], ts[%u])\n", dest_reg, src_reg, ctrl_reg);
 	idbgAction(KREM_PHI,"## KPhi1To1 (dest_reg=%u,src_reg=%u,ctrl_reg=%u)\n",dest_reg,src_reg,ctrl_reg);
