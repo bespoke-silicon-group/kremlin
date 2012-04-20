@@ -355,7 +355,6 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
 
     push_int(timestampPlacer.getId(phi)); // id for destination
     push_int(timestampPlacer.getId(controlling_cond)); // id for controlling cond
-    CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
 
 
     // do..while loops need the condition appended after the loop concludes
@@ -369,16 +368,19 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
             {
 				// TODO: FIXME this looks wrong... phi_bb should be replaced
 				// by successor????
+    			CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
                 timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
+    			timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
             }
         }
 	}
     // while loops need the condition appended as soon as the header executes
     else
     { 
+    	CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
         timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
+    	timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
     }
-    timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
 }
 
 /**
