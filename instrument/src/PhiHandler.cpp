@@ -381,7 +381,6 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
         timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
     	timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
     }
-    timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
 }
 
 /**
