@@ -3,7 +3,7 @@
 
 #include <signal.h>
 #include "kremlin.h"
-//#define KREMLIN_DEBUG	
+//#define KREMLIN_DEBUG	1
 #define KREMLIN_DEBUG_LEVEL 0
 
 /* WARNING!!!!
