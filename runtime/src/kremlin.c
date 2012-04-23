@@ -1300,6 +1300,8 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
         RShadowSetItem(dest_time, dest_reg, index);
         RegionUpdateCp(region, dest_time);
 	}
+
+	free(src_regs);
 }
 
 void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
@@ -1517,6 +1519,8 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
         MSG(3, " src_reg %u dest_reg %u\n", src_reg, dest_reg);
         MSG(3, " src_time %u dest_time %u\n", src_time, ctrl_time, dest_time);
     }
+
+	free(ctrl_regs);
 }
 
 void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
