@@ -17,7 +17,8 @@ class StoreInstHandler : public TimestampPlacerHandler
 
     private:
     PassLog& log;
-    llvm::Function* log_func;
+    llvm::Function* storeRegFunc;
+    llvm::Function* storeConstFunc;
     std::vector<unsigned int> opcodes;
     TimestampPlacer& ts_placer;
 };
