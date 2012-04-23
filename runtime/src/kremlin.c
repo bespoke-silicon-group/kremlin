@@ -1391,12 +1391,12 @@ void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 mem
 	 _KLoad(src_addr,dest_reg,mem_access_size,2,src1_reg,src2_reg);
 }
 
-void _KLoad3(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3, UInt32 mem_access_size){
-	 _KLoad(src_addr,dest_reg,mem_access_size,3,src1_reg,src2_reg,src3);
+void _KLoad3(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, UInt32 mem_access_size){
+	_KLoad(src_addr,dest_reg,mem_access_size,3,src1_reg,src2_reg,src3_reg);
 }
 
-void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3, Reg src4, UInt32 mem_access_size) { 
-	 _KLoad(src_addr,dest_reg,mem_access_size,4,src1_reg,src2_reg,src3,src4);
+void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, Reg src4_reg, UInt32 mem_access_size) { 
+	 _KLoad(src_addr,dest_reg,mem_access_size,4,src1_reg,src2_reg,src3_reg,src4_reg);
 }
 
 
