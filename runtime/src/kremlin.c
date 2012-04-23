@@ -1379,7 +1379,7 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
 }
 
 // XXX: KLoad{2,3,4} will soon be deprecated
-void _KLoad2(Addr src_addr, Reg src1_reg, Reg src2_reg, Reg dest_reg, UInt32 mem_access_size) {
+void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 mem_access_size) {
 	 _KLoad(src_addr,dest_reg,mem_access_size,2,src1_reg,src2_reg);
 }
 
