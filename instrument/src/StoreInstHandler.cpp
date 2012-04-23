@@ -69,7 +69,7 @@ void StoreInstHandler::handle(llvm::Instruction& inst)
     args += &cast_inst;
 
 	// size of access
-    args += ConstantInt::get(types.i32(),MemoryInstHelper::getTypeSizeInBytes(&si));
+    args += ConstantInt::get(types.i32(),MemoryInstHelper::getTypeSizeInBytes(&src));
 
     // Add the cast, call and the timestamp to store.
 	Function* proper_func = NULL;
