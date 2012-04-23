@@ -46,6 +46,8 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 memory_access_size); 
 void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 memory_access_size);
 void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 memory_access_size);
+void _KLoad3(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, UInt32 mem_access_size);
+void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, Reg src4_reg, UInt32 mem_access_size);
 void _KStore(Reg src_reg, Addr dest_addr, UInt32 memory_access_size); 
 void _KStoreConst(Addr dest_addr, UInt32 memory_access_size); 
 
