@@ -1239,9 +1239,9 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
     MSG(1, "KLoad ts[%u] = max(ts[0x%x],...,ts_src%u[...]) + %u (access size: %u)\n", dest_reg,src_addr,num_srcs,LOAD_COST,mem_access_size);
 	idbgAction(KREM_LOAD,"## _KLoad(src_addr=0x%x,dest_reg=%u,mem_access_size=%u,num_srcs=%u,...)\n",src_addr,dest_reg,mem_access_size,num_srcs);
 
-	assert(mem_access_size <= 8);
-
     if (!isKremlinOn()) return;
+
+	assert(mem_access_size <= 8);
 
 	Index region_depth = getIndexDepth();
 	Level min_level = getLevel(0); // XXX: this doesn't look right...
