@@ -870,7 +870,7 @@ void _KTurnOff() {
 
 
 /*****************************************************************
- * logRegionEntry / logRegionExit
+ * KEnterRegion / KExitRegion
  *****************************************************************/
 
 void _KEnterRegion(SID regionId, RegionType regionType) {
@@ -1306,7 +1306,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 
 void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
     MSG(1, "load size %d ts[%u] = ts[0x%x] + %u\n", mem_access_size, dest_reg, src_addr, LOAD_COST);
-	idbgAction(KREM_LOAD, "## logLoadInst(Addr=0x%x,dest_reg=%u,mem_access_size=%u)\n",
+	idbgAction(KREM_LOAD, "## KLoad0(Addr=0x%x,dest_reg=%u,mem_access_size=%u)\n",
 		src_addr, dest_reg, mem_access_size);
 
     if (!isKremlinOn()) return;
@@ -1806,7 +1806,7 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
     if (!isKremlinOn())
         return;
 
-    MSG(1, "logLibraryCall to ts[%u] with cost %u\n", dest, cost);
+    MSG(1, "KCallLib to ts[%u] with cost %u\n", dest, cost);
     _KWork(cost);
 
     TEntry* entrySrc[MAX_ENTRY];
@@ -1860,7 +1860,7 @@ void _KMalloc(Addr addr, size_t size, UInt dest) {
 #if 0
     if (!isKremlinOn()) return;
     
-    MSG(1, "logMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
+    MSG(1, "KMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
 
     // Don't do anything if malloc returned NULL
     if(!addr) { return; }
@@ -1875,7 +1875,7 @@ void _KFree(Addr addr) {
 #if 0
     if (!isKremlinOn()) return;
 
-    MSG(1, "logFree addr=0x%x\n", addr);
+    MSG(1, "KFree addr=0x%x\n", addr);
 
     // Calls to free with NULL just return.
     if(addr == NULL) return;
@@ -1911,9 +1911,9 @@ void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
     if (!isKremlinOn())
         return;
 
-    MSG(1, "logRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (UInt64)size);
-    logFree(old_addr);
-    logMalloc(new_addr,size,dest);
+    MSG(1, "KRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (UInt64)size);
+    _KFree(old_addr);
+    _KMalloc(new_addr,size,dest);
 #endif
 }
 
@@ -1985,7 +1985,7 @@ void printMemoryTimes(Addr addr, Index size) {
  * DJ: not sure what these are for 
  ************************************************/
 
-void* logInsertValue(UInt src, UInt dest) {
+void* _KInsertValue(UInt src, UInt dest) {
 	assert(0);
     //printf("Warning: logInsertValue not correctly implemented\n");
 
@@ -2000,14 +2000,14 @@ void* logInsertValue(UInt src, UInt dest) {
     return _KAssign(src, dest);
 }
 
-void* logInsertValueConst(UInt dest) {
+void* _KInsertValueConst(UInt dest) {
 	assert(0);
-    //printf("Warning: logInsertValueConst not correctly implemented\n");
+    //printf("Warning: _KInsertValueConst not correctly implemented\n");
 
 #ifdef KREMLIN_DEBUG
 	if(__kremlin_idbg) {
 		if(__kremlin_idbg_run_state == Waiting) {
-    		fprintf(stdout, "## logInsertValueConst(dest=%u)\n\t",dest);
+    		fprintf(stdout, "## _KInsertValueConst(dest=%u)\n\t",dest);
 		}
 	}
 #endif
@@ -2083,7 +2083,7 @@ void _KInvokeThrew(UInt64 id)
         {
             UInt64 lastLevel = getCurrentLevel();
             Region* region = regionInfo + getLevelOffset(getCurrentLevel());
-            logRegionExit(region->regionId, region->regionType);
+            _KExitRegion(region->regionId, region->regionType);
             assert(getCurrentLevel() < lastLevel);
             assert(getCurrentLevel() >= 0);
         }
@@ -2095,17 +2095,6 @@ void _KInvokeThrew(UInt64 id)
 
 #endif
 
-#if 0
-void logBBVisit(UInt bb_id) {
-    if (!isKremlinOn()) return;
-
-#ifdef MANAGE_BB_INFO
-    MSG(1, "logBBVisit(%u)\n", bb_id);
-    __prevBB = __currentBB;
-    __currentBB = bb_id;
-#endif
-}
-#endif
 
 
 
