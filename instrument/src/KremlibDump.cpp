@@ -183,6 +183,7 @@ namespace {
 			kremlib_calls.insert("_KMalloc");
 			kremlib_calls.insert("_KRealloc");
 			kremlib_calls.insert("_KFree");
+			kremlib_calls.insert("_KPhi");
 			kremlib_calls.insert("_KPhi1To1");
 			kremlib_calls.insert("_KPhi2To1");
 			kremlib_calls.insert("_KPhi3To1");
