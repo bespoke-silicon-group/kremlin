@@ -9,7 +9,7 @@
 class StoreInstHandler : public TimestampPlacerHandler
 {
     public:
-    StoreInstHandler(TimestampPlacer& ts_placer);
+    StoreInstHandler(TimestampPlacer& timestamp_placer);
     virtual ~StoreInstHandler() {}
 
     virtual const std::vector<unsigned int>& getOpcodes();
@@ -20,7 +20,7 @@ class StoreInstHandler : public TimestampPlacerHandler
     llvm::Function* storeRegFunc;
     llvm::Function* storeConstFunc;
     std::vector<unsigned int> opcodes;
-    TimestampPlacer& ts_placer;
+    TimestampPlacer& timestampPlacer;
 };
 
 #endif // STORE_INST_HANDLER_H

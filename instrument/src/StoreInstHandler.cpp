@@ -13,27 +13,26 @@ using namespace std;
 /**
  * Constructs a new handler for store instructions.
  */
-StoreInstHandler::StoreInstHandler(TimestampPlacer& ts_placer) :
+StoreInstHandler::StoreInstHandler(TimestampPlacer& timestamp_placer) :
     log(PassLog::get()),
-    ts_placer(ts_placer)
+    timestampPlacer(timestamp_placer)
 {
     // Set up the opcodes
     opcodes += Instruction::Store;
 
-    // Setup the storeRegFunc
-    Module& m = *ts_placer.getFunc().getParent();
-    LLVMTypes types(m.getContext());
-    vector<const Type*> args;
-    args += types.i32(), types.pi8(), types.i32();
-    FunctionType* store_func_type = FunctionType::get(types.voidTy(), args, false);
+    // Setup the storeRegFunc and storeConstFunc functions
+    Module& module = *timestampPlacer.getFunc().getParent();
+    LLVMTypes types(module.getContext());
 
-    storeRegFunc = cast<Function>(m.getOrInsertFunction("_KStore", store_func_type));
+    vector<const Type*> func_param_types;
+    func_param_types += types.i32(), types.pi8(), types.i32();
+    FunctionType* store_func_type = FunctionType::get(types.voidTy(), func_param_types, false);
+    storeRegFunc = cast<Function>(module.getOrInsertFunction("_KStore", store_func_type));
 
-	args.clear();
-    args += types.pi8(), types.i32();
-    FunctionType* store_const_func_type = FunctionType::get(types.voidTy(), args, false);
-	
-    storeConstFunc = cast<Function>(m.getOrInsertFunction("_KStoreConst", store_const_func_type));
+	func_param_types.clear();
+    func_param_types += types.pi8(), types.i32();
+    FunctionType* store_const_func_type = FunctionType::get(types.voidTy(), func_param_types, false);
+    storeConstFunc = cast<Function>(module.getOrInsertFunction("_KStoreConst", store_const_func_type));
 }
 
 /**
@@ -51,36 +50,40 @@ const std::vector<unsigned int>& StoreInstHandler::getOpcodes()
  */
 void StoreInstHandler::handle(llvm::Instruction& inst)
 {
-    Module& m = *ts_placer.getFunc().getParent();
-    LLVMTypes types(m.getContext());
+    LOG_DEBUG() << "handling store\n";
 
-    vector<Value*> args;
-    StoreInst& si = *cast<StoreInst>(&inst);
+    Module& module = *timestampPlacer.getFunc().getParent();
+    LLVMTypes types(module.getContext());
+    vector<Value*> call_args;
 
-    LOG_DEBUG() << "inst is a store inst\n";
+    StoreInst& store_inst = *cast<StoreInst>(&inst);
 
-    // first we get a ptr to the source
-    Value& src = *si.getOperand(0);
-	if(!isa<Constant>(src))
-    	args += ConstantInt::get(types.i32(),ts_placer.getId(src)); // src ID
+    // Get the ID for the source (if we're not storing a constant value)
+    Value& src_val = *store_inst.getValueOperand();
 
-    // the dest is already in ptr form so we simply use that
-    CastInst& cast_inst = *CastInst::CreatePointerCast(si.getPointerOperand(),types.pi8(),"inst_arg_ptr"); // dest addr
-    args += &cast_inst;
+	if(!isa<Constant>(src_val))
+    	call_args += ConstantInt::get(types.i32(),timestampPlacer.getId(src_val));
 
-	// size of access
-    args += ConstantInt::get(types.i32(),MemoryInstHelper::getTypeSizeInBytes(&src));
+	// Destination address is already a pointer; we ust need to cast it to
+	// void* (i.e.  i8*) so we don't have to specialize the function based on
+	// the size of the pointer.
+    CastInst& dest_ptr_cast = *CastInst::CreatePointerCast(store_inst.getPointerOperand(),types.pi8(),"inst_arg_ptr");
+    call_args += &dest_ptr_cast;
 
-    // Add the cast, call and the timestamp to store.
-	Function* proper_func = NULL;
-	if(isa<Constant>(src))
-		proper_func = storeConstFunc;
+	// final arg is the memory access size
+    call_args += ConstantInt::get(types.i32(),MemoryInstHelper::getTypeSizeInBytes(&src_val));
+
+    // Use the timestamp placer to place the call, the pointer cast, and the
+	// timestamp calc (if not storing a constant).
+	Function* func_to_call = NULL;
+	if(isa<Constant>(src_val))
+		func_to_call = storeConstFunc;
 	else
-		proper_func = storeRegFunc;
+		func_to_call = storeRegFunc;
 
-    CallInst& ci = *CallInst::Create(proper_func, args.begin(), args.end(), "");
-    ts_placer.constrainInstPlacement(cast_inst, ci);
-    ts_placer.constrainInstPlacement(ci, inst);
-	if(!isa<Constant>(src))
-    	ts_placer.requireValTimestampBeforeUser(src, ci);
+    CallInst& call_inst = *CallInst::Create(func_to_call, call_args.begin(), call_args.end(), "");
+    timestampPlacer.constrainInstPlacement(dest_ptr_cast, call_inst);
+    timestampPlacer.constrainInstPlacement(call_inst, inst);
+	if(!isa<Constant>(src_val))
+    	timestampPlacer.requireValTimestampBeforeUser(src_val, call_inst);
 }
