@@ -44,8 +44,9 @@ public class PlanPrinter {
 		double timeSave = record.getTimeSave();
 		String context = regionPrinter.getContextString(region);
 		String stat0 = regionPrinter.getStatString(region);
-		String stat1 = regionPrinter.getStatString2(region);
-		String ret = String.format("ExecTimeReduction: %.2f %% %s\n%s\n%s", timeSave, stat0, stat1, context);		
+		//String stat1 = regionPrinter.getStatString2(region);
+		//String ret = String.format("ExecTimeReduction: %.2f %% %s\n%s\n%s", timeSave, stat0, stat1, context);		
+		String ret = String.format("ExecTimeReduction: %.2f %% %s\n%s", timeSave, stat0,  context);
 		return ret;
 	}
 }
