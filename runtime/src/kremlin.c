@@ -1333,6 +1333,14 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
         MSG(3, "KLoad level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " src_addr 0x%x dest_reg %u\n", src_addr, dest_reg);
         MSG(3, " control_dep_time %u src_addr_time %u dest_time %u\n", control_dep_time, src_addr_time, dest_time);
+#if 0
+		// why are 0 to 3 hardwired in here???
+		if (src_addr_time > getTimetick()) {
+			fprintf(stderr, "@index %d, %llu, %llu, %llu, %llu\n", 
+				index, src_addr_times[0], src_addr_times[1], src_addr_times[2], src_addr_times[3]);
+			assert(0);
+		}
+#endif
 		checkTimestamp(index, region, src_addr_time); // XXX: see note in KLoad0
         RShadowSetItem(dest_time, dest_reg, index);
         RegionUpdateCp(region, dest_time);
