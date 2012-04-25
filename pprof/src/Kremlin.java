@@ -7,7 +7,7 @@ public class Kremlin {
 		OptionParser parser = new OptionParser();
 		parser.accepts("help");
 		parser.accepts("cores", "number of cores").withOptionalArg().describedAs("int").defaultsTo("4");
-		parser.accepts("min-time-reduction").withOptionalArg().describedAs("float").defaultsTo("5.0");
+		parser.accepts("min-time-reduction").withOptionalArg().describedAs("float").defaultsTo("0.0");
 		parser.accepts("planner").withOptionalArg().defaultsTo("gpu");
 		parser.accepts("overhead").withOptionalArg().defaultsTo("0");
 		//OptionSet options = parser.parse("--cores=3");
@@ -34,8 +34,8 @@ public class Kremlin {
 		ArgDB db = new ArgDB(options);
 		String planner = db.getPlanner();
 		//db.path = "g:\\work\\ktest\\recursion";
-		db.path = "g:\\work\\ktest\\cholesky";
-		//planner = "none";
+		//db.path = "g:\\work\\ktest\\hotspot";
+		planner = "gpu";
 
 		if (planner.equals("none")) {
 			System.out.println("profiler");
