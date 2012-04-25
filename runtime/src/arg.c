@@ -157,7 +157,7 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 
 		str_start = strstr(argv[i],"cache-size");
 		if(str_start) {
-			KConfigSetCacheSize(parseOptionInt(argv[i]));
+			KConfigSetSkaduCacheSize(parseOptionInt(argv[i]));
 			continue;
 		}
 

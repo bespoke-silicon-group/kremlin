@@ -11,6 +11,8 @@
 #include "ktypes.h"
 
 
+#define TYPE_64BIT	0
+#define TYPE_32BIT	1
 //UInt 		MShadowInit(int, int);	// initialize global shadow memory system
 //UInt 		MShadowDeinit();		// free associated data structure
 

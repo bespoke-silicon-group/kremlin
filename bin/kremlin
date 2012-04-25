@@ -11,7 +11,7 @@ if __name__ == "__main__":
     log.setLevel(logging.DEBUG)
     log.addHandler(logging.StreamHandler())
 
-    command = ["java", "-classpath", sys.path[0] + "/kremlin.jar:" + sys.path[0] + "/jopt-simple-4.3.jar", "Kremlin"]
+    command = ["java", "-ea", "-classpath", sys.path[0] + "/kremlin.jar:" + sys.path[0] + "/jopt-simple-4.3.jar", "Kremlin"]
     for x in sys.argv[1:]:
       command.append(x)
 

@@ -3,6 +3,8 @@
 
 #include "ktypes.h"
 
+void MShadowStatPrint();
+
 /*
  * Allocation Stat Structure
  */
