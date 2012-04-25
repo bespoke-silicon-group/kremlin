@@ -1559,7 +1559,7 @@ static Bool kremlinInit() {
 	CRegionInit();
 	RShadowInit(getIndexSize());
 
-	MShadowInit(KConfigGetCacheSize());
+	MShadowInit(KConfigGetSkaduCacheSize());
 	RegionInit(REGION_INIT_SIZE);
    	_KTurnOn();
     return TRUE;

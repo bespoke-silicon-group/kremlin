@@ -12,7 +12,7 @@ L1Stat _cacheStat;
  */
 static int cacheMB;
 double getCacheSize(int level) {
-	int cacheSize = KConfigGetCacheSize();
+	int cacheSize = KConfigGetSkaduCacheSize();
 	return (double)(cacheSize* 4.0 + level * cacheSize * 2);
 }
 
@@ -126,7 +126,7 @@ void printLevelStat() {
 #endif
 }
 
-void printMemStat() {
+void MShadowStatPrint() {
 	printMemStatAllocation();
 	printLevelStat();
 	printCacheStat();

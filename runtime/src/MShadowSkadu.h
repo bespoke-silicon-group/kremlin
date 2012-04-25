@@ -40,4 +40,6 @@ typedef struct _Segment {
 } SegTable;
 
 
+void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, int type);
+void SkaduFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type);
 #endif

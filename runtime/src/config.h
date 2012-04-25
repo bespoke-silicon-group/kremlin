@@ -15,8 +15,10 @@ UInt32 KConfigGetRegionDepth();
 void   KConfigSetShadowType(int);
 UInt32 KConfigGetShadowType();
 
-void   KConfigSetCacheSize(int);
-UInt32 KConfigGetCacheSize();
+void   KConfigSetSkaduCacheSize(int);
+UInt32 KConfigGetSkaduCacheSize();
+Bool   KConfigUseSkaduCache();
+
 
 void   KConfigSetMinLevel(Level);
 void   KConfigSetMaxLevel(Level);

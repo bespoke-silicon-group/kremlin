@@ -107,14 +107,19 @@ UInt32 KConfigGetCBufferSize() {
 }
 
 
-void KConfigSetCacheSize(int nMB) {
+void KConfigSetSkaduCacheSize(int nMB) {
 	config.cacheSize = nMB;
 	fprintf(stderr, "[kremlin] Setting cache size to %d MB\n",nMB);
 }
 
-UInt32 KConfigGetCacheSize() {
+UInt32 KConfigGetSkaduCacheSize() {
 	return config.cacheSize;
 }
+
+UInt32 KConfigUseSkaduCache() {
+	return (config.cacheSize > 0);
+}
+ 
 
 void KConfigSetShadowType(int n) {
 	config.shadowType = n;
