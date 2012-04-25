@@ -24,17 +24,49 @@ public class CRegionManager {
 		Map<Long, Set<Long>> childrenMap = new HashMap<Long, Set<Long>>();
 		Map<Long, CRegion> regionMap = new HashMap<Long, CRegion>();
 		TraceReader reader = new TraceReader(file);
+		Map<CRegion, Long> recursionTarget = new HashMap<CRegion, Long>();
 		
+				
+		// log parent, children relationship
+		for (TraceEntry entry : reader.getTraceList()) {			
+			childrenMap.put(entry.uid, entry.childrenSet);			
+		}
+		
+		// identify CRegionR nodes
 		for (TraceEntry entry : reader.getTraceList()) {
+			//System.err.printf("testing node with id %d with type %d\n", entry.uid, entry.type);
+			if (entry.type == 1) {	
+				//System.err.printf("\tdetected a RInit node with id %d\n", entry.uid);
+				// if a node is RInit type, set its descendant nodes to type 3
+				List<Long> list = new ArrayList<Long>();
+				list.add(entry.uid);
+				
+				while (list.isEmpty() == false) {
+					TraceEntry current = reader.getEntry(list.remove(0));
+					//System.err.printf("\t\tcurrent = id %d type %d\n", current.uid, current.type);
+					if (current.type == 0) {						
+						current.type = 3;
+					}
+					
+					Set<Long> children = childrenMap.get(current.uid);
+					list.addAll(children);					
+				}				
+			}
+		}
+		
+		for (TraceEntry entry: reader.getTraceList()) {
 			SRegion sregion = sManager.getSRegion(entry.sid);			
 			CallSite callSite = null;
 			if (entry.callSiteValue != 0)
 				callSite = sManager.getCallSite(entry.callSiteValue);
 			
-			CRegion region = new CRegion(sregion, callSite, entry);
+			
+			CRegion region = CRegion.create(sregion, callSite, entry);
 			regionMap.put(entry.uid, region);
-			childrenMap.put(entry.uid, entry.childrenSet);
-		}
+			if (entry.recursionTarget > 0) {
+				recursionTarget.put(region, entry.recursionTarget);
+			}			
+		}		
 		
 		// connect parent with children
 		for (long uid : regionMap.keySet()) {
@@ -50,6 +82,14 @@ public class CRegionManager {
 			}
 		}
 		
+		for (CRegion each : recursionTarget.keySet()) {
+			System.err.printf("rec target node id = %d\n", each.id);
+			CRegionR region = (CRegionR)each;
+			CRegion target = regionMap.get(recursionTarget.get(each));
+			assert(target.getRegionType() == CRegionType.REC_INIT);
+			region.setRecursionTarget(target);
+		}
+		
 		for (CRegion region : regionMap.values()) {
 			if (region.getParent() == null) {
 				//System.out.println("no parent: " + region);
@@ -61,8 +101,79 @@ public class CRegionManager {
 				cRegionMap.put(sregion, new HashSet<CRegion>());
 			
 			Set<CRegion> set = cRegionMap.get(sregion);
-			set.add(region);
+			set.add(region);			
 		}
+		
+		calculateRecursiveWeight(new HashSet(regionMap.values()));
+	}
+	
+	private void calculateRecursiveWeight(Set<CRegion> set) {		
+		//Set<CRegion> sinkSet = new HashSet<CRegion>();
+		Map<CRegion, Set<CRegion>> map = new HashMap<CRegion, Set<CRegion>>();		
+		
+		for (CRegion each : set) {			
+			if (each.getRegionType() == CRegionType.REC_INIT) {				
+				map.put(each,  new HashSet<CRegion>());		
+				System.err.printf("\nadding node %d to init map\n", each.id);
+				//System.err.printf("\t%s\n", each.getRegionType());
+				assert(each instanceof CRegionR);
+			}
+		}
+		
+		for (CRegion each : set) {
+			if (each.getRegionType() == CRegionType.REC_SINK) {
+				CRegion target = ((CRegionR)each).getRecursionTarget();
+				Set<CRegion> sinkSet = map.get(target);				
+				sinkSet.add(each);
+				System.err.printf("\nadding node %d to sink \n", each.id);
+			}
+		}
+		
+		for (CRegion each : map.keySet()) {
+			setRecursionWeight((CRegionR)each, map.get(each));
+		}
+	}
+	
+	void setRecursionWeight(CRegionR init, Set<CRegion> sinks) {
+		
+		int maxSize = 0;
+		for (CRegion each : sinks) {
+			CRegionR current = (CRegionR)each;
+			if (current.getStatSize() > maxSize)
+				maxSize = current.getStatSize();
+		}
+		System.err.printf("init = %d, sinks size = %d maxSize = %d\n", init.id, sinks.size(), maxSize);
+		for (int depth=0; depth<maxSize; depth++) {
+			Map<CRegion, Long> map = new HashMap<CRegion, Long>();
+			for (CRegion each : sinks) {
+				CRegionR source = (CRegionR) each;
+				if (source.getStatSize() <= depth)
+					continue;
+				
+				CRegion target = source.getParent();			
+				
+				while (target != init.getParent()) {
+					if (!map.containsKey(target)) {
+						map.put(target, (long)0);					
+					}
+					long prev = map.get(target);
+					long updated = prev + source.getStat(depth).getTotalWork();
+					map.put(target, updated);
+					System.err.printf("updating value to %d at %d\n", updated, target.id);
+					target = target.getParent();
+				}
+			}			
+			
+			// weight = rWork(init) / rWork(node)
+			long totalWork = map.get(init);
+			for (CRegion each : map.keySet()) {
+				long work = map.get(each);
+				double weight = work / (double)totalWork;
+				System.err.printf("Setting weight of node %d at depth %d to %.2f\n", each.id, depth, weight);
+				((CRegionR)each).getStat(depth).setRecursionWeight(weight);
+				
+			}
+		}		
 	}
 	
 	public CRegion getRoot() {
@@ -87,53 +198,19 @@ public class CRegionManager {
 		}
 		return ret;
 	}
-		
 	
-	void connect() {
-		
-		System.out.println("Total CRegion Size = " + this.getCRegionSet().size());
-		for (SRegion sregion : cRegionMap.keySet()) {
-			Set<CRegion> set = cRegionMap.get(sregion);
-			for (CRegion cregion : set) {
-				SRegion parent = cregion.getParentSRegion();
-				if (parent == null) {
-					this.root = cregion;
-					continue;
-				}
-				
-				Set<CRegion> targetSet = cRegionMap.get(parent);
-				
-				for (CRegion each : targetSet) {
-					if (isParent(cregion, each)) {
-						cregion.setParent(each);
-						break;
-					}
-				}
+	public Set<CRegion> getCRegionSet(double threshold) {
+		Set<CRegion> ret = new HashSet<CRegion>();
+		for (SRegion key : cRegionMap.keySet()) {
+			for (CRegion each : cRegionMap.get(key)) {
+				if (this.getTimeReduction(each) > threshold)				
+					ret.add(each);
 			}			
 		}
+		return ret;
 	}
 	
-	boolean isParent(CRegion child, CRegion parent) {
-		List<Long> childContext = child.getContext();
-		List<Long> parentContext = parent.getContext();	
-		//System.out.println("parent: " + parent.getSRegion() + "\t" + parentContext);
-		//System.out.println("child: " + child.getSRegion() + "\t" + childContext);
-		
-		if (parentContext.size() +1 != childContext.size()) {
-			//System.out.println("false1");
-			return false;
-		}
-		
-		for (int i=0; i<parentContext.size(); i++) {
-			long childValue = childContext.get(i+1);
-			long parentValue = parentContext.get(i);
-			if (childValue != parentValue) {				
-				//System.out.println("false2: " + i + " " + childContext.get(i+1) + " " + parentContext.get(i));	
-				return false;
-			}
-		}		
-		return true;
-	}
+
 	
 	List<Long> cloneContext(List<Long> in) {
 		List<Long> ret = new ArrayList<Long>(in);
@@ -282,19 +359,43 @@ public class CRegionManager {
 		}
 	}
 	
+	public void printStatistics() {
+		int cntTotal = 0;
+		int cntLoop = 0;
+		int cntFunc = 0;
+		int cntBody = 0;
+		
+		for (SRegion each : cRegionMap.keySet()) {
+			//System.out.println(each);
+			Set<CRegion> set = cRegionMap.get(each);
+			cntTotal += set.size();
+			
+			if (each.getType() == RegionType.LOOP)
+				cntLoop += set.size();
+			else if (each.getType() == RegionType.FUNC){				
+				cntFunc += set.size();
+			} else 
+				cntBody += set.size();
+		}
+		
+		System.out.printf("Region Count (Total / Loop / Func / Body) = %d / %d / %d / %d\n", 
+				cntTotal, cntLoop, cntFunc, cntBody);		
+	}
+	
 	public double getCoverage(CRegion region) {
 		double coverage = ((double)region.getTotalWork() / getRoot().getTotalWork()) * 100.0;
 		return coverage;
 	}
 	
 	public double getTimeReduction(CRegion region) {
-		return getCoverage(region) * (1.0 - 1.0 / region.selfParallelism);
+		return getCoverage(region) * (1.0 - 1.0 / region.getSelfP());
 	}
 	
 	public static void main(String args[]) {
 		System.out.println("CRegionManager");
 		//String dir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/CINT2000/175.vpr/src";
-		String dir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/loop";
+		String dir = "g:\\work\\ktest\\recursion";
+		//String dir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/loop";
 		String sFile = String.format("%s/sregions.txt", dir);
 		String bFile = String.format("%s/kremlin.bin", dir);
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);

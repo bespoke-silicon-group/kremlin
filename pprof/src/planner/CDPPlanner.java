@@ -30,9 +30,25 @@ public class CDPPlanner {
 	}
 	
 	protected double getParallelTime(CRegion region) {
-		double spSpeedup = (this.maxCore < region.getSelfParallelism()) ? maxCore : region.getSelfParallelism();
-		double parallelTime = region.getAvgWork() / spSpeedup + overhead;
+		double spSpeedup = (this.maxCore < region.getSelfP()) ? maxCore : region.getSelfP();
+		double parallelTime = region.getAvgWork() / spSpeedup + overhead;		
 		return parallelTime;
+	}
+	
+	double getSelfPoint(CRegion current) {
+		double parallelTime = this.getParallelTime(current);
+		double serialTime = this.getSerialTime(current);
+		double speedup = serialTime / parallelTime;
+		if (parallelTime > serialTime)
+			speedup = 1.0;
+		CRegion root = analyzer.getRoot();
+		double coverage = ((this.getSerialTime(current) * current.getInstanceCount()) / (double)this.getSerialTime(root)) * 100.0;		
+		double selfPoint = coverage - coverage / speedup;
+		//System.err.printf("pTime = %.2f, sTime = %.2f, coverage = %.2f, speedup = %.2f, sPoint = %.2f\n", parallelTime, serialTime, coverage, speedup, selfPoint);
+		if (selfPoint <= -0.0)
+			selfPoint = 0.0;
+		
+		return selfPoint;
 	}
 	
 	public Plan plan(Set<CRegion> toExclude) {		
@@ -40,56 +56,41 @@ public class CDPPlanner {
 		List<CRegion> list = new ArrayList<CRegion>();
 		Set<CRegion> retired = new HashSet<CRegion>();
 		
+		// bottom-up evaluation: start with leaf regions
 		for (CRegion each : analyzer.getCRegionSet()) {
 			//System.out.println(each);
 			if (each.getChildrenSet().size() == 0) {
 				list.add(each);
-			}
+			}			
 		}
+		
 		CRegion root = analyzer.getRoot();
 		assert(root != null);
+		
 		/*
 		for (SRegionInfo each : postFilterSet) {
 			System.out.println("! " + each);
 		}*/
 		
 		while(list.isEmpty() == false) {
-			CRegion current = list.remove(0);
-			SRegion region = current.getSRegion();
-			
+			CRegion current = list.remove(0);			
 			retired.add(current);
 			
 			double sum = 0;
 			for (CRegion child : current.getChildrenSet()) {
 				sum += pointMap.get(child);
-			}
+			}			
 			
-			boolean exclude = false;
-			//double selfPoint = this.speedupCalc.getAppTimeReduction(current, root);
-			
-			double parallelTime = this.getParallelTime(current);
-			double serialTime = this.getSerialTime(current);
-			double speedup = serialTime / parallelTime;
-			if (parallelTime > serialTime)
-				speedup = 1.0;
-			double coverage = ((this.getSerialTime(current) * current.getInstanceCount()) / (double)this.getSerialTime(root)) * 100.0;			
-			double selfPoint = coverage - coverage / speedup;
-			//System.err.printf("pTime = %.2f, sTime = %.2f, coverage = %.2f, speedup = %.2f, sPoint = %.2f\n", parallelTime, serialTime, coverage, speedup, selfPoint);
-			if (selfPoint <= -0.0)
+			//double selfPoint = this.speedupCalc.getAppTimeReduction(current, root);			
+			double selfPoint;					 
+			boolean exclude = toExclude.contains(current); 
+			if (exclude)
 				selfPoint = 0.0;
-			//assert(selfPoint >= -0.0);
-					 
-			if (toExclude.contains(current))
-				exclude = true;
-			
-			if (exclude) {				
-				selfPoint = 0.0;
-			} else {
-				//assert(current.getSRegion().getType() == RegionType.LOOP);
-			}
-			
+			else
+				selfPoint = getSelfPoint(current);
+				
 			//if (!exclude)
-				//System.out.printf("[Point: %.2f] %s\n", selfPoint, current.getSRegion());
+			//	System.out.printf("[Point: %.2f] %s\n", selfPoint, current.getSRegion());
 			
 			Set<CRegion> bestSet = new HashSet<CRegion>();
 			//if (selfPoint * filter.getOuterIncentive() > sum) {			

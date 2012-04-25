@@ -8,24 +8,13 @@ public class KremlinProfiler {
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args) {
+	//public static void main(String[] args) {
+	public static void run(ArgDB db) {
 		// TODO Auto-generated method stub
-		String baseDir = null;
-		if (args.length < 1) {			
-			//baseDir = ".";
-			baseDir="f:\\Work\\pact2011";
-			
-		} else {
-			baseDir = args[0];
-		}
-		
+		String baseDir = null;		
 		
 		//String baseDir = "/h/g3/dhjeon/research/pact2011/spatbench/bench-clean";			
-		ParameterSet.rawDir = baseDir;
-		//ParameterSet.rawDir = "f:\\Work\\run\\equake";
-		//ParameterSet.rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/npb-u/lu";
-		//ParameterSet.rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/specOmpSerial/ammp";		
-		//ParameterSet.rawDir = "/h/g3/dhjeon/trunk/test/parasites/pyrprof/regression/bandwidth";
+		ParameterSet.rawDir = db.getPath();		
 		ParameterSet.project = baseDir;		
 		String rawDir = ParameterSet.rawDir;		
 		String sFile = rawDir + "/sregions.txt";
@@ -54,7 +43,13 @@ public class KremlinProfiler {
 			}
 			
 		}
-		list = new ArrayList<CRegion>(cManager.getCRegionSet());
+
+		if (db.thresholdReduction > 0.0) {
+			list = new ArrayList<CRegion>(cManager.getCRegionSet(db.thresholdReduction));
+		} else {
+			list = new ArrayList<CRegion>(cManager.getCRegionSet());
+		}
+		
 		Collections.sort(list, new CRegionComparator(cManager));
 		/*
 		for (CRegion region : cManager.getCRegionSet()) {
@@ -73,7 +68,8 @@ public class KremlinProfiler {
 		
 		System.out.println("Kremlin Profiler Ver 0.1\n");
 		CRegionPrinter printer = new CRegionPrinter(cManager);
-		printer.printRegionList(list);		
+		printer.printRegionList(list);
+		cManager.printStatistics();
 	}
 	
 	

@@ -39,23 +39,17 @@ public class CRegionPrinter {
 		return buf.toString();
 	}
 	
-	public String getStatString(CRegion region) {
-		double coverage = manager.getCoverage(region);
+	public String getStatString(CRegion region) {		
+		assert(region != null);
+		assert(region.type != null);
 		double timeReduction = manager.getTimeReduction(region);
-		String stats = String.format("IdealTimeReduction = %5.2f%% coverage = %5.2f%%, avg sp = %5.2f [%5.2f - %5.2f], avg tp = %.2f", 
-				timeReduction, coverage, region.selfParallelism, region.minSP, region.maxSP, region.totalParallelism);
+		String stats = String.format("ID = %d, IdealTimeReduction = %5.2f%% , type = [%s, %s], cov = %5.2f%%",				
+				region.id, timeReduction, region.getParallelismType(), region.type.toString(), manager.getCoverage(region));
 		return stats;
 	}
 	
-	public String getStatString2(CRegion region) {		
-		String stats = String.format("[avg stats] work = %.2f, cp = %.2f, count = %5d, readCnt = %.2f, writeCnt = %.2f, load = %.2f, store = %.2f", 
-				region.getAvgWork(), region.getAvgCP(), region.getInstanceCount(), 
-				region.getAvgReadCnt(), region.getAvgWriteCnt(), region.avgLoadCnt, region.avgStoreCnt);
-		return stats;
-	}
 	
-	public String getString(CRegion region) {
-		
+	public String getString(CRegion region) {		
 		String context = getContextString(region);
 		String stats = getStatString(region);
 		String ret = String.format("%s\t\t%s", context, stats);
@@ -66,8 +60,8 @@ public class CRegionPrinter {
 		int index = 0;
 		long total = 0;
 		for (CRegion region : list) {
-			System.out.printf("[%3d] %s\n      %s\n%s\n", 
-					index++, getStatString(region), getStatString2(region), getContextString(region));
+			System.out.printf("[%3d] %s %s\n%s\n", 
+					index++, getStatString(region), region.getStatString(), getContextString(region));
 			total += region.numInstance;
 		}
 		System.out.printf("Total Region Count = %d\n", total);

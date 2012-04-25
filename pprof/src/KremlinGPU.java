@@ -6,28 +6,19 @@ import java.util.*;
 import planner.*;
 import pprof.*;
 
-public class KremlinOMP {
+
+
+public class KremlinGPU {
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		String baseDir = ".";
-		//baseDir="f:\\Work\\pact2011\\cg";
+	//public static void main(String[] args) throws Exception {
+	public static void run(ArgDB db) {
+		String baseDir = ".";		
 		int numCore = 32;
-		int overhead = 1024;
-		 
-		if (args.length < 1) {			
-			//baseDir = ".";
-			//System.out.println("Usage: java KremlinOMP <dir> <core>\n");
-		} else {
-			baseDir = args[0];			
-		}
-		
-		if (args.length > 2) {
-			numCore = Integer.parseInt(args[1]);
-			overhead = Integer.parseInt(args[2]);
-		}
+				
+		numCore = db.numCore;
+		baseDir = db.path;
 					
 		ParameterSet.rawDir = baseDir;		
 		ParameterSet.project = baseDir;		
@@ -39,19 +30,25 @@ public class KremlinOMP {
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
-		Target target = new Target(numCore, overhead);
+		Target target = new Target(numCore, db.getOverhead());
 		CDPPlanner planner = new CDPPlanner(cManager, target);
 		//BWPlannerWorst planner = new BWPlannerWorst(cManager, target);
 		//BWPlannerBest planner = new BWPlannerBest(cManager, target);
 		Plan plan = planner.plan(excludeSet);		
-		PlanPrinter.print(cManager, plan);		
+		PlanPrinter.print(cManager, plan, db.thresholdReduction);
+		
+		if (db.showRegionCount)
+			cManager.printStatistics();
 	}	
 	
 	public static Set<CRegion> getNonLoopSet(CRegionManager manager) {
 		Set<CRegion> ret = new HashSet<CRegion>();
 		for (CRegion each : manager.getCRegionSet()) {
 			if (each.getSRegion().getType() != RegionType.LOOP)
-				ret.add(each);			
+				ret.add(each);
+			
+			else if (!each.getParallelBit())
+				ret.add(each);
 		}		
 		return ret;
 	}

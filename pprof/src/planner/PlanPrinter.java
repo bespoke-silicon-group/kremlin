@@ -6,7 +6,7 @@ import java.util.List;
 import pprof.*;
 
 public class PlanPrinter {
-	public static void print(CRegionManager manager, Plan plan) {
+	public static void print(CRegionManager manager, Plan plan, double threshold) {
 		long serial = (long)plan.getSerialTime();
 		System.out.printf("Target : %s\n", plan.getTarget());
 		System.out.printf("Speedup: %.2f\n", 100.0 / (100.0 - plan.getTimeReduction()));
@@ -21,8 +21,11 @@ public class PlanPrinter {
 		//rPrinter.printRegionList(list);
 		PlanPrinter printer = new PlanPrinter(manager, plan);
 		int index = 0;
-		for (CRegionRecord each : plan.getCRegionList()) {			
+		for (CRegionRecord each : plan.getCRegionList()) {
+			if (manager.getTimeReduction(each.getCRegion()) < threshold)
+				break;
 			System.out.printf("[%2d] %s\n", index++, printer.getCRegionRecordString(each));
+			
 		}
 	}
 	
@@ -42,7 +45,7 @@ public class PlanPrinter {
 		String context = regionPrinter.getContextString(region);
 		String stat0 = regionPrinter.getStatString(region);
 		String stat1 = regionPrinter.getStatString2(region);
-		String ret = String.format("ExecTimeReduction: %.2f %%\n%s\n%s\n%s", timeSave, stat0, stat1, context);		
+		String ret = String.format("ExecTimeReduction: %.2f %% %s\n%s\n%s", timeSave, stat0, stat1, context);		
 		return ret;
 	}
 }

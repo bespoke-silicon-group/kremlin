@@ -56,7 +56,7 @@ public class BWPlanner extends CDPPlanner {
 	// TCC Processor: E550, 8MB Cache, 2.4GHz, 5.86GT/s
 	// STREAMS Bench says: 25000 MB / s
 	protected double getParallelTime(CRegion region) {
-		double spSpeedup = (this.maxCore < region.getSelfParallelism()) ? maxCore : region.getSelfParallelism();
+		double spSpeedup = (this.maxCore < region.getSelfP()) ? maxCore : region.getSelfP();
 		double parallelTime = region.getAvgWork() / spSpeedup + overhead;
 		double parallelBwTime = (double)bwCycleMap.get(region);				
 		return (parallelBwTime > parallelTime) ? parallelBwTime : parallelTime;

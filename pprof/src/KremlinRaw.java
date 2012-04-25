@@ -5,24 +5,12 @@ import pprof.*;
 
 
 public class KremlinRaw {
-	public static void main(String[] args) {
+	public static void run(ArgDB db) {
 		// TODO Auto-generated method stub
-		String baseDir = ".";	
-		int numCore = 32;
-		int overhead = (int)(2 * Math.log(numCore));
+		String baseDir = db.getPath();
+		int numCore = db.getCoreCount();
+		int overhead = (int)(2 * Math.log(numCore));		 
 		
-		 
-		if (args.length < 1) {			
-			//baseDir = "f:\\Work\\spatBench\\09.sha";			
-			System.out.println("Usage: java KremlinRAW <dir> <core>\n");
-		} else {
-			baseDir = args[0];			
-		}
-		
-		if (args.length > 2) {
-			numCore = Integer.parseInt(args[1]);
-			overhead = Integer.parseInt(args[2]);
-		}
 					
 		ParameterSet.rawDir = baseDir;		
 		ParameterSet.project = baseDir;		
@@ -38,7 +26,7 @@ public class KremlinRaw {
 		Set<CRegion> excludeSet = getNonLeafLoopSet(cManager);		
 		Plan plan = planner.plan(excludeSet);
 		
-		PlanPrinter.print(cManager, plan);		
+		PlanPrinter.print(cManager, plan, db.thresholdReduction);		
 	}
 	
 	public static Set<CRegion> getNonLeafLoopSet(CRegionManager manager) {
