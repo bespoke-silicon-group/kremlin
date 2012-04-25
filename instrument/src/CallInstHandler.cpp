@@ -5,6 +5,7 @@
 #include "LLVMTypes.h"
 #include "CallInstHandler.h"
 #include "ReturnsRealValue.h"
+#include "InstrumentedCall.h"
 
 using namespace llvm;
 using namespace boost;
@@ -131,10 +132,6 @@ void CallInstHandler::handle(llvm::Instruction& inst)
     function<void(const Type*, unsigned int)> push_int = bind(&vector<Value*>::push_back,
         ref(args), bind<Constant*>(&ConstantInt::get, _1, _2, false));
 
-    // insert call to prepareCall to setup the structures needed to pass arg and return info efficiently
-//    InstrumentedCall<Callable>* instrumented_call;
-//    instrumentationCalls.push_back(instrumented_call = new InstrumentedCall<Callable>(ci, bb_call_idx));
-
     // Used to serialize all the inserts.
     CallInst* last_func = &call_inst;
 
@@ -177,10 +174,16 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 
     // Insert prepare call.
     args.clear();
-    uint32_t callsite_id = call_idx++;
-    push_int(types.i64(), callsite_id);
+
+	InstrumentedCall<CallInst>* instrumented_call = new InstrumentedCall<CallInst>(&call_inst, call_idx);
+	instrumented_call->instrument();
+	call_idx++;
+
+    push_int(types.i64(), instrumented_call->getId());
     push_int(types.i64(), 0);              // Caller region ID. TODO: implement
     CallInst& prepare_call = 
         *CallInst::Create(prepare_call_func, args.begin(), args.end(), "");
     ts_placer.constrainInstPlacement(prepare_call, *last_func);
+
+	delete instrumented_call;
 }

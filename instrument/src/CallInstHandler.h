@@ -22,7 +22,7 @@ class CallInstHandler : public TimestampPlacerHandler
 	void addIgnore(std::string func_name);
 
     private:
-    uint32_t call_idx;
+    uint64_t call_idx;
     PassLog& log;
     llvm::Function* link_arg_const_func;
     llvm::Function* link_arg_func;
