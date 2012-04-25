@@ -10,27 +10,27 @@
 class CallInstHandler : public TimestampPlacerHandler
 {
     public:
-    CallInstHandler(TimestampPlacer& ts_placer);
+    CallInstHandler(TimestampPlacer& timestamp_placer);
     virtual ~CallInstHandler() {};
 
     virtual const Opcodes& getOpcodes();
     virtual void handle(llvm::Instruction& inst);
 
     template <typename Callable>
-    static llvm::Function* untangleCall(Callable& ci);
+    static llvm::Function* untangleCall(Callable& callable_inst);
 
 	void addIgnore(std::string func_name);
 
     private:
-    uint64_t call_idx;
+    uint64_t callSiteIdCounter;
     PassLog& log;
-    llvm::Function* link_arg_const_func;
-    llvm::Function* link_arg_func;
-    Opcodes opcodes;
-	std::vector<std::string> ignored_funcs;
-    llvm::Function* prepare_call_func;
-    llvm::Function* ret_val_link_func;
-    TimestampPlacer& ts_placer;
+    llvm::Function* linkArgConstFunc;
+    llvm::Function* linkArgFunc;
+    Opcodes opcodesOfHandledInsts;
+	std::vector<std::string> ignoredFuncs;
+    llvm::Function* prepCallFunc;
+    llvm::Function* linkReturnFunc;
+    TimestampPlacer& timestampPlacer;
 
 	bool shouldHandle(llvm::Function *func);
 };
