@@ -31,6 +31,7 @@ TimestampPlacer::PlacedTimestamp::PlacedTimestamp(const Timestamp& ts, llvm::Cal
  *                      index.
  */
 TimestampPlacer::TimestampPlacer(llvm::Function& func, FuncAnalyses& analyses, TimestampAnalysis& timestamp_analysis, InstIds& inst_ids) :
+	log(PassLog::get()),
     _analyses(analyses),
     _func(func),
     _instIds(inst_ids),

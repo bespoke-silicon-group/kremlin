@@ -13,6 +13,7 @@
 #include "TimestampBlockHandler.h"
 #include "analysis/timestamp/TimestampAnalysis.h"
 #include "ids/InstIds.h"
+#include "PassLog.h"
 
 /**
  * Instruments a function with all of the dynamic calls to log timestamps.
@@ -56,6 +57,7 @@ class TimestampPlacer
     typedef boost::ptr_map<unsigned int, Signal> Signals;
     typedef boost::signals2::signal<void(llvm::BasicBlock&)> BasicBlockSignal;
 
+	PassLog& log;
     FuncAnalyses& _analyses;
     boost::scoped_ptr<BasicBlockSignal> _basicBlockSignal;
     llvm::Function& _func;
