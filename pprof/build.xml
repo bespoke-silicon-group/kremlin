@@ -54,4 +54,9 @@
             <classpath refid="pprof.classpath"/>
         </java>
     </target>
+    <target name="TraceViewer">
+        <java classname="TraceViewer" failonerror="true" fork="yes">
+            <classpath refid="pprof.classpath"/>
+        </java>
+    </target>
 </project>
