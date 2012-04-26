@@ -188,8 +188,12 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 	instrumented_call->instrument();
 	callSiteIdCounter++;
 
-    push_int(types.i64(), instrumented_call->getId());
-    push_int(types.i64(), 0); // TODO: implement caller region id
+	// @TRICKY: push_int doesn't really handle 64-bit ints since its
+	// definition uses "unsigned int" instead of "unsigned long long". We
+	// therefore have to go about adding the callsite ID and caller region ID
+	// the old fashioned way (i.e. with push_back)
+	kremlib_call_args.push_back(ConstantInt::get(types.i64(),instrumented_call->getId()));
+	kremlib_call_args.push_back(ConstantInt::get(types.i64(),0));
     CallInst& prep_call = *CallInst::Create(prepCallFunc, kremlib_call_args.begin(), kremlib_call_args.end(), "");
     timestampPlacer.constrainInstPlacement(prep_call, *last_call);
 
