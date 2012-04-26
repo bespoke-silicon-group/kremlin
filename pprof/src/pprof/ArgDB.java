@@ -49,11 +49,11 @@ public class ArgDB {
 		
 	}
 	
-	public String getPlanner() {
+	public static String getPlanner() {
 		return instance.planner;
 	}
 	
-	public String getPath() {
+	public static String getPath() {
 		return instance.path;
 	}
 	

@@ -19,8 +19,8 @@ public class KremlinOMP {
 		
 		
 		
-		numCore = db.getCoreCount();
-		baseDir = db.getPath();
+		numCore = ArgDB.getCoreCount();
+		baseDir = ArgDB.getPath();
 					
 		ParameterSet.rawDir = baseDir;		
 		ParameterSet.project = baseDir;		
@@ -32,12 +32,12 @@ public class KremlinOMP {
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
-		Target target = new Target(numCore, db.getOverhead());
+		Target target = new Target(numCore, ArgDB.getOverhead());
 		CDPPlanner planner = new CDPPlanner(cManager, target);
 		//BWPlannerWorst planner = new BWPlannerWorst(cManager, target);
 		//BWPlannerBest planner = new BWPlannerBest(cManager, target);
 		Plan plan = planner.plan(excludeSet);		
-		PlanPrinter.print(cManager, plan, db.getThresholdReduction());		
+		PlanPrinter.print(cManager, plan, ArgDB.getThresholdReduction());		
 	}	
 	
 	public static Set<CRegion> getNonLoopSet(CRegionManager manager) {
