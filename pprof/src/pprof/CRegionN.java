@@ -9,6 +9,10 @@ public class CRegionN extends CRegion {
 	
 	CRegionStat stat;	
 	
+	public CRegionStat getRegionStat() {
+		return stat;
+	}
+	
 	public double getSelfP() {	
 		return stat.getSelfP();
 	}

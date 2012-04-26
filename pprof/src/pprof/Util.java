@@ -101,13 +101,7 @@ public class Util {
 	}	
 	
 	
-	public static void prepareBaseDir(String base) {
-		String exec = Config.pprofDir + "/scripts/createWorkDir.py";
-		String srcDir = Config.pprofDir + "/src";
-		String destDir = Config.pprofDir + "/" + base;
-		String cmd = String.format("%s %s %s", exec, srcDir, destDir);
-		runCmd(cmd);
-	}
+	
 	
 		
 	

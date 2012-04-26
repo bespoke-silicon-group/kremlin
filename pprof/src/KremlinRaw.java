@@ -26,7 +26,7 @@ public class KremlinRaw {
 		Set<CRegion> excludeSet = getNonLeafLoopSet(cManager);		
 		Plan plan = planner.plan(excludeSet);
 		
-		PlanPrinter.print(cManager, plan, db.thresholdReduction);		
+		PlanPrinter.print(cManager, plan, db.getThresholdReduction());		
 	}
 	
 	public static Set<CRegion> getNonLeafLoopSet(CRegionManager manager) {

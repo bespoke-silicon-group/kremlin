@@ -68,8 +68,8 @@ public class CRegionStat {
 	}
 	
 	public String toString() {
-		String ret = String.format("selfP = %.2f, avg work = %d, count = %d",  
-				this.getSelfP(), this.getAvgWork(), this.nInstance);
+		String ret = String.format("selfP = %.2f, iter = %.2f, avg work = %d, count = %d",  
+				this.getSelfP(), this.getAvgIter(), this.getAvgWork(), this.nInstance);
 		return ret;
 	}
 }

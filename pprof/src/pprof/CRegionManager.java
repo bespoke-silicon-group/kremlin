@@ -86,7 +86,7 @@ public class CRegionManager {
 			System.err.printf("rec target node id = %d\n", each.id);
 			CRegionR region = (CRegionR)each;
 			CRegion target = regionMap.get(recursionTarget.get(each));
-			assert(target.getRegionType() == CRegionType.REC_INIT);
+			assert(target.getRegionType() == CRecursiveType.REC_INIT);
 			region.setRecursionTarget(target);
 		}
 		
@@ -112,7 +112,7 @@ public class CRegionManager {
 		Map<CRegion, Set<CRegion>> map = new HashMap<CRegion, Set<CRegion>>();		
 		
 		for (CRegion each : set) {			
-			if (each.getRegionType() == CRegionType.REC_INIT) {				
+			if (each.getRegionType() == CRecursiveType.REC_INIT) {				
 				map.put(each,  new HashSet<CRegion>());		
 				System.err.printf("\nadding node %d to init map\n", each.id);
 				//System.err.printf("\t%s\n", each.getRegionType());
@@ -121,7 +121,7 @@ public class CRegionManager {
 		}
 		
 		for (CRegion each : set) {
-			if (each.getRegionType() == CRegionType.REC_SINK) {
+			if (each.getRegionType() == CRecursiveType.REC_SINK) {
 				CRegion target = ((CRegionR)each).getRecursionTarget();
 				Set<CRegion> sinkSet = map.get(target);				
 				sinkSet.add(each);
@@ -346,7 +346,7 @@ public class CRegionManager {
 		}
 		return true;
 	}
-	
+	/*
 	public void dump() {
 		CRegionPrinter printer = new CRegionPrinter(this);
 		for (SRegion each : cRegionMap.keySet()) {
@@ -357,7 +357,7 @@ public class CRegionManager {
 				System.out.println(printer.getString(cregion) + "\n");
 			}
 		}
-	}
+	}*/
 	
 	public void printStatistics() {
 		int cntTotal = 0;

@@ -40,8 +40,8 @@ public class TraceReader {
 				}				
 				
 				long nStats = Long.reverseBytes(input.readLong());
-				System.out.printf("\nid: %d sid: %x cid: %x type: %d rtarget: %d instance: %d pbit %d nChildren: %d nStats: %d\n",
-						uid, sid, callSiteValue, type, recurse, cnt, pbit, nChildren, nStats);
+				//System.out.printf("\nid: %d sid: %x cid: %x type: %d rtarget: %d instance: %d pbit %d nChildren: %d nStats: %d\n",
+				//		uid, sid, callSiteValue, type, recurse, cnt, pbit, nChildren, nStats);
 				
 				for (int i=0; i<nStats; i++) {
 					long nInstance = Long.reverseBytes(input.readLong());

@@ -21,9 +21,14 @@ public class TraceEntry {
 		this.recursionTarget = 0;
 	}
 	//long cnt, long work, long tpWork, long spWork, Set<Long> childrenSet) {
-	public String toString() {
-		return String.format("<0x%8x 0x%8x 0x%8x> %10d <%10d %10d %10d> <%8.2f %8.2f> <%10d %10d %10d %10d> %s", 
+	public String toString2() {
+		return String.format("<0x%8x 0x%8x 0x%8x> %10d <%10d %10d %10d> <%8.2f %8.2f> <%10s %10d %10d %10d> %s", 
 			uid, sid, callSiteValue, cnt, work, tpWork, spWork, minSP, maxSP, pbit, totalChildCnt, minChildCnt, maxChildCnt, childrenSet);
+	}
+	
+	public String toString() {
+		return String.format("id: %d sid: %16x cid: %16x type: %d rtarget: %d instance: %4d pbit %s nChildren: %d nStats: %d",
+				uid, sid, callSiteValue, type, recursionTarget, cnt, pbit, childrenSet.size(), statList.size());
 	}
 	
 	TraceEntry setNumInstance(long instance) {

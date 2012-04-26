@@ -1,6 +1,7 @@
 import java.io.File;
 import planner.ParameterSet;
 import pprof.*;
+
 import java.util.*;
 
 public class KremlinProfiler {
@@ -44,8 +45,8 @@ public class KremlinProfiler {
 			
 		}
 
-		if (db.thresholdReduction > 0.0) {
-			list = new ArrayList<CRegion>(cManager.getCRegionSet(db.thresholdReduction));
+		if (db.getThresholdReduction() > 0.0) {
+			list = new ArrayList<CRegion>(cManager.getCRegionSet(db.getThresholdReduction()));
 		} else {
 			list = new ArrayList<CRegion>(cManager.getCRegionSet());
 		}
@@ -65,11 +66,32 @@ public class KremlinProfiler {
 			}		
 			list.add(index, region);
 		}*/	
-		
+		KremlinPrinter printer = KremlinPrinter.getInstance(cManager);
 		System.out.println("Kremlin Profiler Ver 0.1\n");
-		CRegionPrinter printer = new CRegionPrinter(cManager);
-		printer.printRegionList(list);
+		//CRegionPrinter printer = new CRegionPrinter(cManager);
+		printRegionList(printer, list);
 		cManager.printStatistics();
+	}
+	
+	public static void printRegionList(KremlinPrinter printer, List<CRegion> list) {
+		int index = 0;
+		long total = 0;
+		ArgDB db = ArgDB.getInstance();
+		for (CRegion region : list) {
+			String entry = null;
+			if (db.isVerbose()) {
+				entry = String.format("[%3d] %s\n\n%s", 
+						index++, printer.getVerboseString(region), printer.getContextString(region));
+				
+			} else {
+				entry = String.format("[%3d] %s\n\n%s", 
+						index++, printer.getSummaryString(region), printer.getContextString(region));
+			}
+			
+			System.out.printf("%s\n\n", entry);
+			total += region.getInstanceCount();
+		}
+		System.out.printf("Total Region Count = %d\n", total);
 	}
 	
 	

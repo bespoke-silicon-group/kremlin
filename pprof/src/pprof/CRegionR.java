@@ -87,6 +87,10 @@ public class CRegionR extends CRegion {
 		}
 		return max;
 	}
+	
+	public CRegionStat getRegionStat() {
+		return stats.get(0);
+	}
 
 	@Override
 	public long getTotalWork() {
@@ -104,7 +108,7 @@ public class CRegionR extends CRegion {
 		stats = String.format("sp = %5.2f [%5.2f - %5.2f] count = %d statSize = %d",
 				getSelfP(), getMinSelfP(), getMaxSelfP(), getInstanceCount(), this.getStatSize());
 
-		if (this.getRegionType() == CRegionType.REC_SINK) {
+		if (this.getRegionType() == CRecursiveType.REC_SINK) {
 			stats += String.format(" rtarget = %d", getRecursionTarget().id);
 		}
 		

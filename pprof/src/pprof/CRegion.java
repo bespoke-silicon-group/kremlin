@@ -2,29 +2,8 @@ package pprof;
 
 import java.util.*;
 
-enum CRegionType {
-	NORMAL, 
-	REC_INIT, 
-	REC_SINK,
-	REC_NORM;
-	
-	public String toString() {
-		if (this == NORMAL)
-			return "Norm";
-		else if (this == REC_INIT)
-			return "RInit";
-		else if (this == REC_SINK)
-			return "RSink";
-		else if (this == REC_NORM)
-			return "RNorm";
-		else
-			return "ERR";
-	}
-};
-
-
 public abstract class CRegion implements Comparable {
-	CRegionType type;	
+	CRecursiveType type;	
 	long id;
 	SRegion region;
 	SRegion parentSRegion;
@@ -53,23 +32,34 @@ public abstract class CRegion implements Comparable {
 		this.children = new HashSet<CRegion>();
 		
 		if (entry.type == 0)
-			this.type = CRegionType.NORMAL;
+			this.type = CRecursiveType.NORMAL;
 		else if (entry.type == 1)
-			this.type = CRegionType.REC_INIT;
+			this.type = CRecursiveType.REC_INIT;
 		else if (entry.type == 2)
-			this.type = CRegionType.REC_SINK;
+			this.type = CRecursiveType.REC_SINK;
 		else if (entry.type == 3)
-			this.type = CRegionType.REC_NORM;
+			this.type = CRecursiveType.REC_NORM;
 		else {
 			assert(false);
 		}
 	}
+	public CallSite getCallsite() {
+		return this.callSite;
+	}
 	
-	CRegionType getRegionType() {
+	public CRecursiveType getRecursiveType() {
 		return this.type;
 	}
 	
-	SRegion getParentSRegion() {
+	public long getId() {
+		return this.id;
+	}
+	
+	public CRecursiveType getRegionType() {
+		return this.type;
+	}
+	
+	public SRegion getParentSRegion() {
 		return this.parentSRegion;
 	}	
 	
@@ -111,9 +101,11 @@ public abstract class CRegion implements Comparable {
 	}
 	
 	abstract public double getSelfP();	
+	abstract public double getMinSelfP();	
+	abstract public double getMaxSelfP();
 	abstract public long   getTotalWork(); 
 	abstract public long   getAvgWork();
-		
+	abstract public CRegionStat getRegionStat();
 	
 	@Override
 	public int compareTo(Object arg) {

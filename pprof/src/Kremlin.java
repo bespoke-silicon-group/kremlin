@@ -1,3 +1,4 @@
+import pprof.ArgDB;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -12,6 +13,7 @@ public class Kremlin {
 		parser.accepts("overhead").withOptionalArg().defaultsTo("0");
 		//OptionSet options = parser.parse("--cores=3");
 		parser.accepts("region-count");
+		parser.accepts("verbose");
 		return parser;
 	}
 	
@@ -31,9 +33,10 @@ public class Kremlin {
 			System.exit(0);
 		}
 
-		ArgDB db = new ArgDB(options);
+		ArgDB db = ArgDB.getInstance(options);
 		String planner = db.getPlanner();
-		//db.path = "g:\\work\\ktest\\recursion";
+		
+		//db.path = "g:\\work\\ktest\\fft";
 		//db.path = "g:\\work\\ktest\\hotspot";
 		planner = "gpu";
 

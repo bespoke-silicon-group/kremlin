@@ -19,8 +19,8 @@ public class KremlinOMP {
 		
 		
 		
-		numCore = db.numCore;
-		baseDir = db.path;
+		numCore = db.getCoreCount();
+		baseDir = db.getPath();
 					
 		ParameterSet.rawDir = baseDir;		
 		ParameterSet.project = baseDir;		
@@ -37,7 +37,7 @@ public class KremlinOMP {
 		//BWPlannerWorst planner = new BWPlannerWorst(cManager, target);
 		//BWPlannerBest planner = new BWPlannerBest(cManager, target);
 		Plan plan = planner.plan(excludeSet);		
-		PlanPrinter.print(cManager, plan, db.thresholdReduction);		
+		PlanPrinter.print(cManager, plan, db.getThresholdReduction());		
 	}	
 	
 	public static Set<CRegion> getNonLoopSet(CRegionManager manager) {
