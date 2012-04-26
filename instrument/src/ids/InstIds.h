@@ -7,14 +7,17 @@
 class InstIds
 {
     public:
+    typedef std::map<const llvm::Value*, unsigned int> IdMap;
+
     InstIds();
     virtual ~InstIds();
 
     unsigned int getId(const llvm::Value& inst);
     size_t getCount() const;
 
+	IdMap getIdMap();
+
     private:
-    typedef std::map<const llvm::Value*, unsigned int> IdMap;
 
     IdMap inst_to_id;
     uint64_t inst_ids;

@@ -20,6 +20,10 @@ size_t InstIds::getCount() const
     return inst_ids;
 }
 
+InstIds::IdMap InstIds::getIdMap() {
+	return inst_to_id;
+}
+
 /**
  * @param inst The inst to get the id of.
  * @return The id for the value. If the value hasn't been assigned one, it

@@ -46,6 +46,9 @@
 #include "LocalTableHandler.h"
 #include "ControlDependencePlacer.h"
 
+#include <iostream>
+#include <fstream>
+
 using namespace llvm;
 using namespace boost;
 
@@ -93,6 +96,15 @@ struct CriticalPath : public ModulePass
     void instrumentModule(Module &m) {
         std::string mod_name = m.getModuleIdentifier();
         LOG_DEBUG() << "instrumenting module: " << mod_name << "\n";
+
+		size_t starting_pt = mod_name.rfind('/');
+		if(starting_pt == std::string::npos) starting_pt = 0;
+		std::string mod_base_name = mod_name.substr(starting_pt);
+		mod_base_name = mod_name.substr(0,mod_base_name.find('.'));
+
+		std::ofstream id_map_info; // used to write id mapping debug output
+		std::string id_map_info_filename = mod_base_name + ".ids.txt";
+		id_map_info.open(id_map_info_filename.c_str());
 
         timespec start_time, end_time;
 
@@ -212,10 +224,59 @@ struct CriticalPath : public ModulePass
 
             LOG_DEBUG() << "elapsed time for instrumenting " << func.getName() 
 			<< ": " << elapsed_time.tv_sec << "." << padding << elapsed_time_ms << " s\n";
+
+			// TODO: outline id mapping printing
+			InstIds::IdMap inst_to_id = inst_ids.getIdMap();
+
+			id_map_info << "FUNC: " << func.getName().str() << "\n";
+			for(InstIds::IdMap::iterator it = inst_to_id.begin(), it_end =
+				inst_to_id.end(); it != it_end; ++it)
+			{
+				const Value *val = (*it).first;
+				unsigned int val_id = (*it).second;
+
+
+				const Instruction* inst = dyn_cast<Instruction>(val);
+				if(inst != NULL)
+				{
+    				if(MDNode *n = inst->getMetadata("dbg"))      // grab debug metadata from inst
+					{
+						DILocation loc(n);
+						id_map_info << "\t" << val_id << " : "
+						  << loc.getLineNumber() << " : " 
+						  << inst->getOpcodeName() << "\n";
+					}
+					else
+					{
+						id_map_info << "\t" << val_id << " : "
+						  << "?? : "
+						  << inst->getOpcodeName() << "\n";
+					}
+				}
+				else
+				{
+					const Argument* arg = dyn_cast<Argument>(val);
+					if(arg != NULL) {
+						id_map_info << "\t" << val_id << ": ARG : "
+						  << arg->getArgNo() << "\n";
+					}
+					else
+					{
+						id_map_info << "\t" << val_id << ": "
+						  << "UNKNOWN (not an inst)\n";
+					}
+				}
+
+			}
+
+			id_map_info << "\n";
         }
+
+		id_map_info.close();
 
         foreach(InstrumentationCall& c, instrumentationCalls)
             c.instrument();
+
 
         //LOG_DEBUG() << "num of instrumentation calls in module " << m.getModuleIdentifier() << ": " << instrumentation_calls.size() << "\n";
     }
