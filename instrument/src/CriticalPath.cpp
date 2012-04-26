@@ -171,6 +171,7 @@ struct CriticalPath : public ModulePass
 			cih.addIgnore("fclose");
 			cih.addIgnore("exit");
 			cih.addIgnore("atoi");
+			cih.addIgnore("rand");
 
             DynamicMemoryHandler dmh(placer);
 			cih.addIgnore("malloc");
