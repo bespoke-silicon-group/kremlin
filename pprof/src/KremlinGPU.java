@@ -13,12 +13,12 @@ public class KremlinGPU {
 	 * @param args
 	 */
 	//public static void main(String[] args) throws Exception {
-	public static void run(KremlinConfig db) {
+	public static void run() {
 		String baseDir = ".";		
 		int numCore = 32;
 				
-		numCore = db.getCoreCount();
-		baseDir = db.getPath();
+		numCore = KremlinConfig.getCoreCount();
+		baseDir = KremlinConfig.getPath();
 					
 		ParameterSet.rawDir = baseDir;		
 		ParameterSet.project = baseDir;		
@@ -30,14 +30,14 @@ public class KremlinGPU {
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
-		Target target = new Target(numCore, db.getOverhead());
+		Target target = new Target(numCore, KremlinConfig.getOverhead());
 		CDPPlanner planner = new CDPPlanner(cManager, target);
 		//BWPlannerWorst planner = new BWPlannerWorst(cManager, target);
 		//BWPlannerBest planner = new BWPlannerBest(cManager, target);
 		Plan plan = planner.plan(excludeSet);		
-		PlanPrinter.print(cManager, plan, db.getThresholdReduction());
+		PlanPrinter.print(cManager, plan, KremlinConfig.getThresholdReduction());
 		
-		if (db.showRegionCount())
+		if (KremlinConfig.showRegionCount())
 			cManager.printStatistics();
 	}	
 	

@@ -33,7 +33,7 @@ public class Kremlin {
 			System.exit(0);
 		}
 
-		KremlinConfig db = KremlinConfig.getInstance(options);
+		KremlinConfig db = KremlinConfig.configure(options);
 		String planner = db.getPlanner();
 		
 		//db.path = "g:\\work\\ktest\\fft";
@@ -41,8 +41,8 @@ public class Kremlin {
 		//planner = "gpu";
 
 		if (planner.equals("none")) {
-			System.out.println("profiler");
-			KremlinProfiler.run(db);
+			System.out.println("profiler"); 
+			KremlinProfiler.run();
 			
 		} else if (planner.equals("openmp")) {
 			System.out.println("openmp");
@@ -50,7 +50,7 @@ public class Kremlin {
 			
 		} else if (planner.equals("gpu")) {
 			System.out.println("gpu");
-			KremlinGPU.run(db);
+			KremlinGPU.run();
 			
 		} else {
 			System.out.println("Unknown planner - " + planner);

@@ -6,7 +6,7 @@ import joptsimple.OptionSet;
 public class KremlinConfig {
 	static KremlinConfig instance = null;
 	
-	public static KremlinConfig getInstance(OptionSet set) {
+	public static KremlinConfig configure(OptionSet set) {
 		if (instance == null) {
 			instance = new KremlinConfig(set);
 		}
