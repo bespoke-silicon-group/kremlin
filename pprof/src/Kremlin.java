@@ -1,4 +1,4 @@
-import pprof.ArgDB;
+import pprof.KremlinConfig;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -33,7 +33,7 @@ public class Kremlin {
 			System.exit(0);
 		}
 
-		ArgDB db = ArgDB.getInstance(options);
+		KremlinConfig db = KremlinConfig.getInstance(options);
 		String planner = db.getPlanner();
 		
 		//db.path = "g:\\work\\ktest\\fft";

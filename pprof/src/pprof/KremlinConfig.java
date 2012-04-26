@@ -3,17 +3,17 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
 
-public class ArgDB {
-	static ArgDB instance = null;
+public class KremlinConfig {
+	static KremlinConfig instance = null;
 	
-	public static ArgDB getInstance(OptionSet set) {
+	public static KremlinConfig getInstance(OptionSet set) {
 		if (instance == null) {
-			instance = new ArgDB(set);
+			instance = new KremlinConfig(set);
 		}
 		return instance;
 	}
 	
-	public static ArgDB getInstance() {
+	public static KremlinConfig getInstance() {
 		assert(instance != null);
 		return instance;
 	}	
@@ -38,7 +38,7 @@ public class ArgDB {
 		
 	}*/
 	
-	private ArgDB(OptionSet set) {
+	private KremlinConfig(OptionSet set) {
 		this.numCore = Integer.valueOf((String)set.valueOf("cores"));
 		this.overhead = Integer.valueOf((String)set.valueOf("overhead"));
 		this.planner = (String)set.valueOf("planner");

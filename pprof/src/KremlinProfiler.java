@@ -10,7 +10,7 @@ public class KremlinProfiler {
 	 * @param args
 	 */
 	//public static void main(String[] args) {
-	public static void run(ArgDB db) {
+	public static void run(KremlinConfig db) {
 		// TODO Auto-generated method stub
 		String baseDir = null;		
 		
@@ -76,7 +76,7 @@ public class KremlinProfiler {
 	public static void printRegionList(KremlinPrinter printer, List<CRegion> list) {
 		int index = 0;
 		long total = 0;
-		ArgDB db = ArgDB.getInstance();
+		KremlinConfig db = KremlinConfig.getInstance();
 		for (CRegion region : list) {
 			String entry = null;
 			if (db.isVerbose()) {

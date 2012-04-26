@@ -13,7 +13,7 @@ public class KremlinGPU {
 	 * @param args
 	 */
 	//public static void main(String[] args) throws Exception {
-	public static void run(ArgDB db) {
+	public static void run(KremlinConfig db) {
 		String baseDir = ".";		
 		int numCore = 32;
 				

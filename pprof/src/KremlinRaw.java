@@ -5,7 +5,7 @@ import pprof.*;
 
 
 public class KremlinRaw {
-	public static void run(ArgDB db) {
+	public static void run(KremlinConfig db) {
 		// TODO Auto-generated method stub
 		String baseDir = db.getPath();
 		int numCore = db.getCoreCount();

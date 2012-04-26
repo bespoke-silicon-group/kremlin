@@ -56,7 +56,7 @@ public class PlanPrinter {
 		//String ret = String.format("ExecTimeReduction: %.2f %% %s\n%s", timeSave, region.getStatString(),  context);
 		//String ret = String.format("%s\n%s\n%s", region.toString(), region.getStatString(), context);
 		String first = null;
-		if (ArgDB.isVerbose()) {
+		if (KremlinConfig.isVerbose()) {
 			first = String.format("TimeRed(%d)=%.2f%%, %s", 
 					record.getCoreCount(), timeSave, printer.getVerboseString(region));
 			
