@@ -46,7 +46,7 @@ public class Kremlin {
 			
 		} else if (planner.equals("openmp")) {
 			System.out.println("openmp");
-			KremlinOMP.run(db);
+			KremlinOMP.run();
 			
 		} else if (planner.equals("gpu")) {
 			System.out.println("gpu");
