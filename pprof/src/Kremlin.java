@@ -38,7 +38,7 @@ public class Kremlin {
 		
 		//db.path = "g:\\work\\ktest\\fft";
 		//db.path = "g:\\work\\ktest\\hotspot";
-		planner = "gpu";
+		//planner = "gpu";
 
 		if (planner.equals("none")) {
 			System.out.println("profiler");
