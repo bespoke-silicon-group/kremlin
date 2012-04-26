@@ -1,6 +1,6 @@
 #ifndef _KREMLIN_H
 #define _KREMLIN_H
-//#define NDEBUG
+#define NDEBUG
 //#define KREMLIN_DEBUG
 
 #include <assert.h>
