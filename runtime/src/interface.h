@@ -10,7 +10,6 @@
 #include <stdint.h>
 #include "ktypes.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -30,6 +29,19 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...);
 void _KTimestamp0(UInt32 dest_reg);
 void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset);
 void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset);
+void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset);
+void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset);
+void _KTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset);
+void _KTimestamp6(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
+src6_reg, UInt32 src6_offset);
+void _KTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
+src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset);
 
 void _KWork(UInt32 work);
 

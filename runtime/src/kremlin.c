@@ -1110,7 +1110,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 
     if (!isKremlinOn())
 		return NULL;
-		
+
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
@@ -1209,6 +1209,237 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
     }
 }
 
+void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset) {
+    MSG(3, "KTimestamp3 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u)\n",
+	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
+	  src3_offset);
+	// TODO: fix next line
+	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
+
+    if (!isKremlinOn()) return;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time control_dep_time = CDepGet(index);
+		assert(control_dep_time <= getTimetick() - region->start);
+
+        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
+        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
+        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
+
+        Time dest_time = MAX4(src1_dep_time,src2_dep_time,src3_dep_time,control_dep_time);
+
+		RShadowSetItem(dest_time, dest_reg, index);
+        RegionUpdateCp(region, dest_time);
+
+        MSG(3, "kTime3 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
+		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
+		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
+		MSG(3, "dest_reg %u\n", dest_reg);
+        MSG(3, " src1_dep_time %u",src1_dep_time);
+        MSG(3, " | src2_dep_time %u",src2_dep_time);
+        MSG(3, " | src3_dep_time %u",src3_dep_time);
+        MSG(3, " | dest_time %u\n",dest_time);
+    }
+}
+
+void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset) {
+    MSG(3, "KTimestamp4 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u,"
+	"ts[%u] + %u)\n",
+	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
+	  src3_offset,src4_reg,src4_offset);
+	// TODO: fix next line
+	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
+
+    if (!isKremlinOn()) return;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time control_dep_time = CDepGet(index);
+		assert(control_dep_time <= getTimetick() - region->start);
+
+        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
+        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
+        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
+        Time src4_dep_time = RShadowGetItem(src4_reg, index) + src4_offset;
+
+        Time dest_time = MAX(MAX4(src1_dep_time,src2_dep_time,src3_dep_time,src4_dep_time),control_dep_time);
+
+		RShadowSetItem(dest_time, dest_reg, index);
+        RegionUpdateCp(region, dest_time);
+
+        MSG(3, "kTime4 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
+		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
+		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
+		MSG(3, " | src4_reg %u | src4_offset %u",src4_reg,src4_offset);
+		MSG(3, "dest_reg %u\n", dest_reg);
+        MSG(3, " src1_dep_time %u",src1_dep_time);
+        MSG(3, " | src2_dep_time %u",src2_dep_time);
+        MSG(3, " | src3_dep_time %u",src3_dep_time);
+        MSG(3, " | src4_dep_time %u",src4_dep_time);
+        MSG(3, " | dest_time %u\n",dest_time);
+    }
+}
+
+void _KTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
+    MSG(3, "KTimestamp5 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u,"
+	"ts[%u] + %u, ts[%u] + %u)\n",
+	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
+	  src3_offset,src4_reg,src4_offset,src5_reg,src5_offset);
+	// TODO: fix next line
+	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
+
+    if (!isKremlinOn()) return;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time control_dep_time = CDepGet(index);
+		assert(control_dep_time <= getTimetick() - region->start);
+
+        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
+        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
+        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
+        Time src4_dep_time = RShadowGetItem(src4_reg, index) + src4_offset;
+        Time src5_dep_time = RShadowGetItem(src5_reg, index) + src5_offset;
+
+        Time dest_time =
+		MAX3(MAX4(src1_dep_time,src2_dep_time,src3_dep_time,src4_dep_time),src5_dep_time,control_dep_time);
+
+		RShadowSetItem(dest_time, dest_reg, index);
+        RegionUpdateCp(region, dest_time);
+
+        MSG(3, "kTime5 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
+		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
+		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
+		MSG(3, " | src4_reg %u | src4_offset %u",src4_reg,src4_offset);
+		MSG(3, " | src5_reg %u | src5_offset %u",src5_reg,src5_offset);
+		MSG(3, "dest_reg %u\n", dest_reg);
+        MSG(3, " src1_dep_time %u",src1_dep_time);
+        MSG(3, " | src2_dep_time %u",src2_dep_time);
+        MSG(3, " | src3_dep_time %u",src3_dep_time);
+        MSG(3, " | src4_dep_time %u",src4_dep_time);
+        MSG(3, " | src5_dep_time %u",src5_dep_time);
+        MSG(3, " | dest_time %u\n",dest_time);
+    }
+}
+
+void _KTimestamp6(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
+src6_reg, UInt32 src6_offset) {
+    MSG(3, "KTimestamp6 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u,"
+	"ts[%u] + %u, ts[%u] + %u, ts[%u] + %u)\n",
+	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
+	  src3_offset,src4_reg,src4_offset,src5_reg,src5_offset,src6_reg,src6_offset);
+	// TODO: fix next line
+	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
+
+    if (!isKremlinOn()) return;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time control_dep_time = CDepGet(index);
+		assert(control_dep_time <= getTimetick() - region->start);
+
+        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
+        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
+        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
+        Time src4_dep_time = RShadowGetItem(src4_reg, index) + src4_offset;
+        Time src5_dep_time = RShadowGetItem(src5_reg, index) + src5_offset;
+        Time src6_dep_time = RShadowGetItem(src6_reg, index) + src6_offset;
+
+        Time dest_time =
+		MAX4(MAX4(src1_dep_time,src2_dep_time,src3_dep_time,src4_dep_time),src5_dep_time,src6_dep_time,control_dep_time);
+
+		RShadowSetItem(dest_time, dest_reg, index);
+        RegionUpdateCp(region, dest_time);
+
+        MSG(3, "kTime6 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
+		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
+		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
+		MSG(3, " | src4_reg %u | src4_offset %u",src4_reg,src4_offset);
+		MSG(3, " | src5_reg %u | src5_offset %u",src5_reg,src5_offset);
+		MSG(3, " | src6_reg %u | src6_offset %u",src6_reg,src6_offset);
+		MSG(3, "dest_reg %u\n", dest_reg);
+        MSG(3, " src1_dep_time %u",src1_dep_time);
+        MSG(3, " | src2_dep_time %u",src2_dep_time);
+        MSG(3, " | src3_dep_time %u",src3_dep_time);
+        MSG(3, " | src4_dep_time %u",src4_dep_time);
+        MSG(3, " | src5_dep_time %u",src5_dep_time);
+        MSG(3, " | src6_dep_time %u",src6_dep_time);
+        MSG(3, " | dest_time %u\n",dest_time);
+    }
+}
+
+void _KTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
+src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
+    MSG(3, "KTimestamp7 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u,"
+	"ts[%u] + %u, ts[%u] + %u, ts[%u] + %u, ts[%u] + %u)\n",
+	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
+	  src3_offset, src4_reg, src4_offset, src5_reg, src5_offset,
+	  src6_reg, src6_offset, src7_reg, src7_offset);
+	// TODO: fix next line
+	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
+
+    if (!isKremlinOn()) return;
+
+	Index index;
+    for (index = 0; index < getIndexDepth(); index++) {
+		Level i = getLevel(index);
+		Region* region = RegionGet(i);
+		Time control_dep_time = CDepGet(index);
+		assert(control_dep_time <= getTimetick() - region->start);
+
+        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
+        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
+        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
+        Time src4_dep_time = RShadowGetItem(src4_reg, index) + src4_offset;
+        Time src5_dep_time = RShadowGetItem(src5_reg, index) + src5_offset;
+        Time src6_dep_time = RShadowGetItem(src6_reg, index) + src6_offset;
+        Time src7_dep_time = RShadowGetItem(src7_reg, index) + src7_offset;
+
+		Time max_tmp1 = MAX4(src1_dep_time,src2_dep_time,src3_dep_time,src4_dep_time);
+		Time max_tmp2 = MAX4(src5_dep_time,src6_dep_time,src7_dep_time,control_dep_time);
+        Time dest_time = MAX(max_tmp1,max_tmp2);
+
+		RShadowSetItem(dest_time, dest_reg, index);
+        RegionUpdateCp(region, dest_time);
+
+        MSG(3, "kTime7 level %u version %u \n", i, RegionGetVersion(i));
+        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
+		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
+		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
+		MSG(3, " | src4_reg %u | src4_offset %u",src4_reg,src4_offset);
+		MSG(3, " | src5_reg %u | src5_offset %u",src5_reg,src5_offset);
+		MSG(3, " | src6_reg %u | src6_offset %u",src6_reg,src6_offset);
+		MSG(3, " | src7_reg %u | src7_offset %u",src7_reg,src7_offset);
+		MSG(3, "dest_reg %u\n", dest_reg);
+        MSG(3, " src1_dep_time %u",src1_dep_time);
+        MSG(3, " | src2_dep_time %u",src2_dep_time);
+        MSG(3, " | src3_dep_time %u",src3_dep_time);
+        MSG(3, " | src4_dep_time %u",src4_dep_time);
+        MSG(3, " | src5_dep_time %u",src5_dep_time);
+        MSG(3, " | src6_dep_time %u",src6_dep_time);
+        MSG(3, " | src7_dep_time %u",src7_dep_time);
+        MSG(3, " | dest_time %u\n",dest_time);
+    }
+}
 
 static inline void printTArray(Time* times, Index depth) {
 	Index index;
@@ -1388,15 +1619,18 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
 
 // XXX: KLoad{2,3,4} will soon be deprecated
 void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 mem_access_size) {
-	 _KLoad(src_addr,dest_reg,mem_access_size,2,src1_reg,src2_reg);
+	_KLoad0(src_addr,dest_reg,mem_access_size);
+	//_KLoad(src_addr,dest_reg,mem_access_size,2,src1_reg,src2_reg);
 }
 
 void _KLoad3(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, UInt32 mem_access_size){
-	_KLoad(src_addr,dest_reg,mem_access_size,3,src1_reg,src2_reg,src3_reg);
+	_KLoad0(src_addr,dest_reg,mem_access_size);
+	//_KLoad(src_addr,dest_reg,mem_access_size,3,src1_reg,src2_reg,src3_reg);
 }
 
 void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, Reg src4_reg, UInt32 mem_access_size) { 
-	 _KLoad(src_addr,dest_reg,mem_access_size,4,src1_reg,src2_reg,src3_reg,src4_reg);
+	_KLoad0(src_addr,dest_reg,mem_access_size);
+	//_KLoad(src_addr,dest_reg,mem_access_size,4,src1_reg,src2_reg,src3_reg,src4_reg);
 }
 
 
@@ -1769,6 +2003,7 @@ static Bool kremlinDeinit() {
 
 	fprintf(stderr,"[kremlin] max active level = %d\n", 
 		getMaxActiveLevel());	
+
 	_KTurnOff();
 	CRegionDeinit(KConfigGetOutFileName());
 	RShadowDeinit();

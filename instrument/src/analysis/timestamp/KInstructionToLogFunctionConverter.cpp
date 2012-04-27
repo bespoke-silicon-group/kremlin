@@ -10,7 +10,7 @@
 #include "LLVMTypes.h"
 #include "foreach.h"
 
-#define NUM_SPECIALIZED 3
+#define NUM_SPECIALIZED 8
 
 using namespace llvm;
 using namespace boost;
