@@ -58,6 +58,30 @@ void WorkAnalysis::handleBasicBlock(llvm::BasicBlock& bb)
 
     LLVMTypes types(bb.getContext());
     vector<Value*> call_args;
+
+	Module *m = bb.getParent()->getParent();
+	GlobalVariable *timetick = m->getGlobalVariable("timetick");
+
+	if(timetick == NULL) {
+    	timetick = new GlobalVariable(*m, types.i64(), false, GlobalValue::ExternalLinkage, NULL, "timetick");
+	}
+
+	// The following code cuts down on the number of function calls (namely
+	// KWork). In limited testing, it didn't seem to have much of an impact so
+	// to make the code cleaner (and more compact), we're disabling this for
+	// now. If you enable it, you must also make the timetick variable in
+	// runtime/src/kremlin.c be a non-static variable.
+#if 0
+	LoadInst* timetick_load = new LoadInst(timetick);
+	BinaryOperator *timetick_add = BinaryOperator::Create(Instruction::Add,timetick_load,
+	 ConstantInt::get(types.i64(), work_in_bb));
+	StoreInst* timetick_store = new StoreInst(timetick_add,timetick);
+
+    _timestampPlacer.constrainInstPlacement(*timetick_store, *bb.getFirstNonPHI());
+    _timestampPlacer.constrainInstPlacement(*timetick_add,*timetick_store);
+    _timestampPlacer.constrainInstPlacement(*timetick_load,*timetick_add);
+#endif
+
     call_args.push_back(ConstantInt::get(types.i32(), work_in_bb, false));
     CallInst& func_call = *CallInst::Create(_instrumentationFunc, call_args.begin(), call_args.end(), "");
 
