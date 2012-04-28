@@ -16,6 +16,7 @@ sregions.txt
 region.graph
 kremlin.mk
 kremlin_region_graph.dot
+*.ids.txt
 
 
 #############################
