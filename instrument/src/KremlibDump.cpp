@@ -104,7 +104,7 @@ namespace {
 						if(ci->hasName()) *os << ci->getName() << " = ";
 
 						if(called_val->hasName()) *os << called_val->getName();
-						else *os << "(UNNAMED)";
+						else *os << "_UNNAMED_";
 
 						printCallArgs(ci,os,false);
 						*os << "\n";
@@ -114,46 +114,66 @@ namespace {
 			else if(isa<ReturnInst>(inst)) {
 				*os << "\t\tRETURN\n";
 			}
-			else if(
-					isa<BranchInst>(inst)
-					|| isa<SwitchInst>(inst)
-				   )
-			{
-				*os << "\t\t" << *inst << "\n";
+			else if(BranchInst* bi = dyn_cast<BranchInst>(inst)) {
+				*os << "\t\tTERMINATOR: ";
+				for(unsigned i = 0; i < bi->getNumSuccessors(); ++i) {
+					*os << bi->getSuccessor(i)->getName() << " ";
+				}
+				*os << "\n";
+			}
+			else if(SwitchInst* si = dyn_cast<SwitchInst>(inst)) {
+				*os << "\t\tTERMINATOR: ";
+				for(unsigned i = 0; i < si->getNumSuccessors(); ++i) {
+					*os << si->getSuccessor(i)->getName() << " ";
+				}
+				*os << "\n";
 			}
 		}
 
 		void processBasicBlock(BasicBlock *bb, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
-			*os << "\t" << bb->getName().str() << "\n";
+			*os << "\tBB_BEGIN: " << bb->getName().str() << "\n";
 
 			for(BasicBlock::iterator inst = bb->begin(), inst_e = bb->end(); inst != inst_e; ++inst) {
 				processInstruction(inst,kremlib_calls,os);
 			}
 
+			*os << "\tBB_END: " << bb->getName().str() << "\n";
+
 			*os << "\n";
 		}
 
 		void processFunction(Function *func, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
-			*os << "FUNCTION: ";
-			if(func->hasName()) { *os << func->getName().str(); }
-			else { *os << "(unnamed)"; }
-			*os << "\n";
+			std::string func_name;
+			if(func->hasName()) { func_name = func->getName().str(); }
+			else { func_name =  "(unnamed)"; }
+			*os << "FUNCTION_BEGIN: " << func_name << "\n";
+
+			log.info() << "dumping function: " << func_name << "\n";
 
 			for(Function::iterator bb = func->begin(), bb_e = func->end(); bb != bb_e; ++bb) {
 				processBasicBlock(bb,kremlib_calls,os);
 			}
 
+			*os << "FUNCTION_END: " << func_name << "\n";
+
 			*os << "\n\n";
+			os->flush();
 		}
 
 		void addKremlibCallsToSet(std::set<std::string>& kremlib_calls) {
 			kremlib_calls.insert("_KBinary");
 			kremlib_calls.insert("_KBinaryConst");
+			kremlib_calls.insert("_KWork");
+			kremlib_calls.insert("_KTimestamp");
+			kremlib_calls.insert("_KTimestamp0");
+			kremlib_calls.insert("_KTimestamp1");
+			kremlib_calls.insert("_KTimestamp2");
 			kremlib_calls.insert("_KAssign");
 			kremlib_calls.insert("_KAssignConst");
 			kremlib_calls.insert("_KInsertVal");
 			kremlib_calls.insert("_KInsertValConst");
 			kremlib_calls.insert("_KLoad");
+			kremlib_calls.insert("_KLoad0");
 			kremlib_calls.insert("_KLoad1");
 			kremlib_calls.insert("_KLoad2");
 			kremlib_calls.insert("_KLoad3");
@@ -163,6 +183,7 @@ namespace {
 			kremlib_calls.insert("_KMalloc");
 			kremlib_calls.insert("_KRealloc");
 			kremlib_calls.insert("_KFree");
+			kremlib_calls.insert("_KPhi");
 			kremlib_calls.insert("_KPhi1To1");
 			kremlib_calls.insert("_KPhi2To1");
 			kremlib_calls.insert("_KPhi3To1");
@@ -187,6 +208,7 @@ namespace {
 			kremlib_calls.insert("_KDeinit");
 			kremlib_calls.insert("_KTurnOn");
 			kremlib_calls.insert("_KTurnOff");
+			kremlib_calls.insert("_KPrintData");
 			kremlib_calls.insert("_KEnterRegion");
 			kremlib_calls.insert("_KExitRegion");
 			kremlib_calls.insert("_KPrepRTable");

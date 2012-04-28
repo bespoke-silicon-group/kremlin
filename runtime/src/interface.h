@@ -10,7 +10,6 @@
 #include <stdint.h>
 #include "ktypes.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -26,31 +25,55 @@ void _KEnterRegion(UInt64 region_id, UInt region_type);
 void _KExitRegion(UInt64 region_id, UInt region_type);
 
 /* The following funcs are inserted by the critical path instrumentation pass */
-void* _KBinary(UInt opCost, UInt src0, UInt src1, UInt dest); 
-void* _KBinaryConst(UInt opCost, UInt src, UInt dest); 
-void* _KAssign(UInt src, UInt dest);
-void* _KAssignConst(UInt dest); 
-void* _KInsertValue(UInt src, UInt dest); 
-void* _KInsertValueConst(UInt dest); 
-void* _KInduction(UInt dest); 
-void* _KReduction(UInt opCost, UInt dest); 
+void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...);
+void _KTimestamp0(UInt32 dest_reg);
+void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset);
+void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset);
+void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset);
+void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset);
+void _KTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset);
+void _KTimestamp6(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
+src6_reg, UInt32 src6_offset);
+void _KTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
+src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
+src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
+src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset);
 
-void* _KLoad(Addr src_addr, UInt dest, UInt32 size); 
-void* _KLoad1(Addr src_addr, UInt src1, UInt dest, UInt32 size);
-void* _KLoad2(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 size);
-void* _KStore(UInt src, Addr dest_addr, UInt32 size); 
-void* _KStoreConst(Addr dest_addr, UInt32 size); 
+void _KWork(UInt32 work);
+
+// BEGIN deprecated?
+void _KInsertValue(UInt src, UInt dest); 
+void _KInsertValueConst(UInt dest); 
+// END deprecated?
+
+void _KInduction(UInt dest_reg); 
+void _KReduction(UInt op_cost, UInt dest_reg); 
+
+// TODO: KLoads/Stores breaks the convention of having the dest followed by the src.
+void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs, ...); 
+void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 memory_access_size); 
+void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 memory_access_size);
+void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 memory_access_size);
+void _KLoad3(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, UInt32 mem_access_size);
+void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, Reg src4_reg, UInt32 mem_access_size);
+void _KStore(Reg src_reg, Addr dest_addr, UInt32 memory_access_size); 
+void _KStoreConst(Addr dest_addr, UInt32 memory_access_size); 
+
+void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...);
+void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg); 
+void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg); 
+void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg); 
+void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg); 
+void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg);
+void _KPhiAddCond(Reg dest_reg, Reg src_reg);
 
 void _KMalloc(Addr addr, size_t size, UInt dest);
 void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest);
 void _KFree(Addr addr);
-
-void* _KPhi1To1(UInt dest, UInt src, UInt cd); 
-void* _KPhi2To1(UInt dest, UInt src, UInt cd1, UInt cd2); 
-void* _KPhi3To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3); 
-void* _KPhi4To1(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4); 
-void* _KPhiCond4To1(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4);
-void* _KPhiAddCond(UInt dest, UInt src);
 
 void _KPushCDep(Reg cond);
 void _KPopCDep();
@@ -65,7 +88,7 @@ void _KLinkArg(Reg src);
 void _KLinkArgConst(void);
 void _KUnlinkArg(UInt dest); 
 
-void* _KCallLib(UInt cost, UInt dest, UInt num_in, ...); 
+void _KCallLib(UInt cost, UInt dest, UInt num_in, ...); 
 
 void _KPrintData(); // deprecated?
 

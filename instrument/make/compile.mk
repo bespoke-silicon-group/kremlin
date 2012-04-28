@@ -26,7 +26,9 @@ UNPROCESSED_FROM_SOURCES := $(filter $(EXTENSIONS), $(SOURCES))
 SOURCES := $(filter-out $(EXTENSIONS), $(SOURCES))
 UNPROCESSED_SOURCES += $(UNPROCESSED_FROM_SOURCES)
 
+ifdef KREMLIN_VERBOSE_BUILD
 $(info SOURCES minus c/cpp/fortran: $(SOURCES))
+endif
 
 # All the unprocessed sources without the .c
 UNPROCESSED_SOURCES_NO_EXTENSION = $(basename $(UNPROCESSED_SOURCES))
@@ -37,7 +39,7 @@ ASM_INSTRUMENTED_WITH_GCC_NAME = $(addsuffix .s, $(UNPROCESSED_SOURCES_NO_EXTENS
 
 # Passes required as a chained rule. The code to instrument must go through
 # all these passes.
-PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.splitbbatfunccall.criticalpath.regioninstrument.renamemain
+PASS_CHAIN = .simplifycfg.mem2reg.indvars.elimsinglephis.criticalpath.regioninstrument.renamemain.O3
 
 # ---------------------------------------------------------------------------
 # Functions (alpha order)
@@ -73,7 +75,9 @@ $(eval ASM_INSTRUMENTED := $$(addsuffix $(PASS_CHAIN).bc.s, $(SOURCE_BASE)))
 # Rules (alpha order)
 # -------------------
 
+ifdef KREMLIN_VERBOSE_BUILD
 $$(info C_TO_ASM: SOURCE_FILE: $(SOURCE_FILE) OUTPUT_FILE: $(OUTPUT_FILE))
+endif
 
 # GCC always overwrites its output files, so mark it as phony so make will
 # overwrite it also.

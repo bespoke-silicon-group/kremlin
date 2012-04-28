@@ -940,10 +940,8 @@ namespace {
 
 					// need to update loop_header_to_region_id if this is actually a loop header
 					if(loop_header_name_to_region_id[bb->getName()] != 0) {
-						loop_header_name_to_region_id[bb->getName().str() + ".bb_id." + ss.str()] = loop_header_name_to_region_id[bb->getName().str()];
+						loop_header_name_to_region_id[bb->getName().str()] = loop_header_name_to_region_id[bb->getName().str()];
 					}
-
-					bb->setName(bb->getName() + ".bb_id." + ss.str());
 
 					if(add_logBBVisit_func) {
 						op_args.push_back(ConstantInt::get(types.i64(),bb_id));

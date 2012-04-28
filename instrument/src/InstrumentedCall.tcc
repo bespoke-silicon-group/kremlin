@@ -12,6 +12,9 @@
 
 using namespace llvm;
 
+/**
+ * Constructs a new instrumented call.
+ */
 template <typename Callable>
 InstrumentedCall<Callable>::InstrumentedCall(Callable* ci, uint64_t bb_call_idx) :
     InstrumentationCall(NULL, NULL, INSERT_BEFORE, NULL),
@@ -25,6 +28,9 @@ InstrumentedCall<Callable>::~InstrumentedCall()
 {
 }
 
+/**
+ * @return The id.
+ */
 template <typename Callable>
 unsigned long long InstrumentedCall<Callable>::getId() const
 {
@@ -66,77 +72,9 @@ Function* InstrumentedCall<Callable>::untangleCall(Callable* ci)
     return called_func;
 }
 
-
-//template <typename Callable>
-//void InstrumentedCall::instrument(std::map<Value*,unsigned int>& inst_to_id, InstrumentationCalls& front) 
-//{
-//    LLVMTypes types(ci->getContext());
-//    std::vector<Value*> args;
-//
-//    // don't do anything for LLVM instrinsic functions since we know we'll never instrument those functions
-//    if(!(ci->getCalledFunction() && ci->getCalledFunction()->isIntrinsic())) {
-//        Function* called_func = untangleCall(ci);
-//
-//        if(called_func) // not a func ptr
-//            LOG_DEBUG() << "got a call to function " << called_func->getName() << "\n";
-//        else
-//            LOG_DEBUG() << "got a call to function via function pointer: " << *ci;
-//
-//        // insert call to prepareCall to setup the structures needed to pass arg and return info efficiently
-//        boost::uuids::random_generator gen;
-//        uint64_t callsite_id = UuidToIntAdapter<uint64_t>::get(gen());
-//
-//        /*
-//        std::string filename;
-//        int filename;
-//
-//        std::ostringstream os;
-//        os  << callsite_id << delim
-//            << "callsite" << delim
-//            << filename << delim
-//            << line << delim
-//            << line << delim;
-//
-//        new GlobalVariable(m, types.i8(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i8(), 0), Twine(os.str()));
-//        */
-//        args.push_back(ConstantInt::get(types.i64(),callsite_id));  // Call site ID
-//        args.push_back(ConstantInt::get(types.i64(),0));            // ID of region being called. TODO: Implement
-//        front.addCallInst(ci, "prepareCall", args);
-//        args.clear();
-//
-//        // if this call returns a value, we need to call addReturnValueLink
-//        if(returnsRealValue(ci)) {
-//            args.push_back(ConstantInt::get(types.i32(),inst_to_id[ci])); // dest ID
-//            front.addCallInst(ci, "addReturnValueLink", args);
-//            args.clear();
-//        }
-//
-//        // link all the args that aren't passed by ref
-//        CallSite cs = CallSite::get(ci);
-//
-//        for(CallSite::arg_iterator arg_it = cs.arg_begin(), arg_end = cs.arg_end(); arg_it != arg_end; ++arg_it) {
-//            Value* the_arg = *arg_it;
-//            LOG_DEBUG() << "checking arg: " << *the_arg << "\n";
-//
-//            if(!isa<PointerType>(the_arg->getType())) {
-//                if(!isa<Constant>(*arg_it)) { // not a constant so we need to call linkArgToAddr
-//                    args.push_back(ConstantInt::get(types.i32(),inst_to_id[the_arg])); // src ID
-//
-//                    front.addCallInst(ci, "linkArgToLocal", args);
-//
-//                    args.clear();
-//                }
-//                else { // this is a constant so call linkArgToConst instead (which takes no args)
-//                    front.addCallInst(ci, "linkArgToConst", args);
-//                }
-//            }
-//        } // end for(arg_it)
-//    }
-//    else {
-//        LOG_DEBUG() << "ignoring call to LLVM intrinsic function: " << ci->getCalledFunction()->getName() << "\n";
-//    }
-//}
-
+/**
+ * Adds a global variable with the encoded debug information.
+ */
 template <typename Callable>
 void InstrumentedCall<Callable>::instrument()
 {
@@ -148,6 +86,12 @@ void InstrumentedCall<Callable>::instrument()
     new GlobalVariable(*m, types.i8(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i8(), 0), Twine(formatToString(encoded_name)));
 }
 
+/**
+ * Formats the call to a string.
+ *
+ * @param buf The buffer to place the formatted data.
+ * @return The passed buffer.
+ */
 template <typename Callable>
 std::string& InstrumentedCall<Callable>::formatToString(std::string& buf) const
 {

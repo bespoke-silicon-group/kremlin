@@ -360,7 +360,7 @@ static SegTable* STableGetSegTable(Addr addr) {
 	int i;
 	for (i=0; i<sTable.writePtr; i++) {
 		if (sTable.entry[i].addrHigh == highAddr) {
-			//MSG(0, "STable Found an existing entry..\n");
+			//MSG(1, "STable Found an existing entry..\n");
 			return sTable.entry[i].segTable;	
 		}
 	}
@@ -394,6 +394,8 @@ static Time* _MShadowGetSTV(Addr addr, Index size, Version* vArray, UInt32 width
 }
 
 static void _MShadowSetSTV(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
+	MSG(1, "MShadowSet 0x%llx, size %d\n", addr, size);
+
 	if (size < 1)
 		return;
 
