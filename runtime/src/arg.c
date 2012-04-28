@@ -106,13 +106,18 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			continue;
 		}
 #endif
+		// TODO FIXME XXX: These option names are too generic: they need to be
+		// unique to Kremlin. These may come up in normal program usage
+		// and cause weird errors. This was exactly what happened for the
+		// streamcluster benchmark in rodinia since one of its inputs had the
+		// word "output" in it (which was previously a kremlin option). 
 		str_start = strstr(argv[i],"disable-rsummary");
 		if(str_start) {
 			KConfigDisableRSummary();
 			continue;
 		}
 
-		str_start = strstr(argv[i],"output");
+		str_start = strstr(argv[i],"kremlin-output");
 		if(str_start) {
 			KConfigSetOutFileName(parseOptionStr(argv[i]));
 			continue;
