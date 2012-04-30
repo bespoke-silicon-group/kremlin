@@ -81,8 +81,8 @@ public class NoNestPlanner {
 		double coverage = getCoverage(current);
 		double selfPoint = coverage - coverage / speedup;
 		//System.err.printf("pTime = %.2f, sTime = %.2f, coverage = %.2f, speedup = %.2f, sPoint = %.2f\n", parallelTime, serialTime, coverage, speedup, selfPoint);
-		System.err.printf("[SelfPoint] Region: %s, Cov: %.2f, Speedup: %.2f, SelfPoint: %.2f\n", 
-			current, coverage, speedup, selfPoint);
+		//System.err.printf("[SelfPoint] Region: %s, Cov: %.2f, Speedup: %.2f, SelfPoint: %.2f\n", 
+			//current, coverage, speedup, selfPoint);
 		if (selfPoint <= -0.0)
 			selfPoint = 0.0;
 		
@@ -157,9 +157,13 @@ public class NoNestPlanner {
 		//Set<CRegion> set = setMap.get(root);
 		Set<CRegion> set = getParallelRegionSet(root);
 		List<CRegionRecord> ret = new ArrayList<CRegionRecord>();
+		double coverageSum = 0.0;
 		for (CRegion each : set) {
 			double timeSaved = getSavedTime(each);
-			System.err.printf("[Print] Region: %s, TimeSavedTime: %.2f \n", each, timeSaved);
+			double coverage = getCoverage(each); 
+			coverageSum += coverage;
+			assert(coverageSum <= 100.0);
+			//System.err.printf("[Print] TimeSavedTime: %.2f, Cov: %.2f, Region: %s\n", timeSaved, coverage, each);
 			CRegionRecord toAdd = new CRegionRecord(each, maxCore, timeSaved);
 			ret.add(toAdd);
 		}

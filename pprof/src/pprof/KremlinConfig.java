@@ -23,7 +23,7 @@ public class KremlinConfig {
 	int numCore;	
 	int overhead;
 	boolean showRegionCount = true;
-	boolean verbose = true;
+	boolean verbose = false;
 	double thresholdReduction = 5.0;	
 	PlannerType type;
 	
