@@ -21,7 +21,7 @@ public class KremlinRaw {
 		
 		SRegionManager sManager = new SRegionManager(new File(sFile), true);		
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
-		CDPPlanner planner = new CDPPlanner(cManager, new Target(numCore, overhead));
+		NoNestPlanner planner = new NoNestPlanner(cManager, new Target(numCore, overhead));
 		
 		Set<CRegion> excludeSet = getNonLeafLoopSet(cManager);		
 		Plan plan = planner.plan(excludeSet);

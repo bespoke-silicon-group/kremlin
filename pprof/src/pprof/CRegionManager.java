@@ -83,7 +83,7 @@ public class CRegionManager {
 		}
 		
 		for (CRegion each : recursionTarget.keySet()) {
-			System.err.printf("rec target node id = %d\n", each.id);
+			//System.err.printf("rec target node id = %d\n", each.id);
 			CRegionR region = (CRegionR)each;
 			CRegion target = regionMap.get(recursionTarget.get(each));
 			assert(target.getRegionType() == CRecursiveType.REC_INIT);
@@ -114,7 +114,7 @@ public class CRegionManager {
 		for (CRegion each : set) {			
 			if (each.getRegionType() == CRecursiveType.REC_INIT) {				
 				map.put(each,  new HashSet<CRegion>());		
-				System.err.printf("\nadding node %d to init map\n", each.id);
+				//System.err.printf("\nadding node %d to init map\n", each.id);
 				//System.err.printf("\t%s\n", each.getRegionType());
 				assert(each instanceof CRegionR);
 			}
@@ -125,7 +125,7 @@ public class CRegionManager {
 				CRegion target = ((CRegionR)each).getRecursionTarget();
 				Set<CRegion> sinkSet = map.get(target);				
 				sinkSet.add(each);
-				System.err.printf("\nadding node %d to sink \n", each.id);
+				//System.err.printf("\nadding node %d to sink \n", each.id);
 			}
 		}
 		
@@ -142,7 +142,7 @@ public class CRegionManager {
 			if (current.getStatSize() > maxSize)
 				maxSize = current.getStatSize();
 		}
-		System.err.printf("init = %d, sinks size = %d maxSize = %d\n", init.id, sinks.size(), maxSize);
+		//System.err.printf("init = %d, sinks size = %d maxSize = %d\n", init.id, sinks.size(), maxSize);
 		for (int depth=0; depth<maxSize; depth++) {
 			Map<CRegion, Long> map = new HashMap<CRegion, Long>();
 			for (CRegion each : sinks) {
@@ -159,7 +159,7 @@ public class CRegionManager {
 					long prev = map.get(target);
 					long updated = prev + source.getStat(depth).getTotalWork();
 					map.put(target, updated);
-					System.err.printf("updating value to %d at %d\n", updated, target.id);
+					//System.err.printf("updating value to %d at %d\n", updated, target.id);
 					target = target.getParent();
 				}
 			}			
@@ -169,7 +169,7 @@ public class CRegionManager {
 			for (CRegion each : map.keySet()) {
 				long work = map.get(each);
 				double weight = work / (double)totalWork;
-				System.err.printf("Setting weight of node %d at depth %d to %.2f\n", each.id, depth, weight);
+				//System.err.printf("Setting weight of node %d at depth %d to %.2f\n", each.id, depth, weight);
 				((CRegionR)each).getStat(depth).setRecursionWeight(weight);
 				
 			}
@@ -178,15 +178,14 @@ public class CRegionManager {
 	
 	public CRegion getRoot() {
 		return this.root;
-	}
+	}	
 	
 	public Set<CRegion> getLeafSet() {
-		Set<CRegion> ret = new HashSet<CRegion>();
-		for (SRegion key : cRegionMap.keySet()) {
-			for (CRegion each : cRegionMap.get(key)) {
-				if (each.getChildrenSet().size() == 0)
-					ret.add(each);
-			}						
+		Set<CRegion> ret = new HashSet<CRegion>();		
+		for (Set<CRegion> each : cRegionMap.values()) {
+			for (CRegion region : each)
+				if (region.isLeaf())
+					ret.add(region);
 		}
 		return ret;
 	}
@@ -209,6 +208,7 @@ public class CRegionManager {
 		}
 		return ret;
 	}
+	
 	
 
 	
@@ -390,6 +390,8 @@ public class CRegionManager {
 	public double getTimeReduction(CRegion region) {
 		return getCoverage(region) * (1.0 - 1.0 / region.getSelfP());
 	}
+	
+	
 	
 	public static void main(String args[]) {
 		System.out.println("CRegionManager");

@@ -10,12 +10,12 @@ public class KremlinProfiler {
 	 * @param args
 	 */
 	//public static void main(String[] args) {
-	public static void run(KremlinConfig db) {
+	public static void run() {
 		// TODO Auto-generated method stub
 		String baseDir = null;		
 		
 		//String baseDir = "/h/g3/dhjeon/research/pact2011/spatbench/bench-clean";			
-		ParameterSet.rawDir = db.getPath();		
+		ParameterSet.rawDir = KremlinConfig.getPath();		
 		ParameterSet.project = baseDir;		
 		String rawDir = ParameterSet.rawDir;		
 		String sFile = rawDir + "/sregions.txt";
@@ -45,8 +45,8 @@ public class KremlinProfiler {
 			
 		}
 
-		if (db.getThresholdReduction() > 0.0) {
-			list = new ArrayList<CRegion>(cManager.getCRegionSet(db.getThresholdReduction()));
+		if (KremlinConfig.getThresholdReduction() > 0.0) {
+			list = new ArrayList<CRegion>(cManager.getCRegionSet(KremlinConfig.getThresholdReduction()));
 		} else {
 			list = new ArrayList<CRegion>(cManager.getCRegionSet());
 		}
@@ -66,7 +66,7 @@ public class KremlinProfiler {
 			}		
 			list.add(index, region);
 		}*/	
-		KremlinPrinter printer = KremlinPrinter.getInstance(cManager);
+		KremlinPrinter printer = KremlinPrinter.configure(cManager);
 		System.out.println("Kremlin Profiler Ver 0.1\n");
 		//CRegionPrinter printer = new CRegionPrinter(cManager);
 		printRegionList(printer, list);

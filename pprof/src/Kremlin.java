@@ -1,6 +1,6 @@
 import pprof.KremlinConfig;
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
+import joptsimple.*;
+import planner.*;
 
 
 public class Kremlin {
@@ -20,11 +20,11 @@ public class Kremlin {
 	static void printBanner() {
 		System.out.println("Kremlin Ver 0.1");
 	}
-	
+
 	public static void main(String[] args) throws Exception {
 		printBanner();
 
-		OptionParser parser = configureParser();		
+		OptionParser parser = configureParser();
 		OptionSet options = parser.parse(args);
 		//OptionSet options = parser.parse("kremlin", "-help");
 
@@ -33,28 +33,29 @@ public class Kremlin {
 			System.exit(0);
 		}
 
-		KremlinConfig db = KremlinConfig.getInstance(options);
-		String planner = db.getPlanner();
+		KremlinConfig.configure(options);		
+		PlannerType type = KremlinConfig.getPlanner();		
+		System.out.println("PlannerType = " + type);
 		
-		//db.path = "g:\\work\\ktest\\fft";
-		//db.path = "g:\\work\\ktest\\hotspot";
-		//planner = "gpu";
+		switch(type) {
+		case Profiler:			 
+			KremlinProfiler.run();
+			break;
 
-		if (planner.equals("none")) {
-			System.out.println("profiler");
-			KremlinProfiler.run(db);
+		case GPU:			 
+			KremlinGPU.run();
+			break;
 			
-		} else if (planner.equals("openmp")) {
-			System.out.println("openmp");
+		case OpenMP:			 
 			KremlinOMP.run();
+			break;
 			
-		} else if (planner.equals("gpu")) {
-			System.out.println("gpu");
-			KremlinGPU.run(db);
-			
-		} else {
-			System.out.println("Unknown planner - " + planner);
-			
-		}
+		case Cilk:
+			KremlinCilk.run();
+			break;			
+		
+		default:
+			System.out.println("Unsupported planner - " + PlannerType.Cilk);	 
+		}		
 	}
 }

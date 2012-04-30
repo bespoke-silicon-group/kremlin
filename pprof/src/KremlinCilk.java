@@ -1,18 +1,10 @@
-
-
 import java.io.File;
 import java.util.*;
 
 import planner.*;
 import pprof.*;
 
-
-
-public class KremlinGPU {
-	/**
-	 * @param args
-	 */
-	//public static void main(String[] args) throws Exception {
+public class KremlinCilk {
 	public static void run() {
 		String baseDir = ".";		
 		int numCore = 32;
@@ -44,10 +36,7 @@ public class KremlinGPU {
 	public static Set<CRegion> getNonLoopSet(CRegionManager manager) {
 		Set<CRegion> ret = new HashSet<CRegion>();
 		for (CRegion each : manager.getCRegionSet()) {
-			if (each.getSRegion().getType() != RegionType.LOOP)
-				ret.add(each);
-			
-			else if (!each.getParallelBit())
+			if (each.getSRegion().getType() != RegionType.FUNC)
 				ret.add(each);
 		}		
 		return ret;
