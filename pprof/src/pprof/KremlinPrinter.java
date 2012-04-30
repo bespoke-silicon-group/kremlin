@@ -6,12 +6,14 @@ import java.util.List;
 public class KremlinPrinter {
 	static KremlinPrinter instance;
 	
-	static public KremlinPrinter getInstance(CRegionManager manager) {
+	static public KremlinPrinter configure(CRegionManager manager) {		
 		if (KremlinPrinter.instance == null) {
 			KremlinPrinter.instance = new KremlinPrinter(manager);			
 		}
 		return KremlinPrinter.instance;
 	}
+	
+	
 	
 	CRegionManager manager;
 	
@@ -100,13 +102,13 @@ public class KremlinPrinter {
 			manager.getTimeReduction(region), manager.getCoverage(region), region.getSelfP(), region.getParallelismType());				
 		
 		return ret;
-	}
+	}	
 	
 	public List<String> getVerboseStringList(CRegion region) {
 		List<String> ret = new ArrayList<String>();
 		ret.add(getSummaryString(region));
-		//ret.add(getRegionInfoString(region));
-		ret.add(String.format("%s, %s", getParallelismString(region), getIterString(region))); 
+		//ret.add(getRegionInfoString(region));		
+		ret.add(String.format("%s, %s, ratio=%.2f", getParallelismString(region), getIterString(region))); 
 		ret.add(getRelationString(region));
 		return ret;		
 	}
@@ -138,9 +140,27 @@ public class KremlinPrinter {
 		if (region.getParent() != null) {
 			parentId = region.getParent().getId();
 		}
-		String ret = String.format("ID(self)=%d, ID(parent)=%d, nInstance=%d, nChildren=%d",
-			region.getId(), parentId, region.getInstanceCount(), region.getChildrenSet().size());
+		String ret = String.format("Type=%s, ID(self)=%d, ID(parent)=%d, nInstance=%d, nChildren=%d",
+			region.getRecursiveType(), region.getId(), parentId, region.getInstanceCount(), region.getChildrenSet().size());
 		return ret;
+	}
+	
+	public List<String> getRecursiveStringList(CRegion region) {
+		List<String> ret = new ArrayList<String>();
+		if (region.getRecursiveType() == CRecursiveType.NORMAL) 
+			return ret;
+		
+		CRegionR rRegion = (CRegionR)region;
+		for (int i=0; i<rRegion.getRecursionDepth(); i++) {
+			CRegionStat stat = rRegion.getStat(i);
+			ret.add(stat.toString());
+		}		 
+		
+		return ret;
+	}
+	
+	public String getRecursiveString(CRegion region) {
+		return this.fromListToString(getRecursiveStringList(region));
 	}
 	
 

@@ -40,7 +40,7 @@ public class PlanPrinter {
 	PlanPrinter(CRegionManager manager, Plan plan) {
 		this.manager = manager;
 		this.plan = plan;
-		this.printer = KremlinPrinter.getInstance(manager);
+		this.printer = KremlinPrinter.configure(manager);
 		//this.regionPrinter = new CRegionPrinter(manager);
 	}
 	

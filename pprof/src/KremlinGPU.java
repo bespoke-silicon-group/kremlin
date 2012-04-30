@@ -31,7 +31,7 @@ public class KremlinGPU {
 		CRegionManager cManager = new CRegionManager(sManager, dFile);
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
 		Target target = new Target(numCore, KremlinConfig.getOverhead());
-		CDPPlanner planner = new CDPPlanner(cManager, target);
+		NoNestPlanner planner = new NoNestPlanner(cManager, target);
 		//BWPlannerWorst planner = new BWPlannerWorst(cManager, target);
 		//BWPlannerBest planner = new BWPlannerBest(cManager, target);
 		Plan plan = planner.plan(excludeSet);		

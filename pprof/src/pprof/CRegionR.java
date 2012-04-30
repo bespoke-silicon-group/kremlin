@@ -25,7 +25,7 @@ public class CRegionR extends CRegion {
 				 
 	}
 	
-	CRegionStat getStat(int index) {
+	public CRegionStat getStat(int index) {
 		assert(this.stats.size() > index);
 		return this.stats.get(index);
 	}
@@ -36,13 +36,13 @@ public class CRegionR extends CRegion {
 	
 	double computeSelfP() {		
 		double saving = 0.0;
-		System.err.printf("Node = %d\n", this.id);
+		//System.err.printf("[computeSelfP] Node = %d\n", this.id);
 		for (int i=this.getStatSize()-1; i>=0; i--) {
 			CRegionStat stat = this.getStat(i);
 			double adjusted = stat.getTotalWork() - saving * stat.rWeight;
 			double nextSaving = stat.getTotalWork() - adjusted / stat.getSelfP();
-			System.err.printf("\t %d: total = %d, selfP = %.2f prev saving = %.2f, adjusted = %.2f, next saving = %.2f\n", 
-					i, stat.getTotalWork(), stat.getSelfP(), saving, adjusted, nextSaving);
+			//System.err.printf("\t %d: total = %d, selfP = %.2f prev saving = %.2f, adjusted = %.2f, next saving = %.2f\n", 
+			//		i, stat.getTotalWork(), stat.getSelfP(), saving, adjusted, nextSaving);
 			saving = nextSaving;
 			
 		}
@@ -90,6 +90,10 @@ public class CRegionR extends CRegion {
 	
 	public CRegionStat getRegionStat() {
 		return stats.get(0);
+	}
+	
+	public int getRecursionDepth() {
+		return stats.size();
 	}
 
 	@Override

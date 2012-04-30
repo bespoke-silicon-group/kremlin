@@ -66,7 +66,7 @@ public class KremlinProfiler {
 			}		
 			list.add(index, region);
 		}*/	
-		KremlinPrinter printer = KremlinPrinter.getInstance(cManager);
+		KremlinPrinter printer = KremlinPrinter.configure(cManager);
 		System.out.println("Kremlin Profiler Ver 0.1\n");
 		//CRegionPrinter printer = new CRegionPrinter(cManager);
 		printRegionList(printer, list);

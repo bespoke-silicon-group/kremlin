@@ -100,6 +100,11 @@ public abstract class CRegion implements Comparable {
 		return this.pbit;
 	}
 	
+	public boolean isLeaf() {
+		return children.size() == 0;
+	}
+	
+	
 	abstract public double getSelfP();	
 	abstract public double getMinSelfP();	
 	abstract public double getMaxSelfP();
