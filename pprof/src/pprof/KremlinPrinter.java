@@ -108,7 +108,7 @@ public class KremlinPrinter {
 		List<String> ret = new ArrayList<String>();
 		ret.add(getSummaryString(region));
 		//ret.add(getRegionInfoString(region));		
-		ret.add(String.format("%s, %s, ratio=%.2f", getParallelismString(region), getIterString(region))); 
+		ret.add(String.format("%s, %s", getParallelismString(region), getIterString(region))); 
 		ret.add(getRelationString(region));
 		return ret;		
 	}
