@@ -53,8 +53,14 @@ LLC_FLAGS ?=
 # The architecture to compile to
 LLC_MARCH ?= x86-64
 
+UNAME := $(shell uname)
+
 # The LLVM byte code optimizer
+ifeq ($(UNAME), Darwin)
+OPT ?= $(LLVM_OBJ_DIR)/Debug+Asserts/bin/opt
+else
 OPT ?= $(LLVM_BIN_DIR)/opt
+endif
 OPT_FLAGS ?= -f
 
 # ---------------------------------------------------------------------------

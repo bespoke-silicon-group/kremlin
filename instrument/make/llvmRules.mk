@@ -12,6 +12,18 @@ ADB_OPT_STRING = --min-chain-length=$(MIN_ADB_CHAIN_LEN)
 
 RENAME_OPT_STRING = -kremlib-dump
 
+UNAME := $(shell uname)
+
+# mac os x dynamic libs have different extension so have to be specific about
+# the name here.
+ifeq ($(UNAME), Darwin)
+DYNLIB_EXT = dylib
+else
+DYNLIB_EXT = so
+endif
+
+DYNLIB=KremlinInstrument.$(DYNLIB_EXT)
+
 # ---------------------------------------------------------------------------
 # Chained rules
 #
@@ -35,12 +47,12 @@ $(call OPT_PASS_RULE,  ,                            -O2,               		EMPTY)
 $(call OPT_PASS_RULE,  ,                            -O3,               		EMPTY)
 $(call OPT_PASS_RULE,  ,                            -loop-rotate,   		EMPTY)
 $(call OPT_PASS_RULE,  ,                            -loop-unroll,   		UNROLL_OPT_STRING)
-$(call OPT_PASS_RULE,  KremlinInstrument.so,        -elimsinglephis,        EMPTY)
-$(call OPT_PASS_RULE,  KremlinInstrument.so,        -splitbbatfunccall,     EMPTY)
-$(call OPT_PASS_RULE,  KremlinInstrument.so,        -assoc-dep-break,       ADB_OPT_STRING)
-$(call OPT_PASS_RULE,  KremlinInstrument.so,        -criticalpath,          EMPTY)
-$(call OPT_PASS_RULE,  KremlinInstrument.so,        -regioninstrument,      EMPTY)
-$(call OPT_PASS_RULE,  KremlinInstrument.so,        -renamemain, 			RENAME_OPT_STRING)
+$(call OPT_PASS_RULE,  $(DYNLIB),        -elimsinglephis,        EMPTY)
+$(call OPT_PASS_RULE,  $(DYNLIB),        -splitbbatfunccall,     EMPTY)
+$(call OPT_PASS_RULE,  $(DYNLIB),        -assoc-dep-break,       ADB_OPT_STRING)
+$(call OPT_PASS_RULE,  $(DYNLIB),        -criticalpath,          EMPTY)
+$(call OPT_PASS_RULE,  $(DYNLIB),        -regioninstrument,      EMPTY)
+$(call OPT_PASS_RULE,  $(DYNLIB),        -renamemain, 			RENAME_OPT_STRING)
 
 # ---------------------------------------------------------------------------
 # Required files

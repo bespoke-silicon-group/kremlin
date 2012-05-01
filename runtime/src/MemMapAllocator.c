@@ -95,7 +95,12 @@ static void FillFreeList() {
 
     // Allocate mmapped data.
 	unsigned char* data;
+// Mac OS X doesn't have mmap64... not sure if it's really needed
+#ifdef __MACH__
+    data = (unsigned char*)mmap(NULL, mmapSizeMB * 1024 * 1024, protection, flags, fileId, offset);
+#else
     data = (unsigned char*)mmap64(NULL, mmapSizeMB * 1024 * 1024, protection, flags, fileId, offset);
+#endif
 	
 	if (data == MAP_FAILED) {
 		fprintf(stderr, "mmap failed\n");

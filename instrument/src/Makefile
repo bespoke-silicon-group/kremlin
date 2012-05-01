@@ -31,9 +31,21 @@ override PROJ_SRC_DIR = .
 # Override the tool directory to the one we installed.
 override LLVMToolDir = $(LLVM_INSTALL_BIN_DIR)
 
+UNAME := $(shell uname)
+
 # Add the common directory to the list of includes.
+ifneq ($(UNAME), Darwin)
 CXX.Flags += -I../../common/include
-LD.Flags += -L$(LLVM_INSTALL_LIB_DIR) -lrt 
+endif
+
+LD.Flags += -L$(LLVM_INSTALL_LIB_DIR)
+
+
+# librt doesn't exist for OSX so we're careful to not link against it if we
+# detect OSX.
+ifneq ($(UNAME), Darwin)
+LD.Flags += -lrt
+endif
 
 ifdef DEBUG
 override ENABLE_OPTIMIZED=0
