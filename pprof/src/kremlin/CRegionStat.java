@@ -1,4 +1,4 @@
-package pprof;
+package kremlin;
 
 /**
  * TraceStat: corresponds to CStat in CRegion.c file

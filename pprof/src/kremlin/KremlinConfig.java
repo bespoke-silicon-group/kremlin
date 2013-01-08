@@ -1,4 +1,4 @@
-package pprof;
+package kremlin;
 import joptsimple.*;
 import planner.*;
 

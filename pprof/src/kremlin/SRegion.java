@@ -1,4 +1,4 @@
-package pprof;
+package kremlin;
 
 public class SRegion implements Comparable {	
 	long id;

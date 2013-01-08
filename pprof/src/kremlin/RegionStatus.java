@@ -1,4 +1,4 @@
-package pprof;
+package kremlin;
 
 public enum RegionStatus {
 	SERIAL(0), PARALLEL(1), EXCLUDED(2), SUPPRESSED(3);

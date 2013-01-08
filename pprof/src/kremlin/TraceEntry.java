@@ -1,4 +1,4 @@
-package pprof;
+package kremlin;
 import java.util.*;
 public class TraceEntry {
 	long uid, sid, callSiteValue, type, cnt, work, tpWork, spWork;

@@ -4,12 +4,12 @@
               To include a user specific buildfile here, simply create one in the same
               directory with the processing instruction <?eclipse.ant.import?>
               as the first entry and export the buildfile again. -->
-<project basedir="." default="build" name="pprof">
+<project basedir="." default="build" name="kremlin">
     <property environment="env"/>
     <property name="debuglevel" value="source,lines,vars"/>
     <property name="target" value="1.6"/>
     <property name="source" value="1.6"/>
-    <path id="pprof.classpath">
+    <path id="kremlin.classpath">
         <pathelement location="bin"/>
         <pathelement location="lib/jopt-simple-4.3.jar"/>
     </path>
@@ -31,7 +31,7 @@
         <echo message="${ant.project.name}: ${ant.file}"/>
         <javac debug="true" debuglevel="${debuglevel}" destdir="bin" source="${source}" target="${target}">
             <src path="src"/>
-            <classpath refid="pprof.classpath"/>
+            <classpath refid="kremlin.classpath"/>
         </javac>
     </target>
     <target description="Build all projects which reference this project. Useful to propagate changes." name="build-refprojects"/>
@@ -51,12 +51,12 @@
     <target name="Kremlin (1)">
         <java classname="Kremlin" failonerror="true" fork="yes">
             <jvmarg line="-ea"/>
-            <classpath refid="pprof.classpath"/>
+            <classpath refid="kremlin.classpath"/>
         </java>
     </target>
     <target name="TraceViewer">
         <java classname="TraceViewer" failonerror="true" fork="yes">
-            <classpath refid="pprof.classpath"/>
+            <classpath refid="kremlin.classpath"/>
         </java>
     </target>
 </project>

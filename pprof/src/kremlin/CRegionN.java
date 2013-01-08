@@ -1,4 +1,4 @@
-package pprof;
+package kremlin;
 
 public class CRegionN extends CRegion {
 	CRegionN(SRegion sregion, CallSite callSite, TraceEntry entry) {

@@ -1,4 +1,4 @@
-package pprof;
+package kremlin;
 
 public class CallSite extends SRegion {
 	CallSite(long id, String name, String module, String func, int start, int end, RegionType type) {

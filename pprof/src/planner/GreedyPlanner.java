@@ -1,9 +1,9 @@
 package planner;
 
 import java.util.*;
-import pprof.CRegion;
-import pprof.CRegionManager;
-import pprof.SRegion;
+import kremlin.CRegion;
+import kremlin.CRegionManager;
+import kremlin.SRegion;
 
 public class GreedyPlanner {
 	CRegionManager analyzer;

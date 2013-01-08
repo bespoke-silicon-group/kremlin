@@ -1,5 +1,5 @@
 
-import pprof.*;
+import kremlin.*;
 public class TraceViewer {
 	public static void main(String args[]) {
 		//String file = "g:\\work\\ktest\\recursion\\kremlin.bin";

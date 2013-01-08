@@ -1,4 +1,4 @@
-import pprof.KremlinConfig;
+import kremlin.KremlinConfig;
 import joptsimple.*;
 import planner.*;
 

@@ -1,4 +1,4 @@
-package pprof;
+package kremlin;
 
 public enum RegionType {
 	FUNC(0), LOOP(1), BODY(2), CALLSITE(3);

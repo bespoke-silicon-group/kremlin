@@ -1,8 +1,8 @@
-package pprof;
+package kremlin;
 import java.util.ArrayList;
 import java.util.List;
 
-import pprof.*;
+import kremlin.*;
 
 public class CRegionR extends CRegion {	
 	List<CRegionStat> stats;
