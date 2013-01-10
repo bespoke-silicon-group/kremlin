@@ -40,14 +40,18 @@ $(LLVM_OBJ_DIR):
 $(LLVM_GCC_OBJ_DIR):
 	mkdir $@
 
-llvm-$(LLVM_VERSION).build.success: $(LLVM_OBJ_DIR) $(LLVM_SRC_DIR)
+$(LLVM_OBJ_DIR)/Makefile: $(LLVM_OBJ_DIR) $(LLVM_SRC_DIR)
 	cd $< && ../$(LLVM_SRC_DIR)/configure --prefix=$(INSTALL_DIR) --enable-optimized --enable-assertions
+
+$(LLVM_GCC_OBJ_DIR)/Makefile: $(LLVM_GCC_OBJ_DIR) $(LLVM_GCC_SRC_DIR)
+	cd $< && ../$(LLVM_GCC_SRC_DIR)/configure --prefix=$(INSTALL_DIR) --enable-languages=$(LLVM_GCC_LANGS) --program-prefix=llvm- --enable-llvm=$(CURDIR)/$(LLVM_OBJ_DIR) --disable-multilib --disable-bootstrap --enable-checking
+
+llvm-$(LLVM_VERSION).build.success: $(LLVM_OBJ_DIR)/Makefile
 	make -C $<
 	make -C $< install
 	touch $@
 
-llvm-gcc-4.2-$(LLVM_VERSION).build.success: $(LLVM_GCC_OBJ_DIR) $(LLVM_GCC_SRC_DIR) llvm-$(LLVM_VERSION).build.success
-	cd $< && ../$(LLVM_GCC_SRC_DIR)/configure --prefix=$(INSTALL_DIR) --enable-languages=$(LLVM_GCC_LANGS) --program-prefix=llvm- --enable-llvm=$(CURDIR)/$(LLVM_OBJ_DIR) --disable-multilib --disable-bootstrap --enable-checking
+llvm-gcc-4.2-$(LLVM_VERSION).build.success: $(LLVM_GCC_OBJ_DIR)/Makefile llvm-$(LLVM_VERSION).build.success
 	make -C $<
 	make -C $< install
 	touch $@
