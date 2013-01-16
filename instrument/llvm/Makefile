@@ -53,12 +53,14 @@ $(LLVM_GCC_OBJ_DIR)/Makefile: $(LLVM_GCC_OBJ_DIR) $(LLVM_GCC_SRC_DIR)
 llvm-$(LLVM_VERSION).build.success: $(LLVM_OBJ_DIR)/Makefile
 	make -C $(LLVM_OBJ_DIR)
 	make -C $(LLVM_OBJ_DIR) install
-	date > $@
+	@touch $<
+	@date > $@
 
 llvm-gcc-4.2-$(LLVM_VERSION).build.success: $(LLVM_GCC_OBJ_DIR)/Makefile llvm-$(LLVM_VERSION).build.success
 	make -C $(LLVM_GCC_OBJ_DIR)
 	make -C $(LLVM_GCC_OBJ_DIR) install
-	date > $@
+	@touch $<
+	@date > $@
 
 clean:
 	@rm -rf $(LLVM_SRC_TAR) $(LLVM_GCC_SRC_TAR) $(LLVM_SRC_DIR) $(LLVM_GCC_SRC_DIR) $(LLVM_OBJ_DIR) $(LLVM_GCC_OBJ_DIR) llvm-*.build.success install/*
