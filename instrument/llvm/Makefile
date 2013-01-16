@@ -1,4 +1,4 @@
-PHONY: build-llvm build-llvm-gcc
+.PHONY: build-llvm build-llvm-gcc
 
 LLVM_VERSION=2.8
 LLVM_GCC_LANGS=c,c++
@@ -42,16 +42,21 @@ $(LLVM_GCC_OBJ_DIR):
 
 $(LLVM_OBJ_DIR)/Makefile: $(LLVM_OBJ_DIR) $(LLVM_SRC_DIR)
 	cd $< && ../$(LLVM_SRC_DIR)/configure --prefix=$(INSTALL_DIR) --enable-optimized --enable-assertions
+	@touch $@
 
 $(LLVM_GCC_OBJ_DIR)/Makefile: $(LLVM_GCC_OBJ_DIR) $(LLVM_GCC_SRC_DIR)
 	cd $< && ../$(LLVM_GCC_SRC_DIR)/configure --prefix=$(INSTALL_DIR) --enable-languages=$(LLVM_GCC_LANGS) --program-prefix=llvm- --enable-llvm=$(CURDIR)/$(LLVM_OBJ_DIR) --disable-multilib --disable-bootstrap --enable-checking
+	@touch $@
 
 llvm-$(LLVM_VERSION).build.success: $(LLVM_OBJ_DIR)/Makefile
-	make -C $<
-	make -C $< install
+	make -C $(LLVM_OBJ_DIR)
+	make -C $(LLVM_OBJ_DIR) install
 	touch $@
 
 llvm-gcc-4.2-$(LLVM_VERSION).build.success: $(LLVM_GCC_OBJ_DIR)/Makefile llvm-$(LLVM_VERSION).build.success
-	make -C $<
-	make -C $< install
+	make -C $(LLVM_GCC_OBJ_DIR)
+	make -C $(LLVM_GCC_OBJ_DIR) install
 	touch $@
+
+clean:
+	@rm -rf $(LLVM_SRC_TAR) $(LLVM_GCC_SRC_TAR) $(LLVM_SRC_DIR) $(LLVM_GCC_SRC_DIR) $(LLVM_OBJ_DIR) $(LLVM_GCC_OBJ_DIR) llvm-*.build.success install/*
