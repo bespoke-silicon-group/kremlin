@@ -9,7 +9,7 @@
 
 KREMLIN_MAKEFILE := $(lastword $(MAKEFILE_LIST))
 
-LEVEL = ../llvm/2.8-obj/
+LEVEL = ../llvm/llvm-2.8-obj/
 LIBRARYNAME = KremlinInstrument
 LOADABLE_MODULE = 1
 USEDLIBS = 
