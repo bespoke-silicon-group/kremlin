@@ -10,7 +10,8 @@ include $(dir $(lastword $(MAKEFILE_LIST)))/../../common/make/paths.mk
 # Paths to LLVM
 # ---------------------------------------------------------------------------
 
-LLVM_OBJ_DIR = $(KREMLIN_INSTRUMENT_LLVM_DIR)/2.8-obj
+#TODO: llvm obj dir name shouldn't be baked in
+LLVM_OBJ_DIR = $(KREMLIN_INSTRUMENT_LLVM_DIR)/llvm-2.8-obj
 LLVM_BIN_DIR = $(KREMLIN_INSTRUMENT_LLVM_BIN_DIR)
 
 ifdef DEBUG
