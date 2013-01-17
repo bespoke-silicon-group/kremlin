@@ -50,7 +50,7 @@ $(LINK_OUTPUT_FILE): $(OBJ_SOURCES) $(KREMLIN_LIB)
 	# XXX: Side effect of making the executable!
 	# TODO: This only magically works because the names line up. Fix the
 	# robustness!
-	objdump $@ -t | grep "_krem_" | sed 's/^.*krem_prefix//g; s/_krem_/\t/g' > sregions.txt
+	nm $@ | grep "_krem_" | perl -p -i -e 's/^.*krem_prefix//g; s/_krem_/\t/g' > sregions.txt
 
 clean::
 	$(RM) $(LINK_OUTPUT_FILE)
