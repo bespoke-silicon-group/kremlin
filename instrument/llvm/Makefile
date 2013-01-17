@@ -3,7 +3,19 @@
 LLVM_VERSION=2.8
 LLVM_GCC_LANGS=c,c++
 
+UNAME := $(shell uname)
+
 INSTALL_DIR=$(CURDIR)/install
+
+LLVM_CONFIG_OPTS = --prefix=$(INSTALL_DIR) --enable-assertions
+LLVM_GCC_CONFIG_OPTS = --prefix=$(INSTALL_DIR) --enable-languages=$(LLVM_GCC_LANGS) --program-prefix=llvm- --enable-llvm=$(CURDIR)/$(LLVM_OBJ_DIR) --disable-multilib --disable-bootstrap --enable-checking
+
+# Bug with LLVM 2.8 on mac requires debug (i.e. unoptimized) llvm build
+ifeq ($(UNAME),Darwin)
+LLVM_CONFIG_OPTS += --disable-optimized
+else
+LLVM_CONFIG_OPTS += --enable-optimized
+endif
 
 LLVM_SRC_DIR=llvm-$(LLVM_VERSION)
 LLVM_OBJ_DIR=llvm-$(LLVM_VERSION)-obj
@@ -43,11 +55,11 @@ $(LLVM_GCC_OBJ_DIR):
 	mkdir $@
 
 $(LLVM_OBJ_DIR)/Makefile: $(LLVM_OBJ_DIR) $(LLVM_SRC_DIR)
-	cd $< && ../$(LLVM_SRC_DIR)/configure --prefix=$(INSTALL_DIR) --enable-optimized --enable-assertions
+	cd $< && ../$(LLVM_SRC_DIR)/configure $(LLVM_CONFIG_OPTS)
 	@touch $@
 
 $(LLVM_GCC_OBJ_DIR)/Makefile: $(LLVM_GCC_OBJ_DIR) $(LLVM_GCC_SRC_DIR)
-	cd $< && ../$(LLVM_GCC_SRC_DIR)/configure --prefix=$(INSTALL_DIR) --enable-languages=$(LLVM_GCC_LANGS) --program-prefix=llvm- --enable-llvm=$(CURDIR)/$(LLVM_OBJ_DIR) --disable-multilib --disable-bootstrap --enable-checking
+	cd $< && ../$(LLVM_GCC_SRC_DIR)/configure $(LLVM_GCC_CONFIG_OPTS)
 	@touch $@
 
 llvm-$(LLVM_VERSION).build.success: $(LLVM_OBJ_DIR)/Makefile
