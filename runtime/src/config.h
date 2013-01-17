@@ -33,4 +33,7 @@ UInt32 KConfigGetGCPeriod();
 void KConfigDisableRSummary();
 Bool KConfigGetRSummarySupport();
 
+void KConfigSetOutFileName(char* name);
+const char* KConfigGetOutFileName();
+
 #endif

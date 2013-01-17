@@ -110,7 +110,7 @@ typedef struct _RegionField_t {
 
 
 void CRegionInit();
-void CRegionDeinit(char* file);
+void CRegionDeinit(const char* file);
 void CRegionEnter(SID sid, CID callSite, RegionType type);
 void CRegionExit(RegionField* info);
 

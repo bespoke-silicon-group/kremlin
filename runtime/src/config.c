@@ -42,7 +42,7 @@ void KConfigSetOutFileName(char* name) {
 	strcpy(config.outFileName, name);
 }
 
-char* KConfigGetOutFileName() {
+const char* KConfigGetOutFileName() {
 	return config.outFileName;	
 }
 

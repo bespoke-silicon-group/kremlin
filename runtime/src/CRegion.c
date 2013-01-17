@@ -61,7 +61,7 @@ static void   CTreeIncDepth(CTree* tree);
 static void   CTreeDecDepth(CTree* tree);
 static void   CTreeHandleRecursion(CTree* tree, CNode* child); 
 
-static void emit(char* file);
+static void emit(const char* file);
 static void emitRegion(FILE* fp, CNode* node, UInt level);
 
 static void* CRegionMemAlloc(int size, int site) {
@@ -88,7 +88,7 @@ void CRegionInit() {
 	CPositionSetNode(root);
 }
 
-void CRegionDeinit(char* file) {
+void CRegionDeinit(const char* file) {
 	assert(CRegionPop() == NULL);
 	emit(file);
 }
@@ -732,7 +732,7 @@ static int numEntries = 0;
 static int numEntriesLeaf = 0;
 static int numCreated = 0;
 
-static void emit(char* file) {
+static void emit(const char* file) {
 	FILE* fp = fopen(file, "w");
 	if(fp == NULL) {
 		fprintf(stderr,"[kremlin] ERROR: couldn't open binary output file\n");
