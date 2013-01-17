@@ -734,6 +734,10 @@ static int numCreated = 0;
 
 static void emit(char* file) {
 	FILE* fp = fopen(file, "w");
+	if(fp == NULL) {
+		fprintf(stderr,"[kremlin] ERROR: couldn't open binary output file\n");
+		exit(1);
+	}
 	emitRegion(fp, CPositionGetTree()->root->firstChild, 0);
 	fclose(fp);
 	fprintf(stderr, "[kremlin] Created File %s : %d Regions Emitted (all %d leaves %d)\n", 
