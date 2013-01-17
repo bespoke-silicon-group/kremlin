@@ -1074,7 +1074,7 @@ void _KAssignConst(UInt dest_reg) {
     MSG(1, "_KAssignConst ts[%u]\n", dest_reg);
 	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest_reg=%u)\n",dest_reg);
 
-    if (!isKremlinOn()) return NULL;
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1108,8 +1108,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
     MSG(1, "KTimestamp ts[%u] = (0..%u) \n", dest_reg,num_srcs);
 	idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,num_srcs=%u,...)\n",dest_reg,num_srcs);
 
-    if (!isKremlinOn())
-		return NULL;
+    if (!isKremlinOn()) return;
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
@@ -1150,8 +1149,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 void _KTimestamp0(UInt32 dest_reg) {
     MSG(1, "KTimestamp0 to %u\n", dest_reg);
 	idbgAction(KREM_TS,"## _KTimestamp0(dest_reg=%u)\n",dest_reg);
-    if (!isKremlinOn())
-		return NULL;
+    if (!isKremlinOn()) return;
 
 	_KAssignConst(dest_reg);
 }
