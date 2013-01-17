@@ -124,7 +124,12 @@ struct CriticalPath : public ModulePass
                 continue;
             }
 
+// Mac OS X doesn't support clock_gettime. The usage of clock_gettime here
+// (timing stats for pass) isn't necessary so for now we'll just not do the
+// timing if we detect we're on a mac.
+#ifndef __MACH__
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&start_time);
+#endif
 
             LOG_DEBUG() << "instrumenting function " << func.getName() << "\n";
 
@@ -211,6 +216,8 @@ struct CriticalPath : public ModulePass
 
             placer.insertInstrumentation();
 
+// see note about clock_gettime above
+#ifndef __MACH__
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&end_time);
 
             timespec elapsed_time = diff(start_time,end_time);
@@ -225,6 +232,7 @@ struct CriticalPath : public ModulePass
 
             LOG_DEBUG() << "elapsed time for instrumenting " << func.getName() 
 			<< ": " << elapsed_time.tv_sec << "." << padding << elapsed_time_ms << " s\n";
+#endif
 
 			// TODO: outline id mapping printing
 			InstIds::IdMap inst_to_id = inst_ids.getIdMap();
