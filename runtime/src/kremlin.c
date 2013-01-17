@@ -8,6 +8,7 @@
 #include "kremlin.h"
 #include "arg.h"
 #include "debug.h"
+#include "config.h"
 #include "kremlin_deque.h"
 #include "CRegion.h"
 #include "hash_map.h"
