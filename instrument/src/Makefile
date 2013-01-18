@@ -9,6 +9,8 @@
 
 KREMLIN_MAKEFILE := $(lastword $(MAKEFILE_LIST))
 
+# TODO: don't hardwire obj dir in here (will change when we update llvm
+# versions)
 LEVEL = ../llvm/llvm-2.8-obj/
 LIBRARYNAME = KremlinInstrument
 LOADABLE_MODULE = 1
