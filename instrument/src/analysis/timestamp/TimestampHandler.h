@@ -3,7 +3,6 @@
 
 #include <typeinfo>
 #include <llvm/Value.h>
-#include <boost/array.hpp>
 #include "analysis/timestamp/Timestamp.h"
 #include "analysis/timestamp/ValueClassifier.h"
 
