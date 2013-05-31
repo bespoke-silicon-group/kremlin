@@ -286,16 +286,15 @@ struct CriticalPath : public ModulePass
         foreach(InstrumentationCall& c, instrumentationCalls)
             c.instrument();
 
-
         //LOG_DEBUG() << "num of instrumentation calls in module " << m.getModuleIdentifier() << ": " << instrumentation_calls.size() << "\n";
     }
 
     void getAnalysisUsage(AnalysisUsage &AU) const {
         AU.setPreservesCFG();
-        AU.addRequiredTransitive<ReductionVars>();
-        AU.addRequired<PostDominanceFrontier>();
-        AU.addRequired<PostDominatorTree>();
         AU.addRequired<DominatorTree>();
+        AU.addRequired<PostDominatorTree>();
+        AU.addRequired<PostDominanceFrontier>();
+        AU.addRequired/*Transitive*/<ReductionVars>();
     }
 
 };  // end of struct CriticalPath
