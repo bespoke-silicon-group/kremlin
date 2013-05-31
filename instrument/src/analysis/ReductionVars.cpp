@@ -291,4 +291,4 @@ void ReductionVars::getAnalysisUsage(llvm::AnalysisUsage &AU) const
     AU.setPreservesAll();
 }
 
-INITIALIZE_PASS(ReductionVars, "reduction-vars", "Reduction Variable Analysis", false, true);
+static RegisterPass<ReductionVars> X("reduction-vars", "Reduction Variable Analysis", false, true);
