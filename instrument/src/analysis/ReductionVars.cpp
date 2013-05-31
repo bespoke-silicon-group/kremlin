@@ -288,8 +288,8 @@ void ReductionVars::getReductionVars(LoopInfo& li, Loop* loop)
  */
 void ReductionVars::getAnalysisUsage(llvm::AnalysisUsage &AU) const
 {
-    AU.addRequired<LoopInfo>();
     AU.setPreservesAll();
+    AU.addRequired<LoopInfo>();
 }
 
 static RegisterPass<ReductionVars> X("reduction-vars", "Reduction Variable Analysis", false, true);
