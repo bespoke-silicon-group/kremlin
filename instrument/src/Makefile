@@ -11,7 +11,7 @@ KREMLIN_MAKEFILE := $(lastword $(MAKEFILE_LIST))
 
 # TODO: don't hardwire obj dir in here (will change when we update llvm
 # versions)
-LEVEL = ../llvm/llvm-2.8-obj/
+LEVEL = ../llvm/llvm-2.9-obj/
 LIBRARYNAME = KremlinInstrument
 LOADABLE_MODULE = 1
 USEDLIBS = 
@@ -36,9 +36,9 @@ override LLVMToolDir = $(LLVM_INSTALL_BIN_DIR)
 UNAME := $(shell uname)
 
 # Add the common directory to the list of includes.
-ifneq ($(UNAME), Darwin)
-CXX.Flags += -I../../common/include
-endif
+#ifneq ($(UNAME), Darwin)
+#CXX.Flags += -I../../common/include
+#endif
 
 LD.Flags += -L$(LLVM_INSTALL_LIB_DIR)
 

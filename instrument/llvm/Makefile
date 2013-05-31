@@ -1,6 +1,6 @@
 .PHONY: build-llvm build-llvm-gcc clean
 
-LLVM_VERSION=2.8
+LLVM_VERSION=2.9
 LLVM_GCC_LANGS=c,c++
 
 UNAME := $(shell uname)
