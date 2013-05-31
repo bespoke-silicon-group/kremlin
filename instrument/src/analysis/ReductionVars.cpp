@@ -2,6 +2,7 @@
 
 #include <llvm/Module.h>
 #include <llvm/Analysis/LoopInfo.h>
+#include <llvm/Instructions.h>
 #include "foreach.h"
 
 using namespace llvm;
