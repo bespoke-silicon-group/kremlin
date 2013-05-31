@@ -81,9 +81,9 @@ namespace {
 						if(ci && ci->getCalledFunction()
 						  && (ci->getCalledFunction()->getName() == "logRegionEntry" || ci->getCalledFunction()->getName() == "logRegionExit")
 						  ) {
-							CallSite cs = CallSite::get(ci);
+							CallSite *cs = new CallSite(ci);
 
-							ConstantInt* old_region_id = dyn_cast<ConstantInt>(cs.getArgument(0)); // FIXME: is arg 0 the first arg or is it something silly like the name
+							ConstantInt* old_region_id = dyn_cast<ConstantInt>(cs->getArgument(0)); // FIXME: is arg 0 the first arg or is it something silly like the name
 							
 							assert(old_region_id && "First arg to logRegionEntry/Exit is not a constant int");
 
@@ -97,7 +97,7 @@ namespace {
 							log.info() << "Replacing old ID " << old_rid << " with new ID " << new_rid << " in the following inst: " << *ci;
 
 							// finally, we'll replace old constant with the new constant
-							cs.setArgument(0,ConstantInt::get(types.i64(),new_rid));
+							cs->setArgument(0,ConstantInt::get(types.i64(),new_rid));
 
 							was_changed = true;
 						}

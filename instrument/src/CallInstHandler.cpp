@@ -152,9 +152,9 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 
     // Any arguments not passed by ref will have an implicit copy to the stack. We
 	// need to link all those args explicitly using KLinkArg.
-    CallSite call_site = CallSite::get(&call_inst);
+    CallSite *call_site = new CallSite(&call_inst);
 
-    for(CallSite::arg_iterator arg_it = call_site.arg_begin(), arg_end = call_site.arg_end(); arg_it != arg_end; ++arg_it) 
+    for(CallSite::arg_iterator arg_it = call_site->arg_begin(), arg_end = call_site->arg_end(); arg_it != arg_end; ++arg_it) 
     {
         Value& call_arg = **arg_it;
         LOG_DEBUG() << "checking arg: " << call_arg << "\n";
