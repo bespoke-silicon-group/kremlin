@@ -158,7 +158,7 @@ namespace {
 
 						for(unsigned i = 0; i < call_insts.size(); ++i) {
 							// create clone of this function
-							ValueMap<const Value*,Value*> VMap;
+							ValueToValueMapTy VMap;
 
 							Function *cloned_func = CloneFunction(func,VMap,true);
 
