@@ -55,18 +55,18 @@ void ReturnHandler::handle(llvm::Instruction& inst)
     if(ret_real_val(ts_placer.getFunc()) && // make sure this returns a non-pointer
         ri.getNumOperands() != 0) // and that it isn't returning void
     {
-        Value& ret_val = *ri.getReturnValue(0);
+        Value* ret_val = ri.getReturnValue();
         Function* log_func = ret_const_func;
-        if(!isa<Constant>(&ret_val)) 
+        if(!isa<Constant>(ret_val)) 
         {
             log_func = ret_func;
-            args += ConstantInt::get(types.i32(), ts_placer.getId(ret_val), false);
+            args += ConstantInt::get(types.i32(), ts_placer.getId(*ret_val), false);
             LOG_DEBUG() << "returning non-const value\n";
         }
         CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
         ts_placer.constrainInstPlacement(ci, ri);
 
-        if(!isa<Constant>(&ret_val)) 
-            ts_placer.requireValTimestampBeforeUser(ret_val, ci);
+        if(!isa<Constant>(ret_val)) 
+            ts_placer.requireValTimestampBeforeUser(*ret_val, ci);
     }
 }
