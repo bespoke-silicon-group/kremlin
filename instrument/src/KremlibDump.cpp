@@ -8,6 +8,7 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/Support/CommandLine.h"
 #include <map>
+#include <set>
 
 #include <iostream>
 #include <fstream>
