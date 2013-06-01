@@ -13,19 +13,19 @@ struct LLVMTypes
 
 	LLVMTypes(llvm::LLVMContext& context);
 
-	const llvm::Type* voidTy();
+	llvm::Type* voidTy();
 
-	const llvm::IntegerType* i64();
-	const llvm::IntegerType* i32();
-	const llvm::IntegerType* i16();
-	const llvm::IntegerType* i8();
-	const llvm::IntegerType* i1();
+	llvm::IntegerType* i64();
+	llvm::IntegerType* i32();
+	llvm::IntegerType* i16();
+	llvm::IntegerType* i8();
+	llvm::IntegerType* i1();
 
-	const llvm::PointerType* pi64();
-	const llvm::PointerType* pi32();
-	const llvm::PointerType* pi16();
-	const llvm::PointerType* pi8();
-	const llvm::PointerType* pi1();
+	llvm::PointerType* pi64();
+	llvm::PointerType* pi32();
+	llvm::PointerType* pi16();
+	llvm::PointerType* pi8();
+	llvm::PointerType* pi1();
 };
 
 #endif // LLVM_TYPES_H
