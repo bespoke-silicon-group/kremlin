@@ -11,7 +11,7 @@ include $(dir $(lastword $(MAKEFILE_LIST)))/../../common/make/paths.mk
 # ---------------------------------------------------------------------------
 
 #TODO: llvm obj dir name shouldn't be baked in
-LLVM_OBJ_DIR = $(KREMLIN_INSTRUMENT_LLVM_DIR)/llvm-2.9-obj
+LLVM_OBJ_DIR = $(KREMLIN_INSTRUMENT_LLVM_DIR)/llvm-3.0-obj
 LLVM_BIN_DIR = $(KREMLIN_INSTRUMENT_LLVM_BIN_DIR)
 
 ifdef DEBUG
@@ -32,11 +32,13 @@ LLVM_LIB_DIR = $(LLVM_OBJ_DIR)/$(RELEASE_OR_DEBUG)/lib
 # ---------------------------------------------------------------------------
 
 # The LLVM C compiler
-LLVM_CC ?= $(LLVM_BIN_DIR)/llvm-gcc
+#LLVM_CC ?= $(LLVM_BIN_DIR)/llvm-gcc
+LLVM_CC ?= $(LLVM_BIN_DIR)/clang
 LLVM_CFLAGS ?= $(CFLAGS)
 
 # The LLVM C++ compiler
-LLVM_CXX ?= $(LLVM_BIN_DIR)/llvm-g++
+#LLVM_CXX ?= $(LLVM_BIN_DIR)/llvm-g++
+LLVM_CXX ?= $(LLVM_BIN_DIR)/clang
 LLVM_CXXFLAGS ?= $(CXXFLAGS)
 
 # THe LLVM fortran compiler
@@ -196,14 +198,14 @@ OPT_PASS_SHARED_OBJ = $(if $(strip $(1)), $(LLVM_LIB_DIR)/$(strip $(1)))
 
 # Converts c to LLVM byte code.
 %.bc: %.c
-	$(LLVM_CC) $(LLVM_CFLAGS) --emit-llvm -c -o $@ $<
+	$(LLVM_CC) $(LLVM_CFLAGS) -emit-llvm -c -o $@ $<
 
 # Converts c to LLVM byte code.
 %.bc: %.C
 %.bc: %.cxx
 %.bc: %.cc
 %.bc: %.cpp
-	$(LLVM_CXX) $(LLVM_CXXFLAGS) --emit-llvm -c -o $@ $<
+	$(LLVM_CXX) $(LLVM_CXXFLAGS) -emit-llvm -c -o $@ $<
 
 # Converts fortran source code to LLVM byte code
 %.bc: %.f

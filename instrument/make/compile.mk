@@ -90,7 +90,7 @@ $(COMPILE_OUTPUT_FILE): $(ASM_INSTRUMENTED)
 
 # Converts the source file to LLVM byte code.
 $(SOURCE_BC): $(SOURCE_FILE)
-	$(LLVM_CC) $(LLVM_CFLAGS) --emit-llvm -c -o $$@ $$<
+	$(LLVM_CC) $(LLVM_CFLAGS) -emit-llvm -c -o $$@ $$<
 
 # Create a rule to compile the file from the source name to the desired output
 # file name.

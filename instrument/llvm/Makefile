@@ -1,6 +1,6 @@
 .PHONY: build-llvm build-llvm-gcc clean
 
-LLVM_VERSION=2.9
+LLVM_VERSION=3.0
 LLVM_GCC_LANGS=c,c++
 
 UNAME := $(shell uname)
@@ -17,18 +17,21 @@ else
 LLVM_CONFIG_OPTS += --enable-optimized
 endif
 
-LLVM_SRC_DIR=llvm-$(LLVM_VERSION)
+LLVM_SRC_DIR=llvm-$(LLVM_VERSION).src
 LLVM_OBJ_DIR=llvm-$(LLVM_VERSION)-obj
 LLVM_GCC_SRC_DIR=llvm-gcc-4.2-$(LLVM_VERSION).source
 LLVM_GCC_OBJ_DIR=llvm-gcc-4.2-$(LLVM_VERSION)-obj
+CLANG_SRC_DIR=$(LLVM_SRC_DIR)/tools/clang
 
-# tgz source files for building llvm and llvm-gcc
-LLVM_SRC_TAR=llvm-$(LLVM_VERSION).tgz
+# tar.gz source files for building llvm and llvm-gcc
+LLVM_SRC_TAR=llvm-$(LLVM_VERSION).tar.gz
 LLVM_GCC_SRC_TAR=llvm-gcc-4.2-$(LLVM_VERSION).source.tgz
+CLANG_SRC_TAR=clang-$(LLVM_VERSION).tar.gz
 
 # urls for tgz files
 LLVM_SRC_TAR_URL=http://llvm.org/releases/$(LLVM_VERSION)/$(LLVM_SRC_TAR)
 LLVM_GCC_SRC_TAR_URL=http://llvm.org/releases/$(LLVM_VERSION)/$(LLVM_GCC_SRC_TAR)
+CLANG_SRC_TAR_URL=http://llvm.org/releases/$(LLVM_VERSION)/$(CLANG_SRC_TAR)
 
 all: build-llvm build-llvm-gcc
 build-llvm: llvm-$(LLVM_VERSION).build.success
@@ -40,6 +43,9 @@ $(LLVM_SRC_TAR):
 $(LLVM_GCC_SRC_TAR):
 	wget $(LLVM_GCC_SRC_TAR_URL)
 
+$(CLANG_SRC_TAR):
+	wget $(CLANG_SRC_TAR_URL)
+
 $(LLVM_SRC_DIR): $(LLVM_SRC_TAR)
 	tar -xzf $<
 	@touch $@
@@ -48,13 +54,18 @@ $(LLVM_GCC_SRC_DIR): $(LLVM_GCC_SRC_TAR)
 	tar -xzf $<
 	@touch $@
 
+$(CLANG_SRC_DIR): $(CLANG_SRC_TAR)
+	tar -xzf $<
+	mv clang-$(LLVM_VERSION).src $@
+	@touch $@
+
 $(LLVM_OBJ_DIR):
 	mkdir $@
 
 $(LLVM_GCC_OBJ_DIR):
 	mkdir $@
 
-$(LLVM_OBJ_DIR)/Makefile: $(LLVM_OBJ_DIR) $(LLVM_SRC_DIR)
+$(LLVM_OBJ_DIR)/Makefile: $(LLVM_OBJ_DIR) $(LLVM_SRC_DIR) $(CLANG_SRC_DIR)
 	cd $< && ../$(LLVM_SRC_DIR)/configure $(LLVM_CONFIG_OPTS)
 	@touch $@
 
