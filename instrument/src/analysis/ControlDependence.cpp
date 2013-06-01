@@ -1,7 +1,7 @@
 #include <foreach.h>
 #include <functional>
 #include <llvm/Analysis/Dominators.h>
-#include <llvm/Analysis/PostDominators.h>
+#include "analysis/PostDominators.h"
 #include "analysis/ControlDependence.h"
 
 using namespace std;

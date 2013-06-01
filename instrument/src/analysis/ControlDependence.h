@@ -4,7 +4,7 @@
 #include <map>
 #include <set>
 #include <boost/ptr_container/ptr_map.hpp>
-#include <llvm/Analysis/PostDominators.h>
+#include "analysis/PostDominators.h"
 #include <llvm/Analysis/Dominators.h>
 #include <llvm/BasicBlock.h>
 #include <llvm/Function.h>

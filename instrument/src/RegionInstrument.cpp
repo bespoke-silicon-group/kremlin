@@ -2,7 +2,7 @@
 #include <llvm/Analysis/Dominators.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
-#include <llvm/Analysis/PostDominators.h>
+#include "analysis/PostDominators.h"
 #include <llvm/Constants.h>
 #include <llvm/DerivedTypes.h>
 #include <llvm/Function.h>
