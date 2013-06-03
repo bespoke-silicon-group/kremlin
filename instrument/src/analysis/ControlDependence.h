@@ -1,16 +1,18 @@
 #ifndef CONTROL_DEPENDENCE_H
 #define CONTROL_DEPENDENCE_H
 
+#include "llvm/Function.h"
+#include "llvm/BasicBlock.h"
+#include "llvm/Instructions.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/Analysis/PostDominanceFrontier.h"
+
+#include <boost/ptr_container/ptr_map.hpp>
 #include <map>
 #include <set>
-#include <boost/ptr_container/ptr_map.hpp>
-#include "analysis/PostDominators.h"
-#include <llvm/Analysis/Dominators.h>
-#include <llvm/BasicBlock.h>
-#include <llvm/Function.h>
-#include <llvm/Instructions.h>
-#include "TimestampBlockHandler.h"
+
 #include "PassLog.h"
+#include "TimestampBlockHandler.h"
 
 class ControlDependence
 {

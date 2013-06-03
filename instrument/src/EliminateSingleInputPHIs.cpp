@@ -1,32 +1,6 @@
-#include "llvm/Pass.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopPass.h"
-#include "analysis/PostDominators.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
-#include "llvm/Support/CallSite.h"
-#include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/Constants.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/User.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Support/CommandLine.h"
-#include <map>
-
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <utility>
-
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Bitcode/ReaderWriter.h"
-
-#include "llvm/Support/CFG.h"
-
-#include <limits.h>
-
+#include <llvm/Pass.h>
+#include <llvm/Function.h>
+#include <llvm/Instructions.h>
 
 using namespace llvm;
 

@@ -1,25 +1,14 @@
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
 #include "llvm/Module.h"
+#include "llvm/Function.h"
 #include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/User.h"
-#include "llvm/DerivedTypes.h"
-#include <llvm/Constants.h>
-
-#include "llvm/Support/CFG.h"
-
+#include "llvm/Constants.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
-#include <limits.h>
-#include <algorithm>
-
 #include "PassLog.h"
 
-
 using namespace llvm;
-
 
 namespace {
 

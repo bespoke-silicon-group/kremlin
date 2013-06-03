@@ -1,28 +1,18 @@
 // XXX FIXME make sure callinst creations doesn't insert them into blocks yet
 
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopPass.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Function.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/Instruction.h"
-#include "llvm/Instructions.h"
-#include "llvm/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/User.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/Analysis/PostDominanceFrontier.h"
 
 #include <ctime>
-#include <map>
 
 #include <foreach.h>
 #include <boost/ptr_container/ptr_vector.hpp>
-#include <boost/ref.hpp>
+#include <iostream>
+#include <fstream>
 
 #include "PassLog.h"
 #include "InstrumentationCall.h"
@@ -46,8 +36,6 @@
 #include "LocalTableHandler.h"
 #include "ControlDependencePlacer.h"
 
-#include <iostream>
-#include <fstream>
 
 using namespace llvm;
 using namespace boost;

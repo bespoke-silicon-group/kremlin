@@ -1,10 +1,7 @@
 #include <foreach.h>
-#include <functional>
-#include <llvm/Analysis/Dominators.h>
-#include "analysis/PostDominators.h"
+
 #include "analysis/ControlDependence.h"
 
-using namespace std;
 using namespace llvm;
 
 /**
@@ -81,7 +78,7 @@ ControlDependence::ControlDependence(Function& func, llvm::DominatorTree& dt, ll
             PHINode* phi = dyn_cast<PHINode>(&inst);
             if(phi)
             {
-                auto_ptr<ControllingBlocks> blocks(new ControllingBlocks());
+                std::auto_ptr<ControllingBlocks> blocks(new ControllingBlocks());
                 getPhiControllingBlocks(*phi, *blocks.get());
                 phi_to_controllers.insert(phi, blocks);
             }
