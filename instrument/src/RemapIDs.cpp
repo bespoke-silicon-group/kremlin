@@ -1,25 +1,18 @@
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Module.h"
+#include "llvm/Function.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
 #include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Support/CommandLine.h"
+
 #include <map>
 
-#include <iostream>
 #include <fstream>
 #include <sstream>
-#include <utility>
-#include <cassert>
-
-#include <limits.h>
 
 #include "LLVMTypes.h"
 #include "PassLog.h"
-
 
 using namespace llvm;
 

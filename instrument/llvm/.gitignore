@@ -1,4 +1,7 @@
 # ignore llvm build files/dir since they can be regenerated
 llvm-*.build.success
 llvm-*.tgz
+llvm-*.tar.gz
+clang-*.tgz
+clang-*.tar.gz
 llvm-*/
