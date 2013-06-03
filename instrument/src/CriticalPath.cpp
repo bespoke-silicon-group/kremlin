@@ -280,9 +280,8 @@ struct CriticalPath : public ModulePass
     void getAnalysisUsage(AnalysisUsage &AU) const {
         AU.setPreservesCFG();
         AU.addRequired<DominatorTree>();
-        AU.addRequired<PostDominatorTree>();
         AU.addRequired<PostDominanceFrontier>();
-        AU.addRequired/*Transitive*/<ReductionVars>();
+        AU.addRequired<ReductionVars>();
     }
 
 };  // end of struct CriticalPath
