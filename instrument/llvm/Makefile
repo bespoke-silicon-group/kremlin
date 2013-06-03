@@ -36,7 +36,7 @@ CLANG_SRC_TAR_URL=http://llvm.org/releases/$(LLVM_VERSION)/$(CLANG_SRC_TAR)
 # patch of LLVM src to support kremlin
 LLVM_SRC_PATCH=kremlin-llvm-$(LLVM_VERSION).patch
 
-all: build-llvm build-llvm-gcc
+all: build-llvm
 build-llvm: llvm-$(LLVM_VERSION).build.success
 build-llvm-gcc: llvm-gcc-4.2-$(LLVM_VERSION).build.success
 
