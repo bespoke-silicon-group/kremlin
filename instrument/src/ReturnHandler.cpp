@@ -1,6 +1,7 @@
 #include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
+#include <llvm/Constants.h>
 #include "ReturnHandler.h"
 #include "LLVMTypes.h"
 #include "ReturnsRealValue.h"
@@ -23,14 +24,16 @@ ReturnHandler::ReturnHandler(TimestampPlacer& ts_placer) :
     // Setup the ret_const_func
     Module& m = *ts_placer.getFunc().getParent();
     LLVMTypes types(m.getContext());
-    vector<const Type*> args;
+    vector<Type*> args;
 
-    FunctionType* ret_const_type = FunctionType::get(types.voidTy(), args, false);
+    FunctionType* ret_const_type = FunctionType::get(types.voidTy(), false);
     ret_const_func = cast<Function>(m.getOrInsertFunction("_KReturnConst", ret_const_type));
 
     // Setup the ret_func
     args += types.i32();
-    FunctionType* ret_type = FunctionType::get(types.voidTy(), args, false);
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+    FunctionType* ret_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
     ret_func = cast<Function>(m.getOrInsertFunction("_KReturn", ret_type));
 }
 
@@ -63,7 +66,9 @@ void ReturnHandler::handle(llvm::Instruction& inst)
             args += ConstantInt::get(types.i32(), ts_placer.getId(*ret_val), false);
             LOG_DEBUG() << "returning non-const value\n";
         }
-        CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
+		ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
+        CallInst& ci = *CallInst::Create(log_func, *aref, "");
+		delete aref;
         ts_placer.constrainInstPlacement(ci, ri);
 
         if(!isa<Constant>(ret_val)) 

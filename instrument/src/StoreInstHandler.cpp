@@ -1,6 +1,7 @@
 #include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
+#include <llvm/Constants.h>
 #include "StoreInstHandler.h"
 #include "LLVMTypes.h"
 #include "MemoryInstHelper.h"
@@ -24,14 +25,18 @@ StoreInstHandler::StoreInstHandler(TimestampPlacer& timestamp_placer) :
     Module& module = *timestampPlacer.getFunc().getParent();
     LLVMTypes types(module.getContext());
 
-    vector<const Type*> func_param_types;
+    vector<Type*> func_param_types;
     func_param_types += types.i32(), types.pi8(), types.i32();
-    FunctionType* store_func_type = FunctionType::get(types.voidTy(), func_param_types, false);
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(func_param_types);
+    FunctionType* store_func_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
     storeRegFunc = cast<Function>(module.getOrInsertFunction("_KStore", store_func_type));
 
 	func_param_types.clear();
     func_param_types += types.pi8(), types.i32();
-    FunctionType* store_const_func_type = FunctionType::get(types.voidTy(), func_param_types, false);
+	aref = new ArrayRef<Type*>(func_param_types);
+    FunctionType* store_const_func_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
     storeConstFunc = cast<Function>(module.getOrInsertFunction("_KStoreConst", store_const_func_type));
 }
 
@@ -81,7 +86,9 @@ void StoreInstHandler::handle(llvm::Instruction& inst)
 	else
 		func_to_call = storeRegFunc;
 
-    CallInst& call_inst = *CallInst::Create(func_to_call, call_args.begin(), call_args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(call_args);
+    CallInst& call_inst = *CallInst::Create(func_to_call, *aref, "");
+	delete aref;
     timestampPlacer.constrainInstPlacement(dest_ptr_cast, call_inst);
     timestampPlacer.constrainInstPlacement(call_inst, inst);
 	if(!isa<Constant>(src_val))

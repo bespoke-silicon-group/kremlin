@@ -2,6 +2,7 @@
 
 #include <llvm/Support/Debug.h>
 #include <llvm/Module.h>
+#include <llvm/Constants.h>
 #include "analysis/WorkAnalysis.h"
 #include "LLVMTypes.h"
 
@@ -18,12 +19,14 @@ WorkAnalysis::WorkAnalysis(TimestampPlacer& timestamp_placer, const ConstantWork
     _timestampPlacer(timestamp_placer),
     _workHandler(work_handler)
 {
-    std::vector<const Type*> arg_types;
+    std::vector<Type*> arg_types;
     Module& m = *_timestampPlacer.getFunc().getParent();
     LLVMTypes types(m.getContext());
 
     arg_types.push_back(types.i32()); // work
-    FunctionType* func_type = FunctionType::get(types.voidTy(), arg_types, false);
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(arg_types);
+    FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
 
     // if the cast fails, another func with the same name and different prototype exists.
     _instrumentationFunc = cast<Function>(m.getOrInsertFunction("_KWork", func_type)); 
@@ -83,7 +86,9 @@ void WorkAnalysis::handleBasicBlock(llvm::BasicBlock& bb)
 #endif
 
     call_args.push_back(ConstantInt::get(types.i32(), work_in_bb, false));
-    CallInst& func_call = *CallInst::Create(_instrumentationFunc, call_args.begin(), call_args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(call_args);
+    CallInst& func_call = *CallInst::Create(_instrumentationFunc, *aref, "");
+	delete aref;
 
 	// Place at the beginning of basic block to avoid cp > work errors during
 	// runtime.

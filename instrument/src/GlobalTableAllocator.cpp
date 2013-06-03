@@ -15,17 +15,21 @@ GlobalTableAllocator::GlobalTableAllocator(TimestampPlacer& ts_placer) :
     // Setup the alloc_func
     Module& m = *ts_placer.getFunc().getParent();
     LLVMTypes types(m.getContext());
-    vector<const Type*> args;
+    vector<Type*> args;
 
     // pointer, bytes allocated
     args += types.pi8(), types.i32();
-    FunctionType* alloc_type = FunctionType::get(types.voidTy(), args, false);
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+    FunctionType* alloc_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
     alloc_func = cast<Function>(m.getOrInsertFunction("logAlloc", alloc_type));
 
     // setup free_func
     args.clear();
     args += types.pi8();
-    FunctionType* free_type = FunctionType::get(types.voidTy(), args, false);
+	aref = new ArrayRef<Type*>(args);
+    FunctionType* free_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
     free_func = cast<Function>(m.getOrInsertFunction("logFree", free_type));
 }
 
@@ -33,7 +37,9 @@ void GlobalTableAllocator::addAlloc(llvm::Value& ptr, llvm::Value& size, llvm::I
 {
     vector<Value*> args;
     args += &ptr, &size;
-    CallInst& ci = *CallInst::Create(alloc_func, args.begin(), args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
+    CallInst& ci = *CallInst::Create(alloc_func, *aref, "");
+	delete aref;
     ts_placer.constrainInstPlacement(ci, use);
 }
 
@@ -41,6 +47,8 @@ void GlobalTableAllocator::addFree(llvm::Value& ptr, llvm::Instruction& use)
 {
     vector<Value*> args;
     args += &ptr;
-    CallInst& ci = *CallInst::Create(free_func, args.begin(), args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
+    CallInst& ci = *CallInst::Create(free_func, *aref, "");
+	delete aref;
     ts_placer.constrainInstPlacement(ci, use);
 }

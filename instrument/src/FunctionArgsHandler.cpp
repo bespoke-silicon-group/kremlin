@@ -1,6 +1,7 @@
 #include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
+#include <llvm/Constants.h>
 #include "LLVMTypes.h"
 #include "FunctionArgsHandler.h"
 
@@ -15,9 +16,11 @@ FunctionArgsHandler::FunctionArgsHandler(TimestampPlacer& ts_placer)
     Function& func = ts_placer.getFunc();
     Module& m = *func.getParent();
     LLVMTypes types(m.getContext());
-    vector<const Type*> type_args;
+    vector<Type*> type_args;
     type_args += types.i32();
-    FunctionType* func_type = FunctionType::get(types.voidTy(), type_args, false);
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(type_args);
+    FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
 
     Function& log_func = *cast<Function>(m.getOrInsertFunction("_KUnlinkArg", func_type));
 
@@ -42,7 +45,9 @@ FunctionArgsHandler::FunctionArgsHandler(TimestampPlacer& ts_placer)
             args += ConstantInt::get(types.i32(), ts_placer.getId(arg)); // dest ID
 
             // insert at the very beginning of the function
-            CallInst& ci = *CallInst::Create(&log_func, args.begin(), args.end(), "");
+			ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
+            CallInst& ci = *CallInst::Create(&log_func, *aref, "");
+			delete aref;
             ts_placer.constrainInstPlacement(ci, *last_inst);
             last_inst = &ci;
         }

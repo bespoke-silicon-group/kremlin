@@ -2,6 +2,7 @@
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
 #include <llvm/Support/CallSite.h>
+#include <llvm/Constants.h>
 #include "LLVMTypes.h"
 #include "DynamicMemoryHandler.h"
 #include "ReturnsRealValue.h"
@@ -24,25 +25,29 @@ DynamicMemoryHandler::DynamicMemoryHandler(TimestampPlacer& ts_placer) :
     // Setup funcs
     Module& m = *ts_placer.getFunc().getParent();
     LLVMTypes types(m.getContext());
-    vector<const Type*> args;
+    vector<Type*> args;
 
 	args += types.pi8(), types.i64(), types.i32();
 
-    FunctionType* malloc_call = FunctionType::get(types.voidTy(), args, false);
-    malloc_func = cast<Function>(
-        m.getOrInsertFunction("_KMalloc", malloc_call));
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+    FunctionType* malloc_call = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
+    malloc_func = cast<Function>(m.getOrInsertFunction("_KMalloc", malloc_call));
 
 	args.clear();
 
 	args += types.pi8(), types.pi8(), types.i64(), types.i32();
-    FunctionType* realloc_call = FunctionType::get(types.voidTy(), args, false);
-    realloc_func = cast<Function>(
-        m.getOrInsertFunction("_KRealloc", realloc_call));
+	aref = new ArrayRef<Type*>(args);
+    FunctionType* realloc_call = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
+    realloc_func = cast<Function>(m.getOrInsertFunction("_KRealloc", realloc_call));
 
 	args.clear();
 
 	args += types.pi8();
-    FunctionType* free_call = FunctionType::get(types.voidTy(), args, false);
+	aref = new ArrayRef<Type*>(args);
+    FunctionType* free_call = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
     free_func = cast<Function>(
         m.getOrInsertFunction("_KFree", free_call));
 }
@@ -79,6 +84,7 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
     vector<Value*> args;
 
 	Function *called_func = CallInstHandler::untangleCall(call_inst);
+	ArrayRef<Value*> *aref = NULL;
 
 	// calls to malloc and calloc get _KMalloc(addr, size) call
 	if(called_func 
@@ -97,7 +103,8 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
 		args.push_back(ConstantInt::get(types.i32(),ts_placer.getId(call_inst))); // dest ID
 
-        CallInst* malloc_call = CallInst::Create(malloc_func, args.begin(), args.end(), "");
+		aref = new ArrayRef<Value*>(args);
+        CallInst* malloc_call = CallInst::Create(malloc_func, *aref, "");
 
 		// XXX: this is a slightly hackish way of getting call to KMalloc
 		// inserted immediately after the call to malloc
@@ -120,7 +127,8 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 		}
 
 
-        CallInst* free_call = CallInst::Create(free_func, args.begin(), args.end(), "");
+		aref = new ArrayRef<Value*>(args);
+        CallInst* free_call = CallInst::Create(free_func, *aref, "");
 
 		// XXX: this is a slightly hackish way of getting call to KFree
 		// inserted immediately after the call to free
@@ -150,7 +158,8 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
 		args.push_back(ConstantInt::get(types.i32(),ts_placer.getId(call_inst))); // dest ID
 
-        CallInst* realloc_call = CallInst::Create(realloc_func, args.begin(), args.end(), "");
+		aref = new ArrayRef<Value*>(args);
+        CallInst* realloc_call = CallInst::Create(realloc_func, *aref, "");
 
 		// XXX: this is a slightly hackish way of getting call to KRealloc
 		// inserted immediately after the call to realloc
@@ -158,5 +167,7 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 
 		args.clear();
 	}
+	delete aref;
+	aref = NULL;
 
 }

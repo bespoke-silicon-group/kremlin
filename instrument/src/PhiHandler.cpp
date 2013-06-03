@@ -3,6 +3,7 @@
 #include <boost/lexical_cast.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
+#include <llvm/Constants.h>
 #include "PhiHandler.h"
 #include "LLVMTypes.h"
 
@@ -111,9 +112,11 @@ PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
     // Setup the phiLoggingFunc
     Module& m = *timestampPlacer.getFunc().getParent();
     LLVMTypes types(m.getContext());
-    vector<const Type*> args;
+    vector<Type*> args;
     args += types.i32(), types.i32(), types.i32();
-    FunctionType* func_type = FunctionType::get(types.voidTy(), args, true);
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+    FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, true);
+	delete aref;
     phiLoggingFunc = cast<Function>(m.getOrInsertFunction("_KPhi", func_type));
 
     // Setup specialized funcs
@@ -122,7 +125,9 @@ PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
     for(size_t i = 1; i < MAX_SPECIALIZED; i++)
     {
         args += types.i32();
-        FunctionType* type = FunctionType::get(types.voidTy(), args, false);
+		aref = new ArrayRef<Type*>(args);
+        FunctionType* type = FunctionType::get(types.voidTy(), *aref, false);
+		delete aref;
         Function* func = cast<Function>(m.getOrInsertFunction(
                 "_KPhi" + lexical_cast<string>(i) + "To1", type));
         specializedPhiLoggingFuncs.insert(make_pair(i, func));
@@ -131,14 +136,18 @@ PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
     // addCondFunc
     args.clear();
     args += types.i32(), types.i32();
-    FunctionType* add_cond_type = FunctionType::get(types.voidTy(), args, false);
+	aref = new ArrayRef<Type*>(args);
+    FunctionType* add_cond_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
     addCondFunc = cast<Function>(m.getOrInsertFunction(
             "_KPhiAddCond", add_cond_type));
 
     // inductionFunc
     args.clear();
     args += types.i32();
-    FunctionType* induc_var_type = FunctionType::get(types.voidTy(), args, false);
+	aref = new ArrayRef<Type*>(args);
+    FunctionType* induc_var_type = FunctionType::get(types.voidTy(), *aref, false);
+	delete aref;
     inductionFunc = cast<Function>(m.getOrInsertFunction(
             "_KInduction", induc_var_type));
 }
@@ -190,7 +199,9 @@ void PhiHandler::handleIndVar(PHINode& phi)
     std::vector<Value*> log_func_args;
 
     log_func_args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(phi), false));
-    CallInst& ci = *CallInst::Create(inductionFunc, log_func_args.begin(), log_func_args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(log_func_args);
+    CallInst& ci = *CallInst::Create(inductionFunc, *aref, "");
+	delete aref;
     timestampPlacer.constrainInstPlacement(ci, *bb_assoc_with_const.getTerminator());
 }
 
@@ -201,7 +212,7 @@ void PhiHandler::handleIndVar(PHINode& phi)
 PHINode& PhiHandler::identifyIncomingValueId(PHINode& phi)
 {
     LLVMTypes types(phi.getContext());
-    PHINode& incoming_val_id_phi = *PHINode::Create(types.i32(), "phi-incoming-val-id");
+    PHINode& incoming_val_id_phi = *PHINode::Create(types.i32(), 0, "phi-incoming-val-id");
 
 	// Construct a phi node corresponding to all non-const incoming value id's
 	// in the input phi. We also make sure that the incoming val's timestamp
@@ -262,7 +273,7 @@ vector<PHINode*>& PhiHandler::getConditions(PHINode& phi, vector<PHINode*>& cont
     {
         LOG_DEBUG() << "controller to " << bb.getName() << ": " << controller->getName() << "\n";
         
-        PHINode* incoming_condition_addr = PHINode::Create(types.i32(),"phi-incoming-condition");
+        PHINode* incoming_condition_addr = PHINode::Create(types.i32(), 0, "phi-incoming-condition");
 
         std::map<BasicBlock*, Value*> incoming_value_addrs;
 
@@ -357,6 +368,7 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
     push_int(timestampPlacer.getId(controlling_cond)); // id for controlling cond
 
 
+	ArrayRef<Value*> *aref = NULL;
     // do..while loops need the condition appended after the loop concludes
     if(is_do_loop)
 	{
@@ -368,7 +380,9 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
             {
 				// TODO: FIXME this looks wrong... phi_bb should be replaced
 				// by successor????
-    			CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
+				aref = new ArrayRef<Value*>(args);
+    			CallInst& ci = *CallInst::Create(addCondFunc, *aref, "");
+				delete aref;
                 timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
     			timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
             }
@@ -377,10 +391,12 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
     // while loops need the condition appended as soon as the header executes
     else
     { 
-    	CallInst& ci = *CallInst::Create(addCondFunc, args.begin(), args.end(), "");
+		aref = new ArrayRef<Value*>(args);
+    	CallInst& ci = *CallInst::Create(addCondFunc, *aref, "");
         timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
     	timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
     }
+	delete aref;
 }
 
 /**
@@ -455,7 +471,9 @@ void PhiHandler::handle(llvm::Instruction& inst)
     }
 
     // Make and add the call.
-    CallInst& ci = *CallInst::Create(phi_logging_func, log_func_args.begin(), log_func_args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(log_func_args);
+    CallInst& ci = *CallInst::Create(phi_logging_func, *aref, "");
+	delete aref;
     timestampPlacer.constrainInstPlacement(ci, *phi.getParent()->getFirstNonPHI());
 
     // TODO: Causes problem in this case

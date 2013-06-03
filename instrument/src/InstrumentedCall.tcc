@@ -2,6 +2,7 @@
 #include <llvm/Function.h>
 #include <llvm/Analysis/DebugInfo.h>
 #include <llvm/GlobalVariable.h>
+#include <llvm/Constants.h>
 #include <sstream>
 #include <iomanip>
 

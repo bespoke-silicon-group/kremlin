@@ -22,7 +22,7 @@ CallInstHandler::CallInstHandler(TimestampPlacer& timestamp_placer) :
     // Setup funcs
     Module& m = *timestampPlacer.getFunc().getParent();
     LLVMTypes types(m.getContext());
-    vector<const Type*> func_arg_types;
+    vector<Type*> func_arg_types;
 
     FunctionType* link_arg_const_func_type = FunctionType::get(types.voidTy(), func_arg_types, false);
     linkArgConstFunc = cast<Function>(m.getOrInsertFunction("_KLinkArgConst", link_arg_const_func_type));
@@ -130,7 +130,7 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 
     // Function that pushes an llvm int into kremlib_call_args.
     vector<Value*> kremlib_call_args;
-    function<void(const Type*, unsigned int)> push_int = bind(&vector<Value*>::push_back,
+    function<void(Type*, unsigned int)> push_int = bind(&vector<Value*>::push_back,
         ref(kremlib_call_args), bind<Constant*>(&ConstantInt::get, _1, _2, false));
 
 	// We are going to insert multiple calls to kremlib functions. In order to
@@ -145,7 +145,9 @@ void CallInstHandler::handle(llvm::Instruction& inst)
     {
         kremlib_call_args.clear();
         push_int(types.i32(), timestampPlacer.getId(call_inst)); // dest ID
-        CallInst* ret_val_link = CallInst::Create(linkReturnFunc, kremlib_call_args.begin(), kremlib_call_args.end(), "");
+		ArrayRef<Value*> *aref = new ArrayRef<Value*>(kremlib_call_args);
+        CallInst* ret_val_link = CallInst::Create(linkReturnFunc, *aref, "");
+		delete aref;
         timestampPlacer.constrainInstPlacement(*ret_val_link, *last_call);
         last_call = ret_val_link;
     }
@@ -163,17 +165,21 @@ void CallInstHandler::handle(llvm::Instruction& inst)
         {
             kremlib_call_args.clear();
             CallInst *link_arg_call = NULL;
+			ArrayRef<Value*> *aref = NULL;
             if(!isa<Constant>(&call_arg))
             {
                 push_int(types.i32(), timestampPlacer.getId(call_arg)); // Source ID.
-                link_arg_call = CallInst::Create(linkArgFunc, kremlib_call_args.begin(), kremlib_call_args.end(), "");
+				aref = new ArrayRef<Value*>(kremlib_call_args);
+                link_arg_call = CallInst::Create(linkArgFunc, *aref, "");
 
                 timestampPlacer.requireValTimestampBeforeUser(call_arg, *link_arg_call);
             }
             else // this is a constant so call linkArgToConst instead (which takes no args)
 			{
-                link_arg_call = CallInst::Create(linkArgConstFunc, kremlib_call_args.begin(), kremlib_call_args.end(), "");
+				aref = new ArrayRef<Value*>(kremlib_call_args);
+                link_arg_call = CallInst::Create(linkArgConstFunc, *aref, "");
 			}
+			delete aref;
             timestampPlacer.constrainInstPlacement(*link_arg_call, *last_call);
             last_call = link_arg_call;
         }
@@ -194,7 +200,9 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 	// the old fashioned way (i.e. with push_back)
 	kremlib_call_args.push_back(ConstantInt::get(types.i64(),instrumented_call->getId()));
 	kremlib_call_args.push_back(ConstantInt::get(types.i64(),0));
-    CallInst& prep_call = *CallInst::Create(prepCallFunc, kremlib_call_args.begin(), kremlib_call_args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(kremlib_call_args);
+    CallInst& prep_call = *CallInst::Create(prepCallFunc, *aref, "");
+	delete aref;
     timestampPlacer.constrainInstPlacement(prep_call, *last_call);
 
 	delete instrumented_call;

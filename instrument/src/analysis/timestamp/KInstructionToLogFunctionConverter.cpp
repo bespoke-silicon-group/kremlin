@@ -22,12 +22,13 @@ InstructionToLogFunctionConverter::InstructionToLogFunctionConverter(llvm::Modul
     log_func(NULL),
     m(m)
 {
-    std::vector<const Type*> args;
+    std::vector<Type*> args;
     LLVMTypes types(m.getContext());
 
     args.push_back(types.i32()); // dest virtual reg num
     args.push_back(types.i32()); // num operands
-    FunctionType* log_func_type = FunctionType::get(types.voidTy(), args, true);
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+    FunctionType* log_func_type = FunctionType::get(types.voidTy(), *aref, true);
 
     // if the cast fails, another func with the same name and different prototype exists.
     log_func = cast<Function>(m.getOrInsertFunction("_KTimestamp", log_func_type)); 
@@ -76,5 +77,8 @@ llvm::CallInst* InstructionToLogFunctionConverter::operator()(const Value* inst,
         push_int(cand.getOffset()); // constant work
     }
 
-    return CallInst::Create(func, args.begin(), args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
+    CallInst* c = CallInst::Create(func, *aref, "");
+	delete aref;
+	return c;
 }

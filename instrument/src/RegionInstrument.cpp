@@ -2,7 +2,6 @@
 #include <llvm/Analysis/Dominators.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
-#include "analysis/PostDominators.h"
 #include <llvm/Constants.h>
 #include <llvm/DerivedTypes.h>
 #include <llvm/Function.h>
@@ -204,7 +203,7 @@ namespace {
 				PHINode *orig_phi = dyn_cast<PHINode>(phi);
 
 				// create new phi in dest_bb
-				PHINode *promoted_phi = PHINode::Create(orig_phi->getType(),orig_phi->getName() + ".promoted",dest_bb->getFirstNonPHI());
+				PHINode *promoted_phi = PHINode::Create(orig_phi->getType(), 0, orig_phi->getName() + ".promoted", dest_bb->getFirstNonPHI());
 
 				// vector of ints representing the incoming values of the orig phi that we want to remove
 				// we need this because we don't want to delete from something we are iterating through
@@ -314,7 +313,9 @@ namespace {
 			op_args.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_LOOP)); // 2nd arg = 1 means that this is a loop region
 
 			// insert call right before we jump to the actual header
-			CallInst::Create(logRegionEntry_func, op_args.begin(), op_args.end(), "", preheader->getTerminator());
+			ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
+			CallInst::Create(logRegionEntry_func, *aref, "", preheader->getTerminator());
+			delete aref;
 
 			/*
 			op_args.clear();
@@ -379,12 +380,16 @@ namespace {
 					  // body so we have to insert _KExitRegion even if exiting_bb is a header.
 					  && (exiting_bb != loop_header || isa<SwitchInst>(loop_header->getTerminator())) 
 					  ) {
-						CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), "", pre_exit->getTerminator());
+						ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args_loop_body);
+						CallInst::Create(logRegionExit_func, *aref, "", pre_exit->getTerminator());
+						delete aref;
 						//if(loopBodyRegions && exiting_bb != loop_header) {
 					}
 
 					// insert call to _KExitRegion() for loop region right before we leave pre_exit
-					CallInst::Create(logRegionExit_func, op_args.begin(), op_args.end(), "", pre_exit->getTerminator());
+					ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
+					CallInst::Create(logRegionExit_func, *aref, "", pre_exit->getTerminator());
+					delete aref;
 
 					// in the target BB, replace all references to exiting_bb with a reference to pre_exit (this will be phi nodes only)
 					/*
@@ -411,7 +416,9 @@ namespace {
 				//	  1) ends with a switch statement
 				//    2) one of the header's successors is not in the loop
 				
-				CallInst* ci = CallInst::Create(logRegionEntry_func, op_args_loop_body.begin(), op_args_loop_body.end(), "");
+				ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args_loop_body);
+				CallInst* ci = CallInst::Create(logRegionEntry_func, *aref, "");
+				delete aref;
 
 				if(!isa<BranchInst>(loop_header->getTerminator()) // not a branch... must be a switch?
 				  || loop->getBlocks().size() == 1 // if this is a single-BB loop then header MUST be in the body
@@ -447,7 +454,9 @@ namespace {
 				// _KExitRegion for loop body region there).
 				// We don't want to create the extra BB in the single-BB loop case because it wouldn't have anything
 				// in it.
-				ci = CallInst::Create(logRegionExit_func, op_args_loop_body.begin(), op_args_loop_body.end(), ""); // defer placement for now
+				aref = new ArrayRef<Value*>(op_args_loop_body);
+				ci = CallInst::Create(logRegionExit_func, *aref, ""); // defer placement for now
+				delete aref;
 
 				if(loop->getBlocks().size() == 1) {
 					ci->insertBefore(loop_header->getTerminator());
@@ -804,7 +813,7 @@ namespace {
 
 			std::set<CallInst*> instrumentation_calls;
 
-			std::vector<const Type*> args;
+			std::vector<Type*> args;
 
 			// these will be our instrumentation functions
 			Function* initProfiler_func = NULL;
@@ -815,18 +824,20 @@ namespace {
 			Function* logRegionExit_func = NULL;
 
 			if(add_initProfiler_func) {
-				initProfiler_func = cast<Function>(m.getOrInsertFunction("_KInit", FunctionType::get(types.voidTy(), args, false)));
-				deinitProfiler_func = cast<Function>(m.getOrInsertFunction("_KDeinit", FunctionType::get(types.voidTy(), args, false)));
+				initProfiler_func = cast<Function>(m.getOrInsertFunction("_KInit", FunctionType::get(types.voidTy(), false)));
+				deinitProfiler_func = cast<Function>(m.getOrInsertFunction("_KDeinit", FunctionType::get(types.voidTy(), false)));
 			}
 
 			if(add_printProfileData_func)
-				printProfileData_func = cast<Function>(m.getOrInsertFunction("_KPrintData", FunctionType::get(types.voidTy(), args, false)));
+				printProfileData_func = cast<Function>(m.getOrInsertFunction("_KPrintData", FunctionType::get(types.voidTy(), false)));
 
 			args.push_back(types.i64()); // unique ID (bb_id for _KBasicBlock, region_id for _KEnter/ExitRegion)
 
 			if(add_logBBVisit_func)
 			{
-				Constant* func_as_const = m.getOrInsertFunction("_KBasicBlock", FunctionType::get(types.voidTy(), args, false));
+				ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+				Constant* func_as_const = m.getOrInsertFunction("_KBasicBlock", FunctionType::get(types.voidTy(), *aref, false));
+				delete aref;
 				log.info() << "func as const: " << *func_as_const << "\n"; // XXX: expensive
 				logBBVisit_func = cast<Function>(func_as_const);
 
@@ -837,8 +848,10 @@ namespace {
 			args.push_back(types.i32()); // 2nd arg is the region type
 
 			if(add_logRegionEntry_func) {
-				logRegionEntry_func = cast<Function>(m.getOrInsertFunction("_KEnterRegion", FunctionType::get(types.voidTy(), args, false)));
-				logRegionExit_func = cast<Function>(m.getOrInsertFunction("_KExitRegion", FunctionType::get(types.voidTy(), args, false)));
+				ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+				logRegionEntry_func = cast<Function>(m.getOrInsertFunction("_KEnterRegion", FunctionType::get(types.voidTy(), *aref, false)));
+				logRegionExit_func = cast<Function>(m.getOrInsertFunction("_KExitRegion", FunctionType::get(types.voidTy(), *aref, false)));
+				delete aref;
 			}
 
 			args.clear();
@@ -946,7 +959,9 @@ namespace {
 					if(add_logBBVisit_func) {
 						op_args.push_back(ConstantInt::get(types.i64(),bb_id));
 
-						CallInst::Create(logBBVisit_func, op_args.begin(), op_args.end(), "", bb->getFirstNonPHI());
+						ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
+						CallInst::Create(logBBVisit_func, *aref, "", bb->getFirstNonPHI());
+						delete aref;
 						op_args.clear();
 					}
 
@@ -1004,7 +1019,9 @@ namespace {
 						if(add_logRegionExit_func) {
 							op_args.push_back(ConstantInt::get(types.i64(),func_region_id));
 							op_args.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_FUNC));
-							CallInst::Create(logRegionExit_func, op_args.begin(), op_args.end(), "", insert_before);
+							ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
+							CallInst::Create(logRegionExit_func, *aref, "", insert_before);
+							delete aref;
 							op_args.clear();
 						}
 
@@ -1013,12 +1030,14 @@ namespace {
 						if(!(non_returning_call && non_returning_call->getCalledFunction() &&  isCppThrowFunc(non_returning_call->getCalledFunction())) && 
                             (func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0 || is_exit_point)) 
                         {
+							ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
 							if(add_printProfileData_func) {
-								CallInst::Create(printProfileData_func, op_args.begin(), op_args.end(), "", insert_before);
+								CallInst::Create(printProfileData_func, *aref, "", insert_before);
 							}
 							if(add_deinitProfiler_func) {
-								CallInst::Create(deinitProfiler_func, op_args.begin(), op_args.end(), "", insert_before);
+								CallInst::Create(deinitProfiler_func, *aref, "", insert_before);
 							}
+							delete aref;
 						}
 					}
 
@@ -1051,13 +1070,17 @@ namespace {
 					// finally, we insert call to _KEnterRegion() for the beginning of this function
 					op_args.push_back(ConstantInt::get(types.i64(),func_region_id));
 					op_args.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_FUNC)); // 0 for 2nd arg means this is a function region
-					CallInst::Create(logRegionEntry_func, op_args.begin(), op_args.end(), "", func.getEntryBlock().getFirstNonPHI());
+					ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
+					CallInst::Create(logRegionEntry_func, *aref, "", func.getEntryBlock().getFirstNonPHI());
+					delete aref;
 					op_args.clear();
 				}
 
 				// if this happens to be main, we also need to call _KInit()
 				if(add_initProfiler_func && (func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0)) {
-					CallInst::Create(initProfiler_func, op_args.begin(), op_args.end(), "", func.getEntryBlock().getFirstNonPHI());
+					ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
+					CallInst::Create(initProfiler_func, *aref, "", func.getEntryBlock().getFirstNonPHI());
+					delete aref;
 				}
 			} // end for loop
             foreach(Region& r, regions) {

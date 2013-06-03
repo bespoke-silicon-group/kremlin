@@ -5,6 +5,7 @@
 #include "llvm/Instruction.h"
 #include "llvm/User.h"
 #include "llvm/DerivedTypes.h"
+#include <llvm/Constants.h>
 
 #include "llvm/Support/CFG.h"
 

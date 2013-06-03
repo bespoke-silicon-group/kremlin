@@ -2,6 +2,7 @@
 #include <boost/lexical_cast.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
+#include <llvm/Constants.h>
 #include "analysis/InductionVariables.h"
 #include "LoadHandler.h"
 #include "LLVMTypes.h"
@@ -28,10 +29,12 @@ LoadHandler::LoadHandler(TimestampPlacer& ts_placer) :
     // Setup the ret_const_func
     Module& m = *ts_placer.getFunc().getParent();
     LLVMTypes types(m.getContext());
-    vector<const Type*> args;
+    vector<Type*> args;
 
     args += types.pi8(), types.i32(), types.i32(), types.i32();
-    FunctionType* func_type = FunctionType::get(types.voidTy(), args, true);
+	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+    FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, true);
+	delete aref;
     log_func = cast<Function>(m.getOrInsertFunction("_KLoad", func_type));
 
     // Make specialized functions.
@@ -39,7 +42,9 @@ LoadHandler::LoadHandler(TimestampPlacer& ts_placer) :
     args += types.pi8(), types.i32(), types.i32();
     for(int i = 0; i < MAX_SPECIALIZED; i++)
     {
-        FunctionType* func_type = FunctionType::get(types.voidTy(), args, false);
+		ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
+        FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, false);
+		delete aref;
         specialized_funcs.insert(make_pair(i, 
                 cast<Function>(m.getOrInsertFunction(
                         "_KLoad" + lexical_cast<string>(i), 
@@ -113,7 +118,9 @@ void LoadHandler::handle(llvm::Instruction& inst)
     else
         args.insert(args.begin() + num_conds_idx, ConstantInt::get(types.i32(), num_conds, false));
 
-    CallInst& ci = *CallInst::Create(log_func, args.begin(), args.end(), "");
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
+    CallInst& ci = *CallInst::Create(log_func, *aref, "");
+	delete aref;
     ts_placer.constrainInstPlacement(ci, load);
     ts_placer.constrainInstPlacement(ptr_cast, ci);
 }
