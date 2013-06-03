@@ -33,6 +33,9 @@ LLVM_SRC_TAR_URL=http://llvm.org/releases/$(LLVM_VERSION)/$(LLVM_SRC_TAR)
 LLVM_GCC_SRC_TAR_URL=http://llvm.org/releases/$(LLVM_VERSION)/$(LLVM_GCC_SRC_TAR)
 CLANG_SRC_TAR_URL=http://llvm.org/releases/$(LLVM_VERSION)/$(CLANG_SRC_TAR)
 
+# patch of LLVM src to support kremlin
+LLVM_SRC_PATCH=kremlin-llvm-$(LLVM_VERSION).patch
+
 all: build-llvm build-llvm-gcc
 build-llvm: llvm-$(LLVM_VERSION).build.success
 build-llvm-gcc: llvm-gcc-4.2-$(LLVM_VERSION).build.success
@@ -48,6 +51,7 @@ $(CLANG_SRC_TAR):
 
 $(LLVM_SRC_DIR): $(LLVM_SRC_TAR)
 	tar -xzf $<
+	patch -p0 < $(LLVM_SRC_PATCH)
 	@touch $@
 
 $(LLVM_GCC_SRC_DIR): $(LLVM_GCC_SRC_TAR)
