@@ -51,7 +51,9 @@ LLVM_DIS ?= $(LLVM_BIN_DIR)/llvm-dis
 # The LLVM static compiler. Converts LLVM byte code to assembly for a
 # particular architecture
 LLC ?= $(LLVM_BIN_DIR)/llc
-LLC_FLAGS ?=
+#ifeq ($(UNAME), Darwin)
+LLC_FLAGS += -disable-cfi # assembler doesn't like cfi on mac 10.7
+#endif
 
 # The architecture to compile to
 LLC_MARCH ?= x86-64
