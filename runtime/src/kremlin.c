@@ -186,7 +186,7 @@ static inline Level getIndex(Level level) {
 
 static Time	timetick = 0llu;
 
-inline void _KWork(UInt32 work) {
+void _KWork(UInt32 work) {
 	timetick += work;
 }
 
