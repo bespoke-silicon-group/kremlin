@@ -15,7 +15,7 @@ include $(dir $(lastword $(MAKEFILE_LIST)))/../../common/make/paths.mk
 # ---------------------------------------------------------------------------
 
 # All the common source files.
-COMMON_SOURCES = kremlin_deque.c hash_map.c vector.c
+COMMON_SOURCES = #kremlin_deque.c #hash_map.c vector.c
 COMMON_SOURCES_WITH_PATH = $(addprefix $(KREMLIN_COMMON_SRC)/, $(COMMON_SOURCES))
 
 # All the kremlin runtime source files.
