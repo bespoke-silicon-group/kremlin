@@ -1,16 +1,17 @@
 #include <assert.h>
 #include "ATable.h"
-#include "hash_map.h"
 #include "kremlin.h"
+
+//#include "hash_map.h" // XXX: don't use this
 
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 
-HASH_MAP_DEFINE_PROTOTYPES(mt, Addr, size_t);
-HASH_MAP_DEFINE_FUNCTIONS(mt, Addr, size_t);
+//HASH_MAP_DEFINE_PROTOTYPES(mt, Addr, size_t);
+//HASH_MAP_DEFINE_FUNCTIONS(mt, Addr, size_t);
 
 
-static 	hash_map_mt* mTable;
+//static 	hash_map_mt* mTable;
 
 void 	dumpTableMemAlloc(void);
 //static 	UInt64 addrHash(Addr addr);

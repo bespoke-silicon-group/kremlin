@@ -13,7 +13,6 @@
 #include "config.h"
 #include "kremlin_deque.h"
 #include "CRegion.h"
-#include "hash_map.h"
 #include "Vector.h"
 #include "MShadow.h"
 #include "RShadow.h"
