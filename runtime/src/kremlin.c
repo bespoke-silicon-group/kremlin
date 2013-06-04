@@ -362,7 +362,6 @@ static void RegionPopFunc() {
     if (func->table != NULL)
         TableFree(func->table);
 
-    //free(func);  
 	MemPoolFreeSmall(func, sizeof(FuncContext));
 }
 
@@ -443,7 +442,7 @@ static int RegionSize() {
 }
 
 static void RegionInit(int size) {
-    regionInfo = (Region*) malloc(sizeof(Region) * size);
+	regionInfo = new Region[size];
     //regionInfo = (Region*) MemPoolAllocSmall(sizeof(Region) * size);
 	regionSize = size;
 	assert(regionInfo != NULL);
@@ -489,6 +488,7 @@ static void RegionDeinit() {
 		Region* region = RegionGet(i);
 	}
 	assert(regionInfo != NULL);
+	delete regionInfo;
     regionInfo = NULL;
 }
 
@@ -1478,7 +1478,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 #endif
 
 	// create an array holding the registers that are srcs
-	Reg* src_regs = new Reg[num_srcs]; //malloc(num_srcs*sizeof(Reg));
+	Reg* src_regs = new Reg[num_srcs];
 
 	va_list args;
 	va_start(args,num_srcs);
@@ -1527,7 +1527,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
         RegionUpdateCp(region, dest_time);
 	}
 
-	delete src_regs; //free(src_regs);
+	delete src_regs; 
 }
 
 void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
@@ -1717,7 +1717,7 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
     if (!isKremlinOn()) return;
 
 	// create an array holding the registers that are srcs
-	Reg* ctrl_regs = new Reg[num_ctrls]; //malloc(num_ctrls*sizeof(Reg));
+	Reg* ctrl_regs = new Reg[num_ctrls]; 
 
 	va_list args;
 	va_start(args,num_ctrls);
@@ -1749,7 +1749,7 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
         MSG(3, " src_time %u dest_time %u\n", src_time, ctrl_time, dest_time);
     }
 
-	delete ctrl_regs; // free(ctrl_regs);
+	delete ctrl_regs; 
 }
 
 void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
