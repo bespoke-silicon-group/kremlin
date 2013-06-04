@@ -206,17 +206,19 @@ static inline void addStore() {
  * VArray / TArray Management
  *************************************************************/
 
-static int arraySize = 512;
+static unsigned int arraySize = 512;
 static Version* vArray;
 static Time* tArray;
 static Version nextVersion = 0;
 
 static void RegionInitVersion() {
-	vArray = (Version*) calloc(sizeof(Version), arraySize); 
+	vArray = new Version[arraySize];
+	for (unsigned i = 0; i < arraySize; ++i) vArray[i] = 0;
 }
 
 static void RegionInitTArray() {
-	tArray = (Time*) calloc(sizeof(Time), arraySize); 
+	tArray = new Time[arraySize];
+	for (unsigned i = 0; i < arraySize; ++i) tArray[i] = 0;
 }
 
 static inline Time* RegionGetTArray() {
