@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "Vector.h"
 #include "ktypes.h"
 #include "debug.h"
 //#include "idbg.h"
@@ -10,9 +9,6 @@
 #include <vector>
 
 std::vector<SID> region_ids;
-
-//VECTOR_DEFINE_PROTOTYPES(RegionIds, SID);
-//VECTOR_DEFINE_FUNCTIONS(RegionIds, SID, VECTOR_COPY, VECTOR_NO_DELETE);
 
 int	__kremlin_debug = 1;
 int  __kremlin_debug_level = KREMLIN_DEBUG_LEVEL;

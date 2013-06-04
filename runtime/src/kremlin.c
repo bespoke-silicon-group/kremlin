@@ -12,7 +12,6 @@
 #include "debug.h"
 #include "config.h"
 #include "CRegion.h"
-#include "Vector.h"
 #include "MShadow.h"
 #include "RShadow.h"
 #include "RShadow.c"
@@ -325,22 +324,19 @@ typedef struct _FuncContext {
 	UInt32 code;
 } FuncContext;
 
-// A vector used to represent the call stack.
-VECTOR_DEFINE_PROTOTYPES(FuncContexts, FuncContext*);
-VECTOR_DEFINE_FUNCTIONS(FuncContexts, FuncContext*, VECTOR_COPY, VECTOR_NO_DELETE);
 
-static FuncContexts*       funcContexts;
+
+static std::vector<FuncContext*> funcContexts; // A vector used to represent the call stack.
 #define DUMMY_RET		-1
 
 /**
  * Pushes new context onto function context stack.
  */
 static void RegionPushFunc(CID cid) {
-    //FuncContext* funcContext = (FuncContext*) malloc(sizeof(FuncContext));
     FuncContext* funcContext = (FuncContext*) MemPoolAllocSmall(sizeof(FuncContext));
     assert(funcContext);
 
-    FuncContextsPushVal(funcContexts, funcContext);
+	funcContexts.push_back(funcContext);
     funcContext->table = NULL;
 	funcContext->callSiteId = cid;
 	funcContext->ret = DUMMY_RET;
@@ -354,7 +350,9 @@ static void RegionPushFunc(CID cid) {
  * Removes context at the top of the function context stack.
  */
 static void RegionPopFunc() {
-    FuncContext* func = FuncContextsPopVal(funcContexts);
+    FuncContext* func = funcContexts.back();
+	funcContexts.pop_back();
+	
     assert(func);
     MSG(3, "RegionPopFunc at 0x%x CID 0x%x\n", func, func->callSiteId);
 
@@ -369,26 +367,28 @@ static void RegionPopFunc() {
 }
 
 static FuncContext* RegionGetFunc() {
-    FuncContext** func = FuncContextsLast(funcContexts);
-	if (func == NULL) {
+	if (funcContexts.empty()) {
     	MSG(3, "RegionGetFunc  NULL\n");
 		return NULL;
 	}
 
-    MSG(3, "RegionGetFunc  0x%x CID 0x%x\n", *func, (*func)->callSiteId);
-	assert((*func)->code == 0xDEADBEEF);
-	return *func;
+    FuncContext* func = funcContexts.back();
+
+    MSG(3, "RegionGetFunc  0x%x CID 0x%x\n", func, func->callSiteId);
+	assert(func->code == 0xDEADBEEF);
+	return func;
 }
 
 static FuncContext* RegionGetCallerFunc() {
-	if (FuncContextsSize(funcContexts) == 1) {
+	if (funcContexts.size() == 1) {
     	MSG(3, "RegionGetCallerFunc  No Caller Context\n");
 		return NULL;
 	}
-    FuncContext** func = FuncContextsLast(funcContexts) - 1;
-    MSG(3, "RegionGetCallerFunc  0x%x CID 0x%x\n", *func, (*func)->callSiteId);
-	assert((*func)->code == 0xDEADBEEF);
-	return *func;
+    FuncContext* func = funcContexts[funcContexts.size()-2];
+
+    MSG(3, "RegionGetCallerFunc  0x%x CID 0x%x\n", func, func->callSiteId);
+	assert(func->code == 0xDEADBEEF);
+	return func;
 }
 
 inline static void RegionSetRetReg(FuncContext* func, Reg reg) {
@@ -403,16 +403,11 @@ inline static Table* RegionGetTable(FuncContext* func) {
 	return func->table;
 }
 
-static void RegionInitFunc()
-{
-    FuncContextsCreate(&funcContexts);
-    assert(FuncContextsEmpty(funcContexts));
-}
+static void RegionInitFunc() {}
 
 static void RegionDeinitFunc()
 {
-    assert(FuncContextsEmpty(funcContexts));
-    FuncContextsDelete(&funcContexts);
+	assert(funcContexts.empty());
 }
 
 /*****************************************************************
@@ -930,7 +925,7 @@ static void handleFuncRegionExit() {
 	RegionPopFunc();
 
 	// root function
-	if (FuncContextsSize(funcContexts) == 0) {
+	if (funcContexts.empty()) {
 		assert(getCurrentLevel() == 0); 
 		return;
 	}
@@ -1966,9 +1961,6 @@ static Bool kremlinInit() {
 		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", getKremlinDebugLevel()); 
 	}
 
-#if 0
-    InvokeRecordsCreate(&invokeRecords);
-#endif
 	ArgFifoInit();
 	CDepInit();
 	CRegionInit();
@@ -2285,10 +2277,8 @@ typedef struct _InvokeRecord {
 } InvokeRecord;
 
 InvokeRecords*      invokeRecords;
-// A vector used to record invoked calls.
-VECTOR_DEFINE_PROTOTYPES(InvokeRecords, InvokeRecord);
-VECTOR_DEFINE_FUNCTIONS(InvokeRecords, InvokeRecord, VECTOR_COPY, VECTOR_NO_DELETE);
 
+static std::vector<InvokeRecord*> invokeRecords; // A vector used to record invoked calls.
 
 void _KPrepInvoke(UInt64 id) {
     if(!isKremlinOn())
@@ -2296,7 +2286,7 @@ void _KPrepInvoke(UInt64 id) {
 
     MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (UInt64)getCurrentLevel());
    
-    InvokeRecord* currentRecord = InvokeRecordsPush(invokeRecords);
+    InvokeRecord* currentRecord = InvokeRecordsPush(invokeRecords); // FIXME
     currentRecord->id = id;
     currentRecord->stackHeight = getCurrentLevel();
 }
@@ -2305,9 +2295,9 @@ void _KInvokeOkay(UInt64 id) {
     if(!isKremlinOn())
         return;
 
-    if(!InvokeRecordsEmpty(invokeRecords) && InvokeRecordsLast(invokeRecords)->id == id) {
+    if(!invokeRecords.empty() && invokeRecords.back()->id == id) {
         MSG(1, "invokeOkay(%u)\n", id);
-        InvokeRecordsPop(invokeRecords);
+		invokeRecords.pop_back();
     } else
         MSG(1, "invokeOkay(%u) ignored\n", id);
 }
@@ -2317,10 +2307,10 @@ void _KInvokeThrew(UInt64 id)
     if(!isKremlinOn())
         return;
 
-    fprintf(stderr, "invokeRecordOnTop: %u\n", InvokeRecordsLast(invokeRecords)->id);
+    fprintf(stderr, "invokeRecordOnTop: %u\n", invokeRecords.back()->id);
 
-    if(!InvokeRecordsEmpty(invokeRecords) && InvokeRecordsLast(invokeRecords)->id == id) {
-        InvokeRecord* currentRecord = InvokeRecordsLast(invokeRecords);
+    if(!invokeRecords.empty() && invokeRecords.back()->id == id) {
+        InvokeRecord* currentRecord = invokeRecords.back();
         MSG(1, "invokeThrew(%u) - Popping to %d\n", currentRecord->id, currentRecord->stackHeight);
         while(getCurrentLevel() > currentRecord->stackHeight)
         {
@@ -2330,7 +2320,7 @@ void _KInvokeThrew(UInt64 id)
             assert(getCurrentLevel() < lastLevel);
             assert(getCurrentLevel() >= 0);
         }
-        InvokeRecordsPop(invokeRecords);
+		invokeRecods.pop_back();
     }
     else
         MSG(1, "invokeThrew(%u) ignored\n", id);
