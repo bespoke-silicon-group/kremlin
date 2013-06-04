@@ -271,7 +271,7 @@ static void TVCacheEvict(int index, Version* vArray) {
 		lastVer = line->version[1];
 		evictSize = getStartInvalidLevel(lastVer, vArray, lastSize);
 		Time* tArray1 = TVCacheGetData(index, 1);
-		SkaduEvict(tArray1, line->tag+4, evictSize, vArray, TYPE_32BIT);
+		SkaduEvict(tArray1, (char*)line->tag+4, evictSize, vArray, TYPE_32BIT);
 	}
 }
 
