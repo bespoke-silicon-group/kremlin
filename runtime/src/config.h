@@ -36,4 +36,11 @@ Bool KConfigGetRSummarySupport();
 void KConfigSetOutFileName(char* name);
 const char* KConfigGetOutFileName();
 
+Bool KConfigLimitLevel();
+
+Bool KConfigGetCRegionSupport();
+void KConfigDisableCRegion();
+
+void KConfigInit();
+
 #endif

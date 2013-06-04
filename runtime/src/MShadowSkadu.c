@@ -83,8 +83,8 @@ static inline void TimeTableClean(TimeTable* table) {
 static inline TimeTable* TimeTableAlloc(int sizeType) {
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
 	int size = TimeTableEntrySize(sizeType);
-	TimeTable* ret = MemPoolAllocSmall(sizeof(TimeTable));
-	ret->array = MemPoolAlloc();
+	TimeTable* ret = (TimeTable*)MemPoolAllocSmall(sizeof(TimeTable));
+	ret->array = (Time*)MemPoolAlloc();
 	bzero(ret->array, sizeof(Time) * size);
 
 	ret->type = sizeType;
@@ -159,7 +159,7 @@ static inline int SegTableGetIndex(Addr addr) {
 
 
 static inline LTable* LTableAlloc() {
-	LTable* ret = MemPoolCallocSmall(1,sizeof(LTable));
+	LTable* ret = (LTable*)MemPoolCallocSmall(1,sizeof(LTable));
 	ret->code = 0xDEADBEEF;
 	return ret;
 }
@@ -553,7 +553,7 @@ static void _MShadowSkaduSet(Addr addr, Index size, Version* vArray, Time* tArra
  * Init / Deinit
  */
 
-UInt MShadowInitSkadu() {
+void MShadowInitSkadu() {
 	int cacheSizeMB = KConfigGetSkaduCacheSize();
 	fprintf(stderr,"[kremlin] MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
@@ -570,16 +570,14 @@ UInt MShadowInitSkadu() {
 	MShadowGet = _MShadowSkaduGet;
 	MShadowSet = _MShadowSkaduSet;
 	setCompression();
-	return 0;
 }
 
 
-UInt MShadowDeinitSkadu() {
+void MShadowDeinitSkadu() {
 	CBufferDeinit();
 	MShadowStatPrint();
 	STableDeinit();
 	TVCacheDeinit();
-	return 0;
 }
 
 

@@ -454,13 +454,13 @@ static	int	free_pointer(mpool_t *mp_p, void *addr,
      * can we do?  No space for a next pointer.
      */
     if (mp_p->mp_free[bit_n] == NULL) {
-      mp_p->mp_free[bit_n] = addr;
+      mp_p->mp_free[bit_n] = (mpool_block_st*)addr;
     }
   }
   else if (bit_n < min_bit_free_size) {
     /* we copy, not assign, to maintain the free list */
     memcpy(addr, mp_p->mp_free + bit_n, sizeof(void *));
-    mp_p->mp_free[bit_n] = addr;
+    mp_p->mp_free[bit_n] = (mpool_block_st*)addr;
   }
   else {
     
@@ -470,7 +470,7 @@ static	int	free_pointer(mpool_t *mp_p, void *addr,
     
     /* we copy the structure in since we don't know about alignment */
     memcpy(addr, &free_pnt, sizeof(free_pnt));
-    mp_p->mp_free[bit_n] = addr;
+    mp_p->mp_free[bit_n] = (mpool_block_st*)addr;
   }
   
   return MPOOL_ERROR_NONE;
@@ -618,7 +618,7 @@ static	void	*get_space(mpool_t *mp_p, const unsigned long byte_size,
     page_n = PAGES_IN_SIZE(mp_p, size);
     
     /* now we try and get the pages we need/want */
-    block_p = alloc_pages(mp_p, page_n, error_p);
+    block_p = (mpool_block_t*)alloc_pages(mp_p, page_n, error_p);
     if (block_p == NULL) {
       /* error_p set in alloc_pages */
       return NULL;
@@ -665,7 +665,7 @@ static	void	*get_space(mpool_t *mp_p, const unsigned long byte_size,
     else {
       /* grab the free structure from the address */
       memcpy(&free_pnt, free_addr, sizeof(free_pnt));
-      mp_p->mp_free[bit_c] = free_pnt.mf_next_p;
+      mp_p->mp_free[bit_c] = (mpool_block_st*)free_pnt.mf_next_p;
       
       /* are we are splitting up a multiblock chunk into fewer blocks? */
       if (PAGES_IN_SIZE(mp_p, free_pnt.mf_size) > PAGES_IN_SIZE(mp_p, size)) {
@@ -963,7 +963,7 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
   page_n = PAGES_IN_SIZE(&mp, sizeof(mpool_t));
   
   /* now allocate us space for the actual struct */
-  mp_p = alloc_pages(&mp, page_n, error_p);
+  mp_p = (mpool_t*)alloc_pages(&mp, page_n, error_p);
   if (mp_p == NULL) {
     if (mp.mp_fd >= 0) {
       (void)close(mp.mp_fd);
@@ -989,7 +989,7 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
     block_p->mb_magic2 = BLOCK_MAGIC;
     
     /* the mpool pointer is then the 2nd thing in the block */
-    mp_p = FIRST_ADDR_IN_BLOCK(block_p);
+    mp_p = (mpool_t*)FIRST_ADDR_IN_BLOCK(block_p);
     free_addr = (char *)mp_p + sizeof(mpool_t);
     
     /* free the rest of the block */

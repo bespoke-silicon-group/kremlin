@@ -1,4 +1,5 @@
 #include "kremlin.h"
+#include "config.h"
 
 #include <assert.h>
 #include <limits.h>
@@ -221,7 +222,7 @@ static void TagValidate(Time* tAddr, Version* vAddr, Version* vArray, int size) 
 }
 
 static inline Version* VersionAlloc(int type) {
-	return calloc(sizeof(Version), getTimeTableEntrySize(type));
+	return (Version*)calloc(sizeof(Version), getTimeTableEntrySize(type));
 }
 
 static inline void VersionFree(Version* version) {
@@ -411,7 +412,7 @@ static void _MShadowSetSTV(Addr addr, Index size, Version* vArray, Time* tArray,
 }
 
 
-UInt MShadowInitSTV() {
+void MShadowInitSTV() {
 	fprintf(stderr, "[kremlin] MShadow STV Init\n");
 	STableInit();
 	//MemAllocInit(sizeof(TimeTable));
@@ -420,7 +421,7 @@ UInt MShadowInitSTV() {
 }
 
 
-UInt MShadowDeinitSTV() {
+void MShadowDeinitSTV() {
 	printMemStat();
 	STableDeinit();
 	//MemAllocDeinit();

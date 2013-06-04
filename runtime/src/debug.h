@@ -25,6 +25,8 @@ void printRegisterTimes(Reg reg);
 void printMemoryTimes(Addr addr, Index size);
 
 void dbg_int(int sig);
+
+void DebugInit(char* str);
 void DebugDeinit();
 
 #ifdef KREMLIN_DEBUG 
@@ -32,7 +34,8 @@ void DebugDeinit();
 	void updateTabString();
 	void incIndentTab();
 	void decIndentTab();
-	void iDebugHandler();
+	void iDebugHandler(UInt kremFunc);
+	void iDebugHandlerRegionEntry(SID regionId);
 	#define idbgAction(op, ...) 	((void)0)
 #if 0
 	#define idbgAction(op, ...) { \
@@ -45,11 +48,13 @@ void DebugDeinit();
 	}
 #endif
 #else
-    #define MSG(level, a, args...)  ((void)0)
-    #define incIndentTab()          ((void)0)
-    #define decIndentTab()          ((void)0)
-    #define updateTabString()       ((void)0)
-	#define idbgAction(op, ...) 	((void)0)
+    #define MSG(level, a, args...)
+    #define incIndentTab()
+    #define decIndentTab()
+    #define updateTabString()
+	#define idbgAction(op, ...)
+	#define iDebugHandler(x)
+	#define iDebugHandlerRegionEntry(x)
 #endif
 
 

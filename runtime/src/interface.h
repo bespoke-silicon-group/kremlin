@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <stdint.h>
+
 #include "ktypes.h"
 
 #ifdef __cplusplus
@@ -21,8 +22,8 @@ void _KDeinit();
 void _KTurnOn();
 void _KTurnOff();
 
-void _KEnterRegion(UInt64 region_id, UInt region_type);
-void _KExitRegion(UInt64 region_id, UInt region_type);
+void _KEnterRegion(SID region_id, RegionType region_type);
+void _KExitRegion(SID region_id, RegionType region_type);
 
 /* The following funcs are inserted by the critical path instrumentation pass */
 void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...);
@@ -94,8 +95,8 @@ void _KPrintData(); // deprecated?
 
 
 /* level management */
-Level getMinReportLevel();
-Level getMaxReportLevel();
+//Level getMinReportLevel();
+//Level getMaxReportLevel();
 
 // the following two functions are part of our plans for c++ support
 void cppEntry();

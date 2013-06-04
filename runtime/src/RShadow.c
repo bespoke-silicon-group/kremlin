@@ -33,12 +33,8 @@ static Table*	lTable;
  * Register Shadow Memory 
  */
 
-UInt RShadowInit(Index depth) {
-
-}
-
-UInt RShadowDeinit() {
-}
+void RShadowInit(Index depth) {}
+void RShadowDeinit() {}
 
 
 inline Time RShadowGetItem(Reg reg, Index index) {

@@ -21,5 +21,6 @@ extern Time* (*MShadowGet)(Addr, Index, Version*, UInt32);
 extern void  (*MShadowSet)(Addr, Index, Version*, Time*, UInt32) ;
 
 
+Level getMaxActiveLevel();
 
 #endif

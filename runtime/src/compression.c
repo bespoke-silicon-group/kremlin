@@ -25,7 +25,7 @@ static UInt8* compressData(UInt8* src, lzo_uint sizeSrc, lzo_uintp sizeDest) {
 	//XXX need a specialized memory allocator, for now, just check the 
 
 	//UInt8* dest = MemPoolAlloc();
-	UInt8* dest = malloc(sizeSrc);
+	UInt8* dest = (UInt8*)malloc(sizeSrc);
 	int result = lzo1x_1_compress(src, sizeSrc, dest, sizeDest, wrkmem);
 	assert(result == LZO_E_OK);
 	//memcpy(dest, src, sizeSrc);
@@ -114,7 +114,7 @@ static UInt64 compressLTable(LTable* lTable) {
 	lzo_uint compLen = 0;
 
 	int i;
-	Time* diffBuffer = MemPoolAlloc();
+	Time* diffBuffer = (Time*)MemPoolAlloc();
 	void* compressedData;
 
 	for(i = MAX_LEVEL-1; i >=1; i--) {
@@ -140,15 +140,15 @@ static UInt64 compressLTable(LTable* lTable) {
 
 		// step 3: profit
 		MemPoolFree(tt2->array); // XXX: comment this out if using tArrayBackup
-		tt2->array = compressedData;
+		tt2->array = (Time*)compressedData;
 	}
-	Time* level0Array = MemPoolAlloc();
+	Time* level0Array = (Time*)MemPoolAlloc();
 	memcpy(level0Array, tt1->array, srcLen);
 	makeDiff(tt1->array);
 	compressedData = compressData((UInt8*)tt1->array, srcLen, &compLen);
 	MemPoolFree(tt1->array);
 	//Time* level0Array = tt1->array;
-	tt1->array = compressedData;
+	tt1->array = (Time*)compressedData;
 	tt1->size = compLen;
 	compressionSavings += (srcLen - compLen);
 
@@ -183,7 +183,7 @@ static UInt64 decompressLTable(LTable* lTable) {
 	}
 	int compressedSize = tt1->size;
 
-	Time* decompedArray = MemPoolAlloc();
+	Time* decompedArray = (Time*)MemPoolAlloc();
 	decompressData((UInt8*)decompedArray, (UInt8*)tt1->array, compressedSize, &uncompLen);
 	restoreDiff((Time*)decompedArray);
 
@@ -194,7 +194,7 @@ static UInt64 decompressLTable(LTable* lTable) {
 	//tArrayIsDiff(tt1->array, lTable->tArrayBackup[0]);
 
 	int i;
-	Time *diffBuffer = MemPoolAlloc();
+	Time *diffBuffer = (Time*)MemPoolAlloc();
 
 	for(i = 1; i < MAX_LEVEL; ++i) {
 		TimeTable* tt2 = lTable->tArray[i];
@@ -214,7 +214,7 @@ static UInt64 decompressLTable(LTable* lTable) {
 		decompressionCost += (srcLen - tt2->size);
 
 		// step 2: add diffs to base TimeTable
-		tt2->array = MemPoolAlloc();
+		tt2->array = (Time*)MemPoolAlloc();
 		tt2->size = srcLen;
 
 		int j;
@@ -253,7 +253,7 @@ static ASEntry* activeSetClockHand = NULL;
 UInt32 numInActiveSet = 0;
 
 static inline void advanceClockHand() {
-	activeSetClockHand = activeSetClockHand->hh.next;
+	activeSetClockHand = (ASEntry*)activeSetClockHand->hh.next;
 	if(activeSetClockHand == NULL) 
 		activeSetClockHand = activeSet;
 }
@@ -262,13 +262,13 @@ static inline void printActiveSet() {
 	ASEntry* as;
 
 	int i = 0;
-	for(as = activeSet; as != NULL; as = as->hh.next, ++i) {
+	for(as = activeSet; as != NULL; as = (ASEntry*)as->hh.next, ++i) {
 		fprintf(stderr,"%d: key = %p, r_bit = %hu\n",i,as->key,as->r_bit);
 	}
 }
 
 static inline ASEntry* ASEntryAlloc(LTable* lTable) {
-	ASEntry *as = MemPoolAllocSmall(sizeof(ASEntry));
+	ASEntry *as = (ASEntry*)MemPoolAllocSmall(sizeof(ASEntry));
 	as->key = lTable;
 	as->r_bit = 1;
 	as->code = 0xDEADBEEF;

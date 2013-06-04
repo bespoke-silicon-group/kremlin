@@ -21,8 +21,8 @@ typedef struct _LocalTable {
 } LTable;
 #endif
 
-UInt 		RShadowInit();			// initialize global shadow memory system
-UInt 		RShadowDeinit();		// free associated data structure
+void 		RShadowInit();			// initialize global shadow memory system
+void 		RShadowDeinit();		// free associated data structure
 
 Table*		RShadowCreateTable(int numEntry, Index depth);
 void		RShadowFreeTable(Table* table);

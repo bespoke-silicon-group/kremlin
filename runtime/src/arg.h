@@ -3,13 +3,12 @@
 
 #include "ktypes.h"
 
-
-char* argGetOutputFileName(void);
 Level getMinReportLevel(void);
 Level getMaxReportLevel(void);
 Level getLevelDepth(void);
-UInt  getKremlinDebugLevel(void);
 Level getMaxProfileLevel(void);
 
+UInt getKremlinDebugFlag();
+UInt getKremlinDebugLevel();
 
 #endif

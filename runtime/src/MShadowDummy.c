@@ -11,13 +11,10 @@ static Time* _MShadowGetDummy(Addr addr, Index size, Version* vArray, UInt32 wid
 	return _dummy_buffer;
 }
 
-UInt MShadowInitDummy() {
+void MShadowInitDummy() {
 	MShadowGet = _MShadowGetDummy;
 	MShadowSet = _MShadowSetDummy;
 	fprintf(stderr, "kremlin] MShadowDummy Init\n");
-	return 0;
 }
 
-UInt MShadowDeinitDummy() {
-	return 0;	
-}
+void MShadowDeinitDummy() {}

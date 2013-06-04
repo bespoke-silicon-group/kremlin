@@ -1,3 +1,5 @@
+#include "interface.h"
+
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */
@@ -16,7 +18,8 @@
 #include "MShadow.h"
 #include "RShadow.h"
 #include "RShadow.c"
-#include "interface.h"
+
+#include <vector>
 
 //#include "idbg.h"
 #define LOAD_COST           4
@@ -538,7 +541,7 @@ void checkRegion() {
 #endif
 }
 
-static inline void RegionRestart(Region* region, SID sid, UInt regionType, Level level) {
+static inline void RegionRestart(Region* region, SID sid, RegionType regionType, Level level) {
 	//region->version++;
 	RegionIssueVersion(level);
 	region->regionId = sid;
@@ -1482,7 +1485,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 #endif
 
 	// create an array holding the registers that are srcs
-	Reg* src_regs = malloc(num_srcs*sizeof(Reg));
+	Reg* src_regs = new Reg[num_srcs]; //malloc(num_srcs*sizeof(Reg));
 
 	va_list args;
 	va_start(args,num_srcs);
@@ -1531,7 +1534,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
         RegionUpdateCp(region, dest_time);
 	}
 
-	free(src_regs);
+	delete src_regs; //free(src_regs);
 }
 
 void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
@@ -1716,12 +1719,12 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
 
 void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
     MSG(1, "KPhi ts[%u] = max(ts[%u],ts[ctrl0]...ts[ctrl%u])\n", dest_reg, src_reg,num_ctrls);
-	idbgAction(KREM_PHI,"## KPhi (dest_reg=%u,src_reg=%u,num_ctrls=%u)\n",dest_reg,src_reg,num_ctrls,);
+	idbgAction(KREM_PHI,"## KPhi (dest_reg=%u,src_reg=%u,num_ctrls=%u)\n",dest_reg,src_reg,num_ctrls);
 
     if (!isKremlinOn()) return;
 
 	// create an array holding the registers that are srcs
-	Reg* ctrl_regs = malloc(num_ctrls*sizeof(Reg));
+	Reg* ctrl_regs = new Reg[num_ctrls]; //malloc(num_ctrls*sizeof(Reg));
 
 	va_list args;
 	va_start(args,num_ctrls);
@@ -1753,7 +1756,7 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
         MSG(3, " src_time %u dest_time %u\n", src_time, ctrl_time, dest_time);
     }
 
-	free(ctrl_regs);
+	delete ctrl_regs; // free(ctrl_regs);
 }
 
 void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
@@ -1973,7 +1976,7 @@ static Bool kremlinInit() {
 	CRegionInit();
 	RShadowInit(getIndexSize());
 
-	MShadowInit(KConfigGetSkaduCacheSize());
+	MShadowInit(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
 	RegionInit(REGION_INIT_SIZE);
    	_KTurnOn();
     return TRUE;

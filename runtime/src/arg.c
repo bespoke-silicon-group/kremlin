@@ -1,3 +1,9 @@
+// C++ headers
+#include <vector>
+#include <string>
+#include <sstream>
+
+// C headers
 #include <signal.h> // for catching CTRL-V during debug
 
 #include "kremlin.h"
@@ -6,15 +12,14 @@
 
 #include "debug.h"
 
-char * __kremlin_output_filename;
-int __kremlin_debug;
-int __kremlin_debug_level;
+//char * __kremlin_output_filename;
+std::string __kremlin_output_filename;
 int __kremlin_level_to_log = -1;
 
+extern int __kremlin_debug;
+extern int __kremlin_debug_level;
 
-char * argGetOutputFileName() {
-	return __kremlin_output_filename;
-}
+extern "C" int __main(int argc, char** argv);
 
 UInt getKremlinDebugLevel() {
 	return __kremlin_debug_level;
@@ -51,27 +56,27 @@ char* parseOptionStr(char* option_str) {
 
 
 void createOutputFilename() {
-	__kremlin_output_filename[0] = '\0'; // "clear" the old name
-
-	strcat(__kremlin_output_filename, "kremlin-L");
-	char level_str[5];
-	//sprintf(level_str,"%d",__kremlin_level_to_log);
-	sprintf(level_str, "%d", KConfigGetMinLevel());
-	strcat(__kremlin_output_filename, level_str);
+	__kremlin_output_filename.clear(); // clear out old name
+	__kremlin_output_filename += "kremlin-L";
+	
+	// TODO: update to use to_string for C++11
+	std::stringstream ss;
+	ss << KConfigGetMinLevel();
+	__kremlin_output_filename += ss.str();
+	ss.flush();
 
 	if(KConfigGetMaxLevel() != (KConfigGetMinLevel())) {
-		strcat(__kremlin_output_filename,"_");
-		level_str[0] - '\0';
-		sprintf(level_str,"%d", KConfigGetMaxLevel());
-		strcat(__kremlin_output_filename,level_str);
+		__kremlin_output_filename += "_";
+		ss << KConfigGetMaxLevel();
+		__kremlin_output_filename += ss.str();
+		ss.flush();
 	}
 	
-	strcat(__kremlin_output_filename,".bin");
+	__kremlin_output_filename += ".bin";
 }
 
-int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args) {
-	int num_true_args = 0;
-	char** true_args = malloc(argc*sizeof(char*));
+void parseKremlinOptions(int argc, char* argv[], int& num_args, char**& real_args) {
+	std::vector<char*> true_args;
 
 	int parsed = 0;
 	int i;
@@ -178,17 +183,24 @@ int parseKremlinOptions(int argc, char* argv[], int* num_args, char*** real_args
 			continue;
 		}
 		else {
-			true_args[num_true_args] = strdup(argv[i]);
-			num_true_args++;
+			//true_args[num_true_args] = strdup(argv[i]);
+			true_args.push_back(strdup(argv[i]));
+			//num_true_args++;
 		}
 	}
 
 	createOutputFilename();
 
-	true_args = realloc(true_args,num_true_args*sizeof(char*));
+	//true_args = realloc(true_args,num_true_args*sizeof(char*));
+	
+	real_args = new char*[true_args.size()];
+	for (unsigned i = 0; i < true_args.size(); ++i) {
+		real_args[i] = strdup(true_args[i]);
+	}
+	num_args = true_args.size();
 
-	*num_args = num_true_args;
-	*real_args = true_args;
+	//*num_args = num_true_args;
+	//*real_args = true_args;
 }
 
 // look for any kremlin specific inputs to the program
@@ -198,10 +210,10 @@ int main(int argc, char* argv[]) {
 
 	KConfigInit();
 	__kremlin_idbg = 0;
-	__kremlin_output_filename = calloc(sizeof(char), 20);
-	strcat(__kremlin_output_filename,"kremlin.bin");
 
-	parseKremlinOptions(argc,argv,&num_args,&real_args);
+	__kremlin_output_filename = "kremlin.bin";
+
+	parseKremlinOptions(argc,argv,num_args,real_args);
 
 	if(__kremlin_idbg == 0) {
 		(void)signal(SIGINT,dbg_int);
@@ -217,7 +229,7 @@ int main(int argc, char* argv[]) {
     	fprintf(stderr, "[kremlin] logging only level %d\n", __kremlin_level_to_log);
 	}
 
-	fprintf(stderr,"[kremlin] writing data to: %s\n", argGetOutputFileName());
+	fprintf(stderr,"[kremlin] writing data to: %s\n", __kremlin_output_filename.c_str());
 
 	int i;
 	char** start = &argv[argc - num_args-1];

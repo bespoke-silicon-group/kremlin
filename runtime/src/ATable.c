@@ -13,8 +13,8 @@ HASH_MAP_DEFINE_FUNCTIONS(mt, Addr, size_t);
 static 	hash_map_mt* mTable;
 
 void 	dumpTableMemAlloc(void);
-static 	UInt64 addrHash(Addr addr);
-static 	int addrCompare(Addr a1, Addr a2);
+//static 	UInt64 addrHash(Addr addr);
+//static 	int addrCompare(Addr a1, Addr a2);
 
 
 long long _tEntryLocalCnt = 0;
@@ -57,14 +57,14 @@ size_t getMEntry(Addr addr) {
 void dumpTableMemAlloc() {
 }
 
+#if 0
 UInt64 addrHash(Addr addr)
 {
     return addr;
 }
+
 int addrCompare(Addr a1, Addr a2)
 {
     return a1 == a2;
 }
-
-
-
+#endif

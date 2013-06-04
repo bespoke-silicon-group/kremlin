@@ -104,7 +104,7 @@ static void TVCacheConfigure(int sizeMB, int depth) {
 	fprintf(stderr, "MShadowCacheInit: size: %d MB, lineNum %d, lineShift %d, depth %d\n", 
 		sizeMB, lineCount, cacheConfig.lineShift, cacheConfig.depth);
 
-	tvCache.tagTable = MemPoolCallocSmall(lineCount, sizeof(CacheLine)); // 64bit granularity
+	tvCache.tagTable = (CacheLine*)MemPoolCallocSmall(lineCount, sizeof(CacheLine)); // 64bit granularity
 	tvCache.valueTable = TableCreate(lineCount * 2, cacheConfig.depth);  // 32bit granularity
 
 	MSG(TVCacheDebug, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
@@ -228,6 +228,28 @@ void TVCacheDeinit() {
 	//TableFree(valueTable[1]);
 }
 
+int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
+	int firstInvalid = 0;
+	if (size == 0)
+		return 0;
+
+	if (size > 2)
+		MSG(TVCacheDebug, "\tgetStartInvalidLevel lastVer = %lld, newVer = %lld %lld \n", 
+			lastVer, vArray[size-2], vArray[size-1]);
+
+	if (lastVer == vArray[size-1])
+		return size;
+
+	int i;
+	for (i=size-1; i>=0; i--) {
+		if (lastVer >= vArray[i]) {
+			firstInvalid = i+1;
+			break;
+		}
+	}
+	return firstInvalid;
+
+}
 /*
  * TVCache Evict / Flush / Resize 
  */
@@ -274,28 +296,6 @@ static void TVCacheResize(int newSize, Version* vArray) {
 }
 
 
-int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
-	int firstInvalid = 0;
-	if (size == 0)
-		return 0;
-
-	if (size > 2)
-		MSG(TVCacheDebug, "\tgetStartInvalidLevel lastVer = %lld, newVer = %lld %lld \n", 
-			lastVer, vArray[size-2], vArray[size-1]);
-
-	if (lastVer == vArray[size-1])
-		return size;
-
-	int i;
-	for (i=size-1; i>=0; i--) {
-		if (lastVer >= vArray[i]) {
-			firstInvalid = i+1;
-			break;
-		}
-	}
-	return firstInvalid;
-
-}
 
 
 

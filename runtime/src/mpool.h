@@ -26,6 +26,8 @@
 
 #include <sys/types.h>
 
+extern "C" {
+
 /*
  * mpool flags to mpool_alloc or mpool_set_attr
  */
@@ -181,7 +183,7 @@ typedef	void	mpool_t;
  * error_p <- Pointer to integer which, if not NULL, will be set with
  * a mpool error code.
  */
-extern
+//extern
 mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
 		    void *start_addr, int *error_p);
 
@@ -203,7 +205,7 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
  *
  * mp_p <-> Pointer to our memory pool.
  */
-extern
+//extern
 int	mpool_close(mpool_t *mp_p);
 
 /*
@@ -223,7 +225,7 @@ int	mpool_close(mpool_t *mp_p);
  *
  * mp_p <-> Pointer to our memory pool.
  */
-extern
+//extern
 int	mpool_clear(mpool_t *mp_p);
 
 /*
@@ -249,7 +251,7 @@ int	mpool_clear(mpool_t *mp_p);
  * error_p <- Pointer to integer which, if not NULL, will be set with
  * a mpool error code.
  */
-extern
+//extern
 void	*mpool_alloc(mpool_t *mp_p, const unsigned long byte_size,
 		     int *error_p);
 
@@ -279,7 +281,7 @@ void	*mpool_alloc(mpool_t *mp_p, const unsigned long byte_size,
  * error_p <- Pointer to integer which, if not NULL, will be set with
  * a mpool error code.
  */
-extern
+//extern
 void	*mpool_calloc(mpool_t *mp_p, const unsigned long ele_n,
 		      const unsigned long ele_size, int *error_p);
 
@@ -305,7 +307,7 @@ void	*mpool_calloc(mpool_t *mp_p, const unsigned long ele_n,
  *
  * size -> Size of the address being freed.
  */
-extern
+//extern
 int	mpool_free(mpool_t *mp_p, void *addr, const unsigned long size);
 
 /*
@@ -339,7 +341,7 @@ int	mpool_free(mpool_t *mp_p, void *addr, const unsigned long size);
  * error_p <- Pointer to integer which, if not NULL, will be set with
  * a mpool error code.
  */
-extern
+//extern
 void	*mpool_resize(mpool_t *mp_p, void *old_addr,
 		      const unsigned long old_byte_size,
 		      const unsigned long new_byte_size,
@@ -379,7 +381,7 @@ void	*mpool_resize(mpool_t *mp_p, void *old_addr,
  * will be set to the total amount of space (including administrative
  * overhead) used by the pool.
  */
-extern
+//extern
 int	mpool_stats(const mpool_t *mp_p, unsigned int *page_size_p,
 		    unsigned long *num_alloced_p,
 		    unsigned long *user_alloced_p,
@@ -407,7 +409,7 @@ int	mpool_stats(const mpool_t *mp_p, unsigned int *page_size_p,
  * log_func -> Log function (defined in mpool.h) which will be called
  * with each mpool transaction.
  */
-extern
+//extern
 int	mpool_set_log_func(mpool_t *mp_p, mpool_log_func_t log_func);
 
 /*
@@ -435,7 +437,7 @@ int	mpool_set_log_func(mpool_t *mp_p, mpool_log_func_t log_func);
  *
  * max_pages -> Maximum number of pages used by the library.
  */
-extern
+//extern
 int	mpool_set_max_pages(mpool_t *mp_p, const unsigned int max_pages);
 
 /*
@@ -455,9 +457,10 @@ int	mpool_set_max_pages(mpool_t *mp_p, const unsigned int max_pages);
  *
  * error -> Error number that we are converting.
  */
-extern
+//extern
 const char	*mpool_strerror(const int error);
 
 /*<<<<<<<<<<   This is end of the auto-generated output from fillproto. */
+}
 
 #endif /* ! __MPOOL_H__ */

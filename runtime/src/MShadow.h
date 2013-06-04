@@ -22,6 +22,15 @@ void		MShadowSetTime(Addr addr, Index size, Version version, Time time);
 //void		MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width);
 
 
+void MShadowInitBase();
+void MShadowDeinitBase();
 
+void MShadowInitSTV();
+void MShadowDeinitSTV();
 
+void MShadowInitSkadu();
+void MShadowDeinitSkadu();
+
+void MShadowInitDummy();
+void MShadowDeinitDummy();
 #endif

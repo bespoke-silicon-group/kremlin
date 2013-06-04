@@ -7,9 +7,12 @@
 #include "debug.h"
 //#include "idbg.h"
 
+#include <vector>
 
-VECTOR_DEFINE_PROTOTYPES(RegionIds, SID);
-VECTOR_DEFINE_FUNCTIONS(RegionIds, SID, VECTOR_COPY, VECTOR_NO_DELETE);
+std::vector<SID> region_ids;
+
+//VECTOR_DEFINE_PROTOTYPES(RegionIds, SID);
+//VECTOR_DEFINE_FUNCTIONS(RegionIds, SID, VECTOR_COPY, VECTOR_NO_DELETE);
 
 int	__kremlin_debug = 1;
 int  __kremlin_debug_level = KREMLIN_DEBUG_LEVEL;
@@ -18,7 +21,7 @@ int __kremlin_idbg = 0;
 
 iDbgRunState __kremlin_idbg_run_state = Waiting;
 
-static SID regionBreaks;
+//static SID regionBreaks;
 
 static char tabString[2000];
 static int tabLevel = 0;
@@ -26,13 +29,11 @@ static FILE* stream;
 
 void DebugInit(char* str) {
 	stream = fopen(str, "w");
-    RegionIdsCreate(&regionBreaks);
 }
 
 void DebugDeinit() {
 	fclose(stream);
-
-	RegionIdsDelete(&regionBreaks);
+	region_ids.clear();
 }
 
 void dbg_int(int sig) {
@@ -45,7 +46,7 @@ void dbg_int(int sig) {
 }
 
 char** tokenizeString(char* str) {
-	char** tokens = malloc(3*sizeof(char*));
+	char** tokens = new char*[3]; //malloc(3*sizeof(char*));
 
 	tokens[0] = strtok(str," \n"); // FIXME: this isn't robust at all
 	tokens[1] = strtok(NULL," \n");
@@ -60,16 +61,15 @@ char** tokenizeString(char* str) {
 	return tokens;
 }
 
-void iDebugHandlerRegionEntry(SID regionId) {
 #ifdef KREMLIN_DEBUG
+void iDebugHandlerRegionEntry(SID regionId) {
 	if (!__kremlin_idbg)
 		return;
 
 	if(__kremlin_idbg_run_state == RunUntilFinish) return;
 
-	int i;
-	for(i = 0; i < RegionIdsSize(regionBreaks); ++i) {
-		SID id = RegionIdsAtVal(regionBreaks,i);
+	for(unsigned i = 0; i < region_ids.size(); ++i) {
+		SID id = region_ids[i];
 		if(id == regionId) {
 			fprintf(stdout,"region breakpoint #%d: SID=%llu\n",i,regionId);
 			__kremlin_idbg_run_state = Waiting;
@@ -81,7 +81,6 @@ void iDebugHandlerRegionEntry(SID regionId) {
 		}
 		*/
 	}
-#endif
 }
 
 void iDebugHandler(UInt kremFunc) {
@@ -94,7 +93,7 @@ void iDebugHandler(UInt kremFunc) {
 	}
 	else if(__kremlin_idbg_run_state == RunUntilBreak) { return; }
 	
-	char* dbg_arg = malloc(25*sizeof(char));
+	char* dbg_arg = new char[25]; //malloc(25*sizeof(char));
 
 	while(1) {
 		fprintf(stdout,"kremlin-dbg> ");
@@ -161,7 +160,7 @@ void iDebugHandler(UInt kremFunc) {
 				SID regionId;
 				sscanf(tokens[1],"%llX\n",&regionId);
 				// FIXME: check for dup before pushing value
-				RegionIdsPushVal(regionBreaks,regionId);
+				region_ids.push_back(regionId);
 			}
 		}
 		else if(strcmp(tokens[0],"info") == 0
@@ -173,9 +172,8 @@ void iDebugHandler(UInt kremFunc) {
 			else if(strcmp(tokens[1],"break") == 0) {
 				fprintf(stdout,"Region breakpoints:\n");
 
-				int i;
-				for(i = 0; i < RegionIdsSize(regionBreaks); ++i) {
-					SID rid = RegionIdsAtVal(regionBreaks,i);
+				for(unsigned i = 0; i < region_ids.size(); ++i) {
+					SID rid = region_ids[i];
 					fprintf(stdout,"\t#%d: %llu (0x%llx)\n",i,rid,rid);
 				}
 			}
@@ -229,6 +227,7 @@ void iDebugHandler(UInt kremFunc) {
 		}
 	}
 }
+#endif
 
 
 #ifdef KREMLIN_DEBUG

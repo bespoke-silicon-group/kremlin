@@ -1,4 +1,5 @@
 #include "kremlin.h"
+#include "config.h"
 
 #include <assert.h>
 #include <limits.h>
@@ -88,7 +89,7 @@ static void printMemStat() {
 	double versionTableSize = timeTableSize;
 
 	int i;
-	for (i=0; i<KConfigGetIndexSize(); i++) {
+	for (i=0; i < KConfigGetIndexSize(); i++) {
 		fprintf(stderr, "Level [%2d] req Read / Write = %lld, %lld\n",
 			i, stat.reqRead[i-1], stat.reqWrite[i-1]);
 	}
@@ -392,7 +393,7 @@ static void _MShadowSetBase(Addr addr, Index size, Version* vArray, Time* tArray
 }
 
 
-UInt MShadowInitBase() {
+void MShadowInitBase() {
 	fprintf(stderr, "[kremlin] MShadow Base Init\n");
 	STableInit();
 	MShadowSet = _MShadowSetBase;
@@ -400,7 +401,7 @@ UInt MShadowInitBase() {
 }
 
 
-UInt MShadowDeinitBase() {
+void MShadowDeinitBase() {
 	printMemStat();
 	STableDeinit();
 }
