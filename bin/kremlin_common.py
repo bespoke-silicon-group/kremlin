@@ -131,7 +131,7 @@ def create_kremlin_mk(src_lang):
             if lang_ext in ["cpp","C",""]: write("LD = g++")
             else: sys.exit("specified c++ with non-c++ extension: %s" % lang_ext)
         else: 
-            if lang_ext in ["c",""]: write("LD = gcc")
+            if lang_ext in ["c",""]: write("LD = g++")
             else: sys.exit("specified C with non-C extension: %s" % lang_ext)
 
         write("include " + sys.path[0] + "/../instrument/make/kremlin.mk")
