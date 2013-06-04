@@ -17,6 +17,7 @@
 #include "RShadow.c"
 
 #include <vector>
+#include <iostream>
 
 //#include "idbg.h"
 #define LOAD_COST           4
@@ -412,6 +413,7 @@ static void RegionDeinitFunc()
 /*****************************************************************
  * Region Management
  *****************************************************************/
+#if 0
 typedef struct _region_t {
 	UInt32 code;
 	Version version;
@@ -432,64 +434,66 @@ typedef struct _region_t {
 	UInt64 writeLineCnt;
 #endif
 } Region;
+#endif
+
+class Region {
+  public:
+	UInt32 code;
+	Version version;
+	SID	regionId;
+	RegionType regionType;
+	Time start;
+	Time cp;
+	Time childrenWork;
+	Time childrenCP;
+	Time childMaxCP;
+	UInt64 childCount;
+#ifdef EXTRA_STATS
+	UInt64 loadCnt;
+	UInt64 storeCnt;
+	UInt64 readCnt;
+	UInt64 writeCnt;
+	UInt64 readLineCnt;
+	UInt64 writeLineCnt;
+#endif
+
+	Region() : code(0xDEADBEEF), version(0), regionId(0), 
+				regionType(RegionFunc), start(0), cp(0), 
+				childrenWork(0), childrenCP(0), childMaxCP(0), 
+				childCount(0) {}
+};
 
 
-static Region* regionInfo = NULL;
-static int regionSize;
+static std::vector<Region*> regionInfo;
 
-static int RegionSize() {
-	return regionSize;
+static void RegionIncrease(unsigned int size) {
+	for (unsigned i = 0; i < size; ++i) {
+		regionInfo.push_back(new Region());
+	}
 }
 
-static void RegionInit(int size) {
-	regionInfo = new Region[size];
-    //regionInfo = (Region*) MemPoolAllocSmall(sizeof(Region) * size);
-	regionSize = size;
-	assert(regionInfo != NULL);
-	MSG(3, "RegionInit at 0x%x\n", regionInfo);
-
-	int i;
-	for (i=0; i<size; i++) {
-		regionInfo[i].code = 0xDEADBEEF;
-		regionInfo[i].version = 0;
+static void RegionInit(unsigned int size) {
+	assert(regionInfo.empty());
+	RegionIncrease(size);
+	for (unsigned i = 0; i < size; ++i) {
+		regionInfo.push_back(new Region());
 	}
-    assert(regionInfo);
+
 	RegionInitVersion();
 	RegionInitTArray();
-	RegionInitFunc();
-}
-
-static void RegionRealloc() {
-	int oldRegionSize = RegionSize();
-	Region* oldRegionInfo = regionInfo;
-	regionSize *= 2;
-	fprintf(stderr, "Region Realloc..new size = %d\n", regionSize);
-	MSG(3, "RegionRealloc from %d to %d\n", oldRegionSize, regionSize);
-	regionInfo = (Region*) realloc(regionInfo, sizeof(Region) * RegionSize());
-	
-	int i;
-	for (i=oldRegionSize; i<regionSize; i++) {
-		regionInfo[i].code = 0xDEADBEEF;
-		regionInfo[i].version = 0;
-	}
+	RegionInitFunc(); // TODO: bye bye?
 }
 
 static inline Region* RegionGet(Level level) {
-	assert(level < RegionSize());
-	Region* ret = &regionInfo[level];
+	assert(level < regionInfo.size());
+	Region* ret = regionInfo[level];
 	assert(ret->code == 0xDEADBEEF);
 	return ret;
 }
 
 static void RegionDeinit() {
-	RegionDeinitFunc();
-	Level i;
-	for (i=0; i<regionSize; i++) {
-		Region* region = RegionGet(i);
-	}
-	assert(regionInfo != NULL);
-	delete regionInfo;
-    regionInfo = NULL;
+	RegionDeinitFunc(); // TODO: bye bye?
+	regionInfo.clear();
 }
 
 static inline void checkTimestamp(int index, Region* region, Timestamp value) {
@@ -519,10 +523,9 @@ static inline void RegionUpdateCp(Region* region, Timestamp value) {
 
 void checkRegion() {
 #ifndef NDEBUG
-	int i;
 	int bug = 0;
-	for (i=0; i<RegionSize(); i++) {
-		Region* ret = &regionInfo[i];
+	for (unsigned i=0; i < regionInfo.size(); ++i) {
+		Region* ret = regionInfo[i];
 		if (ret->code != 0xDEADBEEF) {
 			MSG(0, "Region Error at index %d\n", i);	
 			assert(0);
@@ -880,8 +883,8 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 
     incrementRegionLevel();
     Level level = getCurrentLevel();
-	if (level == RegionSize()) {
-		RegionRealloc();
+	if (level == regionInfo.size()) {
+		RegionIncrease(regionInfo.size());
 	}
 	
 	Region* region = RegionGet(level);
@@ -2315,7 +2318,7 @@ void _KInvokeThrew(UInt64 id)
         while(getCurrentLevel() > currentRecord->stackHeight)
         {
             UInt64 lastLevel = getCurrentLevel();
-            Region* region = regionInfo + getLevelOffset(getCurrentLevel());
+            Region* region = regionInfo + getLevelOffset(getCurrentLevel()); // FIXME: regionInfo is vector now
             _KExitRegion(region->regionId, region->regionType);
             assert(getCurrentLevel() < lastLevel);
             assert(getCurrentLevel() >= 0);
