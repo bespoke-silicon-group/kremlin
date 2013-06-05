@@ -383,6 +383,7 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
 				aref = new ArrayRef<Value*>(args);
     			CallInst& ci = *CallInst::Create(addCondFunc, *aref, "");
 				delete aref;
+				aref = NULL;
                 timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
     			timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
             }
@@ -393,10 +394,11 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
     { 
 		aref = new ArrayRef<Value*>(args);
     	CallInst& ci = *CallInst::Create(addCondFunc, *aref, "");
+		delete aref;
+		aref = NULL;
         timestampPlacer.constrainInstPlacement(ci, *phi_bb.getTerminator());
     	timestampPlacer.requireValTimestampBeforeUser(controlling_cond, ci);
     }
-	delete aref;
 }
 
 /**
