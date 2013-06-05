@@ -86,10 +86,13 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 	Function *called_func = CallInstHandler::untangleCall(call_inst);
 	ArrayRef<Value*> *aref = NULL;
 
+	// We don't handle LLVM intrinsics now, even their malloc, free stuff
+	if (called_func == NULL || called_func->isIntrinsic()) return;
+
 	// calls to malloc and calloc get _KMalloc(addr, size) call
-	if(called_func 
-	  && (called_func->getName().compare("malloc") == 0 || called_func->getName().compare("calloc") == 0)
-	  ) {
+	else if (called_func->getName().compare("malloc") == 0 
+			|| called_func->getName().compare("calloc") == 0
+	  		) {
 		LOG_DEBUG() << "inst is a call to malloc/calloc\n";
 
 		// insert address (return value of callinst)
@@ -114,7 +117,7 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 	}
 
 	// calls to free get _KFree(addr) call
-	else if(called_func && called_func->getName().compare("free") == 0) {
+	else if(called_func->getName().compare("free") == 0) {
 		LOG_DEBUG() << "inst is a call to free\n";
 
 		// Insert address (first arg of call ist)
@@ -138,8 +141,8 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
 	}
 
 	// handle calls to realloc
-	else if(called_func && called_func->getName().compare("realloc") == 0) {
-		LOG_DEBUG() << "isnt is  call to realloc\n";
+	else if(called_func->getName().compare("realloc") == 0) {
+		LOG_DEBUG() << "inst is call to realloc\n";
 
 		// Insert old addr (arg 0 of func).
 		// Just like for free, we need to make sure this has type i8*
