@@ -106,7 +106,7 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 	 * We create these calls in reverse order because we use each call as the
 	 * placement constraint for the call before it.
 	 */
-	LOG_DEBUG() << "handling: " << inst << "\n";
+	LOG_DEBUG() << "examining: " << inst << "\n";
     CallInst& call_inst = *cast<CallInst>(&inst);
 
     LLVMTypes types(call_inst.getContext());

@@ -55,7 +55,7 @@ const std::vector<unsigned int>& StoreInstHandler::getOpcodes()
  */
 void StoreInstHandler::handle(llvm::Instruction& inst)
 {
-    LOG_DEBUG() << "handling store\n";
+    LOG_DEBUG() << "handling: " << inst << "\n";
 
     Module& module = *timestampPlacer.getFunc().getParent();
     LLVMTypes types(module.getContext());
