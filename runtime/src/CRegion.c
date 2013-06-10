@@ -849,7 +849,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	CStat* stat = node->statStart;
 	UInt64 statSize = CNodeGetStatSize(node);
 	//fprintf(stderr, "emitting region %llu at level %u\n", node->region->id,level);
-	MSG(DEGBUG_CREGION, "Emitting Node %d with %d stats\n", node->id, statSize);
+	MSG(DEBUG_CREGION, "Emitting Node %d with %d stats\n", node->id, statSize);
     assert(fp != NULL);
     assert(node != NULL);
     assert(stat != NULL);

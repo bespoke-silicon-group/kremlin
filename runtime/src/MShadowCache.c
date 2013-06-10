@@ -108,7 +108,7 @@ static void TVCacheConfigure(int sizeMB, int depth) {
 	tvCache.valueTable = TableCreate(lineCount * 2, cacheConfig.depth);  // 32bit granularity
 
 	MSG(TVCacheDebug, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
-		lineCount, KConfigGetIndexSize(), tvCache.valueTable[0]->array);
+		lineCount, KConfigGetIndexSize(), tvCache.valueTable[0].array);
 }
 
 static inline int getLineIndex(Addr addr) {

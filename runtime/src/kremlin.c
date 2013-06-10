@@ -1751,7 +1751,7 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
 
         MSG(3, "KPhi level %u version %u \n", i, RegionGetVersion(i));
         MSG(3, " src_reg %u dest_reg %u\n", src_reg, dest_reg);
-        MSG(3, " src_time %u dest_time %u\n", src_time, ctrl_time, dest_time);
+        MSG(3, " src_time %u dest_time %u\n", src_time, dest_time);
     }
 
 	delete ctrl_regs; 
