@@ -168,10 +168,18 @@ struct CriticalPath : public ModulePass
 			ignored.push_back("atoi");
 			ignored.push_back("rand");
 
+			// ignore mem alloc functions
 			ignored.push_back("malloc");
 			ignored.push_back("calloc");
 			ignored.push_back("realloc");
 			ignored.push_back("free");
+
+			// ignore C++ exception handling functions
+			ignored.push_back("__cxa_allocate_exception");
+			ignored.push_back("__cxa_throw");
+			ignored.push_back("__cxa_begin_catch");
+			ignored.push_back("__cxa_end_catch");
+			ignored.push_back("__gxx_personality_v0");
 			cih.addIgnore(ignored);
             placer.registerHandler(cih);
 
