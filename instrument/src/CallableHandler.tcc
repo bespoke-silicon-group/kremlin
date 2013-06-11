@@ -18,8 +18,6 @@ CallableHandler<Callable>::CallableHandler(TimestampPlacer& timestamp_placer) :
     log(PassLog::get()),
     timestampPlacer(timestamp_placer)
 {
-    opcodesOfHandledInsts += Instruction::Call;
-
     // Setup funcs
     Module& m = *timestampPlacer.getFunc().getParent();
     LLVMTypes types(m.getContext());
@@ -41,6 +39,11 @@ CallableHandler<Callable>::CallableHandler(TimestampPlacer& timestamp_placer) :
     func_arg_types += types.i32();
     FunctionType* ret_val_link_func_type = FunctionType::get(types.voidTy(), func_arg_types, false);
     linkReturnFunc = cast<Function>(m.getOrInsertFunction("_KLinkReturn", ret_val_link_func_type));
+}
+
+template <class Callable>
+void CallableHandler<Callable>::addOpcode(unsigned opcode) {
+    opcodesOfHandledInsts += opcode;
 }
 
 template <class Callable>
@@ -85,6 +88,12 @@ template <class Callable>
 void CallableHandler<Callable>::addIgnore(string func_name)
 {
 	ignoredFuncs += func_name;
+}
+
+template <class Callable>
+void CallableHandler<Callable>::addIgnore(vector<string>& func_names)
+{
+	ignoredFuncs.insert(ignoredFuncs.end(), func_names.begin(), func_names.end());
 }
 
 template <class Callable>
@@ -141,7 +150,7 @@ void CallableHandler<Callable>::handle(llvm::Instruction& inst)
 	// We are going to insert multiple calls to kremlib functions. In order to
 	// maintain the correct ordering, we'll use the last_call and feed that as
 	// a constraint to the timestamp placer.
-    Callable* last_call = &call_inst;
+    Instruction* last_call = &call_inst;
 
     // Add in a call to KLinkReturn if the call inst we are handling returns a
 	// real value.

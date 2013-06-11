@@ -153,24 +153,34 @@ struct CriticalPath : public ModulePass
             placer.registerHandler(sih);
 
             CallableHandler<CallInst> cih(placer);
+			cih.addOpcode(Instruction::Call);
+
+			std::vector<std::string> ignored;
+			ignored.push_back("printf");
+			ignored.push_back("fprintf");
+			ignored.push_back("puts");
+			ignored.push_back("scanf");
+			ignored.push_back("fscanf");
+			ignored.push_back("gets");
+			ignored.push_back("fopen");
+			ignored.push_back("fclose");
+			ignored.push_back("exit");
+			ignored.push_back("atoi");
+			ignored.push_back("rand");
+
+			ignored.push_back("malloc");
+			ignored.push_back("calloc");
+			ignored.push_back("realloc");
+			ignored.push_back("free");
+			cih.addIgnore(ignored);
             placer.registerHandler(cih);
-			cih.addIgnore("printf");
-			cih.addIgnore("fprintf");
-			cih.addIgnore("puts");
-			cih.addIgnore("scanf");
-			cih.addIgnore("fscanf");
-			cih.addIgnore("gets");
-			cih.addIgnore("fopen");
-			cih.addIgnore("fclose");
-			cih.addIgnore("exit");
-			cih.addIgnore("atoi");
-			cih.addIgnore("rand");
+
+            CallableHandler<InvokeInst> iih(placer);
+			iih.addOpcode(Instruction::Invoke);
+			iih.addIgnore(ignored);
+            placer.registerHandler(iih);
 
             DynamicMemoryHandler dmh(placer);
-			cih.addIgnore("malloc");
-			cih.addIgnore("calloc");
-			cih.addIgnore("realloc");
-			cih.addIgnore("free");
             placer.registerHandler(dmh);
 
             FunctionArgsHandler func_args(placer);

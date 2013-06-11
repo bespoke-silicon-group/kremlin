@@ -21,6 +21,8 @@ class CallableHandler : public TimestampPlacerHandler
     static llvm::Function* untangleCall(Callable& callable_inst);
 
 	void addIgnore(std::string func_name);
+	void addIgnore(std::vector<std::string>& func_names);
+	void addOpcode(unsigned opcode);
 
     private:
     uint64_t callSiteIdCounter;
