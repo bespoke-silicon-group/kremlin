@@ -1,8 +1,8 @@
-#include <iostream>
+#include <cstdio>
 
 using namespace std;
 
-int foo(int x) {
+__attribute__ ((noinline)) int foo(int x) {
 	if(x)
 		throw x;
 	return x;
@@ -12,11 +12,11 @@ int main(int argc, char* argv[])
 {
 	try 
 	{
-		cerr << "Foo returning: " << foo(argc) << endl;
+		fprintf(stderr,"Foo returning: %d\n", foo(argc));
 	}
 	catch(const int& err)
 	{
-		cerr << "Caught: " << err << endl;
+		fprintf(stderr, "Caught: %d\n", err);
 	}
 	return 0;
 }
