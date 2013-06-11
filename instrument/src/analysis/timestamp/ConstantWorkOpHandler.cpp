@@ -254,6 +254,9 @@ unsigned int ConstantWorkOpHandler::getWork(Instruction* inst) const
         case Instruction::BitCast:
         case Instruction::Br:
         case Instruction::Call:
+        case Instruction::Invoke:
+        case Instruction::LandingPad:
+        case Instruction::Resume:
         case Instruction::FPExt:
         case Instruction::FPToSI:
         case Instruction::FPToUI:

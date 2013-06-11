@@ -1,6 +1,6 @@
 .PHONY: build-llvm build-llvm-gcc clean
 
-LLVM_VERSION=3.0
+LLVM_VERSION=3.2
 LLVM_GCC_LANGS=c,c++
 
 UNAME := $(shell uname)
@@ -8,6 +8,7 @@ UNAME := $(shell uname)
 INSTALL_DIR=$(CURDIR)/install
 
 LLVM_CONFIG_OPTS = --prefix=$(INSTALL_DIR) --enable-assertions
+LLVM_MAKE_OPTS = REQUIRES_RTTI=1 REQUIRES_EH=1
 LLVM_GCC_CONFIG_OPTS = --prefix=$(INSTALL_DIR) --enable-languages=$(LLVM_GCC_LANGS) --program-prefix=llvm- --enable-llvm=$(CURDIR)/$(LLVM_OBJ_DIR) --disable-multilib --disable-bootstrap --enable-checking
 
 # Bug with LLVM 2.8 on mac requires debug (i.e. unoptimized) llvm build
@@ -24,9 +25,9 @@ LLVM_GCC_OBJ_DIR=llvm-gcc-4.2-$(LLVM_VERSION)-obj
 CLANG_SRC_DIR=$(LLVM_SRC_DIR)/tools/clang
 
 # tar.gz source files for building llvm and llvm-gcc
-LLVM_SRC_TAR=llvm-$(LLVM_VERSION).tar.gz
+LLVM_SRC_TAR=llvm-$(LLVM_VERSION).src.tar.gz
 LLVM_GCC_SRC_TAR=llvm-gcc-4.2-$(LLVM_VERSION).source.tgz
-CLANG_SRC_TAR=clang-$(LLVM_VERSION).tar.gz
+CLANG_SRC_TAR=clang-$(LLVM_VERSION).src.tar.gz
 
 # urls for tgz files
 LLVM_SRC_TAR_URL=http://llvm.org/releases/$(LLVM_VERSION)/$(LLVM_SRC_TAR)
@@ -78,7 +79,7 @@ $(LLVM_GCC_OBJ_DIR)/Makefile: $(LLVM_GCC_OBJ_DIR) $(LLVM_GCC_SRC_DIR)
 	@touch $@
 
 llvm-$(LLVM_VERSION).build.success: $(LLVM_OBJ_DIR)/Makefile
-	make -C $(LLVM_OBJ_DIR)
+	make -C $(LLVM_OBJ_DIR) $(LLVM_MAKE_OPTS)
 	make -C $(LLVM_OBJ_DIR) install
 	@touch $<
 	@date > $@

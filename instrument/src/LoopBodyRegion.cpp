@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <iostream>
-#include <llvm/Analysis/DebugInfo.h>
+#include "llvm/DebugInfo.h"
 #include <llvm/Metadata.h>
 #include <llvm/Module.h>
 #include <llvm/Support/raw_ostream.h>
