@@ -1,0 +1,163 @@
+diff -rupN llvm-3.2.src.orig/include/llvm/Analysis/PostDominanceFrontier.h llvm-3.2.src/include/llvm/Analysis/PostDominanceFrontier.h
+--- llvm-3.2.src.orig/include/llvm/Analysis/PostDominanceFrontier.h	1969-12-31 16:00:00.000000000 -0800
++++ llvm-3.2.src/include/llvm/Analysis/PostDominanceFrontier.h	2013-06-03 09:36:40.237022783 -0700
+@@ -0,0 +1,55 @@
++//=- llvm/Analysis/PostDominanceFrontier.h - Post Dominance Frontier Calculation-*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file exposes interfaces to post dominance information.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_ANALYSIS_POST_DOMINANCE_FRONTIER_H
++#define LLVM_ANALYSIS_POST_DOMINANCE_FRONTIER_H
++
++#include "llvm/Analysis/PostDominators.h"
++#include "llvm/Analysis/DominanceFrontier.h"
++
++
++namespace llvm {
++/// PostDominanceFrontier Class - Concrete subclass of DominanceFrontier that is
++/// used to compute the a post-dominance frontier.
++///
++struct PostDominanceFrontier : public DominanceFrontierBase {
++  static char ID;
++  PostDominanceFrontier()
++    : DominanceFrontierBase(ID, true) {
++      initializePostDominanceFrontierPass(*PassRegistry::getPassRegistry());
++    }
++
++  virtual bool runOnFunction(Function &) {
++    Frontiers.clear();
++    PostDominatorTree &DT = getAnalysis<PostDominatorTree>();
++    Roots = DT.getRoots();
++    if (const DomTreeNode *Root = DT.getRootNode())
++      calculate(DT, Root);
++    return false;
++  }
++
++  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
++    AU.setPreservesAll();
++    AU.addRequired<PostDominatorTree>();
++  }
++
++private:
++  const DomSetType &calculate(const PostDominatorTree &DT,
++                              const DomTreeNode *Node);
++};
++
++FunctionPass* createPostDomFrontier();
++
++} // End llvm namespace
++
++#endif
+diff -rupN llvm-3.2.src.orig/include/llvm/InitializePasses.h llvm-3.2.src/include/llvm/InitializePasses.h
+--- llvm-3.2.src.orig/include/llvm/InitializePasses.h	2011-08-30 16:03:45.000000000 -0700
++++ llvm-3.2.src/include/llvm/InitializePasses.h	2013-06-03 09:22:01.017076101 -0700
+@@ -176,6 +176,7 @@ void initializePostDomOnlyPrinterPass(Pa
+ void initializePostDomOnlyViewerPass(PassRegistry&);
+ void initializePostDomPrinterPass(PassRegistry&);
+ void initializePostDomViewerPass(PassRegistry&);
++void initializePostDominanceFrontierPass(PassRegistry&);
+ void initializePostDominatorTreePass(PassRegistry&);
+ void initializePreVerifierPass(PassRegistry&);
+ void initializePrintDbgInfoPass(PassRegistry&);
+diff -rupN llvm-3.2.src.orig/lib/Analysis/Analysis.cpp llvm-3.2.src/lib/Analysis/Analysis.cpp
+--- llvm-3.2.src.orig/lib/Analysis/Analysis.cpp	2011-08-18 18:36:54.000000000 -0700
++++ llvm-3.2.src/lib/Analysis/Analysis.cpp	2013-06-03 09:24:56.787390571 -0700
+@@ -51,6 +51,7 @@ void llvm::initializeAnalysis(PassRegist
+   initializeMemDepPrinterPass(Registry);
+   initializeMemoryDependenceAnalysisPass(Registry);
+   initializeModuleDebugInfoPrinterPass(Registry);
++  initializePostDominanceFrontierPass(Registry);
+   initializePostDominatorTreePass(Registry);
+   initializeProfileEstimatorPassPass(Registry);
+   initializeNoProfileInfoPass(Registry);
+diff -rupN llvm-3.2.src.orig/lib/Analysis/PostDominanceFrontier.cpp llvm-3.2.src/lib/Analysis/PostDominanceFrontier.cpp
+--- llvm-3.2.src.orig/lib/Analysis/PostDominanceFrontier.cpp	1969-12-31 16:00:00.000000000 -0800
++++ llvm-3.2.src/lib/Analysis/PostDominanceFrontier.cpp	2013-06-03 09:36:46.570292894 -0700
+@@ -0,0 +1,78 @@
++//===- PostDominanceFrontier.cpp - Post-Dominanance Frontier Calculation --------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements the post-dominator construction algorithms.
++//
++//===----------------------------------------------------------------------===//
++
++#define DEBUG_TYPE "postdomfrontier"
++
++#include "llvm/Analysis/PostDominanceFrontier.h"
++#include "llvm/Instructions.h"
++#include "llvm/Support/CFG.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/ADT/DepthFirstIterator.h"
++#include "llvm/ADT/SetOperations.h"
++#include "llvm/Assembly/Writer.h"
++#include "llvm/Analysis/DominatorInternals.h"
++
++using namespace llvm;
++
++//===----------------------------------------------------------------------===//
++//  PostDominanceFrontier Implementation
++//===----------------------------------------------------------------------===//
++
++char PostDominanceFrontier::ID = 0;
++
++INITIALIZE_PASS_BEGIN(PostDominanceFrontier, "postdomfrontier",
++                "Post-Dominance Frontier Construction", true, true);
++INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
++INITIALIZE_PASS_END(PostDominanceFrontier, "postdomfrontier",
++                "Post-Dominance Frontier Construction", true, true);
++
++const DominanceFrontier::DomSetType &
++PostDominanceFrontier::calculate(const PostDominatorTree &DT,
++                                 const DomTreeNode *Node) {
++  // Loop over CFG successors to calculate DFlocal[Node]
++  BasicBlock *BB = Node->getBlock();
++  DomSetType &S = Frontiers[BB];       // The new set to fill in...
++  if (getRoots().empty()) return S;
++
++  if (BB)
++    for (pred_iterator SI = pred_begin(BB), SE = pred_end(BB);
++         SI != SE; ++SI) {
++      BasicBlock *P = *SI;
++      // Does Node immediately dominate this predecessor?
++      DomTreeNode *SINode = DT[P];
++      if (SINode && SINode->getIDom() != Node)
++        S.insert(P);
++    }
++
++  // At this point, S is DFlocal.  Now we union in DFup's of our children...
++  // Loop through and visit the nodes that Node immediately dominates (Node's
++  // children in the IDomTree)
++  //
++  for (DomTreeNode::const_iterator
++         NI = Node->begin(), NE = Node->end(); NI != NE; ++NI) {
++    DomTreeNode *IDominee = *NI;
++    const DomSetType &ChildDF = calculate(DT, IDominee);
++
++    DomSetType::const_iterator CDFI = ChildDF.begin(), CDFE = ChildDF.end();
++    for (; CDFI != CDFE; ++CDFI) {
++      if (!DT.properlyDominates(Node, DT[*CDFI]))
++        S.insert(*CDFI);
++    }
++  }
++
++  return S;
++}
++
++FunctionPass* llvm::createPostDomFrontier() {
++  return new PostDominanceFrontier();
++}
