@@ -3,6 +3,7 @@
 
 #include "TimestampBlockHandler.h"
 #include "TimestampPlacer.h"
+#include "PassLog.h"
 
 /**
  * Adds {add,remove}ConrolDependence calls.
@@ -20,6 +21,7 @@ class ControlDependencePlacer : public TimestampBlockHandler
     ControlDependence& cd;
     TimestampPlacer& ts_placer;
     llvm::Function* remove_func;
+    PassLog& log;
 };
 
 #endif // CONTROL_DEPENDENCE_PLACER_H

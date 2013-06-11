@@ -18,7 +18,8 @@ using namespace std;
  */
 ControlDependencePlacer::ControlDependencePlacer(TimestampPlacer& ts_placer) :
     cd(ts_placer.getAnalyses().cd),
-    ts_placer(ts_placer)
+    ts_placer(ts_placer),
+    log(PassLog::get())
 {
     // Setup the add_func
     Module& m = *ts_placer.getFunc().getParent();
