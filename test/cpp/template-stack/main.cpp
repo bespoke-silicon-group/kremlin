@@ -1,4 +1,4 @@
-#include <iostream>
+#include <cstdio>
 
 #ifndef NULL
 #define NULL (void*)0
