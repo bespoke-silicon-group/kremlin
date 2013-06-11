@@ -253,7 +253,7 @@ namespace {
 			}
 		}
 
-		void instrumentLoop(Loop* loop, LoopInfo& LI, RegionId region_id, RegionId body_region_id, Function* logRegionEntry_func, Function* logRegionExit_func) {
+		void instrumentLoop(Loop* loop, LoopInfo& LI, RegionId region_id, RegionId body_region_id, Function* logRegionEntry_func, Function* logRegionExit_func, Function* logLandingPad_func, std::map<Loop*, std::vector<BasicBlock*> >& loop_to_landing_pads_map) {
 			BasicBlock *loop_header = loop->getHeader();
 			LLVMTypes types(loop_header->getContext());
 
@@ -276,11 +276,11 @@ namespace {
 			// _KEnterRegion()
 			BasicBlock* preheader = BasicBlock::Create(loop_header->getContext(), loop_header->getName() + ".preheader", loop_header->getParent(), loop_header);
 
-			/*
+#if 0
 			if(loop->getParentLoop()) {
 				loop->getParentLoop()->addBasicBlockToLoop(preheader,LI.getBase());
 			}
-			*/
+#endif
 
 			// go through all preds of loop_header that are NOT in loop and change them to branch to preheader
 			replaceAllJumps(loop_header,preheader,loop,false);
@@ -316,14 +316,15 @@ namespace {
 			ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
 			CallInst::Create(logRegionEntry_func, *aref, "", preheader->getTerminator());
 			delete aref;
+			aref = NULL;
 
-			/*
+#if 0
 			op_args.clear();
 
 			// set up args for call to _KEnter/ExitRegion(region_id,region_type) for loop region
 			op_args.push_back(ConstantInt::get(types.i64(),region_id));
 			op_args.push_back(ConstantInt::get(types.i32(),1));
-			*/
+#endif
 
 			std::vector<Value*> op_args_loop_body;
 
@@ -360,7 +361,12 @@ namespace {
 				for(std::set<BasicBlock*>::iterator tar_it = target_bbs.begin(), tar_end = target_bbs.end(); tar_it != tar_end; ++tar_it, ++tar_no) {
 					BasicBlock* target = *tar_it;
 
-					log.debug() << "\ttarget " << tar_no << ": " << target->getName() << "\n";
+					if (target->isLandingPad()) {
+						log.debug() << "target #" << tar_no << " (" << target->getName() << ") is a landing pad. Skipping.\n";
+						continue;
+					}
+
+					log.debug() << "\ttarget #" << tar_no << ": " << target->getName() << "\n";
 
 					// We now create a basic block that will act as the
 					// "pre-exit" for the loop and contain a call to
@@ -383,7 +389,6 @@ namespace {
 						ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args_loop_body);
 						CallInst::Create(logRegionExit_func, *aref, "", pre_exit->getTerminator());
 						delete aref;
-						//if(loopBodyRegions && exiting_bb != loop_header) {
 					}
 
 					// insert call to _KExitRegion() for loop region right before we leave pre_exit
@@ -479,8 +484,26 @@ namespace {
 				}
 			}
 
+			// Insert call to _KLandingPad in all landing pads in this loop.
+			std::vector<BasicBlock*> landing_pads = loop_to_landing_pads_map[loop];
+			for (unsigned i = 0; i < landing_pads.size(); ++i) {
+				op_args.clear();
+				if (loopBodyRegions) {
+					op_args.push_back(ConstantInt::get(types.i64(),body_region_id));
+					op_args.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_LOOP_BODY));
+				}
+				else {
+					op_args.push_back(ConstantInt::get(types.i64(),region_id));
+					op_args.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_LOOP));
+				}
+				aref = new ArrayRef<Value*>(op_args);
+				CallInst::Create(logLandingPad_func, *aref, "", landing_pads[i]->getFirstInsertionPt());
+				delete aref;
+				op_args.clear();
+			}
 
-			/*
+
+#if 0
 			// go through all exit blocks and insert a BB before them that
 			// loop nodes jump to (instead of exit bb) and which makes a call
 			// to _KExitRegion
@@ -509,7 +532,7 @@ namespace {
 				// fix the PHIs in exit_bb so they don't refer to any blocks that now go to loop_exit instead
 				promotePHIsToOtherBlock(exit_bb, loop_exit);
 			}
-			*/
+#endif
 		}
 
 		unsigned int getNumInsts(BasicBlock* bb) {
@@ -727,6 +750,8 @@ namespace {
 			if(add_logRegionExit_func)
 				profilerFunctions.insert("_KExitRegion");
 
+			profilerFunctions.insert("_KLandingPad");
+
 			log.info() << "Inserting the following instrumentation calls:\n";
 			foreach(const std::string& func_name, profilerFunctions)
 				log.info() << func_name << "\n";
@@ -822,6 +847,7 @@ namespace {
 			Function* logBBVisit_func = NULL;
 			Function* logRegionEntry_func = NULL;
 			Function* logRegionExit_func = NULL;
+			Function* logLandingPad_func = NULL;
 
 			if(add_initProfiler_func) {
 				initProfiler_func = cast<Function>(m.getOrInsertFunction("_KInit", FunctionType::get(types.voidTy(), false)));
@@ -847,14 +873,17 @@ namespace {
 
 			args.push_back(types.i32()); // 2nd arg is the region type
 
+			ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
 			if(add_logRegionEntry_func) {
-				ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
 				logRegionEntry_func = cast<Function>(m.getOrInsertFunction("_KEnterRegion", FunctionType::get(types.voidTy(), *aref, false)));
 				logRegionExit_func = cast<Function>(m.getOrInsertFunction("_KExitRegion", FunctionType::get(types.voidTy(), *aref, false)));
-				delete aref;
 			}
 
+			logLandingPad_func = cast<Function>(m.getOrInsertFunction("_KLandingPad", FunctionType::get(types.voidTy(), *aref, false)));
+			delete aref;
+
 			args.clear();
+
 
 			std::vector<Value*> op_args;
 
@@ -931,6 +960,27 @@ namespace {
 					loop_body_region_ids.push_back(region_id);
 					regions.insert(new LoopBodyRegion(region_id, loop));
 					log.debug() << "assigning id = " << region_id << " to body of loop\n";
+				}
+
+				// Create mapping between loop and landing pads they contain.
+				// For any landing pads that aren't in loops, we insert a call
+				// to _KLandingPad now, using the function's region id/type.
+				std::map<Loop*, std::vector<BasicBlock*> > loop_to_landing_pads_map;
+				foreach (BasicBlock& bb, func) {
+					if (!bb.isLandingPad()) continue;
+					Loop* l = LI.getLoopFor(&bb);
+
+					if (l != NULL) {
+						loop_to_landing_pads_map[l].push_back(&bb);
+					}
+					else {
+						op_args.push_back(ConstantInt::get(types.i64(),func_region_id));
+						op_args.push_back(ConstantInt::get(types.i32(),Region::REGION_TYPE_FUNC));
+						ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
+						CallInst::Create(logLandingPad_func, *aref, "", bb.getFirstInsertionPt());
+						delete aref;
+						op_args.clear();
+					}
 				}
 
 				// Insert call to logVisitBB(bb_id) at the beginning of each bb.
@@ -1062,7 +1112,7 @@ namespace {
 					region_graph << parent_id << " " << loop_id << "\n";
 
 					if(add_logRegionEntry_func) {
-						instrumentLoop(function_loops[i],LI,loop_header_name_to_region_id[function_loops[i]->getHeader()->getName()],loop_body_region_ids[i],logRegionEntry_func,logRegionExit_func);
+						instrumentLoop(function_loops[i],LI,loop_header_name_to_region_id[function_loops[i]->getHeader()->getName()],loop_body_region_ids[i],logRegionEntry_func,logRegionExit_func, logLandingPad_func, loop_to_landing_pads_map);
 					}
 				}
 

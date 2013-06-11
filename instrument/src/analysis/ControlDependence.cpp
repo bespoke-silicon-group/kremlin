@@ -267,6 +267,15 @@ BasicBlock* ControlDependence::getControllingBlock(BasicBlock* blk, bool conside
         }
     }
 
+	// @TRICKY: An invoke instruction doesn't really form a control dependence
+	// in the sense that it contains a condition that will determine which
+	// path we will take. Instead, the decision is based on whether the
+	// exception is raised or not.
+	if (ret_val != NULL && dyn_cast<InvokeInst>(ret_val->getTerminator()) != NULL) {
+		LOG_DEBUG() << "Ignoring \"controlling\" block that ends with invoke\n";
+		return NULL;
+	}
+
     return ret_val;
 }
 
@@ -277,15 +286,13 @@ BasicBlock* ControlDependence::getControllingBlock(BasicBlock* blk, bool conside
 llvm::Value* ControlDependence::getControllingCondition(llvm::BasicBlock* bb)
 {
     TerminatorInst* term = bb->getTerminator();
+	LOG_DEBUG() << *term << "\n";
     BranchInst* br_inst;
     if((br_inst = dyn_cast<BranchInst>(term)) && br_inst->isConditional())
         return br_inst->getCondition();
 
     else if(SwitchInst* sw_inst = dyn_cast<SwitchInst>(term))
         return sw_inst->getCondition();
-
-    else if(dyn_cast<InvokeInst>(term))
-        assert(0 && "TODO: Get the condition of the exception that was thrown");
 
     LOG_DEBUG() << "No controlling val found for bb: " << bb->getName() << "\n";
 

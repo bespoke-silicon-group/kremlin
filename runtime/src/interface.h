@@ -24,6 +24,7 @@ void _KTurnOff();
 
 void _KEnterRegion(SID region_id, RegionType region_type);
 void _KExitRegion(SID region_id, RegionType region_type);
+void _KLandingPad(SID regionId, RegionType regionType);
 
 /* The following funcs are inserted by the critical path instrumentation pass */
 void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...);

@@ -56,6 +56,9 @@ uint64_t WorkAnalysis::getWork(BasicBlock& bb) const
  */
 void WorkAnalysis::handleBasicBlock(llvm::BasicBlock& bb)
 {
+	if (bb.isLandingPad() 
+		|| dyn_cast<ResumeInst>(bb.getTerminator()) != NULL) return;
+
     int64_t work_in_bb = getWork(bb);
     if(work_in_bb == 0) return;
 

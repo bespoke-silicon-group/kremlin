@@ -45,6 +45,9 @@ ControlDependencePlacer::ControlDependencePlacer(TimestampPlacer& ts_placer) :
  */
 void ControlDependencePlacer::handleBasicBlock(llvm::BasicBlock& bb)
 {
+	if (bb.isLandingPad() 
+		|| dyn_cast<ResumeInst>(bb.getTerminator()) != NULL) return;
+
     BasicBlock* controller = cd.getControllingBlock(&bb, false);
     if(controller)
     {

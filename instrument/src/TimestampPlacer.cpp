@@ -181,6 +181,14 @@ void TimestampPlacer::insertInstrumentation()
 {
     foreach(BasicBlock& bb, _func)
     {
+		// Don't instrument landing pads or resume blocks
+		if (bb.isLandingPad() 
+			|| dyn_cast<ResumeInst>(bb.getTerminator()) != NULL) {
+			LOG_DEBUG() << "skipping landingpad/resume block\n";
+			LOG_DEBUG() << bb << "\n";
+			continue;
+		}
+
         if(_basicBlockSignal)
             (*_basicBlockSignal)(bb);
 

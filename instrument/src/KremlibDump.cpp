@@ -27,13 +27,14 @@ namespace {
 			return stream.str();
 		}
 
-		void printCallArgs(CallInst* ci, raw_os_ostream*& os, bool print_first_hex) {
+		template <class T>
+		void printCallArgs(T* ti, raw_os_ostream*& os, bool print_first_hex) {
 			*os << "(";
 
-			for(unsigned i = 0; i < ci->getNumArgOperands(); ++i) {
+			for(unsigned i = 0; i < ti->getNumArgOperands(); ++i) {
 				if(i > 0) *os << ", ";
 
-				Value* arg = ci->getArgOperand(i);
+				Value* arg = ti->getArgOperand(i);
 				if(ConstantInt* con = dyn_cast<ConstantInt>(arg)) {
 					if (i == 0 && print_first_hex) *os << toHex(con->getZExtValue());
 					else *os << con->getZExtValue();
@@ -49,52 +50,62 @@ namespace {
 			*os << ")";
 		}
 
+		template <class T>
+		void processFunctionCall(T* ti, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
+			Function* called_func = ti->getCalledFunction();
+			if(
+				called_func
+				&& called_func->hasName()
+				&& kremlib_calls.find(called_func->getName().str()) != kremlib_calls.end()
+			  )
+			{
+				*os << "\t\t" << called_func->getName();
+				// If this is enter or exit region function we want the
+				// first number to be printed as hex (easier to debug
+				// since it's a large number and region descriptor file
+				// uses hex for region ID). Same goes for callsite id in
+				// KPrepCall.
+				bool is_entry_or_exit_func = called_func->getName().compare("_KEnterRegion") == 0 
+					|| called_func->getName().compare("_KExitRegion") == 0
+					|| called_func->getName().compare("_KPrepCall") == 0;
+				printCallArgs<T>(ti,os,is_entry_or_exit_func);
+				*os << "\n";
+			}
+			else {
+				// avoid printing this if it's an LLVM
+				// debugging function
+				if(!(called_func && called_func->isIntrinsic()
+					&& called_func->hasName() &&
+					called_func->getName().find("llvm.dbg") != std::string::npos))
+				{
+					*os << "\t\tCALL: ";
+
+					// print out, e.g. "bar =", if call inst is
+					// named (so we can see where the return
+					// value is being stored).
+					if(ti->hasName()) *os << ti->getName() << " = ";
+
+					Value* called_val = ti->getCalledValue();
+					if(called_val->hasName()) *os << called_val->getName();
+					else *os << "_UNNAMED_";
+
+					printCallArgs<T>(ti,os,false);
+					*os << "\n";
+				}
+			}
+		}
+
 		void processInstruction(Instruction *inst, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
 			// See if this is a call to a kremlib function
 			// If it is, we print it out.
 			if(CallInst* ci = dyn_cast<CallInst>(inst)) {
-				Function* called_func = ci->getCalledFunction();
-				if(
-					called_func
-					&& called_func->hasName()
-					&& kremlib_calls.find(called_func->getName().str()) != kremlib_calls.end()
-				  )
-				{
-					*os << "\t\t" << called_func->getName();
-					// If this is enter or exit region function we want the
-					// first number to be printed as hex (easier to debug
-					// since it's a large number and region descriptor file
-					// uses hex for region ID). Same goes for callsite id in
-					// KPrepCall.
-					bool is_entry_or_exit_func = called_func->getName().compare("_KEnterRegion") == 0 
-						|| called_func->getName().compare("_KExitRegion") == 0
-						|| called_func->getName().compare("_KPrepCall") == 0;
-					printCallArgs(ci,os,is_entry_or_exit_func);
-					*os << "\n";
-				}
-				else {
-					// avoid printing this if it's an LLVM
-					// debugging function
-					if(!(called_func && called_func->isIntrinsic()
-						&& called_func->hasName() &&
-						called_func->getName().find("llvm.dbg") != std::string::npos))
-					{
-						
-						Value* called_val = ci->getCalledValue();
-						*os << "\t\tCALL: ";
-
-						// print out, e.g. "bar =", if call inst is
-						// named (so we can see where the return
-						// value is being stored).
-						if(ci->hasName()) *os << ci->getName() << " = ";
-
-						if(called_val->hasName()) *os << called_val->getName();
-						else *os << "_UNNAMED_";
-
-						printCallArgs(ci,os,false);
-						*os << "\n";
-					}
-				}
+				processFunctionCall<CallInst>(ci, kremlib_calls, os);
+			}
+			else if(InvokeInst* ii = dyn_cast<InvokeInst>(inst)) {
+				processFunctionCall<InvokeInst>(ii, kremlib_calls, os);
+				*os << "\t\tTERMINATOR: ";
+				*os << "(Normal) " << ii->getNormalDest()->getName() << ", ";
+				*os << "(Exception) " << ii->getUnwindDest()->getName() << "\n";
 			}
 			else if(isa<ReturnInst>(inst)) {
 				*os << "\t\tRETURN\n";
@@ -196,6 +207,7 @@ namespace {
 			kremlib_calls.insert("_KPrintData");
 			kremlib_calls.insert("_KEnterRegion");
 			kremlib_calls.insert("_KExitRegion");
+			kremlib_calls.insert("_KLandingPad");
 			kremlib_calls.insert("_KPrepRTable");
 
 			// C++ stuff
