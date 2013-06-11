@@ -1,5 +1,5 @@
-#ifndef CALL_INST_HANDLER
-#define CALL_INST_HANDLER
+#ifndef CALLABLE_HANDLER
+#define CALLABLE_HANDLER
 
 #include <stdint.h>
 #include <vector>
@@ -7,16 +7,17 @@
 #include "TimestampPlacer.h"
 #include "PassLog.h"
 
-class CallInstHandler : public TimestampPlacerHandler
+template <class Callable>
+class CallableHandler : public TimestampPlacerHandler
 {
     public:
-    CallInstHandler(TimestampPlacer& timestamp_placer);
-    virtual ~CallInstHandler() {};
+    CallableHandler(TimestampPlacer& timestamp_placer);
+    virtual ~CallableHandler() {};
 
     virtual const Opcodes& getOpcodes();
     virtual void handle(llvm::Instruction& inst);
 
-    template <typename Callable>
+    //template <typename Callable>
     static llvm::Function* untangleCall(Callable& callable_inst);
 
 	void addIgnore(std::string func_name);
@@ -35,4 +36,6 @@ class CallInstHandler : public TimestampPlacerHandler
 	bool shouldHandle(llvm::Function *func);
 };
 
-#endif // CALL_INST_HANDLER
+#include "CallableHandler.tcc"
+
+#endif // CALLABLE_HANDLER

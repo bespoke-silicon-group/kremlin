@@ -3,7 +3,7 @@
 #include <llvm/Module.h>
 #include <llvm/Support/CallSite.h>
 #include "LLVMTypes.h"
-#include "CallInstHandler.h"
+#include "CallableHandler.h"
 #include "ReturnsRealValue.h"
 #include "InstrumentedCall.h"
 
@@ -12,7 +12,8 @@ using namespace boost;
 using namespace boost::assign;
 using namespace std;
 
-CallInstHandler::CallInstHandler(TimestampPlacer& timestamp_placer) :
+template <class Callable>
+CallableHandler<Callable>::CallableHandler(TimestampPlacer& timestamp_placer) :
     callSiteIdCounter(0),
     log(PassLog::get()),
     timestampPlacer(timestamp_placer)
@@ -42,7 +43,8 @@ CallInstHandler::CallInstHandler(TimestampPlacer& timestamp_placer) :
     linkReturnFunc = cast<Function>(m.getOrInsertFunction("_KLinkReturn", ret_val_link_func_type));
 }
 
-const TimestampPlacerHandler::Opcodes& CallInstHandler::getOpcodes()
+template <class Callable>
+const TimestampPlacerHandler::Opcodes& CallableHandler<Callable>::getOpcodes()
 {
     return opcodesOfHandledInsts;
 }
@@ -54,7 +56,7 @@ const TimestampPlacerHandler::Opcodes& CallInstHandler::getOpcodes()
 // knowing the function declaration ahead of time. If it detects this
 // situation, it will grab the function that is being cast and return that.
 template <typename Callable>
-Function* CallInstHandler::untangleCall(Callable& callable_inst)
+Function* CallableHandler<Callable>::untangleCall(Callable& callable_inst)
 {
     if(callable_inst.getCalledFunction()) { return callable_inst.getCalledFunction(); }
 
@@ -79,12 +81,14 @@ Function* CallInstHandler::untangleCall(Callable& callable_inst)
     return called_func;
 }
 
-void CallInstHandler::addIgnore(string func_name)
+template <class Callable>
+void CallableHandler<Callable>::addIgnore(string func_name)
 {
 	ignoredFuncs += func_name;
 }
 
-bool CallInstHandler::shouldHandle(Function *func) {
+template <class Callable>
+bool CallableHandler<Callable>::shouldHandle(Function *func) {
 	if (func->isIntrinsic()) return false;
 	else if (!func->hasName()) return false;
 
@@ -95,7 +99,8 @@ bool CallInstHandler::shouldHandle(Function *func) {
 	return true;
 }
 
-void CallInstHandler::handle(llvm::Instruction& inst)
+template <class Callable>
+void CallableHandler<Callable>::handle(llvm::Instruction& inst)
 {
 	/*
 	 * CallInsts require multiple kremlib functions be inserted in a specific
@@ -107,7 +112,7 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 	 * placement constraint for the call before it.
 	 */
 	LOG_DEBUG() << "examining: " << inst << "\n";
-    CallInst& call_inst = *cast<CallInst>(&inst);
+    Callable& call_inst = *cast<Callable>(&inst);
 
     LLVMTypes types(call_inst.getContext());
 
@@ -136,7 +141,7 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 	// We are going to insert multiple calls to kremlib functions. In order to
 	// maintain the correct ordering, we'll use the last_call and feed that as
 	// a constraint to the timestamp placer.
-    CallInst* last_call = &call_inst;
+    Callable* last_call = &call_inst;
 
     // Add in a call to KLinkReturn if the call inst we are handling returns a
 	// real value.
@@ -190,7 +195,7 @@ void CallInstHandler::handle(llvm::Instruction& inst)
 	// currently implemented: it's always 0 for now.
     kremlib_call_args.clear();
 
-	InstrumentedCall<CallInst>* instrumented_call = new InstrumentedCall<CallInst>(&call_inst, callSiteIdCounter);
+	InstrumentedCall<Callable>* instrumented_call = new InstrumentedCall<Callable>(&call_inst, callSiteIdCounter);
 	instrumented_call->instrument();
 	callSiteIdCounter++;
 

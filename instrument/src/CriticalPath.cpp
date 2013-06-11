@@ -27,7 +27,7 @@
 #include "analysis/WorkAnalysis.h"
 #include "TimestampPlacer.h"
 #include "StoreInstHandler.h"
-#include "CallInstHandler.h"
+#include "CallableHandler.h"
 #include "DynamicMemoryHandler.h"
 #include "PhiHandler.h"
 #include "FunctionArgsHandler.h"
@@ -152,7 +152,7 @@ struct CriticalPath : public ModulePass
             StoreInstHandler sih(placer);
             placer.registerHandler(sih);
 
-            CallInstHandler cih(placer);
+            CallableHandler<CallInst> cih(placer);
             placer.registerHandler(cih);
 			cih.addIgnore("printf");
 			cih.addIgnore("fprintf");

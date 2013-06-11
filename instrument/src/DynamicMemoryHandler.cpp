@@ -8,7 +8,7 @@
 #include "ReturnsRealValue.h"
 
 // for untangle() function
-#include "CallInstHandler.h"
+#include "CallableHandler.h"
 
 using namespace llvm;
 using namespace boost;
@@ -83,7 +83,7 @@ void DynamicMemoryHandler::handle(llvm::Instruction& inst)
     LLVMTypes types(call_inst.getContext());
     vector<Value*> args;
 
-	Function *called_func = CallInstHandler::untangleCall(call_inst);
+	Function *called_func = CallableHandler<CallInst>::untangleCall(call_inst);
 	ArrayRef<Value*> *aref = NULL;
 
 	// We don't handle LLVM intrinsics now, even their malloc, free stuff
