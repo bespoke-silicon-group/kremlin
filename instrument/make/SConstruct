@@ -3,6 +3,7 @@ kremlin_base_dir = '/home/sat/tmp/kremlin/'
 llvm_bin_dir = kremlin_base_dir + 'instrument/llvm/install/bin/'
 llvm_clang = llvm_bin_dir + 'clang'
 llvm_opt = llvm_bin_dir + 'opt'
+llvm_llc = llvm_bin_dir + 'llc'
 kremlin_llvm_shared_obj = kremlin_base_dir + \
 'instrument/llvm/llvm-3.2-obj/Debug+Asserts/lib/KremlinInstrument' + \
 env['SHLIBSUFFIX']
@@ -20,12 +21,22 @@ def generate_opt_actions(target, source, env, for_signature):
 	action_str += ' &> ' + target_name_splits[0] + '.' + action + '.log'
 	return action_str
 
-c_bc_bld = Builder(action = llvm_clang + ' -g -emit-llvm -c -o $TARGET $SOURCE',
+c_bc_bld = Builder(action = llvm_clang + \
+					' -g -emit-llvm -c -o $TARGET $SOURCE',
 					suffix = '.bc',
 					src_suffix = '.c')
+
+llvm_obj_bld = Builder(action = llvm_llc + \
+					' -march=x86-64 -o $TARGET $SOURCE',
+					suffix = '.o',
+					src_suffix = '.bc')
+
 opt_bld = Builder(generator = generate_opt_actions)
+
 env['BUILDERS']['c2bc'] = c_bc_bld
 env['BUILDERS']['LLVMOpt'] = opt_bld
+env['BUILDERS']['InstrumentedObj'] = llvm_obj_bld
+
 env.c2bc('hello')
 
 opt_passes = ['simplifycfg','mem2reg','indvars', \
@@ -39,5 +50,5 @@ for p in opt_passes:
 	env.LLVMOpt('hello' + pass_str + '.bc', \
 				'hello' + input_pass_str + '.bc')
 
-#env.LLVMOpt('hello.simplifycfg.bc', 'hello.bc')
-#env.LLVMOpt('hello.simplifycfg.elimsinglephis.bc', 'hello.simplifycfg.bc')
+env.InstrumentedObj('hello.o', \
+					'hello.' + '.'.join(opt_passes) + '.bc')
