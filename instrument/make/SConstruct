@@ -1,0 +1,43 @@
+env = Environment()
+kremlin_base_dir = '/home/sat/tmp/kremlin/'
+llvm_bin_dir = kremlin_base_dir + 'instrument/llvm/install/bin/'
+llvm_clang = llvm_bin_dir + 'clang'
+llvm_opt = llvm_bin_dir + 'opt'
+kremlin_llvm_shared_obj = kremlin_base_dir + \
+'instrument/llvm/llvm-3.2-obj/Debug+Asserts/lib/KremlinInstrument' + \
+env['SHLIBSUFFIX']
+
+def generate_opt_actions(target, source, env, for_signature):
+	built_in_passes = ['indvars','mem2reg','simplifycfg','O1','02','O3']
+	target_name_splits = str.split(target[0].name,'.')
+	action = target_name_splits[-2]
+	if action not in built_in_passes:
+		load_string = ' -load ' + kremlin_llvm_shared_obj
+	else:
+		load_string = ' '
+	action_str = llvm_opt + load_string + ' -' + action + \
+			' -o ' + target[0].name + ' ' + source[0].name
+	action_str += ' &> ' + target_name_splits[0] + '.' + action + '.log'
+	return action_str
+
+c_bc_bld = Builder(action = llvm_clang + ' -g -emit-llvm -c -o $TARGET $SOURCE',
+					suffix = '.bc',
+					src_suffix = '.c')
+opt_bld = Builder(generator = generate_opt_actions)
+env['BUILDERS']['c2bc'] = c_bc_bld
+env['BUILDERS']['LLVMOpt'] = opt_bld
+env.c2bc('hello')
+
+opt_passes = ['simplifycfg','mem2reg','indvars', \
+				'elimsinglephis','criticalpath','regioninstrument', \
+				'renamemain','O3']
+
+pass_str = ''
+for p in opt_passes:
+	input_pass_str = pass_str
+	pass_str += '.' + p
+	env.LLVMOpt('hello' + pass_str + '.bc', \
+				'hello' + input_pass_str + '.bc')
+
+#env.LLVMOpt('hello.simplifycfg.bc', 'hello.bc')
+#env.LLVMOpt('hello.simplifycfg.elimsinglephis.bc', 'hello.simplifycfg.bc')
