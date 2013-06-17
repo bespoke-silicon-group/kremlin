@@ -1,6 +1,7 @@
 env = Environment()
 kremlin_base_dir = '/home/sat/tmp/kremlin/'
 llvm_bin_dir = kremlin_base_dir + 'instrument/llvm/install/bin/'
+kremlib_dir = kremlin_base_dir + 'runtime/src/'
 llvm_clang = llvm_bin_dir + 'clang'
 llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
@@ -26,7 +27,7 @@ c_bc_bld = Builder(action = llvm_clang + \
 					suffix = '.bc',
 					src_suffix = '.c')
 
-llvm_obj_bld = Builder(action = llvm_llc + \
+llvm_asm_bld = Builder(action = llvm_llc + \
 					' -march=x86-64 -o $TARGET $SOURCE',
 					suffix = '.o',
 					src_suffix = '.bc')
@@ -35,7 +36,7 @@ opt_bld = Builder(generator = generate_opt_actions)
 
 env['BUILDERS']['LLVMBitCode'] = c_bc_bld
 env['BUILDERS']['LLVMOpt'] = opt_bld
-env['BUILDERS']['InstrumentedObj'] = llvm_obj_bld
+env['BUILDERS']['InstrumentedAssembly'] = llvm_asm_bld
 
 env.LLVMBitCode('hello')
 
@@ -51,5 +52,12 @@ for p in opt_passes:
 				'hello' + input_pass_str + '.bc')
 	Clean(t, 'hello.' + p + '.log')
 
-env.InstrumentedObj('hello.o', \
+inst_asm = env.InstrumentedAssembly('hello.s', \
 					'hello.' + '.'.join(opt_passes) + '.bc')
+
+inst_obj = env.Object('hello',inst_asm)
+kremlib_obj = SConscript(kremlib_dir + 'SConstruct')
+
+env['LINK'] = 'g++'
+
+env.Program('hello',inst_obj + kremlib_obj)
