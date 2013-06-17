@@ -33,11 +33,11 @@ llvm_obj_bld = Builder(action = llvm_llc + \
 
 opt_bld = Builder(generator = generate_opt_actions)
 
-env['BUILDERS']['c2bc'] = c_bc_bld
+env['BUILDERS']['LLVMBitCode'] = c_bc_bld
 env['BUILDERS']['LLVMOpt'] = opt_bld
 env['BUILDERS']['InstrumentedObj'] = llvm_obj_bld
 
-env.c2bc('hello')
+env.LLVMBitCode('hello')
 
 opt_passes = ['simplifycfg','mem2reg','indvars', \
 				'elimsinglephis','criticalpath','regioninstrument', \
@@ -47,8 +47,9 @@ pass_str = ''
 for p in opt_passes:
 	input_pass_str = pass_str
 	pass_str += '.' + p
-	env.LLVMOpt('hello' + pass_str + '.bc', \
+	t = env.LLVMOpt('hello' + pass_str + '.bc', \
 				'hello' + input_pass_str + '.bc')
+	Clean(t, 'hello.' + p + '.log')
 
 env.InstrumentedObj('hello.o', \
 					'hello.' + '.'.join(opt_passes) + '.bc')
