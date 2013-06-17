@@ -14,7 +14,7 @@
 #include "CRegion.h"
 #include "MShadow.h"
 #include "RShadow.h"
-#include "RShadow.c"
+#include "RShadow.cpp" // WHY?
 
 #include <vector>
 #include <iostream>
