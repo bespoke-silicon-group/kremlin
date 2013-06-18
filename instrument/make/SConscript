@@ -51,7 +51,7 @@ def get_prefix_str(filename):
 	prefix_str = '.'.join(prefix)
 	return prefix_str
 
-def assemble_files(source_filenames):
+def compile_files(source_filenames):
 	asm_nodes = []
 	for filename in source_filenames:
 		filename_split = str.split(filename,'.')
@@ -87,16 +87,16 @@ def assemble_files(source_filenames):
 
 	return asm_nodes
 
-def compile_files(source_filenames):
+def assemble_files(source_filenames):
 	# XXX: assuming pre-assembled files end with .s
-	to_assemble = [f for f in source_filenames if not f.endswith('.s')]
-	pre_assembled = [f for f in source_filenames if f not in to_assemble]
+	to_compile = [f for f in source_filenames if not f.endswith('.s')]
+	pre_compiled = [f for f in source_filenames if f not in to_compile]
 
-	newly_assembled = assemble_files(to_assemble)
+	newly_assembled = compile_files(to_compile)
 
 	obj_nodes = []
-	for asm_file in pre_assembled + newly_assembled:
-		if asm_file in pre_assembled:
+	for asm_file in pre_compiled + newly_assembled:
+		if asm_file in pre_compiled:
 			prefix_str = get_prefix_str(asm_file)
 		else:
 			prefix_str = get_prefix_str(asm_file.name)
@@ -105,18 +105,18 @@ def compile_files(source_filenames):
 
 	return obj_nodes
 
-if target == 'assemble':
-	asm_nodes = assemble_files(input_files)
+if target == 'compile':
+	asm_nodes = compile_files(input_files)
 
-elif target == 'compile':
-	obj_nodes = compile_files(input_files)
+elif target == 'assemble':
+	obj_nodes = assemble_files(input_files)
 
 elif target == 'link':
 	kremlib_obj = SConscript(kremlib_dir + 'SConstruct')
-	to_compile = [f for f in input_files if f.endswith(('.c','.cpp','.s'))]
-	pre_compiled = [f for f in input_files if f not in to_compile]
+	to_assemble = [f for f in input_files if f.endswith(('.c','.cpp','.s'))]
+	pre_assembled = [f for f in input_files if f not in to_assemble]
 
-	newly_compiled = compile_files(to_compile)
+	newly_compiled = assemble_files(to_assemble)
 
 	if output_file == '':
 		prog_target = 'a.out'
@@ -124,9 +124,5 @@ elif target == 'link':
 		prog_target = output_file
 
 	prog = env.Program(prog_target, 
-						newly_compiled + pre_compiled + kremlib_obj)
+						newly_compiled + pre_assembled + kremlib_obj)
 	env.Command('sregions.txt', prog, "nm $SOURCE | grep \"_krem_\" | perl -p -i -e \'s/^.*krem_prefix//g; s/_krem_/\t/g\' > $TARGET")
-
-#else:
-
-
