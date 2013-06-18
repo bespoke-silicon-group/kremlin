@@ -25,7 +25,7 @@ def generate_opt_actions(target, source, env, for_signature):
 	else:
 		load_string = ' '
 	action_str = llvm_opt + load_string + ' -' + action + \
-			' -o ' + target[0].name + ' ' + source[0].name
+			' -o ' + str(target[0]) + ' ' + str(source[0])
 	action_str += ' &> ' + target_name_splits[0] + '.' + action + '.log'
 	return action_str
 
@@ -119,7 +119,7 @@ elif target == 'link':
 	newly_compiled = assemble_files(to_assemble)
 
 	if output_file == '':
-		prog_target = 'a.out'
+		prog_target = '#a.out'
 	else:
 		prog_target = output_file
 

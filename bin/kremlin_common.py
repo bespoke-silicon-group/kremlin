@@ -36,7 +36,7 @@ def get_make_target(options):
 
     # if -o is specified, set that as the output filename
     if options.target:
-        return make_target, options.target
+        return make_target, "#" + options.target
     else:
         return make_target, ""
 
