@@ -2,16 +2,18 @@ import os
 
 Import('env','input_files', 'target', 'output_file')
 
+llvm_ver = 3.2
+
 kremlin_root_dir = os.path.abspath(os.path.join(os.getcwd(),"../..")) + os.sep
 llvm_bin_dir = kremlin_root_dir + 'instrument/llvm/install/bin/'
+kremlin_instrument_src_dir = kremlin_root_dir + 'instrument/src/'
 kremlib_dir = kremlin_root_dir + 'runtime/src/'
 llvm_clang = llvm_bin_dir + 'clang'
 llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
 
-# TODO: automatic, please!
-kremlin_llvm_shared_obj = kremlin_root_dir + \
-	'instrument/llvm/llvm-3.2-obj/Debug+Asserts/lib/KremlinInstrument' + \
+kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/llvm/' + \
+	'llvm-' + str(llvm_ver) + '-obj/Release+Asserts/lib/KremlinInstrument' + \
 	env['SHLIBSUFFIX']
 
 def generate_opt_actions(target, source, env, for_signature):
@@ -51,6 +53,25 @@ def get_prefix_str(filename):
 	return prefix_str
 
 def compile_files(source_filenames):
+	def get_subdirs(path):
+		""" Recursively build list of all subdir names """
+		subdirs = [name for name in os.listdir(path) \
+					if os.path.isdir(os.path.join(path,name)) \
+						and name[0] != '.']
+		for sd in subdirs:
+			subdirs.extend(['{0}/{1}'.format(sd,x) for x in
+							get_subdirs(os.path.join(path,sd))])
+
+		return subdirs
+
+	so_srcs = Glob(kremlin_instrument_src_dir + '*.cpp')
+	for d in get_subdirs(kremlin_instrument_src_dir):
+		glob_str = os.path.join(kremlin_instrument_src_dir,d,'*.cpp')
+		so_srcs += Glob(glob_str)
+
+	so = env.Command(kremlin_llvm_shared_obj, so_srcs,
+						'make -C ' + kremlin_instrument_src_dir + \
+						' LEVEL=' + '../llvm/llvm-' + str(llvm_ver) + '-obj')
 	asm_nodes = []
 	for filename in source_filenames:
 		filename_split = str.split(filename,'.')
@@ -66,7 +87,7 @@ def compile_files(source_filenames):
 			input_pass_str = pass_str
 			pass_str += '.' + p
 			t = env.LLVMOpt(prefix_str + pass_str + '.bc', \
-						prefix_str + input_pass_str + '.bc')
+						[prefix_str + input_pass_str + '.bc', so])
 			log_name = prefix_str + '.' + p + '.log'
 			Clean(t, log_name)
 			if p == 'regioninstrument':
