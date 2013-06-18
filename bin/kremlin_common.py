@@ -103,10 +103,10 @@ def create_kremlin_mk(src_lang):
             out.write(line)
 
         write = write_stdout_and_makefile
+        write("env = Environment(CCFLAGS = \'" + " ".join([option.get_cflags_str(options) for option in gcc_options]) + "\')")
         write("input_files = " + str(['#{0}'.format(i) for i in args]))
         write("target = \'" + make_target + "\'")
         write("output_file = \'" + make_defines + "\'")
-        #write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]))
         #if options.krem_debug:
         #    write("DEBUG = 1")
 
@@ -129,7 +129,7 @@ def create_kremlin_mk(src_lang):
         """
 
         #write("include " + sys.path[0] + "/../instrument/make/kremlin.mk")
-        write("Export(\'input_files\', \'target\', \'output_file\')")
+        write("Export(\'env\', \'input_files\', \'target\', \'output_file\')")
         write("SConscript(\'" + sys.path[0] + "/../instrument/make/SConscript\')")
 
     # Write the makefile to disk

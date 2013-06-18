@@ -1,6 +1,4 @@
-Import('input_files', 'target', 'output_file')
-
-env = Environment()
+Import('env','input_files', 'target', 'output_file')
 
 # TODO: find kremlin base dir automagically
 kremlin_base_dir = '/home/sat/tmp/kremlin/'
@@ -30,7 +28,7 @@ def generate_opt_actions(target, source, env, for_signature):
 	return action_str
 
 llvm_bc_bld = Builder(action = llvm_clang + \
-					' -g -emit-llvm -c -o $TARGET $SOURCE')
+					' $CCFLAGS -g -emit-llvm -c -o $TARGET $SOURCE')
 
 llvm_asm_bld = Builder(action = llvm_llc + \
 					' -march=x86-64 -o $TARGET $SOURCE',
