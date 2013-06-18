@@ -16,7 +16,7 @@ kremlin_llvm_shared_obj = kremlin_base_dir + \
 def generate_opt_actions(target, source, env, for_signature):
 	""" Generate a rule to run opt based on the target filename extension """
 	built_in_passes = ['indvars','mem2reg','simplifycfg','O1','02','O3']
-	target_name_splits = str.split(target[0].name,'.')
+	target_name_splits = str.split(str(target[0]),'.')
 	action = target_name_splits[-2]
 	if action not in built_in_passes:
 		load_string = ' -load ' + kremlin_llvm_shared_obj
