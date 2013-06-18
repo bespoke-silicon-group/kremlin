@@ -87,8 +87,9 @@ struct CriticalPath : public ModulePass
 
 		size_t starting_pt = mod_name.rfind('/');
 		if(starting_pt == std::string::npos) starting_pt = 0;
+		else ++starting_pt;
 		std::string mod_base_name = mod_name.substr(starting_pt);
-		mod_base_name = mod_name.substr(0,mod_base_name.find('.'));
+		mod_base_name = mod_base_name.substr(0,mod_base_name.find('.'));
 
 		std::ofstream id_map_info; // used to write id mapping debug output
 		std::string id_map_info_filename = mod_base_name + ".ids.txt";
