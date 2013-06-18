@@ -1,15 +1,22 @@
+Import('input_files', 'target', 'output_file')
+
 env = Environment()
+
+# TODO: find kremlin base dir automagically
 kremlin_base_dir = '/home/sat/tmp/kremlin/'
 llvm_bin_dir = kremlin_base_dir + 'instrument/llvm/install/bin/'
 kremlib_dir = kremlin_base_dir + 'runtime/src/'
 llvm_clang = llvm_bin_dir + 'clang'
 llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
+
+# TODO: automatic, please!
 kremlin_llvm_shared_obj = kremlin_base_dir + \
-'instrument/llvm/llvm-3.2-obj/Debug+Asserts/lib/KremlinInstrument' + \
-env['SHLIBSUFFIX']
+	'instrument/llvm/llvm-3.2-obj/Debug+Asserts/lib/KremlinInstrument' + \
+	env['SHLIBSUFFIX']
 
 def generate_opt_actions(target, source, env, for_signature):
+	""" Generate a rule to run opt based on the target filename extension """
 	built_in_passes = ['indvars','mem2reg','simplifycfg','O1','02','O3']
 	target_name_splits = str.split(target[0].name,'.')
 	action = target_name_splits[-2]
@@ -22,42 +29,96 @@ def generate_opt_actions(target, source, env, for_signature):
 	action_str += ' &> ' + target_name_splits[0] + '.' + action + '.log'
 	return action_str
 
-c_bc_bld = Builder(action = llvm_clang + \
-					' -g -emit-llvm -c -o $TARGET $SOURCE',
-					suffix = '.bc',
-					src_suffix = '.c')
+llvm_bc_bld = Builder(action = llvm_clang + \
+					' -g -emit-llvm -c -o $TARGET $SOURCE')
 
 llvm_asm_bld = Builder(action = llvm_llc + \
 					' -march=x86-64 -o $TARGET $SOURCE',
-					suffix = '.o',
+					suffix = '.s',
 					src_suffix = '.bc')
 
 opt_bld = Builder(generator = generate_opt_actions)
 
-env['BUILDERS']['LLVMBitCode'] = c_bc_bld
+env['BUILDERS']['LLVMBitCode'] = llvm_bc_bld
 env['BUILDERS']['LLVMOpt'] = opt_bld
 env['BUILDERS']['InstrumentedAssembly'] = llvm_asm_bld
 
-env.LLVMBitCode('hello')
-
-opt_passes = ['simplifycfg','mem2reg','indvars', \
-				'elimsinglephis','criticalpath','regioninstrument', \
-				'renamemain','O3']
-
-pass_str = ''
-for p in opt_passes:
-	input_pass_str = pass_str
-	pass_str += '.' + p
-	t = env.LLVMOpt('hello' + pass_str + '.bc', \
-				'hello' + input_pass_str + '.bc')
-	Clean(t, 'hello.' + p + '.log')
-
-inst_asm = env.InstrumentedAssembly('hello.s', \
-					'hello.' + '.'.join(opt_passes) + '.bc')
-
-inst_obj = env.Object('hello',inst_asm)
-kremlib_obj = SConscript(kremlib_dir + 'SConstruct')
-
 env['LINK'] = 'g++'
 
-env.Program('hello',inst_obj + kremlib_obj)
+def get_prefix_str(filename):
+	filename_split = str.split(filename,'.')
+	prefix = filename_split[:-1]
+	prefix_str = '.'.join(prefix)
+	return prefix_str
+
+def assemble_files(source_filenames):
+	asm_nodes = []
+	for filename in source_filenames:
+		filename_split = str.split(filename,'.')
+		prefix_str = get_prefix_str(filename)
+		filename_split[-1] = 'bc'
+		env.LLVMBitCode('.'.join(filename_split), filename)
+
+		opt_passes = ['simplifycfg','mem2reg','indvars', \
+						'elimsinglephis','criticalpath','regioninstrument', \
+						'renamemain','O3']
+		pass_str = ''
+		for p in opt_passes:
+			input_pass_str = pass_str
+			pass_str += '.' + p
+			t = env.LLVMOpt(prefix_str + pass_str + '.bc', \
+						prefix_str + input_pass_str + '.bc')
+			Clean(t, prefix_str + '.' + p + '.log')
+
+		if output_file == '':
+			filename_split[-1] = 's'
+			asm_target = '.'.join(filename_split)
+		else:
+			asm_target = output_file
+
+		asm_nodes.extend(env.InstrumentedAssembly(asm_target, \
+							prefix_str + '.' + '.'.join(opt_passes) + '.bc'))
+
+	return asm_nodes
+
+def compile_files(source_filenames):
+	# XXX: assuming pre-assembled files end with .s
+	to_assemble = [f for f in source_filenames if not f.endswith('.s')]
+	pre_assembled = [f for f in source_filenames if f not in to_assemble]
+
+	newly_assembled = assemble_files(to_assemble)
+
+	obj_nodes = []
+	for asm_file in pre_assembled + newly_assembled:
+		if asm_file in pre_assembled:
+			prefix_str = get_prefix_str(asm_file)
+		else:
+			prefix_str = get_prefix_str(asm_file.name)
+
+		obj_nodes.extend(env.Object(prefix_str, asm_file))
+
+	return obj_nodes
+
+if target == 'assemble':
+	asm_nodes = assemble_files(input_files)
+
+elif target == 'compile':
+	obj_nodes = compile_files(input_files)
+
+elif target == 'link':
+	kremlib_obj = SConscript(kremlib_dir + 'SConstruct')
+	to_compile = [f for f in input_files if f.endswith(('.c','.cpp','.s'))]
+	pre_compiled = [f for f in input_files if f not in to_compile]
+
+	newly_compiled = compile_files(to_compile)
+
+	if output_file == '':
+		prog_target = 'a.out'
+	else:
+		prog_target = output_file
+
+	env.Program(prog_target, newly_compiled + pre_compiled + kremlib_obj)
+
+#else:
+
+

@@ -1,2 +1,3 @@
 env = Environment(CCFLAGS = '-O3')
-env.Library('kremlin', ['debug.cpp', 'kremlin.cpp', 'ATable.cpp', 'MemMapAllocator.cpp', 'CRegion.cpp', 'arg.cpp', 'MShadowBase.cpp', 'MShadowSkadu.cpp', 'MShadowSTV.cpp', 'compression.cpp', 'config.cpp', 'minilzo.cpp', 'mpool.cpp', 'MShadowStat.cpp', 'MShadowDummy.cpp', 'MShadowCache.cpp'])
+kremlib = env.Library('kremlin', ['debug.cpp', 'kremlin.cpp', 'ATable.cpp', 'MemMapAllocator.cpp', 'CRegion.cpp', 'arg.cpp', 'MShadowBase.cpp', 'MShadowSkadu.cpp', 'MShadowSTV.cpp', 'compression.cpp', 'config.cpp', 'minilzo.cpp', 'mpool.cpp', 'MShadowStat.cpp', 'MShadowDummy.cpp', 'MShadowCache.cpp'])
+Return('kremlib')
