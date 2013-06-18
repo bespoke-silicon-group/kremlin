@@ -1,15 +1,16 @@
+import os
+
 Import('env','input_files', 'target', 'output_file')
 
-# TODO: find kremlin base dir automagically
-kremlin_base_dir = '/home/sat/tmp/kremlin/'
-llvm_bin_dir = kremlin_base_dir + 'instrument/llvm/install/bin/'
-kremlib_dir = kremlin_base_dir + 'runtime/src/'
+kremlin_root_dir = os.path.abspath(os.path.join(os.getcwd(),"../..")) + os.sep
+llvm_bin_dir = kremlin_root_dir + 'instrument/llvm/install/bin/'
+kremlib_dir = kremlin_root_dir + 'runtime/src/'
 llvm_clang = llvm_bin_dir + 'clang'
 llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
 
 # TODO: automatic, please!
-kremlin_llvm_shared_obj = kremlin_base_dir + \
+kremlin_llvm_shared_obj = kremlin_root_dir + \
 	'instrument/llvm/llvm-3.2-obj/Debug+Asserts/lib/KremlinInstrument' + \
 	env['SHLIBSUFFIX']
 
