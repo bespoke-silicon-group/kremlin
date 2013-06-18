@@ -17,16 +17,6 @@ def get_make_target(options):
     The second is any text that needs to be added to the makefile.
     """
 
-    # If -o is specified, we build that target.
-    if options.target:
-        if options.preprocess:
-            return options.target, "PREPROCESS_OUTPUT_FILE = " + options.target
-        if options.assemble:
-            return options.target, "ASM_OUTPUT_FILE = " + options.target
-        if options.compile:
-            return options.target, "COMPILE_OUTPUT_FILE = " + options.target
-        return options.target, "LINK_OUTPUT_FILE = " + options.target
-
     # When gcc is passed options to only preprocess, compile, assemble, it
     # choose the option that requires the least amount of work. That is, if -E
     # is specified to preprocess only, it will only preprocess. It will not
@@ -44,10 +34,11 @@ def get_make_target(options):
     if options.preprocess:
         make_target = "preprocess"
 
+    # if -o is specified, set that as the output filename
     if options.target:
-        make_target = options.target
-        
-    return make_target, ""
+        return make_target, options.target
+    else:
+        return make_target, ""
 
 
 def create_kremlin_mk(src_lang):
@@ -102,8 +93,8 @@ def create_kremlin_mk(src_lang):
 
     make_target, make_defines = get_make_target(options)
 
-    makefile_name = "kremlin.mk"
-    make_args = ["make", "-f", makefile_name, make_target]
+    makefile_name = "SConstruct.kremlin"
+    make_args = ["scons", "-f", makefile_name]
 
     def write_makefile(out):
         def write_stdout_and_makefile(str):
@@ -112,11 +103,12 @@ def create_kremlin_mk(src_lang):
             out.write(line)
 
         write = write_stdout_and_makefile
-        write("SOURCES = " + " ".join(args))
-        write(make_defines)
-        write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]))
-        if options.krem_debug:
-            write("DEBUG = 1")
+        write("input_files = " + str(['#{0}'.format(i) for i in args]))
+        write("target = \'" + make_target + "\'")
+        write("output_file = \'" + make_defines + "\'")
+        #write("CFLAGS += " + " ".join([option.get_cflags_str(options) for option in gcc_options]))
+        #if options.krem_debug:
+        #    write("DEBUG = 1")
 
         # set LD according to source language
         #
@@ -124,6 +116,7 @@ def create_kremlin_mk(src_lang):
         # should go in kremlin-gcc/kremlin-g++/kremlin-gfortran frontends
         # Also, 
         #    --chris
+        """
         if src_lang == "fortran":
             if lang_ext in ["f95","f90","f",""]: write("LD = gfortran")
             else: sys.exit("specified fortran with non-fortran extension: %s" % lang_ext)
@@ -133,8 +126,11 @@ def create_kremlin_mk(src_lang):
         else: 
             if lang_ext in ["c",""]: write("LD = g++")
             else: sys.exit("specified C with non-C extension: %s" % lang_ext)
+        """
 
-        write("include " + sys.path[0] + "/../instrument/make/kremlin.mk")
+        #write("include " + sys.path[0] + "/../instrument/make/kremlin.mk")
+        write("Export(\'input_files\', \'target\', \'output_file\')")
+        write("SConscript(\'" + sys.path[0] + "/../instrument/make/SConscript\')")
 
     # Write the makefile to disk
     makefile = open(makefile_name, "w")
@@ -142,7 +138,7 @@ def create_kremlin_mk(src_lang):
     makefile.close()
 
     # Run make
-    #print "running: " + ' '.join(make_args)
+    #print("running: " + ' '.join(make_args))
 
     make_process = subprocess.Popen(make_args, stdin = subprocess.PIPE)
     # write_makefile(make_process.stdin)
