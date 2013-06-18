@@ -70,9 +70,9 @@ def assemble_files(source_filenames):
 						prefix_str + input_pass_str + '.bc')
 			Clean(t, prefix_str + '.' + p + '.log')
 			if p == 'regioninstrument':
-				# TODO: these will be going away, hopefully
-				Clean(t, 'region.graph')
-				Clean(t, 'nesting.dot')
+				# XXX: these will be going away, hopefully
+				Clean(t, '#region.graph')
+				Clean(t, '#nesting.dot')
 			elif p == 'criticalpath':
 				Clean(t, prefix_str + '.ids.txt')
 
