@@ -117,7 +117,9 @@ elif target == 'link':
 	else:
 		prog_target = output_file
 
-	env.Program(prog_target, newly_compiled + pre_compiled + kremlib_obj)
+	prog = env.Program(prog_target, 
+						newly_compiled + pre_compiled + kremlib_obj)
+	env.Command('sregions.txt', prog, "nm $SOURCE | grep \"_krem_\" | perl -p -i -e \'s/^.*krem_prefix//g; s/_krem_/\t/g\' > $TARGET")
 
 #else:
 
