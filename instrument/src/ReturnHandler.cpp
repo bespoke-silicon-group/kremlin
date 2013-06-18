@@ -1,4 +1,3 @@
-#include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
 #include <llvm/Constants.h>
@@ -7,8 +6,6 @@
 #include "ReturnsRealValue.h"
 
 using namespace llvm;
-using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 /**
@@ -19,7 +16,7 @@ using namespace std;
 ReturnHandler::ReturnHandler(TimestampPlacer& ts_placer) :
     ts_placer(ts_placer)
 {
-    opcodes += Instruction::Ret;
+    opcodes.push_back(Instruction::Ret);
 
     // Setup the ret_const_func
     Module& m = *ts_placer.getFunc().getParent();
@@ -30,7 +27,7 @@ ReturnHandler::ReturnHandler(TimestampPlacer& ts_placer) :
     ret_const_func = cast<Function>(m.getOrInsertFunction("_KReturnConst", ret_const_type));
 
     // Setup the ret_func
-    args += types.i32();
+    args.push_back(types.i32());
 	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
     FunctionType* ret_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
@@ -63,7 +60,7 @@ void ReturnHandler::handle(llvm::Instruction& inst)
         if(!isa<Constant>(ret_val)) 
         {
             log_func = ret_func;
-            args += ConstantInt::get(types.i32(), ts_placer.getId(*ret_val), false);
+            args.push_back(ConstantInt::get(types.i32(), ts_placer.getId(*ret_val), false));
             LOG_DEBUG() << "returning non-const value\n";
         }
 		ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);

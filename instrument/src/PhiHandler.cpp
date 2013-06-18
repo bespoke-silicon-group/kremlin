@@ -1,5 +1,3 @@
-#include <boost/assign/std/vector.hpp>
-#include <boost/assign/std/set.hpp>
 #include <boost/lexical_cast.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
@@ -11,7 +9,6 @@
 
 using namespace llvm;
 using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 /**
@@ -107,13 +104,15 @@ PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
     timestampPlacer(ts_placer)
 {
     // Set up the opcodes
-    opcodes += Instruction::PHI;
+    opcodes.push_back(Instruction::PHI);
 
     // Setup the phiLoggingFunc
     Module& m = *timestampPlacer.getFunc().getParent();
     LLVMTypes types(m.getContext());
     vector<Type*> args;
-    args += types.i32(), types.i32(), types.i32();
+    args.push_back(types.i32());
+    args.push_back(types.i32());
+    args.push_back(types.i32());
 	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
     FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, true);
 	delete aref;
@@ -121,10 +120,11 @@ PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
 
     // Setup specialized funcs
     args.clear();
-    args += types.i32(), types.i32();
+    args.push_back(types.i32());
+    args.push_back(types.i32());
     for(size_t i = 1; i < MAX_SPECIALIZED; i++)
     {
-        args += types.i32();
+        args.push_back(types.i32());
 		aref = new ArrayRef<Type*>(args);
         FunctionType* type = FunctionType::get(types.voidTy(), *aref, false);
 		delete aref;
@@ -135,7 +135,8 @@ PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
 
     // addCondFunc
     args.clear();
-    args += types.i32(), types.i32();
+    args.push_back(types.i32());
+    args.push_back(types.i32());
 	aref = new ArrayRef<Type*>(args);
     FunctionType* add_cond_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
@@ -144,7 +145,7 @@ PhiHandler::PhiHandler(TimestampPlacer& ts_placer) :
 
     // inductionFunc
     args.clear();
-    args += types.i32();
+    args.push_back(types.i32());
 	aref = new ArrayRef<Type*>(args);
     FunctionType* induc_var_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;

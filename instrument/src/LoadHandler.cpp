@@ -1,4 +1,3 @@
-#include <boost/assign/std/vector.hpp>
 #include <boost/lexical_cast.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
@@ -12,7 +11,6 @@
 
 using namespace llvm;
 using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 /**
@@ -24,14 +22,17 @@ LoadHandler::LoadHandler(TimestampPlacer& ts_placer) :
     induc_vars(ts_placer.getAnalyses().li),
     ts_placer(ts_placer)
 {
-    opcodes += Instruction::Load;
+    opcodes.push_back(Instruction::Load);
 
     // Setup the ret_const_func
     Module& m = *ts_placer.getFunc().getParent();
     LLVMTypes types(m.getContext());
     vector<Type*> args;
 
-    args += types.pi8(), types.i32(), types.i32(), types.i32();
+    args.push_back(types.pi8());
+    args.push_back(types.i32());
+    args.push_back(types.i32());
+    args.push_back(types.i32());
 	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
     FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, true);
 	delete aref;
@@ -39,7 +40,9 @@ LoadHandler::LoadHandler(TimestampPlacer& ts_placer) :
 
     // Make specialized functions.
     args.clear();
-    args += types.pi8(), types.i32(), types.i32();
+    args.push_back(types.pi8());
+    args.push_back(types.i32());
+    args.push_back(types.i32());
     for(int i = 0; i < MAX_SPECIALIZED; i++)
     {
 		ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
@@ -50,7 +53,7 @@ LoadHandler::LoadHandler(TimestampPlacer& ts_placer) :
                         "_KLoad" + lexical_cast<string>(i), 
                         func_type))));
 
-        args += types.i32();
+        args.push_back(types.i32());
     }
 }
 

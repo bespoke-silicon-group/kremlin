@@ -1,4 +1,3 @@
-#include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
 #include <llvm/Constants.h>
@@ -6,8 +5,6 @@
 #include "LocalTableHandler.h"
 
 using namespace llvm;
-using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 /**
@@ -20,16 +17,16 @@ LocalTableHandler::LocalTableHandler(TimestampPlacer& ts_placer, InstIds& inst_i
     LLVMTypes types(m.getContext());
     vector<Type*> type_args;
 
-    type_args += types.i32();
-    type_args += types.i32();
+    type_args.push_back(types.i32());
+    type_args.push_back(types.i32());
 	ArrayRef<Type*> *type_args_array = new ArrayRef<Type*>(type_args);
     FunctionType* func_type = FunctionType::get(types.voidTy(), *type_args_array, false);
 	delete type_args_array;
     Function& log_func = *cast<Function>(m.getOrInsertFunction("_KPrepRTable", func_type));
 
     vector<Value*> args;
-    args += ConstantInt::get(types.i32(), inst_ids.getCount());
-    args += ConstantInt::get(types.i32(), 0); // placeholder
+    args.push_back(ConstantInt::get(types.i32(), inst_ids.getCount()));
+    args.push_back(ConstantInt::get(types.i32(), 0)); // placeholder
 	ArrayRef<Value*> *args_array = new ArrayRef<Value*>(args);
     CallInst& ci = *CallInst::Create(&log_func, *args_array, "");
 	delete args_array;

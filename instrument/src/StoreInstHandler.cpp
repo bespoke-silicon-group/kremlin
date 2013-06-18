@@ -1,4 +1,3 @@
-#include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
 #include <llvm/Constants.h>
@@ -7,8 +6,6 @@
 #include "MemoryInstHelper.h"
 
 using namespace llvm;
-using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 /**
@@ -19,21 +16,24 @@ StoreInstHandler::StoreInstHandler(TimestampPlacer& timestamp_placer) :
     timestampPlacer(timestamp_placer)
 {
     // Set up the opcodes
-    opcodes += Instruction::Store;
+    opcodes.push_back(Instruction::Store);
 
     // Setup the storeRegFunc and storeConstFunc functions
     Module& module = *timestampPlacer.getFunc().getParent();
     LLVMTypes types(module.getContext());
 
     vector<Type*> func_param_types;
-    func_param_types += types.i32(), types.pi8(), types.i32();
+    func_param_types.push_back(types.i32());
+    func_param_types.push_back(types.pi8());
+    func_param_types.push_back(types.i32());
 	ArrayRef<Type*> *aref = new ArrayRef<Type*>(func_param_types);
     FunctionType* store_func_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
     storeRegFunc = cast<Function>(module.getOrInsertFunction("_KStore", store_func_type));
 
 	func_param_types.clear();
-    func_param_types += types.pi8(), types.i32();
+    func_param_types.push_back(types.pi8());
+    func_param_types.push_back(types.i32());
 	aref = new ArrayRef<Type*>(func_param_types);
     FunctionType* store_const_func_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
@@ -67,16 +67,16 @@ void StoreInstHandler::handle(llvm::Instruction& inst)
     Value& src_val = *store_inst.getValueOperand();
 
 	if(!isa<Constant>(src_val))
-    	call_args += ConstantInt::get(types.i32(),timestampPlacer.getId(src_val));
+    	call_args.push_back(ConstantInt::get(types.i32(),timestampPlacer.getId(src_val)));
 
 	// Destination address is already a pointer; we ust need to cast it to
 	// void* (i.e.  i8*) so we don't have to specialize the function based on
 	// the size of the pointer.
     CastInst& dest_ptr_cast = *CastInst::CreatePointerCast(store_inst.getPointerOperand(),types.pi8(),"inst_arg_ptr");
-    call_args += &dest_ptr_cast;
+    call_args.push_back(&dest_ptr_cast);
 
 	// final arg is the memory access size
-    call_args += ConstantInt::get(types.i32(),MemoryInstHelper::getTypeSizeInBytes(&src_val));
+    call_args.push_back(ConstantInt::get(types.i32(),MemoryInstHelper::getTypeSizeInBytes(&src_val)));
 
     // Use the timestamp placer to place the call, the pointer cast, and the
 	// timestamp calc (if not storing a constant).

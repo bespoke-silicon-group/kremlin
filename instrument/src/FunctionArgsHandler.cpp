@@ -1,4 +1,3 @@
-#include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
 #include <llvm/Constants.h>
@@ -6,8 +5,6 @@
 #include "FunctionArgsHandler.h"
 
 using namespace llvm;
-using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 FunctionArgsHandler::FunctionArgsHandler(TimestampPlacer& ts_placer)
@@ -17,7 +14,7 @@ FunctionArgsHandler::FunctionArgsHandler(TimestampPlacer& ts_placer)
     Module& m = *func.getParent();
     LLVMTypes types(m.getContext());
     vector<Type*> type_args;
-    type_args += types.i32();
+    type_args.push_back(types.i32());
 	ArrayRef<Type*> *aref = new ArrayRef<Type*>(type_args);
     FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
@@ -42,7 +39,7 @@ FunctionArgsHandler::FunctionArgsHandler(TimestampPlacer& ts_placer)
         if(!isa<PointerType>(arg.getType())) 
         {
             args.clear();
-            args += ConstantInt::get(types.i32(), ts_placer.getId(arg)); // dest ID
+            args.push_back(ConstantInt::get(types.i32(), ts_placer.getId(arg))); // dest ID
 
             // insert at the very beginning of the function
 			ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);

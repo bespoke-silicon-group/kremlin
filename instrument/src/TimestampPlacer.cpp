@@ -1,11 +1,9 @@
 #include <boost/bind.hpp>
-#include <boost/assign/std/set.hpp>
 #include <foreach.h>
 #include "TimestampPlacer.h"
 #include "analysis/timestamp/KInstructionToLogFunctionConverter.h"
 
 using namespace boost;
-using namespace boost::assign;
 using namespace llvm;
 using namespace std;
 
@@ -49,7 +47,7 @@ TimestampPlacer::TimestampPlacer(llvm::Function& func, FuncAnalyses& analyses, T
 void TimestampPlacer::constrainInstPlacement(llvm::Instruction& inst, llvm::Instruction& user)
 {
     set<Instruction*> users;
-    users += &user;
+    users.insert(&user);
     _placer.addInstForPlacement(inst, users);
 }
 

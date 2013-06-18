@@ -1,14 +1,15 @@
-#include <boost/assign/std/vector.hpp>
-#include <boost/assign/std/set.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
 #include <llvm/Constants.h>
+
+#include <vector>
+#include <set>
+
 #include "ControlDependencePlacer.h"
 #include "LLVMTypes.h"
 
 using namespace llvm;
 using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 /**
@@ -26,7 +27,7 @@ ControlDependencePlacer::ControlDependencePlacer(TimestampPlacer& ts_placer) :
     LLVMTypes types(m.getContext());
     vector<Type*> args;
 
-    args += types.i32();
+    args.push_back(types.i32());
 	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
     FunctionType* add_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
@@ -60,8 +61,9 @@ void ControlDependencePlacer::handleBasicBlock(llvm::BasicBlock& bb)
         ts_placer.constrainInstPlacement(remove_call, *bb.getTerminator());
 
         set<Instruction*> deps;
-        deps += bb.getFirstNonPHI(), &remove_call;
-        args += ConstantInt::get(types.i32(), ts_placer.getId(ctrl_dep), false);
+        deps.insert(bb.getFirstNonPHI());
+		deps.insert(&remove_call);
+        args.push_back(ConstantInt::get(types.i32(), ts_placer.getId(ctrl_dep), false));
 		ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
         CallInst& add_call = *CallInst::Create(add_func, *aref, "");
 		delete aref;

@@ -1,12 +1,10 @@
-#include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
+
 #include "LLVMTypes.h"
 #include "GlobalTableAllocator.h"
 
 using namespace llvm;
-using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 GlobalTableAllocator::GlobalTableAllocator(TimestampPlacer& ts_placer) :
@@ -18,7 +16,8 @@ GlobalTableAllocator::GlobalTableAllocator(TimestampPlacer& ts_placer) :
     vector<Type*> args;
 
     // pointer, bytes allocated
-    args += types.pi8(), types.i32();
+    args.push_back(types.pi8());
+    args.push_back(types.i32());
 	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
     FunctionType* alloc_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
@@ -26,7 +25,7 @@ GlobalTableAllocator::GlobalTableAllocator(TimestampPlacer& ts_placer) :
 
     // setup free_func
     args.clear();
-    args += types.pi8();
+    args.push_back(types.pi8());
 	aref = new ArrayRef<Type*>(args);
     FunctionType* free_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
@@ -36,7 +35,8 @@ GlobalTableAllocator::GlobalTableAllocator(TimestampPlacer& ts_placer) :
 void GlobalTableAllocator::addAlloc(llvm::Value& ptr, llvm::Value& size, llvm::Instruction& use)
 {
     vector<Value*> args;
-    args += &ptr, &size;
+    args.push_back(&ptr);
+    args.push_back(&size);
 	ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
     CallInst& ci = *CallInst::Create(alloc_func, *aref, "");
 	delete aref;
@@ -46,7 +46,7 @@ void GlobalTableAllocator::addAlloc(llvm::Value& ptr, llvm::Value& size, llvm::I
 void GlobalTableAllocator::addFree(llvm::Value& ptr, llvm::Instruction& use)
 {
     vector<Value*> args;
-    args += &ptr;
+    args.push_back(&ptr);
 	ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);
     CallInst& ci = *CallInst::Create(free_func, *aref, "");
 	delete aref;

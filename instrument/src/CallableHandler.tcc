@@ -1,15 +1,13 @@
-#include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
 #include <llvm/Support/CallSite.h>
+
 #include "LLVMTypes.h"
 #include "CallableHandler.h"
 #include "ReturnsRealValue.h"
 #include "InstrumentedCall.h"
 
 using namespace llvm;
-using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 template <class Callable>
@@ -26,24 +24,25 @@ CallableHandler<Callable>::CallableHandler(TimestampPlacer& timestamp_placer) :
     FunctionType* link_arg_const_func_type = FunctionType::get(types.voidTy(), func_arg_types, false);
     linkArgConstFunc = cast<Function>(m.getOrInsertFunction("_KLinkArgConst", link_arg_const_func_type));
     
-    func_arg_types += types.i32();
+    func_arg_types.push_back(types.i32());
     FunctionType* link_arg_func_type = FunctionType::get(types.voidTy(), func_arg_types, false);
     linkArgFunc = cast<Function>(m.getOrInsertFunction("_KLinkArg", link_arg_func_type));
 
     func_arg_types.clear();
-    func_arg_types += types.i64(), types.i64();
+    func_arg_types.push_back(types.i64());
+    func_arg_types.push_back(types.i64());
     FunctionType* prep_call_func_type = FunctionType::get(types.voidTy(), func_arg_types, false);
     prepCallFunc = cast<Function>(m.getOrInsertFunction("_KPrepCall", prep_call_func_type));
 
     func_arg_types.clear();
-    func_arg_types += types.i32();
+    func_arg_types.push_back(types.i32());
     FunctionType* ret_val_link_func_type = FunctionType::get(types.voidTy(), func_arg_types, false);
     linkReturnFunc = cast<Function>(m.getOrInsertFunction("_KLinkReturn", ret_val_link_func_type));
 }
 
 template <class Callable>
 void CallableHandler<Callable>::addOpcode(unsigned opcode) {
-    opcodesOfHandledInsts += opcode;
+    opcodesOfHandledInsts.push_back(opcode);
 }
 
 template <class Callable>
@@ -87,7 +86,7 @@ Function* CallableHandler<Callable>::untangleCall(Callable& callable_inst)
 template <class Callable>
 void CallableHandler<Callable>::addIgnore(string func_name)
 {
-	ignoredFuncs += func_name;
+	ignoredFuncs.push_back(func_name);
 }
 
 template <class Callable>
@@ -144,8 +143,8 @@ void CallableHandler<Callable>::handle(llvm::Instruction& inst)
 
     // Function that pushes an llvm int into kremlib_call_args.
     vector<Value*> kremlib_call_args;
-    function<void(Type*, unsigned int)> push_int = bind(&vector<Value*>::push_back,
-        ref(kremlib_call_args), bind<Constant*>(&ConstantInt::get, _1, _2, false));
+    boost::function<void(Type*, unsigned int)> push_int = bind(&vector<Value*>::push_back,
+        boost::ref(kremlib_call_args), boost::bind<Constant*>(&ConstantInt::get, _1, _2, false));
 
 	// We are going to insert multiple calls to kremlib functions. In order to
 	// maintain the correct ordering, we'll use the last_call and feed that as

@@ -1,4 +1,3 @@
-#include <boost/assign/std/vector.hpp>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
 #include <llvm/Support/CallSite.h>
@@ -11,8 +10,6 @@
 #include "CallableHandler.h"
 
 using namespace llvm;
-using namespace boost;
-using namespace boost::assign;
 using namespace std;
 
 DynamicMemoryHandler::DynamicMemoryHandler(TimestampPlacer& ts_placer) :
@@ -20,14 +17,16 @@ DynamicMemoryHandler::DynamicMemoryHandler(TimestampPlacer& ts_placer) :
     log(PassLog::get()),
     ts_placer(ts_placer)
 {
-    opcodes += Instruction::Call;
+    opcodes.push_back(Instruction::Call);
 
     // Setup funcs
     Module& m = *ts_placer.getFunc().getParent();
     LLVMTypes types(m.getContext());
     vector<Type*> args;
 
-	args += types.pi8(), types.i64(), types.i32();
+	args.push_back(types.pi8());
+	args.push_back(types.i64());
+	args.push_back(types.i32());
 
 	ArrayRef<Type*> *aref = new ArrayRef<Type*>(args);
     FunctionType* malloc_call = FunctionType::get(types.voidTy(), *aref, false);
@@ -36,7 +35,10 @@ DynamicMemoryHandler::DynamicMemoryHandler(TimestampPlacer& ts_placer) :
 
 	args.clear();
 
-	args += types.pi8(), types.pi8(), types.i64(), types.i32();
+	args.push_back(types.pi8());
+	args.push_back(types.pi8());
+	args.push_back(types.i64());
+	args.push_back(types.i32());
 	aref = new ArrayRef<Type*>(args);
     FunctionType* realloc_call = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
@@ -44,7 +46,7 @@ DynamicMemoryHandler::DynamicMemoryHandler(TimestampPlacer& ts_placer) :
 
 	args.clear();
 
-	args += types.pi8();
+	args.push_back(types.pi8());
 	aref = new ArrayRef<Type*>(args);
     FunctionType* free_call = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
