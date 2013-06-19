@@ -44,9 +44,10 @@ namespace {
 	typedef unsigned long long BasicBlockId;
 
 	static cl::opt<std::string> instFunctionList("instrumented-functions",cl::desc("file that lists which instrumentation functions to insert"),cl::value_desc("filename"),cl::init("__none__"));
-	static cl::opt<std::string> lineNumbersFile("line-numbers",cl::desc("File to put line numbers"),cl::value_desc("filename"),cl::init("loop-source_line.txt"));
-	static cl::opt<std::string> functionNamesFile("function-names",cl::desc("File to put function names"),cl::value_desc("filename"),cl::init("region_id-to-func_name.txt"));
-	static cl::opt<std::string> regionGraphFile("region-graph",cl::desc("File to put the region graph into"),cl::value_desc("filename"),cl::init("region.graph"));
+	static cl::opt<bool> shouldPrintRegionGraph("output-region-graph",cl::desc("Enables output of region graph file."),cl::Hidden,cl::init(false));
+	static cl::opt<std::string> regionGraphFile("region-graph-file",cl::desc("File to put the region graph into"),cl::value_desc("filename"),cl::init("region.graph"));
+	static cl::opt<bool> shouldPrintNestingDot("output-nesting-dot",cl::desc("Enables output of nesting graph DOT file."),cl::Hidden,cl::init(false));
+	static cl::opt<std::string> nestingDotFile("nesting-dot-file",cl::desc("File to put the nesting graph dot file"),cl::value_desc("filename"),cl::init("nesting.dot"));
 	static cl::opt<bool> noMultiExitLoops("no-multi-exit-loop",cl::desc("Disallows profiling of multi-exit loops"),cl::Hidden,cl::init(false));
 	static cl::opt<bool> noRecursiveFuncs("no-recursive-funcs",cl::desc("Disallows profiling of recursive functions"),cl::Hidden,cl::init(false));
 	static cl::opt<bool> loopBodyRegions("loop-body-regions",cl::desc("Specify that loop body should have its own region ID."),cl::Hidden,cl::init(true));
@@ -603,7 +604,7 @@ namespace {
 						}
 
 						nesting_graph << "\t" << region_id << " -> " << func_name_to_region_id[ci->getCalledFunction()->getName()] << ";\n";
-						region_graph << region_id << " " << func_name_to_region_id[ci->getCalledFunction()->getName()] << "\n";
+						if (shouldPrintRegionGraph) region_graph << region_id << " " << func_name_to_region_id[ci->getCalledFunction()->getName()] << "\n";
 					}
 				}
 			}
@@ -680,10 +681,13 @@ namespace {
             add_logBBVisit_func = false;
 			// open file we will write region and nesting graphs too
 			// TODO: make sure we incorporate loop body regions now
-			nesting_graph.open("nesting.dot");
-			region_graph.open(regionGraphFile.c_str());
 
-			nesting_graph << "digraph nest {\n";
+			if (shouldPrintRegionGraph) region_graph.open(regionGraphFile.c_str());
+			if (shouldPrintNestingDot) {
+				nesting_graph.open(nestingDotFile.c_str());
+				nesting_graph << "digraph nest {\n";
+			}
+
 
 			// loop through each function and see if it is a definition of declaration
 			foreach(Function& func, m) {
@@ -728,7 +732,7 @@ namespace {
 					func_name_to_region_id[func.getName()] = region_id;
 					log.debug() << "assigning function " << func.getName() << " id " << region_id << "\n";
 
-					nesting_graph << "\t" << region_id << " [label=\"" << func.getName().str() << "\"];\n";
+					if (shouldPrintNestingDot) nesting_graph << "\t" << region_id << " [label=\"" << func.getName().str() << "\"];\n";
 
 				}
 			}
@@ -776,9 +780,11 @@ namespace {
 			
 			instrumentModule(m,bb_id);
 
-			nesting_graph << "}\n";
-			nesting_graph.close();
-			region_graph.close();
+			if (shouldPrintNestingDot) {
+				nesting_graph << "}\n";
+				nesting_graph.close();
+			}
+			if (shouldPrintRegionGraph) region_graph.close();
 
 			return true;
 		} // end runOnModule(...)
