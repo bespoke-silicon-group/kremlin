@@ -16,6 +16,9 @@ kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/llvm/' + \
 	'llvm-' + str(llvm_ver) + '-obj/Release+Asserts/lib/KremlinInstrument' + \
 	env['SHLIBSUFFIX']
 
+#conf = Configure(env)
+#if not config.CheckHeader
+
 def generate_opt_actions(target, source, env, for_signature):
 	""" Generate a rule to run opt based on the target filename extension """
 	built_in_passes = ['indvars','mem2reg','simplifycfg','O1','02','O3']
@@ -90,12 +93,9 @@ def compile_files(source_filenames):
 			t = env.LLVMOpt(prefix_str + pass_str + '.bc', \
 						[prefix_str + input_pass_str + '.bc', so])
 			log_name = prefix_str + '.' + p + '.log'
+			print('write to log: ' + log_name)
 			Clean(t, log_name)
-			if p == 'regioninstrument':
-				# XXX: these will be going away, hopefully
-				Clean(t, '#region.graph')
-				Clean(t, '#nesting.dot')
-			elif p == 'criticalpath':
+			if p == 'criticalpath':
 				Clean(t, prefix_str + '.ids.txt')
 
 		if output_file == '' or target != 'compile':
