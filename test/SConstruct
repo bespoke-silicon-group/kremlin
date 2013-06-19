@@ -1,0 +1,55 @@
+import os
+import atexit
+
+env = Environment(CC = 'kremlin-gcc', ENV = {'PATH' : os.environ['PATH']})
+
+def get_srcs():
+	srcs = Glob('*.c')
+	srcs += Glob('*.cpp')
+	return srcs
+
+def build_benchmark(name):
+	srcs = get_srcs()
+	bench = env.Program(name,srcs)
+	return bench
+
+def create_kremlin_bin(bench):
+	assert len(bench) == 1
+	bin_path = os.path.join(os.getcwd(),bench[0].name)
+	cmd_string = bin_path + ' --kremlin-output=$TARGET' \
+					+ ' --kremlin-log-output=/dev/null'
+	return env.Command('kremlin.bin', bench, cmd_string)
+
+"""
+def create_reference_bin(krem_bin):
+	ref_bin = env.Command('kremlin.bin.ref', krem_bin, Copy("$TARGET","$SOURCE"))
+	return ref_bin
+"""
+
+Export('env get_srcs build_benchmark create_kremlin_bin')
+
+results = SConscript(['c/SConscript',
+						'cpp/SConscript'])
+
+merged_results = []
+for r in results:
+	for a in r:
+		merged_results.extend(a)
+
+result_bins = [r for r in merged_results if r.name == 'kremlin.bin']
+result_execs = [r for r in merged_results if r not in result_bins]
+
+def print_build_failures():
+	from SCons.Script import GetBuildFailures
+	failures = GetBuildFailures()
+	if len(failures) > 0:
+		print '\n\n*******************'
+		print 'WARNING! The following benchmarks failed: '
+
+	for bf in failures:
+		print "\t%s" % os.path.dirname(str(bf.node))
+
+build_all = env.Alias('buildAll', result_execs)
+run_all = env.Alias('runAll', result_bins)
+
+atexit.register(print_build_failures)
