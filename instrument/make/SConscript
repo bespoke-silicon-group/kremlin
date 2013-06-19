@@ -120,7 +120,7 @@ def assemble_files(source_filenames):
 		if asm_file in pre_compiled:
 			prefix_str = get_prefix_str(asm_file)
 		else:
-			prefix_str = get_prefix_str(asm_file.name)
+			prefix_str = get_prefix_str(str(asm_file))
 
 		obj_nodes.extend(env.Object(prefix_str, asm_file))
 
