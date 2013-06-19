@@ -26,7 +26,7 @@ void printMemoryTimes(Addr addr, Index size);
 
 void dbg_int(int sig);
 
-void DebugInit(char* str);
+void DebugInit();
 void DebugDeinit();
 
 #ifdef KREMLIN_DEBUG 

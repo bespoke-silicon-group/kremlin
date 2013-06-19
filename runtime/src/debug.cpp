@@ -4,6 +4,7 @@
 
 #include "ktypes.h"
 #include "debug.h"
+#include "config.h"
 //#include "idbg.h"
 
 #include <vector>
@@ -23,8 +24,8 @@ static char tabString[2000];
 static int tabLevel = 0;
 static FILE* stream;
 
-void DebugInit(char* str) {
-	stream = fopen(str, "w");
+void DebugInit() {
+	stream = fopen(KConfigGetLogOutFileName(), "w");
 }
 
 void DebugDeinit() {

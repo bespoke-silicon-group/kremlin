@@ -128,6 +128,12 @@ void parseKremlinOptions(int argc, char* argv[], int& num_args, char**& real_arg
 			continue;
 		}
 
+		str_start = strstr(argv[i],"kremlin-log-output");
+		if(str_start) {
+			KConfigSetLogOutFileName(parseOptionStr(argv[i]));
+			continue;
+		}
+
 
 		str_start = strstr(argv[i],"disable-cregion");
 		if(str_start) {
@@ -189,7 +195,7 @@ void parseKremlinOptions(int argc, char* argv[], int& num_args, char**& real_arg
 		}
 	}
 
-	createOutputFilename();
+	createOutputFilename(); // FIXME: this doesn't have any effect now
 
 	//true_args = realloc(true_args,num_true_args*sizeof(char*));
 	
@@ -229,7 +235,8 @@ int main(int argc, char* argv[]) {
     	fprintf(stderr, "[kremlin] logging only level %d\n", __kremlin_level_to_log);
 	}
 
-	fprintf(stderr,"[kremlin] writing data to: %s\n", __kremlin_output_filename.c_str());
+	fprintf(stderr,"[kremlin] writing profiling data to: %s\n", KConfigGetOutFileName());
+	fprintf(stderr,"[kremlin] writing log to: %s\n", KConfigGetLogOutFileName());
 
 	int i;
 	char** start = &argv[argc - num_args-1];

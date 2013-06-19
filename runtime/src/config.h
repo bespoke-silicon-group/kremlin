@@ -36,6 +36,9 @@ Bool KConfigGetRSummarySupport();
 void KConfigSetOutFileName(char* name);
 const char* KConfigGetOutFileName();
 
+void KConfigSetLogOutFileName(char* name);
+const char* KConfigGetLogOutFileName();
+
 Bool KConfigLimitLevel();
 
 Bool KConfigGetCRegionSupport();

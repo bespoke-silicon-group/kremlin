@@ -15,6 +15,7 @@ typedef struct _config_ {
 	UInt32 cbufferSize;
 	UInt32 cacheSize;
 	char  outFileName[64];
+	char  logOutFileName[64];
 
 	UInt32 gcPeriod;	// garbage collection period 
 								    
@@ -36,6 +37,7 @@ void KConfigInit() {
 	config.enableRecursion = 1;
 	config.enableCRegion = 1;
 	strcpy(config.outFileName, "kremlin.bin");
+	strcpy(config.outFileName, "kremlin.log");
 }
 
 void KConfigSetOutFileName(char* name) {
@@ -44,6 +46,14 @@ void KConfigSetOutFileName(char* name) {
 
 const char* KConfigGetOutFileName() {
 	return config.outFileName;	
+}
+
+void KConfigSetLogOutFileName(char* name) {
+	strcpy(config.logOutFileName, name);
+}
+
+const char* KConfigGetLogOutFileName() {
+	return config.logOutFileName;	
 }
 
 void KConfigDisableRSummary() {

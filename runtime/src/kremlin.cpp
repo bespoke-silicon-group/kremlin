@@ -2023,7 +2023,7 @@ static UInt hasInitialized = 0;
 #define REGION_INIT_SIZE	64
 
 static Bool kremlinInit() {
-	DebugInit("kremlin.log");
+	DebugInit();
     if(hasInitialized++) {
         MSG(0, "kremlinInit skipped\n");
         return FALSE;
