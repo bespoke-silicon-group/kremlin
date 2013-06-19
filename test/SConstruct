@@ -1,5 +1,23 @@
 import os
 import atexit
+import itertools
+
+
+def get_subdirs_with_sconscript(path):
+	""" Return list of all subdirs that contain a SConscript file """
+	subdirs = [name for name in os.listdir(path) \
+			  if os.path.isdir(os.path.join(path,name)) \
+				and name[0] != '.']
+	sd_with_scons = [sd for sd in subdirs \
+						if os.path.isfile(os.path.join(sd,'SConscript'))]
+	return sd_with_scons
+
+def get_subdir_sconscripts(path):
+	""" Return a list of paths to any sconscript file in a subdir.
+	Note that this is not recursive."""
+	subdirs = get_subdirs_with_sconscript(path)
+	scons_files = ['{0}/SConscript'.format(sd) for sd in subdirs]
+	return scons_files
 
 env = Environment(CC = 'kremlin-gcc', ENV = {'PATH' : os.environ['PATH']})
 
@@ -26,18 +44,20 @@ def create_reference_bin(krem_bin):
 	return ref_bin
 """
 
-Export('env get_srcs build_benchmark create_kremlin_bin')
+Export('env get_srcs build_benchmark create_kremlin_bin \
+			get_subdir_sconscripts')
 
 results = SConscript(['c/SConscript',
 						'cpp/SConscript'])
 
-merged_results = []
-for r in results:
-	for a in r:
-		merged_results.extend(a)
+flattened_results = []
+for l1 in results:
+	for l2 in l1:
+		for l3 in l2:
+			flattened_results.extend(l3)
 
-result_bins = [r for r in merged_results if r.name == 'kremlin.bin']
-result_execs = [r for r in merged_results if r not in result_bins]
+result_bins = [r for r in flattened_results if r.name == 'kremlin.bin']
+result_execs = [r for r in flattened_results if r not in result_bins]
 
 def print_build_failures():
 	from SCons.Script import GetBuildFailures
