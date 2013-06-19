@@ -30,5 +30,6 @@ llvm-gcc-4.2-2.8.source.tgz
 instrument/llvm/install/
 instrument/llvm/llvm-gcc-4.2-2.8-obj/
 
+.sconsign.dblite
 
 kremlin.bin

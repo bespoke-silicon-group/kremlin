@@ -1,0 +1,5 @@
+input_files = ['hello.c']
+target = 'assemble'
+output_file = ''
+Export('input_files', 'target', 'output_file')
+SConscript('SConscript')

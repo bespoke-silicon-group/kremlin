@@ -6,10 +6,4 @@ a.out
 ###############################
 
 kremlin.bin.reference
-referenceBuild.out
-
-referenceBuildAll
-referenceCheckAll
-sregionsBuildAll
-sregionsCheckAll
-valgrindCheckAll
+SConstruct.kremlin
