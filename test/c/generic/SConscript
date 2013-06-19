@@ -1,0 +1,6 @@
+import os
+Import('get_subdir_sconscripts')
+
+scons_files = get_subdir_sconscripts(os.getcwd())
+results = SConscript(scons_files)
+Return('results')
