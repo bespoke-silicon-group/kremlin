@@ -64,6 +64,7 @@ def compile_files(source_filenames):
 
 		return subdirs
 
+	# FIXME: we also need to check for *.tcc files
 	so_srcs = Glob(kremlin_instrument_src_dir + '*.cpp')
 	for d in get_subdirs(kremlin_instrument_src_dir):
 		glob_str = os.path.join(kremlin_instrument_src_dir,d,'*.cpp')
@@ -113,10 +114,10 @@ def assemble_files(source_filenames):
 	to_compile = [f for f in source_filenames if not f.endswith('.s')]
 	pre_compiled = [f for f in source_filenames if f not in to_compile]
 
-	newly_assembled = compile_files(to_compile)
+	newly_compiled = compile_files(to_compile)
 
 	obj_nodes = []
-	for asm_file in pre_compiled + newly_assembled:
+	for asm_file in pre_compiled + newly_compiled:
 		if asm_file in pre_compiled:
 			prefix_str = get_prefix_str(asm_file)
 		else:
