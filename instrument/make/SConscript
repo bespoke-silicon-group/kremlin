@@ -118,12 +118,14 @@ def assemble_files(source_filenames):
 
 	obj_nodes = []
 	for asm_file in pre_compiled + newly_compiled:
-		if asm_file in pre_compiled:
-			prefix_str = get_prefix_str(asm_file)
+		if output_file != '' and target == 'assemble':
+			obj_target_name = output_file
+		elif asm_file in pre_compiled:
+			obj_target_name = get_prefix_str(asm_file)
 		else:
-			prefix_str = get_prefix_str(str(asm_file))
+			obj_target_name = get_prefix_str(str(asm_file))
 
-		obj_nodes.extend(env.Object(prefix_str, asm_file))
+		obj_nodes.extend(env.Object(obj_target_name, asm_file))
 
 	return obj_nodes
 
