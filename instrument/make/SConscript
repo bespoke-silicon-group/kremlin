@@ -97,7 +97,7 @@ def compile_files(source_filenames):
 			elif p == 'criticalpath':
 				Clean(t, prefix_str + '.ids.txt')
 
-		if output_file == '':
+		if output_file == '' or target != 'compile':
 			filename_split[-1] = 's'
 			asm_target = '.'.join(filename_split)
 		else:
