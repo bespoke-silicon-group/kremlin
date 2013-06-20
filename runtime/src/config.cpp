@@ -37,7 +37,7 @@ void KConfigInit() {
 	config.enableRecursion = 1;
 	config.enableCRegion = 1;
 	strcpy(config.outFileName, "kremlin.bin");
-	strcpy(config.outFileName, "kremlin.log");
+	strcpy(config.logOutFileName, "kremlin.log");
 }
 
 void KConfigSetOutFileName(char* name) {
