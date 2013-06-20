@@ -148,4 +148,5 @@ elif target == 'link':
 
 	prog = env.Program(prog_target, 
 						newly_compiled + pre_assembled + kremlib_obj)
-	env.Command('sregions.txt', prog, "nm $SOURCE | grep \"_krem_\" | perl -p -i -e \'s/^.*krem_prefix//g; s/_krem_/\t/g\' > $TARGET")
+	sregions = env.Command('#sregions.txt', prog, "nm $SOURCE | grep \"_krem_\" | perl -p -i -e \'s/^.*krem_prefix//g; s/_krem_/\t/g\' > $TARGET")
+	env.AlwaysBuild(sregions)
