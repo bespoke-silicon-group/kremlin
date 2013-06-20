@@ -94,7 +94,7 @@ def create_kremlin_mk(src_lang):
     make_target, output_filename = get_make_target(options)
 
     makefile_name = "SConstruct.kremlin"
-    make_args = ["scons", "-f", makefile_name, output_filename]
+    make_args = ["scons", "-f", makefile_name, make_target]
 
     def write_makefile(out):
         def write_stdout_and_makefile(str):
