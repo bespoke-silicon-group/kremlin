@@ -93,7 +93,6 @@ def compile_files(source_filenames):
 			t = env.LLVMOpt(prefix_str + pass_str + '.bc', \
 						[prefix_str + input_pass_str + '.bc', so])
 			log_name = prefix_str + '.' + p + '.log'
-			print('write to log: ' + log_name)
 			Clean(t, log_name)
 			if p == 'criticalpath':
 				Clean(t, prefix_str + '.ids.txt')
