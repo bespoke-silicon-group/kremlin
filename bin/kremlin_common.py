@@ -91,10 +91,10 @@ def create_kremlin_mk(src_lang):
 
     #print "args: " + " ".join(args)
 
-    make_target, make_defines = get_make_target(options)
+    make_target, output_filename = get_make_target(options)
 
     makefile_name = "SConstruct.kremlin"
-    make_args = ["scons", "-f", makefile_name]
+    make_args = ["scons", "-f", makefile_name, output_filename]
 
     def write_makefile(out):
         def write_stdout_and_makefile(str):
@@ -106,7 +106,7 @@ def create_kremlin_mk(src_lang):
         write("env = Environment(CCFLAGS = \'" + " ".join([option.get_cflags_str(options) for option in gcc_options]) + "\')")
         write("input_files = " + str(['#{0}'.format(i) for i in args]))
         write("target = \'" + make_target + "\'")
-        write("output_file = \'" + make_defines + "\'")
+        write("output_file = \'" + output_filename + "\'")
         #if options.krem_debug:
         #    write("DEBUG = 1")
 
@@ -141,7 +141,6 @@ def create_kremlin_mk(src_lang):
     #print("running: " + ' '.join(make_args))
 
     make_process = subprocess.Popen(make_args, stdin = subprocess.PIPE)
-    # write_makefile(make_process.stdin)
     make_process.stdin.close()
     make_process.wait()
 
