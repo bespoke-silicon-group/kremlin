@@ -50,12 +50,18 @@ Export('env get_srcs build_benchmark create_kremlin_bin \
 results = SConscript(['c/SConscript',
 						'cpp/SConscript'])
 
-flattened_results = []
-for l1 in results:
-	for l2 in l1:
-		for l3 in l2:
-			flattened_results.extend(l3)
+def flatten_list(l):
+	""" Builds flattened version of list or tuple. Otherwise,just returns the
+	parameter. """
+	if type(l) is list or type(l) is tuple:
+		flat = []
+		for i in l:
+			flat.extend(flatten_list(i))
+		return flat
+	else:
+		return l
 
+flattened_results = flatten_list(results)
 result_bins = [r for r in flattened_results if r.name == 'kremlin.bin']
 result_execs = [r for r in flattened_results if r not in result_bins]
 
