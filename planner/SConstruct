@@ -1,0 +1,5 @@
+env = Environment(JAVACLASSPATH = Split('lib/jopt-simple-4.3.jar .'))
+classes = env.Java('classes','src')
+kremlin_jar = env.Jar('kremlin.jar', 'classes')
+env.Install('../bin',kremlin_jar)
+env.Alias('install', '../bin')
