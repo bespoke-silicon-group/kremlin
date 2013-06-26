@@ -250,6 +250,9 @@ unsigned int ConstantWorkOpHandler::getWork(Instruction* inst) const
             return mem_store_cost;
         case Instruction::Load:
             return mem_load_cost;
+		// FIXME: more accurate cost of atomicrmw based on op
+		case Instruction::AtomicRMW:
+			return mem_load_cost + mem_store_cost + int_add_cost;
         case Instruction::Alloca:
         case Instruction::BitCast:
         case Instruction::Br:
