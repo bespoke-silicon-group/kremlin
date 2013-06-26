@@ -36,8 +36,12 @@ def generate_opt_actions(target, source, env, for_signature):
 llvm_bc_bld = Builder(action = llvm_clang + \
 					' $CCFLAGS -g -emit-llvm -c -o $TARGET $SOURCE')
 
+llc_opts = ' -march=x86-64'
+if (env['PLATFORM'] == 'darwin'):
+	llc_opts += ' -disable-cfi'
+
 llvm_asm_bld = Builder(action = llvm_llc + \
-					' -march=x86-64 -o $TARGET $SOURCE',
+					llc_opts + ' -o $TARGET $SOURCE',
 					suffix = '.s',
 					src_suffix = '.bc')
 
