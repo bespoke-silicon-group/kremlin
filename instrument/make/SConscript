@@ -128,6 +128,13 @@ def assemble_files(source_filenames):
 
 	return obj_nodes
 
+def get_assembled_files():
+	to_assemble = [f for f in input_files if f.endswith(('.c','.cpp','.s'))]
+	pre_assembled = [f for f in input_files if f not in to_assemble]
+
+	newly_assembled = assemble_files(to_assemble)
+	return newly_assembled + pre_assembled
+
 if target == 'compile':
 	asm_nodes = compile_files(input_files)
 	env.Alias('compile', asm_nodes)
@@ -136,19 +143,23 @@ elif target == 'assemble':
 	obj_nodes = assemble_files(input_files)
 	env.Alias('assemble', obj_nodes)
 
-elif target == 'link':
+elif target == 'link' or target == 'link-shared-lib':
 	kremlib_obj = SConscript(kremlib_dir + 'SConstruct')
-	to_assemble = [f for f in input_files if f.endswith(('.c','.cpp','.s'))]
-	pre_assembled = [f for f in input_files if f not in to_assemble]
 
-	newly_compiled = assemble_files(to_assemble)
+	if target == 'link':
+		all_deps = get_assembled_files() + kremlib_obj
+	else:
+		all_deps = get_assembled_files()
 
 	if output_file == '':
 		prog_target = '#a.out'
 	else:
 		prog_target = output_file
 
-	prog = env.Program(prog_target, 
-						newly_compiled + pre_assembled + kremlib_obj)
+	if target == 'link':
+		prog = env.Program(prog_target, all_deps)
+	else:
+		prog = env.SharedLibrary(prog_target, all_deps)
 	sregions = env.Command('#sregions.txt', prog, "nm $SOURCE | grep \"_krem_\" | perl -p -i -e \'s/^.*krem_prefix//g; s/_krem_/\t/g\' > $TARGET")
 	env.Alias('link', [prog,sregions])
+	env.Alias('link-shared-lib', [prog,sregions])
