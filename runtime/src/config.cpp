@@ -12,6 +12,9 @@ typedef struct _config_ {
 	UInt8 enableRecursion;
 	UInt8 enableCRegion;
 
+	bool debug;
+	UInt debugLevel;
+
 	UInt32 cbufferSize;
 	UInt32 cacheSize;
 	char  outFileName[64];
@@ -36,8 +39,20 @@ void KConfigInit() {
 	config.gcPeriod = 1024;
 	config.enableRecursion = 1;
 	config.enableCRegion = 1;
+	config.debug = false;
+	config.debugLevel = 0;
 	strcpy(config.outFileName, "kremlin.bin");
 	strcpy(config.logOutFileName, "kremlin.log");
+}
+
+bool KConfigGetDebug() { return config.debug; }
+bool KConfigGetDebugLevel() { return config.debugLevel; }
+
+void KConfigSetDebug(bool flag) {
+	config.debug = flag;
+}
+void KConfigSetDebugLevel(UInt level) {
+	config.debugLevel = level;
 }
 
 void KConfigSetOutFileName(char* name) {

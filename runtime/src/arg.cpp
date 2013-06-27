@@ -12,7 +12,6 @@
 
 #include "debug.h"
 
-//char * __kremlin_output_filename;
 std::string __kremlin_output_filename;
 int __kremlin_level_to_log = -1;
 
@@ -20,15 +19,6 @@ extern int __kremlin_debug;
 extern int __kremlin_debug_level;
 
 extern "C" int __main(int argc, char** argv);
-
-UInt getKremlinDebugLevel() {
-	return __kremlin_debug_level;
-}
-
-UInt getKremlinDebugFlag() {
-	return __kremlin_debug;
-}
-
 
 int parseOptionInt(char* option_str) {
 	char *dbg_level_str = strtok(option_str,"= ");
@@ -87,6 +77,8 @@ void parseKremlinOptions(int argc, char* argv[], int& num_args, char**& real_arg
 		str_start = strstr(argv[i],"kremlin-debug");
 
 		if(str_start) {
+			KConfigSetDebug(true);
+			KConfigSetDebugLevel(parseOptionInt(argv[i]));
 			__kremlin_debug= 1;
 			__kremlin_debug_level = parseOptionInt(argv[i]);
 			continue;
