@@ -139,8 +139,10 @@ def create_kremlin_mk(src_lang):
     fixed = map(fix_flags, sys.argv[1:])
     options, args = parser.parse_known_args(fixed)
 
-    # TODO: FIXME
     def check_args(parser, options, args):
+        bad_opts = [a for a in args if a.startswith('-')]
+        if len(bad_opts) > 0:
+            parser.error("unrecognized option(s): " + " ".join(bad_opts))
         if options.target and len(args) > 1 and (options.compile or options.assemble):
             parser.error("cannot specify -o with -c or -S with multiple files")
 
