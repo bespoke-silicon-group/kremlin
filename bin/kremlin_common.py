@@ -91,15 +91,22 @@ def create_kremlin_mk(src_lang):
 
     common_options = [
 
-        GccOption(parser, "-p", dest="enable_prof", action="store_true",
-                    help="Enable profiling with prof."),
-        GccOption(parser, "-pg", dest="enable_gprof", action="store_true",
-                    help="Enable profiling with gprof."),
-
         GccOption(parser, "-pthread", dest="pthread", action="store_true", \
                     help="Add support for pthreads library.")
     ]
 
+    # we are ignoring these for various reasons
+    ignored_options = [
+
+        GccOption(parser, "-p", dest="enable_prof", action="store_true",
+                    help="Enable profiling with prof."),
+        GccOption(parser, "-pg", dest="enable_gprof", action="store_true",
+                    help="Enable profiling with gprof."),
+        GccOption(parser, "-g", dest="debug_native", action="store_true",
+                    help="Produce debug info in OS's native format."),
+        GccOption(parser, "-ggdb", dest="debug_gdb", action="store_true",
+                    help="Produce debug info for gdb.")
+    ]
 
     # These options should just be passed to Clang by adding them to CFLAGS
     # (Note: this becomes CCFLAGS for scons environment)
