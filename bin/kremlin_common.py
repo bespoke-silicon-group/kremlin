@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 from MakefileGenerator import MakefileGenerator
-from optparse import OptionParser
+#from optparse import OptionParser
+import argparse
 import os
 import subprocess
 import sys
@@ -42,19 +43,25 @@ def get_make_target(options):
 
 
 def create_kremlin_mk(src_lang):
-    usage = "usage: %prog options sources"
-    parser = OptionParser(usage = usage)
+    parser = argparse.ArgumentParser(prog='kremlin-cc')
 
     # Output file target
-    parser.add_option("-o", dest = "target", default = None)
+    parser.add_argument("-o", dest="target", help="Place output in file.")
 
     # Partial compilation
-    parser.add_option("-c", action = "store_true", dest = "assemble", default = False, help = "Compile and assemble, but do not link")
-    parser.add_option("-S", action = "store_true", dest = "compile", default = False, help = "Compile only; do not assemble or link")
-    parser.add_option("-E", action = "store_true", dest = "preprocess", default = False, help = "Preprocess only; do not compile, assemble or link")
+    parser.add_argument("-c", dest = "assemble", action="store_true",
+						help="Compile or assemble the source files, \
+								but do not link.")
+    parser.add_argument("-S", dest = "compile", action="store_true",
+						help="Stop after the stage of compilation proper; \
+								do not assemble.")
+    parser.add_argument("-E", dest = "preprocess", action="store_true",
+						help="Stop after the preprocessing stage; do not \
+								run the compiler proper.")
 
-    # These options should just be passed to GCC by adding them to CFLAGS
-    gcc_options = [
+    # These options should just be passed to Clang by adding them to CFLAGS
+    # (Note: this becomes CCFLAGS for scons environment)
+    compiler_options = [
 
         # Includes
         GccOption(parser, "-I", dest = "includeDirs"),
@@ -75,17 +82,25 @@ def create_kremlin_mk(src_lang):
 
         GccOption(parser, "-r", dest = "linker_symbols")]
 
-    # kremlin specific options
-    parser.add_option("--krem-inline", action = "store_true", dest = "krem_inline", default = False)
-    parser.add_option("--krem-debug", action = "store_true", dest = "krem_debug", default = False)
+    def fix_flags(s):
+        if s.startswith("-Wl,"):
+            return s.replace("-Wl,","-Wl=")
+        elif s.startswith("-Wa,"):
+            return s.replace("-Wa,","-Wa=")
+        elif s.startswith("-Wp,"):
+            return s.replace("-Wp,","-Wp=")
+        else:
+            return s
 
-    (options, args) = parser.parse_args()
+    fixed = map(fix_flags, sys.argv[1:])
+    options, args = parser.parse_known_args(fixed)
 
-    def check_options(parser, options, args):
+    # TODO: FIXME
+    def check_args(parser, options, args):
         if options.target and len(args) > 1 and (options.compile or options.assemble):
             parser.error("cannot specify -o with -c or -S with multiple files")
 
-    check_options(parser, options, args)
+    check_args(parser, options, args)
 
     lang_ext = ""
 
@@ -103,7 +118,9 @@ def create_kremlin_mk(src_lang):
             out.write(line)
 
         write = write_stdout_and_makefile
-        write("env = Environment(CCFLAGS = \'" + " ".join([option.get_cflags_str(options) for option in gcc_options]) + "\')")
+        write("env = Environment(CCFLAGS = \'" + \
+                " ".join([option.get_cflags_str(options) \
+                    for option in compiler_options]) + "\')")
         write("input_files = " + str(['#{0}'.format(i) for i in args]))
         write("target = \'" + make_target + "\'")
         write("output_file = \'" + output_filename + "\'")

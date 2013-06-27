@@ -23,7 +23,7 @@ class GccOption:
         if not parser_option_action in parser_options:
             parser_options[parser_option_action] = "append"
 
-        parser.add_option(*flags, **parser_options)
+        parser.add_argument(*flags, **parser_options)
 
     def get_cflags_str(self, options):
         """Takes the options returned by OptionParser.parse_args() and returns
