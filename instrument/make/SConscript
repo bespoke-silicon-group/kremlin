@@ -13,7 +13,7 @@ llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
 
 kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/llvm/' + \
-	'llvm-' + str(llvm_ver) + '-obj/Release+Asserts/lib/KremlinInstrument' + \
+	'llvm-' + str(llvm_ver) + '-obj/Debug+Asserts/lib/KremlinInstrument' + \
 	env['SHLIBSUFFIX']
 
 #conf = Configure(env)
@@ -79,7 +79,8 @@ def compile_files(source_filenames):
 
 	so = env.Command(kremlin_llvm_shared_obj, so_srcs,
 						'make -C ' + kremlin_instrument_src_dir + \
-						' LEVEL=' + '../llvm/llvm-' + str(llvm_ver) + '-obj')
+						' LEVEL=' + '../llvm/llvm-' + str(llvm_ver) + \
+                        '-obj DEBUG=1')
 	asm_nodes = []
 	for filename in source_filenames:
 		filename_split = str.split(filename,'.')
@@ -140,19 +141,31 @@ elif target == 'assemble':
 	obj_nodes = assemble_files(input_files)
 	env.Alias('assemble', obj_nodes)
 
-elif target == 'link':
+elif target == 'link' or target == 'link-shared-obj':
 	kremlib_obj = SConscript(kremlib_dir + 'SConstruct')
 	to_assemble = [f for f in input_files if f.endswith(('.c','.cpp','.s'))]
 	pre_assembled = [f for f in input_files if f not in to_assemble]
 
-	newly_compiled = assemble_files(to_assemble)
+	newly_assembled = assemble_files(to_assemble)
 
 	if output_file == '':
-		prog_target = '#a.out'
+		link_target = '#a.out'
 	else:
-		prog_target = output_file
+		link_target = output_file
 
-	prog = env.Program(prog_target, 
-						newly_compiled + pre_assembled + kremlib_obj)
+	prog = env.Program(link_target, 
+						newly_assembled + pre_assembled + kremlib_obj[0])
 	sregions = env.Command('#sregions.txt', prog, "nm $SOURCE | grep \"_krem_\" | perl -p -i -e \'s/^.*krem_prefix//g; s/_krem_/\t/g\' > $TARGET")
 	env.Alias('link', [prog,sregions])
+
+	pre_assembled_files = []
+	if target == 'link-shared-obj':
+		for x in newly_assembled:
+			x.attributes.shared = 1
+		for x in pre_assembled:
+			f = File(x)
+			f.attributes.shared = 1
+			pre_assembled_files.append(f)
+	shared_obj = env.SharedLibrary(link_target, 
+                        newly_assembled + pre_assembled_files + kremlib_obj[1])
+	env.Alias('link-shared-obj', shared_obj)
