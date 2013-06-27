@@ -15,13 +15,15 @@ class GccOption:
         self.flags = flags
         self.dest = parser_options[parser_option_dest]
 
+        self.separator = parser_options.pop("separator","")
+
         # Default to empty list if no default is specified
         if not parser_option_default in parser_options:
             parser_options[parser_option_default] = []
 
-        # Default to append if no action is specified
+        # Default to store if no action is specified
         if not parser_option_action in parser_options:
-            parser_options[parser_option_action] = "append"
+            parser_options[parser_option_action] = "store"
 
         parser.add_argument(*flags, **parser_options)
 
@@ -32,6 +34,9 @@ class GccOption:
 
         value = options.__dict__[self.dest]
 
+        if value == None:
+            return ""
+
         # If just a plain flag, add it if it's true
         if value == True:
             return self.flags[0]
@@ -40,12 +45,13 @@ class GccOption:
         if value == False:
             return ""
 
+        # FIXME: this is going to be wrong for something like -std=c99
         if isinstance(value, str):
-            return self.flags[0] + value
+            return self.flags[0] + self.separator + value
 
         # If the flag can be specified multiple times, add them all.
         if isinstance(value, list):
-            return " ".join([self.flags[0] + value for value in value])
+            return " ".join([self.flags[0] + self.separator + value for value in value])
 
         raise "Unknown type?: " + value
 

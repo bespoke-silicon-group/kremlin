@@ -61,26 +61,63 @@ def create_kremlin_mk(src_lang):
 
     # These options should just be passed to Clang by adding them to CFLAGS
     # (Note: this becomes CCFLAGS for scons environment)
-    compiler_options = [
+    cflag_options = [
 
-        # Includes
-        GccOption(parser, "-I", dest = "includeDirs"),
+        # preprocessor specific options
+        GccOption(parser, "-D", dest="preprocessor_flags", action="append",  \
+                    help="Preprocessor definition."),
+        GccOption(parser, "-I", dest="include_dirs", action="append",  \
+                    help="Add directory to include path."),
+        GccOption(parser, "-Wp", separator=",", dest="preproc_flags", action="append", \
+                    help="Option to pass to preprocessor."),
+        GccOption(parser, "-x", dest="language", choices=['none','c','c++'], \
+                    help="Specify language inside source file."),
+        GccOption(parser, "-std", separator="=", dest="lang_standard", \
+                    help="Specify language inside source file."),
 
-        # Language
-        GccOption(parser, "-x", choices = ['none', 'c', 'c++'], action = "store", dest = "language", default = 'none'),
+        # compiler/assembler specific options
+        GccOption(parser, "-Wa", separator=",", dest="assembler_flags", \
+                    action="append", help="Option to pass to assembler."),
+        GccOption(parser, "-O", dest="optimization", 
+                    help="Optimization level."),
+        GccOption(parser, "-f", dest="compile_opts", action="append",  \
+                    help="Perform optimization."),
+        GccOption(parser, "-pedantic", dest="pedantic", action="store_true", \
+                    help="Reject programs that don't meet ISO standard."),
 
-        GccOption(parser, "-D", dest = "preprocessor_defines"),
-        GccOption(parser, "-O", dest = "optimization"),
-        GccOption(parser, "-f", dest = "fOpts"),
-        GccOption(parser, "-p", dest = "profiler"),
-        GccOption(parser, "-g", action = "store_true", dest = "debug"),
+        GccOption(parser, "-W", dest="warning_flags", action="append",  \
+                    help="Set warnings.")
+    ]
 
-        # Load library
-        GccOption(parser, "-l", dest = "load_library"),
+    common_options = [
 
-        GccOption(parser, "-W", dest = "wOpts"),
+        GccOption(parser, "-p", dest="enable_prof", action="store_true",
+                    help="Enable profiling with prof."),
+        GccOption(parser, "-pg", dest="enable_gprof", action="store_true",
+                    help="Enable profiling with gprof."),
 
-        GccOption(parser, "-r", dest = "linker_symbols")]
+        GccOption(parser, "-pthread", dest="pthread", action="store_true", \
+                    help="Add support for pthreads library.")
+    ]
+
+
+    # These options should just be passed to Clang by adding them to CFLAGS
+    # (Note: this becomes CCFLAGS for scons environment)
+    ldflag_options = [
+        GccOption(parser, "-l", dest="linked_libs", action="append",  \
+                    help="Include library during linking."),
+        GccOption(parser, "-L", dest="library_dirs", action="append",  \
+                    help="Add directory to list of dirs search for libs."),
+        GccOption(parser, "-Wl", separator=",", dest="linker_flags", action="append", \
+                    help="Option to pass to linker."),
+        GccOption(parser, "-shared", dest="shared", action="store_true", \
+                    help="Produce a shared object which can then be \
+                            linked with other objects to form an \
+                            executable."),
+        GccOption(parser, "-rdynamic", dest="rdynamic", action="store_true", \
+                    help="Pass the -export-dynamic flags to ELF linker \
+                            on targets that support it.")
+    ]
 
     def fix_flags(s):
         if s.startswith("-Wl,"):
@@ -117,10 +154,24 @@ def create_kremlin_mk(src_lang):
             #sys.stdout.write(line)
             out.write(line)
 
+        def smart_strip(s):
+            s = s.strip()
+            if len(s) > 0:
+                s = ' ' + s
+            return s
+
         write = write_stdout_and_makefile
-        write("env = Environment(CCFLAGS = \'" + \
-                " ".join([option.get_cflags_str(options) \
-                    for option in compiler_options]) + "\')")
+        common_str = smart_strip(" ".join([option.get_cflags_str(options) \
+                                for option in common_options]))
+        ccflags_str = smart_strip(" ".join([option.get_cflags_str(options) \
+                                for option in cflag_options]) + common_str)
+        linkflags_str = smart_strip(" ".join([option.get_cflags_str(options) \
+                                for option in ldflag_options]) + common_str)
+        write("env = Environment()")
+        if len(ccflags_str) > 0:
+            write("env.Append(CCFLAGS = \'" + ccflags_str + "\')")
+        if len(linkflags_str) > 0:
+            write("env.Append(LINKFLAGS = \'" + linkflags_str + "\')")
         write("input_files = " + str(['#{0}'.format(i) for i in args]))
         write("target = \'" + make_target + "\'")
         write("output_file = \'" + output_filename + "\'")
