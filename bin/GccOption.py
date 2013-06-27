@@ -50,7 +50,7 @@ class GccOption:
 
         # If the flag can be specified multiple times, add them all.
         if isinstance(value, list):
-            return " ".join([self.flags[0] + self.separator + value for value in value])
+            return " ".join([self.flags[0] + self.separator + v for v in value if v])
 
         raise "Unknown type?: " + value
 

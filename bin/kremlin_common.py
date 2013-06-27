@@ -85,7 +85,7 @@ def create_kremlin_mk(src_lang):
         GccOption(parser, "-pedantic", dest="pedantic", action="store_true", \
                     help="Reject programs that don't meet ISO standard."),
 
-        GccOption(parser, "-W", dest="warning_flags", action="append",  \
+        GccOption(parser, "-W", nargs="?", dest="warning_flags", action="append",  \
                     help="Set warnings.")
     ]
 
