@@ -45,7 +45,6 @@ class GccOption:
         if value == False:
             return ""
 
-        # FIXME: this is going to be wrong for something like -std=c99
         if isinstance(value, str):
             return self.flags[0] + self.separator + value
 
