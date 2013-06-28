@@ -133,13 +133,6 @@ def assemble_files(source_filenames):
 
 	return obj_nodes
 
-def get_assembled_files():
-	to_assemble = [f for f in input_files if f.endswith(('.c','.cpp','.s'))]
-	pre_assembled = [f for f in input_files if f not in to_assemble]
-
-	newly_assembled = assemble_files(to_assemble)
-	return newly_assembled + pre_assembled
-
 if target == 'compile':
 	asm_nodes = compile_files(input_files)
 	env.Alias('compile', asm_nodes)
