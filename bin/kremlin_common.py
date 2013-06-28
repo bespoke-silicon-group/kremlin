@@ -144,7 +144,7 @@ def create_kremlin_mk(src_lang):
                     help="Enable profiling with prof."),
         GccOption(parser, "-pg", dest="enable_gprof", action="store_true",
                     help="Enable profiling with gprof."),
-        GccOption(parser, "-g", dest="debug_native", action="store",
+        GccOption(parser, "-g", nargs='?', dest="debug_native", action="store",
 					type=int, choices=[0,1,2,3], default=0,
                     help="Produce debug info in OS's native format."),
         GccOption(parser, "-ggdb", dest="debug_gdb", action="store_true",
