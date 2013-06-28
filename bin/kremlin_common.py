@@ -82,8 +82,6 @@ def create_kremlin_mk(src_lang):
         # compiler/assembler specific options
         GccOption(parser, "-Wa", separator=",", dest="assembler_flags", \
                     action="append", help="Option to pass to assembler."),
-        GccOption(parser, "-O", dest="optimization", 
-                    help="Optimization level."),
         GccOption(parser, "-f", dest="compile_opts", action="append",  \
                     help="Perform optimization."),
         GccOption(parser, "-pedantic", dest="pedantic", action="store_true", \
@@ -102,6 +100,8 @@ def create_kremlin_mk(src_lang):
     # we are ignoring these for various reasons
     ignored_options = [
 
+        GccOption(parser, "-O", dest="optimization", 
+                    help="Optimization level."),
         GccOption(parser, "-p", dest="enable_prof", action="store_true",
                     help="Enable profiling with prof."),
         GccOption(parser, "-pg", dest="enable_gprof", action="store_true",
