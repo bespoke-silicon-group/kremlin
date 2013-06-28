@@ -143,6 +143,8 @@ elif target == 'assemble':
 
 elif target == 'link' or target == 'link-shared-obj':
 	kremlib_obj = SConscript(kremlib_dir + 'SConstruct')
+	to_assemble = [f for f in input_files if f.endswith(('.c','.cpp','.s'))] 
+	pre_assembled = [f for f in input_files if f not in to_assemble]
 
 	newly_assembled = assemble_files(to_assemble)
 
