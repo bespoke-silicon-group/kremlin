@@ -53,6 +53,11 @@ def get_make_target(options):
 def create_kremlin_mk(src_lang):
     parser = argparse.ArgumentParser(prog='kremlin-cc')
 
+    # special, kremlin-gcc options
+    parser.add_argument("--kremlin-print-sconstruct", action='store_true', \
+						dest="print_scons_file", \
+						help="Print the resulting SConstruct.kremlin to stdout")
+
     # Output file target
     parser.add_argument("-o", dest="target", help="Place output in file.")
 
@@ -262,10 +267,11 @@ def create_kremlin_mk(src_lang):
 
     # Run make
     #print("running: " + ' '.join(make_args))
-    cat_args = ["cat", makefile_name]
-    cat_process = subprocess.Popen(cat_args, stdin = subprocess.PIPE)
-    cat_process.stdin.close()
-    cat_process.wait()
+    if options.print_scons_file:
+        cat_args = ["cat", makefile_name]
+        cat_process = subprocess.Popen(cat_args, stdin = subprocess.PIPE)
+        cat_process.stdin.close()
+        cat_process.wait()
 
     make_process = subprocess.Popen(make_args, stdin = subprocess.PIPE)
     make_process.stdin.close()
