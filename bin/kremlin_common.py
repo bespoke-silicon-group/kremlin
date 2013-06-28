@@ -93,6 +93,9 @@ def create_kremlin_mk(src_lang):
 
     common_options = [
 
+        GccOption(parser, "-pipe", dest="pipe", action="store_true", \
+                    help="Use pipes rather than temp files for \
+							communication during compilation."),
         GccOption(parser, "-pthread", dest="pthread", action="store_true", \
                     help="Add support for pthreads library.")
     ]
