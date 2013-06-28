@@ -25,6 +25,10 @@ def get_make_target(options):
 
     make_target = "link"
 
+    # FIXME: the following won't be triggered properly if -Wl,-shared is used
+    if options.shared:
+        make_target = "link-shared-obj"
+
     if options.assemble:
         make_target = "assemble"
 
