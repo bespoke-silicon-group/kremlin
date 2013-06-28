@@ -1,6 +1,6 @@
 import os
 
-Import('env','input_files', 'target', 'output_file')
+Import('env','input_files', 'target', 'output_file', 'make_output_file')
 
 llvm_ver = 3.2
 
@@ -36,6 +36,11 @@ def generate_opt_actions(target, source, env, for_signature):
 llvm_bc_bld = Builder(action = llvm_clang + \
 					' $CCFLAGS -g -emit-llvm -c -o $TARGET $SOURCE')
 
+plain_clang_bld = Builder(action = llvm_clang + \
+					' $CCFLAGS -o $TARGET $SOURCES')
+plain_clang_no_target_bld = Builder(action = llvm_clang + \
+					' $CCFLAGS $SOURCES')
+
 llc_opts = ' -march=x86-64'
 if env['PLATFORM'] == 'darwin':
 	llc_opts += ' -disable-cfi'
@@ -52,6 +57,8 @@ opt_bld = Builder(generator = generate_opt_actions)
 env['BUILDERS']['LLVMBitCode'] = llvm_bc_bld
 env['BUILDERS']['LLVMOpt'] = opt_bld
 env['BUILDERS']['InstrumentedAssembly'] = llvm_asm_bld
+env['BUILDERS']['PlainClang'] = plain_clang_bld
+env['BUILDERS']['PlainClangNoTarget'] = plain_clang_no_target_bld
 
 env['LINK'] = 'g++'
 
@@ -135,7 +142,28 @@ def assemble_files(source_filenames):
 
 	return obj_nodes
 
-if target == 'compile':
+if target == 'gen-make-rule':
+	if make_output_file == '' and output_file == '':
+		gen = env.PlainClangNoTarget(None,input_files)
+	elif make_output_file != '' and output_file != '':
+		gen = [env.PlainClang(make_output_file,input_files)]
+		gen.append(env.Command(output_file,None,'touch $TARGET'))
+	elif make_output_file != '':
+		gen = env.PlainClang(make_output_file,input_files)
+	else:
+		gen = env.PlainClang(output_file,input_files)
+
+	env.Alias('gen-make-rule', gen)
+
+elif target == 'preprocess':
+	if output_file != '':
+		gen = env.PlainClang(output_file,input_files)
+	else:
+		gen = env.PlainClangNoTarget(None,input_files)
+
+	env.Alias('preprocess', gen)
+
+elif target == 'compile':
 	asm_nodes = compile_files(input_files)
 	env.Alias('compile', asm_nodes)
 
