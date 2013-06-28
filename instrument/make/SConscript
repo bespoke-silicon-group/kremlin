@@ -37,8 +37,10 @@ llvm_bc_bld = Builder(action = llvm_clang + \
 					' $CCFLAGS -g -emit-llvm -c -o $TARGET $SOURCE')
 
 llc_opts = ' -march=x86-64'
-if (env['PLATFORM'] == 'darwin'):
+if env['PLATFORM'] == 'darwin':
 	llc_opts += ' -disable-cfi'
+if str(env['CCFLAGS']).find('-fPIC') != -1:
+	llc_opts += ' -relocation-model=pic'
 
 llvm_asm_bld = Builder(action = llvm_llc + \
 					llc_opts + ' -o $TARGET $SOURCE',
