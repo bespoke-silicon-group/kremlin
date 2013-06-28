@@ -153,19 +153,22 @@ elif target == 'link' or target == 'link-shared-obj':
 	else:
 		link_target = output_file
 
-	prog = env.Program(link_target, 
-						newly_assembled + pre_assembled + kremlib_obj[0])
-	sregions = env.Command('#sregions.txt', prog, "nm $SOURCE | grep \"_krem_\" | perl -p -i -e \'s/^.*krem_prefix//g; s/_krem_/\t/g\' > $TARGET")
-	env.Alias('link', [prog,sregions])
+	if target == 'link':
+		prog = env.Program(link_target, 
+							newly_assembled + pre_assembled + kremlib_obj[0])
+		sregions = env.Command('#sregions.txt', prog, "nm $SOURCE | grep \"_krem_\" | perl -p -i -e \'s/^.*krem_prefix//g; s/_krem_/\t/g\' > $TARGET")
+		env.Alias('link', [prog,sregions])
 
-	pre_assembled_files = []
-	if target == 'link-shared-obj':
-		for x in newly_assembled:
-			x.attributes.shared = 1
-		for x in pre_assembled:
-			f = File(x)
-			f.attributes.shared = 1
-			pre_assembled_files.append(f)
-	shared_obj = env.SharedLibrary(link_target, 
-                        newly_assembled + pre_assembled_files + kremlib_obj[1])
-	env.Alias('link-shared-obj', shared_obj)
+	else:
+		pre_assembled_files = []
+		if target == 'link-shared-obj':
+			for x in newly_assembled:
+				x.attributes.shared = 1
+			for x in pre_assembled:
+				f = env.File(x)
+				f.attributes.shared = 1
+				pre_assembled_files.append(f)
+		shared_obj = env.SharedLibrary(target = link_target, \
+						source = newly_assembled + pre_assembled_files \
+						+ kremlib_obj[1], SHLIBPREFIX='')
+		env.Alias('link-shared-obj', shared_obj)
