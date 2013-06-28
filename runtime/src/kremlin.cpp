@@ -2033,8 +2033,8 @@ static Bool kremlinInit() {
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
         getMinLevel(), getMaxLevel(), getIndexSize());
     MSG(0, "kremlinInit running....");
-	if(getKremlinDebugFlag()) { 
-		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", getKremlinDebugLevel()); 
+	if(KConfigGetDebug()) { 
+		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", KConfigGetDebugLevel()); 
 	}
 
 	ArgFifoInit();

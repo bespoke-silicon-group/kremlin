@@ -8,7 +8,4 @@ Level getMaxReportLevel(void);
 Level getLevelDepth(void);
 Level getMaxProfileLevel(void);
 
-UInt getKremlinDebugFlag();
-UInt getKremlinDebugLevel();
-
 #endif

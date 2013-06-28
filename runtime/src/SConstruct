@@ -1,3 +1,9 @@
 env = Environment(CCFLAGS = '-O3')
-kremlib = env.Library('kremlin', ['debug.cpp', 'kremlin.cpp', 'ATable.cpp', 'MemMapAllocator.cpp', 'CRegion.cpp', 'arg.cpp', 'MShadowBase.cpp', 'MShadowSkadu.cpp', 'MShadowSTV.cpp', 'compression.cpp', 'config.cpp', 'minilzo.cpp', 'mpool.cpp', 'MShadowStat.cpp', 'MShadowDummy.cpp', 'MShadowCache.cpp'])
-Return('kremlib')
+files = ['debug.cpp', 'kremlin.cpp', 'ATable.cpp', 'MemMapAllocator.cpp',
+    'CRegion.cpp', 'MShadowBase.cpp', 'MShadowSkadu.cpp',
+    'MShadowSTV.cpp', 'compression.cpp', 'config.cpp', 'minilzo.cpp', 'mpool.cpp',
+    'MShadowStat.cpp', 'MShadowDummy.cpp', 'MShadowCache.cpp']
+kremlib_dynamic = env.SharedLibrary('kremlin', files)
+files.append('arg.cpp')
+kremlib_static = env.Library('kremlin', files)
+Return('kremlib_static kremlib_dynamic')

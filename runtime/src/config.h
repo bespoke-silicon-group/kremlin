@@ -46,4 +46,10 @@ void KConfigDisableCRegion();
 
 void KConfigInit();
 
+bool KConfigGetDebug();
+bool KConfigGetDebugLevel();
+
+void KConfigSetDebug(bool flag);
+void KConfigSetDebugLevel(UInt level);
+
 #endif
