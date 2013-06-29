@@ -26,6 +26,10 @@ static FILE* stream;
 
 void DebugInit() {
 	stream = fopen(KConfigGetLogOutFileName(), "w");
+	if (stream == NULL) {
+		fprintf(stderr,"ERROR: could not open file for writing: %s\n",KConfigGetLogOutFileName());
+		exit(1);
+	}
 }
 
 void DebugDeinit() {
