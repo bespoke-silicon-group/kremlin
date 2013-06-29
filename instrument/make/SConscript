@@ -30,6 +30,8 @@ def generate_opt_actions(target, source, env, for_signature):
 		load_string = ' '
 	action_str = llvm_opt + load_string + ' -' + action + \
 			' -o ' + str(target[0]) + ' ' + str(source[0])
+	if action == 'regioninstrument':
+		action_str += ' -kremlib-dump'
 	action_str += ' &> ' + target_name_splits[0] + '.' + action + '.log'
 	return action_str
 
@@ -110,6 +112,8 @@ def compile_files(source_filenames):
 			Clean(t, log_name)
 			if p == 'criticalpath':
 				Clean(t, prefix_str + '.ids.txt')
+			elif p == 'regioninstrument':
+				Clean(t, prefix_str + '.kdump')
 
 		if output_file == '' or target != 'compile':
 			filename_split[-1] = 's'
