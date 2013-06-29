@@ -695,8 +695,8 @@ namespace {
 				// if not a declaration, this is a definition so we add to the map
 				if(!func.isDeclaration() 
 				  && func.getLinkage() != GlobalValue::AvailableExternallyLinkage
+				  && !func.isVarArg()
 				  && (!noRecursiveFuncs || !isRecursive(&func)) 
-				  && (!noRecursiveFuncs || !func.isVarArg())
 				  ) {
 					// if this function name already exists (b/c of static functions in different modules) then we
 					// rename it to be unique. The renaming is just the original name with "__<modulename>" tacked
@@ -895,11 +895,14 @@ namespace {
 
 			foreach(Function& func, m) {
 
-				// if this is just a declaration, we can't do any instrumentation here
-				if(func.isDeclaration() || (noRecursiveFuncs && isRecursive(&func)) ||
-				
-				//or if the functions are the C++ startup and cleanup functions, then skip them too
-				func.getName() == CPP_ENTRY_FUNC || isCppExitFunc(&func)) {
+				if( 	func.isDeclaration() // can't do anything with declarations
+					|| func.isVarArg() // currently don't handle vararg functions
+					|| (noRecursiveFuncs && isRecursive(&func)) // make sure we don't try a recursive func if we say not to
+					//or if the functions are the C++ startup and cleanup functions, then skip them too
+					|| func.getName() == CPP_ENTRY_FUNC 
+					|| isCppExitFunc(&func)
+				  )
+				{
 					continue;
 				}
 
