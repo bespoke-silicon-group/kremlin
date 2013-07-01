@@ -35,7 +35,6 @@ def get_make_target(options):
     if options.compile:
         make_target = "compile"
 
-    # TODO: Write this rule in the makefile.
     if options.preprocess:
         make_target = "preprocess"
 
