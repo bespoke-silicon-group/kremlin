@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 if __name__ == "__main__":
+	print("ERROR: FORTRAN is currently not supported by kremlin.")
+	"""
 	from kremlin_common import create_kremlin_mk
 
 	create_kremlin_mk("fortran")
+	"""
