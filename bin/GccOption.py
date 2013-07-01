@@ -45,12 +45,25 @@ class GccOption:
         if value == False:
             return ""
 
+        def add_escapes(my_str, single_escape, double_escape):
+            """ Return string that has escape char (\) added before any
+			character in single_escape and double escape before any character
+			in double_escape."""
+            unique_symbols = set(single_escape)
+            fixed_str = my_str
+            for sym in unique_symbols:
+                fixed_str = fixed_str.replace(str(sym), '\\' + str(sym))
+            unique_symbols = set(double_escape)
+            for sym in unique_symbols:
+                fixed_str = fixed_str.replace(str(sym), '\\\\' + str(sym))
+            return fixed_str
+
         if isinstance(value, str):
-            return self.flags[0] + self.separator + value
+            return self.flags[0] + self.separator + add_escapes(value,"'<>",'"')
 
         # If the flag can be specified multiple times, add them all.
         if isinstance(value, list):
-            return " ".join([self.flags[0] + self.separator + v for v in value if v])
+            return " ".join([self.flags[0] + self.separator + add_escapes(v,"'<>",'"') for v in value if v])
 
         raise "Unknown type?: " + value
 
