@@ -18,18 +18,6 @@ kremlin.mk
 kremlin_region_graph.dot
 *.ids.txt
 
-
-#############################
-# llvm build directory crud #
-#############################
-2.8-obj/
-2.8-src/
-llvm-2.8.tgz
-llvm-gcc-4.2-2.8-src/
-llvm-gcc-4.2-2.8.source.tgz
-instrument/llvm/install/
-instrument/llvm/llvm-gcc-4.2-2.8-obj/
-
 .sconsign.dblite
 
 kremlin.bin
