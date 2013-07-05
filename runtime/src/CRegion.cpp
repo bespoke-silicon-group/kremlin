@@ -457,18 +457,15 @@ static void CNodeUpdate(CNode* node, RegionField* info) {
 }
 
 static CNode* CNodeFindChild(CNode* node, UInt64 sid, UInt64 callSite) {
-	CNode* child = node->firstChild;
 	//fprintf(stderr, "looking for sid : 0x%llx, callSite: 0x%llx\n", sid, callSite);
-	while (child != NULL) {
+	for (unsigned i = 0; i < node->children.size(); ++i) {
+		CNode* child = node->children[i];
 		//fprintf(stderr, "\tcandidate sid : 0x%llx, callSite: 0x%llx\n", child->sid, child->cid);
-		if (child->sid != sid)
-			child = child->next;
-		else if (child->rType != RegionFunc)
+		if ( child->sid == sid
+			&& (child->rType != RegionFunc || child->cid == callSite)
+		   ) {
 			return child;
-		else if (child->cid == callSite) 
-			return child;
-		else
-			child = child->next;
+		}
 	}
 
 	//fprintf(stderr, "\tnot found, creating one..\n");
@@ -477,10 +474,7 @@ static CNode* CNodeFindChild(CNode* node, UInt64 sid, UInt64 callSite) {
 
 static void CNodeLink(CNode* parent, CNode* child) {
 	assert(parent != NULL);
-	CNode* prevFirstChild = (parent == NULL) ? NULL : parent->firstChild;
-	child->next = prevFirstChild;
-	parent->firstChild = child;
-	parent->childrenSize++;
+	parent->children.push_back(child);
 	child->parent = parent;
 }
 
@@ -501,7 +495,6 @@ static CNode* CNodeCreate(SID sid, CID cid, RegionType type) {
 	ret->cid = cid;
 	ret->childrenSize = 0;
 	ret->recursion = NULL;
-	ret->firstChild = NULL;
 	ret->numInstance = 0;
 	ret->isDoall = 1;
 
@@ -549,29 +542,17 @@ static void CNodeDelete(CNode* node) {
 
 
 // side effect: oldRegion's parent is set to NULL
-static void CNodeReplaceChild(CNode* parent, CNode* oldRegion, CNode* newRegion) {
-	CNode* child = parent->firstChild;
-	oldRegion->parent = NULL;
+static void CNodeReplaceChild(CNode* parent, CNode* old_region, CNode* new_region) {
+	old_region->parent = NULL;
 
-	// case 1: first child
-	if (child == oldRegion) {
-		parent->firstChild = newRegion;
-		newRegion->next = oldRegion->next;
-		return;
-	}
-
-	// case 2: not the first child
-	CNode* prev = child;
-	child = child->next;
-	while (child != NULL) {
-		if (child == oldRegion) {
-			prev->next = newRegion;
-			newRegion->next = oldRegion->next;
+	for (unsigned i = 0; i < parent->children.size(); ++i) {
+		CNode* child = parent->children[i];
+		if (child == old_region) {
+			parent->children[i] = new_region;
 			return;
 		}
-		prev = child;
-		child = child->next;
 	}
+
 	assert(0);
 	return;
 }
@@ -583,6 +564,7 @@ static void CNodeReplaceChild(CNode* parent, CNode* oldRegion, CNode* newRegion)
 
 static char _buf[256];
 static char* _strType[] = {"NORM", "RINIT", "RSINK"};
+
 static char* CNodeToString(CNode* node) {
 	if (node == NULL) {
 		sprintf(_buf, "NULL"); 
@@ -590,7 +572,7 @@ static char* CNodeToString(CNode* node) {
 	}
 
 	UInt64 parentId = (node->parent == NULL) ? 0 : node->parent->id;
-	UInt64 childId = (node->firstChild == NULL) ? 0 : node->firstChild->id;
+	UInt64 childId = (node->children[0] == NULL) ? 0 : node->children[0]->id;
 	sprintf(_buf, "id: %d, type: %5s, parent: %d, firstChild: %d, sid: %llx", 
 		node->id, _strType[node->type], parentId, childId, node->sid);
 	return _buf;
@@ -738,7 +720,7 @@ static void emit(const char* file) {
 		fprintf(stderr,"[kremlin] ERROR: couldn't open binary output file\n");
 		exit(1);
 	}
-	emitRegion(fp, CPositionGetTree()->root->firstChild, 0);
+	emitRegion(fp, CPositionGetTree()->root->children[0], 0);
 	fclose(fp);
 	fprintf(stderr, "[kremlin] Created File %s : %d Regions Emitted (all %d leaves %d)\n", 
 		file, numCreated, numEntries, numEntriesLeaf);
@@ -791,15 +773,13 @@ static void emitNode(FILE* fp, CNode* node) {
 	fwrite(&node->isDoall, sizeof(Int64), 1, fp);
 	fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
 
-	CNode* current = node->firstChild;
-	int i;
-	UInt64 size = node->childrenSize;
-	for (i=0; i<size; i++) {
-		assert(current != NULL);
-		fwrite(&current->id, sizeof(Int64), 1, fp);    
-		current = current->next;
-	}           
-	assert(current == NULL);
+	// TRICKY: not sure this is necessary but we go in reverse order to mimic
+	// the behavior when we had a C linked-list for children
+	for (unsigned i = node->children.size(); i >= 0; --i) {
+		CNode* child = node->children[i];
+		assert(child != NULL);
+		fwrite(&child->id, sizeof(Int64), 1, fp);    
+	}
 }
 
 /**
@@ -869,54 +849,23 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 		}
 	}
 
-#if 0
-		fwrite(&node->id, sizeof(Int64), 1, fp);
-		fwrite(&node->sid, sizeof(Int64), 1, fp);
-		fwrite(&node->cid, sizeof(Int64), 1, fp);
-		fwrite(&node->numInstance, sizeof(Int64), 1, fp);
-
-		fwrite(&stat->totalWork, sizeof(Int64), 1, fp);
-		fwrite(&stat->tpWork, sizeof(Int64), 1, fp);
-		fwrite(&stat->spWork, sizeof(Int64), 1, fp);
-
-		UInt64 minSPInt = (UInt64)(stat->minSP * 100.0);
-		UInt64 maxSPInt = (UInt64)(stat->maxSP * 100.0);
-		fwrite(&minSPInt, sizeof(Int64), 1, fp);
-		fwrite(&maxSPInt, sizeof(Int64), 1, fp);
-		fwrite(&stat->isDoall, sizeof(Int64), 1, fp);
-
-		fwrite(&node->totalChildCount, sizeof(Int64), 1, fp);
-		fwrite(&node->minChildCount, sizeof(Int64), 1, fp);
-		fwrite(&node->maxChildCount, sizeof(Int64), 1, fp);
-		fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
-		CNode* current = node->firstChild;
-		int i;
-		for (i=0; i<size; i++) {
-			assert(current != NULL);
-			fwrite(&current->id, sizeof(Int64), 1, fp);    
-			current = current->next;
-		}    
-#endif
-
-
-	CNode* current = node->firstChild;
-	int i;
-	for (i=0; i<node->childrenSize; i++) {
-		emitRegion(fp, current, level+1);
-        current = current->next;
+	// TRICKY: not sure this is necessary but we go in reverse order to mimic
+	// the behavior when we had a C linked-list for children
+	for (unsigned i = node->children.size(); i >= 0; --i) {
+		CNode* child = node->children[i];
+		emitRegion(fp, child, level+1);
 	}
-	assert(current == NULL);
 }
 
 void emitDOT(FILE* fp, CNode* node) {
 	fprintf(stderr,"DOT: visiting %lu\n",node->id);
-	CNode* child_node = node->firstChild;
-	UInt64 size = node->childrenSize;
-	int i;
-	for(i = 0; i < size; ++i) {
-		fprintf(fp,"\t%llx -> %llx;\n", node->id, child_node->id);
-		emitDOT(fp,child_node);
-		child_node = child_node->next;
+
+	// TRICKY: not sure this is necessary but we go in reverse order to mimic
+	// the behavior when we had a C linked-list for children
+	for (unsigned i = node->children.size(); i >= 0; --i) {
+		CNode* child = node->children[i];
+		fprintf(fp, "\t%llx -> %llx;\n", node->id, child->id);
+		emitDOT(fp, child);
 	}
 }
 

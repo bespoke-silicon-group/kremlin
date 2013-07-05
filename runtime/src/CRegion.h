@@ -1,6 +1,7 @@
 #ifndef _CREGION_H_
 #define _CREGION_H_
 
+#include <vector>
 #include "ktypes.h"
 
 typedef struct _cstat_t CStat;
@@ -67,8 +68,8 @@ struct _cnode_t {
 
 	// management of tree
 	CNode* parent;
-	CNode* firstChild;
-	CNode* next; // for siblings	
+	std::vector<CNode*> children;
+
 	CTree* tree; // for linking a CTree
 	CNode* recursion;
 	UInt64 childrenSize;
