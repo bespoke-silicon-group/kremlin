@@ -207,33 +207,12 @@ void CRegionExit(RegionField* info) {
  *
  */
 
-static std::stack<CItem*> c_region_stack;
-static std::vector<CItem*> c_region_stack_freelist;
-
-static CItem* stackTop;
-
-static CItem* CRegionStackAllocItem() {
-	CItem* ret = NULL;
-	if (c_region_stack_freelist.empty()) {
-		ret = (CItem*)MemPoolAllocSmall(sizeof(CItem));
-	} else {
-		ret = c_region_stack_freelist.back();
-		c_region_stack_freelist.pop_back();
-	}
-	return ret;
-}
-
-// TODO: one line and called from one spot... remove?
-static void CRegionStackFreeItem(CItem* item) {
-	c_region_stack_freelist.push_back(item);
-}
+static std::stack<CNode*> c_region_stack;
 
 static void CRegionPush(CNode* node) {
 	MSG(DEBUG_CREGION, "CRegionPush: ");
 
-	CItem* item = CRegionStackAllocItem();
-	item->node = node;
-	c_region_stack.push(item);
+	c_region_stack.push(node);
 
 	MSG(DEBUG_CREGION, "%s\n", CNodeToString(node));
 }
@@ -245,12 +224,10 @@ static CNode* CRegionPop() {
 		return NULL;
 	}
 
-	CNode* ret = c_region_stack.top()->node;
+	CNode* ret = c_region_stack.top();
+	c_region_stack.pop();
 	MSG(DEBUG_CREGION, "%s\n", CNodeToString(ret));
 
-	CItem* toDelete = c_region_stack.top();
-	c_region_stack.pop();
-	CRegionStackFreeItem(toDelete);
 	return ret;
 }
 
