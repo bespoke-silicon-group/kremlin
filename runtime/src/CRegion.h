@@ -7,26 +7,6 @@
 
 class CNode;
 
-class CStat {
-public:
-	UInt64 totalWork;
-	double minSP;
-	double maxSP;
-
-	UInt64 spWork;
-	UInt64 tpWork;
-
-	UInt64 readCnt;
-	UInt64 writeCnt;
-	UInt64 loadCnt;
-	UInt64 storeCnt;
-	
-	UInt64 totalIterCount;
-	UInt64 minIterCount;
-	UInt64 maxIterCount;
-
-	UInt64 numInstance;
-};
 
 class CTree {
 public:

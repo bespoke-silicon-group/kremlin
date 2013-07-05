@@ -32,9 +32,6 @@ static char*  CPositionToStr();
 static void   CRegionPush(CNode* node);
 static CNode* CRegionPop();
 
-static CStat* CStatCreate(int index);
-static void   CStatDelete(CStat* region);
-
 static void CNodeStatForward(CNode* current);
 static void CNodeStatBackward(CNode* current);
 
@@ -279,38 +276,6 @@ static char* CPositionToStr() {
 }
 
 
-
-/*****************************
- * CStat Related Routines
- *****************************/
-
-
-static CStat* CStatCreate(int index) {
-	CStat* ret = (CStat*)CRegionMemAlloc(sizeof(CStat), 1);
-	ret->totalWork = 0;
-	ret->tpWork = 0;
-	ret->spWork = 0;
-	ret->minSP = 0xFFFFFFFFFFFFFFFFULL;
-	ret->maxSP = 0;
-	ret->readCnt = 0;
-	ret->writeCnt = 0;
-	ret->loadCnt = 0;
-	ret->storeCnt = 0;
-
-	// iteration info	
-	ret->totalIterCount = 0;
-	ret->minIterCount = 0xFFFFFFFFFFFFFFFFULL;
-	ret->maxIterCount = 0;
-
-	ret->numInstance = 0;
-
-	return ret;
-}
-
-static void CStatDelete(CStat* stat) {
-	CRegionMemFree(stat, sizeof(CStat), 1); 
-}
-
 /****************************
  * CNode Related Routines 
  ***************************/
@@ -324,12 +289,12 @@ static void CNodeStatForward(CNode* node) {
 	// FIXME: it appears as though if and else-if can be combined
 	if (node->stats.size() == 0) {
 		assert(stat_index == 0); // FIXME: is this correct assumption?
-		CStat* new_stat = CStatCreate(0);
+		CStat* new_stat = CStat::create(0);
 		node->stats.push_back(new_stat);
 	}
 
 	else if (stat_index >= node->stats.size()) {
-		CStat* new_stat = CStatCreate(stat_index);
+		CStat* new_stat = CStat::create(stat_index);
 		node->stats.push_back(new_stat);
 	}
 }

@@ -1,4 +1,5 @@
 #include "CNode.h"
+#include "CStat.h"
 #include "MemMapAllocator.h"
 #include "debug.h"
 

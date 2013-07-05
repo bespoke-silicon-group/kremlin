@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "CRegion.h"
+#include "CStat.h"
 
 #define DEBUG_CREGION	3
 
