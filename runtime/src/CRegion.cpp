@@ -476,7 +476,6 @@ static CNode* CNodeCreate(SID sid, CID cid, RegionType type) {
 	ret->id = CNodeAllocId();
 	ret->sid = sid;
 	ret->cid = cid;
-	ret->childrenSize = 0;
 	ret->recursion = NULL;
 	ret->numInstance = 0;
 	ret->isDoall = 1;
@@ -726,7 +725,7 @@ static Bool isEmittable(Level level) {
 static void emitNode(FILE* fp, CNode* node) {
 	numCreated++;
 	MSG(DEBUG_CREGION, "Node id: %d, sid: %llx type: %d numInstance: %d nChildren: %d DOALL: %d\n", 
-		node->id, node->sid, node->type, node->numInstance, node->childrenSize, node->isDoall);
+		node->id, node->sid, node->type, node->numInstance, node->children.size(), node->isDoall);
 	fwrite(&node->id, sizeof(Int64), 1, fp);
 	fwrite(&node->sid, sizeof(Int64), 1, fp);
 	fwrite(&node->cid, sizeof(Int64), 1, fp);
@@ -739,12 +738,12 @@ static void emitNode(FILE* fp, CNode* node) {
 	fwrite(&targetId, sizeof(Int64), 1, fp);
 	fwrite(&node->numInstance, sizeof(Int64), 1, fp);
 	fwrite(&node->isDoall, sizeof(Int64), 1, fp);
-	fwrite(&node->childrenSize, sizeof(Int64), 1, fp);
+	UInt64 numChildren = node->children.size();
+	fwrite(&numChildren, sizeof(Int64), 1, fp);
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
 	for (int i = node->children.size()-1; i >= 0; --i) {
-	//for (int i = 0; i < node->children.size(); ++i) {
 		CNode* child = node->children[i];
 		assert(child != NULL);
 		fwrite(&child->id, sizeof(Int64), 1, fp);    
@@ -804,7 +803,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	
 	if (isEmittable(level)) {
 		numEntries++;
-		if(node->childrenSize == 0)  
+		if(node->children.empty())  
 			numEntriesLeaf++; 
 
 		emitNode(fp, node);
@@ -820,7 +819,6 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
 	for (int i = node->children.size()-1; i >= 0; --i) {
-	//for (int i = 0; i < node->children.size(); ++i) {
 		CNode* child = node->children[i];
 		emitRegion(fp, child, level+1);
 	}
@@ -832,7 +830,6 @@ void emitDOT(FILE* fp, CNode* node) {
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
 	for (int i = node->children.size()-1; i >= 0; --i) {
-	//for (int i = 0; i < node->children.size(); ++i) {
 		CNode* child = node->children[i];
 		fprintf(fp, "\t%llx -> %llx;\n", node->id, child->id);
 		emitDOT(fp, child);

@@ -74,7 +74,6 @@ struct _cnode_t {
 
 	CTree* tree; // for linking a CTree
 	CNode* recursion;
-	UInt64 childrenSize;
 };
 
 struct _cstack_item_t {
