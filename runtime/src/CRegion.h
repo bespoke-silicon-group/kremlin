@@ -2,21 +2,13 @@
 #define _CREGION_H_
 
 #include <vector>
+
 #include "ktypes.h"
 
-typedef struct _cstat_t CStat;
-typedef struct _cnode_t CNode;
-typedef struct _r_tree_t CTree;
+class CNode;
 
-// CNode types:
-// NORMAL - summarizing non-recursive region
-// R_INIT - recursion init node
-// R_SINK - recursion sink node that connects to a R_INIT
-
-enum _cnode_type {NORMAL, R_INIT, R_SINK};
-typedef enum _cnode_type CNodeType;
-
-struct _cstat_t {
+class CStat {
+public:
 	UInt64 totalWork;
 	double minSP;
 	double maxSP;
@@ -36,41 +28,8 @@ struct _cstat_t {
 	UInt64 numInstance;
 };
 
-
-
-
-struct _cnode_t {
-	// identity
-	CNodeType type;
-	RegionType rType;
-	UInt64 id;
-	UInt64 sid;
-	UInt64 cid;
-	UInt64 numInstance;
-	UInt64 isDoall;
-
-	// for debugging 
-	UInt32 code;
-
-	// change to type?
-	Bool   isRecursive;
-
-	// contents
-	// add more pointers based on type?
-	std::vector<CStat*> stats;
-	int curr_stat_index;
-	CStat* statStart;
-	CStat* stat;
-
-	// management of tree
-	CNode* parent;
-	std::vector<CNode*> children;
-
-	CTree* tree; // for linking a CTree
-	CNode* recursion;
-};
-
-struct _r_tree_t {
+class CTree {
+public:
 	UInt64 id;
 	int maxDepth;
 	int currentDepth;
@@ -78,7 +37,8 @@ struct _r_tree_t {
 	CNode* parent;
 }; 
 
-typedef struct _RegionField_t {
+class RegionField {
+public:
 	UInt64 work;
 	UInt64 cp;
 	UInt64 callSite;
@@ -93,7 +53,7 @@ typedef struct _RegionField_t {
 	UInt64 loadCnt;
 	UInt64 storeCnt;
 #endif
-} RegionField;
+};
 
 
 void CRegionInit();
