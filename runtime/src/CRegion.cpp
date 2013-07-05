@@ -1,5 +1,7 @@
 
 #include <stdlib.h>
+#include <stack>
+
 #include "config.h"
 #include "kremlin.h"
 #include "MemMapAllocator.h"
@@ -205,59 +207,49 @@ void CRegionExit(RegionField* info) {
  *
  */
 
+static std::stack<CItem*> c_region_stack;
+static std::vector<CItem*> c_region_stack_freelist;
+
 static CItem* stackTop;
-static CItem* stackFreelist;
 
 static CItem* CRegionStackAllocItem() {
 	CItem* ret = NULL;
-	if (stackFreelist == NULL) {
-		ret = (CItem*)CRegionMemAlloc(sizeof(CItem), 0);
+	if (c_region_stack_freelist.empty()) {
+		ret = (CItem*)MemPoolAllocSmall(sizeof(CItem));
 	} else {
-		ret = stackFreelist;
-		stackFreelist = ret->next;
+		ret = c_region_stack_freelist.back();
+		c_region_stack_freelist.pop_back();
 	}
 	return ret;
 }
 
+// TODO: one line and called from one spot... remove?
 static void CRegionStackFreeItem(CItem* item) {
-	CItem* old = stackFreelist;
-	item->next = old;
-	stackFreelist = item;
+	c_region_stack_freelist.push_back(item);
 }
 
 static void CRegionPush(CNode* node) {
 	MSG(DEBUG_CREGION, "CRegionPush: ");
-	CItem* prev = stackTop;
-	//CItem* item = (CItem*)CRegionMemAlloc(sizeof(CItem), 0);
+
 	CItem* item = CRegionStackAllocItem();
-	item->prev = NULL;
-
-	if (prev == NULL) {
-		item->next = NULL;
-
-	} else {
-		//item = (CItem*)MemPoolAllocSmall(sizeof(CItem));
-		item->next = prev;
-		prev->prev = item;
-
-	} 
 	item->node = node;
-	stackTop = item;
+	c_region_stack.push(item);
+
 	MSG(DEBUG_CREGION, "%s\n", CNodeToString(node));
 }
 
 static CNode* CRegionPop() {
 	MSG(DEBUG_CREGION, "CRegionPop: ");
-	if (stackTop == NULL) {
+
+	if (c_region_stack.empty()) {
 		return NULL;
 	}
 
-	assert(stackTop != NULL);	
-	CNode* ret = stackTop->node;
+	CNode* ret = c_region_stack.top()->node;
 	MSG(DEBUG_CREGION, "%s\n", CNodeToString(ret));
-	CItem* toDelete = stackTop;
-	stackTop = toDelete->next;
-	//CRegionMemFree(toDelete, sizeof(CItem), 0);
+
+	CItem* toDelete = c_region_stack.top();
+	c_region_stack.pop();
 	CRegionStackFreeItem(toDelete);
 	return ret;
 }

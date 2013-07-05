@@ -71,11 +71,9 @@ struct _cnode_t {
 	CNode* recursion;
 };
 
+// FIXME: is this necessary anymore?
 struct _cstack_item_t {
 	CNode* node;
-	// doubly linked list
-	CItem* prev;
-	CItem* next;	
 };
 
 struct _r_tree_t {
