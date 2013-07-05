@@ -34,12 +34,7 @@ struct _cstat_t {
 	UInt64 minIterCount;
 	UInt64 maxIterCount;
 
-	// double linked-list for
-	// efficient accounting in recursion
-	UInt64 index;
 	UInt64 numInstance;
-	CStat* next;	
-	CStat* prev;	
 };
 
 

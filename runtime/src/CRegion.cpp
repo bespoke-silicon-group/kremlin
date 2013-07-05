@@ -348,9 +348,6 @@ static CStat* CStatCreate(int index) {
 	ret->maxIterCount = 0;
 
 	ret->numInstance = 0;
-	ret->index = index;
-	ret->next = NULL;
-	ret->prev = NULL;
 
 	return ret;
 }
@@ -764,8 +761,8 @@ static void emitNode(FILE* fp, CNode* node) {
 
 
 static void emitStat(FILE* fp, CStat* stat) {
-	MSG(DEBUG_CREGION, "\t[%d] stat: sWork = %d, pWork = %d, nInstance = %d\n", 
-		stat->index, stat->totalWork, stat->spWork, stat->numInstance);
+	MSG(DEBUG_CREGION, "\tstat: sWork = %d, pWork = %d, nInstance = %d\n", 
+		stat->totalWork, stat->spWork, stat->numInstance);
 		
 	fwrite(&stat->numInstance, sizeof(Int64), 1, fp);
 	fwrite(&stat->totalWork, sizeof(Int64), 1, fp);
