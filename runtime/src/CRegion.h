@@ -63,6 +63,8 @@ struct _cnode_t {
 
 	// contents
 	// add more pointers based on type?
+	std::vector<CStat*> stats;
+	int curr_stat_index;
 	CStat* statStart;
 	CStat* stat;
 

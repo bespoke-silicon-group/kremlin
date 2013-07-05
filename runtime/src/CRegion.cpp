@@ -37,7 +37,6 @@ static CNode* CNodeCreate(SID sid, CID cid, RegionType type);
 static CNode* CNodeCreateExtRNode(SID sid, CID cid, CTree* childTree); 
 static void   CNodeConvertToSelfRNode(CNode* node, CTree* tree);
 //static CNode* CNodeCreateSelfRNode(SID sid, CID cid, CTree* childTree); 
-static void   CNodeDelete(); 
 static Bool   CNodeIsRNode(CNode* node); 
 static CNode* CNodeFindChild(CNode* node, UInt64 sid, UInt64 callSite);
 static void   CNodeAttach(CNode* node, CStat* region);
@@ -48,8 +47,8 @@ static char*  CNodeToString(CNode* node);
 static Bool   CNodeIsSelfRNode(CTree* tree, CNode* node);
 static CNodeType CNodeGetType(CNode* node);
 
-static CStat* CNodeStatForward(CNode* current);
-static CStat* CNodeStatBackward(CNode* current);
+static void CNodeStatForward(CNode* current);
+static void CNodeStatBackward(CNode* current);
 
 static CTree* CTreeCreate(CNode* root); 
 static void   CTreeDelete(CTree* tree);
@@ -149,7 +148,6 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	}
 	CRegionPush(child);
 	printPosition();
-	//assert(child->stat != NULL);
 
 	MSG(DEBUG_CREGION, "CRegionEnter: End\n"); 
 }
@@ -174,14 +172,15 @@ void CRegionExit(RegionField* info) {
 #if 0
 	if (info != NULL) {
 		assert(current != NULL);
-		//assert(current->stat != NULL);
 		CNodeUpdate(current, info);
 	}
 #endif
+
 	assert(info != NULL);
 	CNodeUpdate(current, info);
-	assert(current->stat != NULL);
-	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", current->id, current->stat->index);
+
+	assert(current->curr_stat_index != -1);
+	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", current->id, current->curr_stat_index);
 	CNodeStatBackward(current);
 	assert(current->parent != NULL);
 
@@ -194,7 +193,7 @@ void CRegionExit(RegionField* info) {
 
 	if (popped->type == R_SINK) {
 		CNodeUpdate(popped, info);
-		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", popped->id, popped->stat->index);
+		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", popped->id, popped->curr_stat_index);
 		CNodeStatBackward(popped);
 	} 
 	printPosition();
@@ -361,9 +360,11 @@ static void CStatDelete(CStat* stat) {
 }
 
 
-static void CStatUpdate(CStat* stat, RegionField* info) {
-	assert(stat != NULL);
+static void CStatUpdate(CNode* node, RegionField* info) {
+	assert(node->curr_stat_index != -1);
 	assert(info != NULL);
+
+	CStat* stat = node->stats[node->curr_stat_index];
 
 	MSG(DEBUG_CREGION, "CStatUpdate: work = %d, spWork = %d\n", info->work, info->spWork);
 	
@@ -394,48 +395,30 @@ static void CStatUpdate(CStat* stat, RegionField* info) {
  * CNode Related Routines 
  ***************************/
 
-static CStat* CNodeStatForward(CNode* node) {
+static void CNodeStatForward(CNode* node) {
 	assert(node != NULL);
-	CStat* current = node->stat;
-	int index = 0;
-	if (current != NULL)
-		index = current->index + 1;
+	int stat_index = ++(node->curr_stat_index);
 
-	MSG(DEBUG_CREGION, "CStatForward id %d to page %d\n", node->id, index);
-	if (node->statStart == NULL) {
-		CStat* ret = CStatCreate(0);
-		node->stat = ret;
-		node->statStart = ret;
-		return ret;
+	MSG(DEBUG_CREGION, "CStatForward id %d to page %d\n", node->id, stat_index);
+
+	// FIXME: it appears as though if and else-if can be combined
+	if (node->stats.size() == 0) {
+		assert(stat_index == 0); // FIXME: is this correct assumption?
+		CStat* new_stat = CStatCreate(0);
+		node->stats.push_back(new_stat);
 	}
 
-	if (current == NULL) {
-		node->stat = node->statStart;
-		return node->stat;
+	else if (stat_index >= node->stats.size()) {
+		CStat* new_stat = CStatCreate(stat_index);
+		node->stats.push_back(new_stat);
 	}
-
-	assert(current != NULL);
-	if (current->next != NULL) {
-		assert(current->next->index == current->index + 1);
-		node->stat = current->next;
-		return current->next;
-	}
-	
-	CStat* ret = CStatCreate(current->index + 1);
-	current->next = ret;
-	ret->prev = current;
-	node->stat = ret;
-	return ret;
 }
 
-static CStat* CNodeStatBackward(CNode* node) {
+static void CNodeStatBackward(CNode* node) {
 	assert(node != NULL);
-	CStat* current = node->stat;
-	assert(current != NULL);
-	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", node->id, current->index);
-	//assert(current->prev->index == current->index - 1);
-	//return current->prev;
-	node->stat = current->prev;
+	assert(node->curr_stat_index != -1);
+	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", node->id, node->curr_stat_index);
+	--(node->curr_stat_index);
 }
 
 static void CNodeUpdate(CNode* node, RegionField* info) {
@@ -453,7 +436,7 @@ static void CNodeUpdate(CNode* node, RegionField* info) {
 		node->isDoall = 0;
 
 	node->numInstance++;
-	CStatUpdate(node->stat, info);
+	CStatUpdate(node, info);
 }
 
 static CNode* CNodeFindChild(CNode* node, UInt64 sid, UInt64 callSite) {
@@ -502,8 +485,7 @@ static CNode* CNodeCreate(SID sid, CID cid, RegionType type) {
 	ret->code = 0xDEADBEEF;
 
 	// stat
-	ret->stat = NULL;
-	ret->statStart = NULL;
+	ret->curr_stat_index = -1;
 
 	return ret;
 }
@@ -532,12 +514,6 @@ static Bool CNodeIsSelfRNode(CTree* tree, CNode* node) {
 		return FALSE;
 
 	return (node->tree == tree);
-}
-
-
-static void CNodeDelete(CNode* node) { 
-	CStatDelete(node->stat);
-	MemPoolFreeSmall(node, sizeof(CNode)); 
 }
 
 
@@ -572,23 +548,15 @@ static char* CNodeToString(CNode* node) {
 	}
 
 	UInt64 parentId = (node->parent == NULL) ? 0 : node->parent->id;
-	UInt64 childId = (node->children[0] == NULL) ? 0 : node->children[0]->id;
+	UInt64 childId = (node->children.empty()) ? 0 : node->children[0]->id;
 	sprintf(_buf, "id: %d, type: %5s, parent: %d, firstChild: %d, sid: %llx", 
 		node->id, _strType[node->type], parentId, childId, node->sid);
 	return _buf;
 }
 
+// TODO: remove this one-line function?
 static int CNodeGetStatSize(CNode* node) {
-	if (node->statStart == NULL)
-		return 0;
-	
-	int num = 0;
-	CStat* current = node->statStart;
-	while (current != NULL) {
-		num++;
-		current = current->next;
-	}
-	return num;
+	return node->stats.size();
 }
 
 
@@ -775,7 +743,8 @@ static void emitNode(FILE* fp, CNode* node) {
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
-	for (unsigned i = node->children.size(); i >= 0; --i) {
+	for (int i = node->children.size()-1; i >= 0; --i) {
+	//for (int i = 0; i < node->children.size(); ++i) {
 		CNode* child = node->children[i];
 		assert(child != NULL);
 		fwrite(&child->id, sizeof(Int64), 1, fp);    
@@ -826,14 +795,12 @@ static void emitStat(FILE* fp, CStat* stat) {
  */
 
 static void emitRegion(FILE* fp, CNode* node, UInt level) {
-	CStat* stat = node->statStart;
-	UInt64 statSize = CNodeGetStatSize(node);
-	//fprintf(stderr, "emitting region %llu at level %u\n", node->region->id,level);
-	MSG(DEBUG_CREGION, "Emitting Node %d with %d stats\n", node->id, statSize);
     assert(fp != NULL);
     assert(node != NULL);
-    assert(stat != NULL);
-	//assert(region->numInstance > 0);
+
+	UInt64 stat_size = CNodeGetStatSize(node);
+	MSG(DEBUG_CREGION, "Emitting Node %d with %d stats\n", node->id, stat_size);
+    assert(!node->stats.empty());
 	
 	if (isEmittable(level)) {
 		numEntries++;
@@ -842,16 +809,18 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 
 		emitNode(fp, node);
 
-		fwrite(&statSize, sizeof(Int64), 1, fp);
-		while (stat != NULL) {
-			emitStat(fp, stat);	
-			stat = stat->next;
+		fwrite(&stat_size, sizeof(Int64), 1, fp);
+		// FIXME: run through stats in reverse?
+		for (unsigned i = 0; i < stat_size; ++i) {
+			CStat* s = node->stats[i];
+			emitStat(fp, s);	
 		}
 	}
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
-	for (unsigned i = node->children.size(); i >= 0; --i) {
+	for (int i = node->children.size()-1; i >= 0; --i) {
+	//for (int i = 0; i < node->children.size(); ++i) {
 		CNode* child = node->children[i];
 		emitRegion(fp, child, level+1);
 	}
@@ -862,7 +831,8 @@ void emitDOT(FILE* fp, CNode* node) {
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
-	for (unsigned i = node->children.size(); i >= 0; --i) {
+	for (int i = node->children.size()-1; i >= 0; --i) {
+	//for (int i = 0; i < node->children.size(); ++i) {
 		CNode* child = node->children[i];
 		fprintf(fp, "\t%llx -> %llx;\n", node->id, child->id);
 		emitDOT(fp, child);
