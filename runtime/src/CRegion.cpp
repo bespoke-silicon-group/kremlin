@@ -570,7 +570,6 @@ static CTree* CTreeCreate(CNode* root) {
 	ret->currentDepth = 0;
 	ret->parent = NULL;
 	ret->root = root;
-	ret->stackTop = NULL;
 	return ret;
 }
 

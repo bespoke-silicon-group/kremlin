@@ -7,7 +7,6 @@
 typedef struct _cstat_t CStat;
 typedef struct _cnode_t CNode;
 typedef struct _r_tree_t CTree;
-typedef struct _cstack_item_t CItem;
 
 // CNode types:
 // NORMAL - summarizing non-recursive region
@@ -71,19 +70,12 @@ struct _cnode_t {
 	CNode* recursion;
 };
 
-// FIXME: is this necessary anymore?
-struct _cstack_item_t {
-	CNode* node;
-};
-
 struct _r_tree_t {
 	UInt64 id;
 	int maxDepth;
 	int currentDepth;
 	CNode* root;
 	CNode* parent;
-
-	CItem* stackTop;
 }; 
 
 typedef struct _RegionField_t {
