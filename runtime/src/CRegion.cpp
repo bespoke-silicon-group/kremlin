@@ -32,7 +32,6 @@ static char*  CPositionToStr();
 static void   CRegionPush(CNode* node);
 static CNode* CRegionPop();
 
-static void CNodeStatForward(CNode* current);
 static void CNodeStatBackward(CNode* current);
 
 static CTree* CTreeCreate(CNode* root); 
@@ -114,7 +113,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 			CTreeHandleRecursion(CPositionGetTree(), child);
 	} 
 
-	CNodeStatForward(child);
+	child->statForward();
 
 	assert(child != NULL);
 	// set position, push the current region to the current tree
@@ -125,7 +124,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	case R_SINK:
 		assert(child->recursion != NULL);
 		CPositionSetNode(child->recursion);
-		CNodeStatForward(child->recursion);
+		child->recursion->statForward();
 		break;
 	case NORMAL:
 		CPositionSetNode(child);
@@ -166,7 +165,7 @@ void CRegionExit(RegionField* info) {
 
 	assert(current->curr_stat_index != -1);
 	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", current->id, current->curr_stat_index);
-	CNodeStatBackward(current);
+	current->statBackward();
 	assert(current->parent != NULL);
 
 	if (current->type == R_INIT) {
@@ -179,7 +178,7 @@ void CRegionExit(RegionField* info) {
 	if (popped->type == R_SINK) {
 		popped->update(info);
 		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", popped->id, popped->curr_stat_index);
-		CNodeStatBackward(popped);
+		popped->statBackward();
 	} 
 	printPosition();
 	MSG(DEBUG_CREGION, "CRegionLeave: End \n"); 
@@ -280,31 +279,6 @@ static char* CPositionToStr() {
  * CNode Related Routines 
  ***************************/
 
-static void CNodeStatForward(CNode* node) {
-	assert(node != NULL);
-	int stat_index = ++(node->curr_stat_index);
-
-	MSG(DEBUG_CREGION, "CStatForward id %d to page %d\n", node->id, stat_index);
-
-	// FIXME: it appears as though if and else-if can be combined
-	if (node->stats.size() == 0) {
-		assert(stat_index == 0); // FIXME: is this correct assumption?
-		CStat* new_stat = CStat::create(0);
-		node->stats.push_back(new_stat);
-	}
-
-	else if (stat_index >= node->stats.size()) {
-		CStat* new_stat = CStat::create(stat_index);
-		node->stats.push_back(new_stat);
-	}
-}
-
-static void CNodeStatBackward(CNode* node) {
-	assert(node != NULL);
-	assert(node->curr_stat_index != -1);
-	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", node->id, node->curr_stat_index);
-	--(node->curr_stat_index);
-}
 
 
 

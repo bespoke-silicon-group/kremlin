@@ -155,3 +155,27 @@ char* CNode::toString() {
 		this->id, _strType[this->type], parentId, childId, this->sid);
 	return _buf;
 }
+
+void CNode::statForward() {
+	int stat_index = ++(this->curr_stat_index);
+
+	MSG(DEBUG_CREGION, "CStatForward id %d to page %d\n", this->id, stat_index);
+
+	// FIXME: it appears as though if and else-if can be combined
+	if (this->stats.size() == 0) {
+		assert(stat_index == 0); // FIXME: is this correct assumption?
+		CStat* new_stat = CStat::create(0);
+		this->stats.push_back(new_stat);
+	}
+
+	else if (stat_index >= this->stats.size()) {
+		CStat* new_stat = CStat::create(stat_index);
+		this->stats.push_back(new_stat);
+	}
+}
+
+void CNode::statBackward() {
+	assert(this->curr_stat_index != -1);
+	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", this->id, this->curr_stat_index);
+	--(this->curr_stat_index);
+}

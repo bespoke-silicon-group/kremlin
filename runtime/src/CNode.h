@@ -41,6 +41,8 @@ public:
 
 	CNode* findChild(UInt64 sid, UInt64 callSite);
 	void   CNodeAttach(CStat* region);
+	void   statForward();
+	void   statBackward();
 	void   linkChild(CNode* child); 
 	void   update(RegionField* info);
 	void   replaceChild(CNode* old_child, CNode* new_child);
