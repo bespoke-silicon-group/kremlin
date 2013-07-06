@@ -266,23 +266,6 @@ static char* CPositionToStr() {
 	return _bufCur;
 }
 
-
-/****************************
- * CNode Related Routines 
- ***************************/
-
-
-
-
-
-
-
-
-
-
-
-
-
 /*
  * Emit Related 
  */
