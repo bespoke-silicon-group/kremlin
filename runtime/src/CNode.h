@@ -14,6 +14,8 @@
 enum _cnode_type {NORMAL, R_INIT, R_SINK};
 typedef enum _cnode_type CNodeType;
 
+class CTree;
+
 class CNode {
 public:
 	// identity

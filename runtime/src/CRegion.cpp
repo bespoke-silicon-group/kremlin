@@ -8,6 +8,7 @@
 
 #include "CRegion.h"
 #include "CNode.h"
+#include "CTree.h"
 
 /**
  * CPosition tracks the current region tree / node
@@ -34,15 +35,6 @@ static CNode* CRegionPop();
 
 static void CNodeStatBackward(CNode* current);
 
-static CTree* CTreeCreate(CNode* root); 
-static void   CTreeDelete(CTree* tree);
-static CNode* CTreeFindAncestorBySid(CTree* tree, CNode* child);
-static CTree* CTreeConvertFromSubTree(CNode* root, CNode* recurseNode); 
-static void   CTreeEnterNode(CTree* tree, CNode* node);
-static CNode* CTreeExitNode(CTree* tree);
-static void   CTreeIncDepth(CTree* tree);
-static void   CTreeDecDepth(CTree* tree);
-static void   CTreeHandleRecursion(CTree* tree, CNode* child); 
 
 static void emit(const char* file);
 static void emitRegion(FILE* fp, CNode* node, UInt level);
@@ -64,7 +56,7 @@ static void CRegionMemFree(void* addr, int size, int site) {
 
 void CRegionInit() {
 	CNode* root = CNode::create(0, 0, RegionFunc); // dummy root node
-	CTree* tree = CTreeCreate(root);
+	CTree* tree = CTree::create(root);
 	CPositionInit();
 	CPositionSetTree(tree);
 	assert(root != NULL);
@@ -110,7 +102,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 		child = CNode::create(sid, cid, type);
 		parent->linkChild(child);
 		if (KConfigGetRSummarySupport())
-			CTreeHandleRecursion(CPositionGetTree(), child);
+			CPositionGetTree()->handleRecursion(child);
 	} 
 
 	child->statForward();
@@ -229,7 +221,7 @@ static void CPositionDeinit() {
 
 #if 0
 static void CPositionUpdateEnter(CNode* node) {
-	CTreeEnterNode(tree, node);
+	tree->enterNode(node);
 }
 
 static void CPositionUpdateExit() {
@@ -309,110 +301,8 @@ static int CNodeGetStatSize(CNode* node) {
 static UInt64 lastTreeId = 0;
 static UInt64 CTreeAllocId() { return ++lastTreeId; }
 
-static Bool CTreeIsRoot(CTree* tree) {
-	return tree->parent == NULL;
-}
-
-static CNode* CTreeGetParent(CTree* tree) {
-	return tree->parent;
-}
-
-static CNode* CTreeGetRoot(CTree* tree) {
-	return tree->root;
-}
-
-static void CTreeIncDepth(CTree* tree) {
-	tree->currentDepth++;
-	if (tree->currentDepth > tree->maxDepth)
-		tree->maxDepth = tree->currentDepth;
-}
-
-static void CTreeDecDepth(CTree* tree) {
-	tree->currentDepth--;
-}
-
-static UInt CTreeGetMaxDepth(CTree* tree) {
-	return tree->maxDepth;
-}
-
-static UInt CTreeGetDepth(CTree* tree) {
-	return tree->currentDepth;
-}
-
-static CTree* CTreeCreate(CNode* root) {
-	CTree* ret = (CTree*)CRegionMemAlloc(sizeof(CTree), 3);
-	ret->id = CTreeAllocId();
-	ret->maxDepth = 0;
-	ret->currentDepth = 0;
-	ret->parent = NULL;
-	ret->root = root;
-	return ret;
-}
 
 
-static void CTreeDelete(CTree* tree) {
-	// first, traverse and free every node in the tree
-	// TODO Here
-
-	// second, free the tree storage
-	MemPoolFreeSmall(tree, sizeof(CTree));
-}
-
-static CNode* CTreeFindAncestorBySid(CTree* tree, CNode* child) {
-	MSG(DEBUG_CREGION, "CTreeFindAncestor: sid: 0x%llx....", child->sid);
-	SID sid = child->sid;
-	CNode* node = child->parent;
-	
-	while (node != NULL) {
-		if (node->sid == sid) {
-			return node;
-		}
-
-		node = node->parent;
-	}
-	return NULL;
-}
-
-/**
- * Create a CTree from a subtree
- */
-static CTree* CTreeConvertFromSubTree(CNode* root, CNode* recurseNode) {
-	CTree* ret = CTreeCreate(root);
-	recurseNode->tree = ret;
-	return ret;
-}	
-
-static void CTreeHandleRecursion(CTree* tree, CNode* child) {
-	// detect a recursion with a new node
-	// - find an ancestor where ancestor.sid == child.sid
-	// - case a) no ancestor found - no recursion
-	// - case b) recursion to the root node: self recursion
-	//			 transform child to RNode
-	// - case c) recursion to a non-root node: a new tree needed
-	//	       - create a CTree from a subtree starting from the ancestor
-	//         - set current tree and node appropriately
-
-	CNode* ancestor = CTreeFindAncestorBySid(tree, child);
-
-	if (ancestor == NULL) {
-		return;
-#if 0
-	} else if (ancestor == tree->root) {
-		child->convertToSelfRNode(tree);
-		return;
-#endif
-
-	} else {
-		assert(ancestor->parent != NULL);
-		//CTree* rTree = CTreeConvertFromSubTree(ancestor, child);	
-		//CNode* rNode = CNode::createExtRNode(ancestor->sid, ancestor->cid, rTree);
-		//ancestor->parent->replaceChild(ancestor, rNode);
-		ancestor->type = R_INIT;
-		child->type = R_SINK;
-		child->recursion = ancestor;
-		return;
-	}
-}
 
 /*
  * Emit Related 

@@ -1,21 +1,7 @@
 #ifndef _CREGION_H_
 #define _CREGION_H_
 
-#include <vector>
-
 #include "ktypes.h"
-
-class CNode;
-
-
-class CTree {
-public:
-	UInt64 id;
-	int maxDepth;
-	int currentDepth;
-	CNode* root;
-	CNode* parent;
-}; 
 
 class RegionField {
 public:
