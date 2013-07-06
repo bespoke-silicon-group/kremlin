@@ -1,7 +1,7 @@
 #include "CStat.h"
 #include "MemMapAllocator.h"
 
-CStat* CStat::create(int index) {
+CStat* CStat::create() {
 	CStat* ret = (CStat*)MemPoolAllocSmall(sizeof(CStat));
 	ret->totalWork = 0;
 	ret->tpWork = 0;

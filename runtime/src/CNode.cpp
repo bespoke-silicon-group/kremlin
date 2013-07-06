@@ -167,12 +167,12 @@ void CNode::statForward() {
 	// FIXME: it appears as though if and else-if can be combined
 	if (this->stats.size() == 0) {
 		assert(stat_index == 0); // FIXME: is this correct assumption?
-		CStat* new_stat = CStat::create(0);
+		CStat* new_stat = CStat::create();
 		this->stats.push_back(new_stat);
 	}
 
 	else if (stat_index >= this->stats.size()) {
-		CStat* new_stat = CStat::create(stat_index);
+		CStat* new_stat = CStat::create();
 		this->stats.push_back(new_stat);
 	}
 }

@@ -23,7 +23,7 @@ public:
 
 	UInt64 numInstance;
 
-	static CStat* create(int index);
+	static CStat* create();
 	static void destroy(CStat* region);
 };
 
