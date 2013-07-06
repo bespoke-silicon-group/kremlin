@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <stack>
+#include <utility>
 
 #include "config.h"
 #include "kremlin.h"
@@ -10,30 +11,24 @@
 #include "CNode.h"
 #include "CTree.h"
 
-/**
- * CPosition tracks the current region tree / node
- */
-typedef struct _CPosition {
-	CTree* tree;		
-	CNode* node;
-	
-} CPosition;
-
-
 /*** local functions ***/
-static void   CPositionInit();
-static void   CPositionDeinit();
-static CTree* CPositionGetTree();
-static CNode* CPositionGetNode();
-static void   CPositionSet(CTree* tree, CNode* node);
-static void   CPositionSetTree(CTree*);
-static void   CPositionSetNode(CNode*);
-static char*  CPositionToStr();
-
 static void   CRegionPush(CNode* node);
 static CNode* CRegionPop();
 
 static void CNodeStatBackward(CNode* current);
+
+/******************************** 
+ * CPosition Management 
+ *********************************/
+static std::pair<CTree*, CNode*> curr_pos;
+
+static char _bufCur[16];
+static char* currPosStr() {
+	CNode* node = curr_pos.second;
+	UInt64 nodeId = (node == NULL) ? 0 : node->id;
+	sprintf(_bufCur, "<%5d>", nodeId);
+	return _bufCur;
+}
 
 
 static void emit(const char* file);
@@ -57,10 +52,9 @@ static void CRegionMemFree(void* addr, int size, int site) {
 void CRegionInit() {
 	CNode* root = CNode::create(0, 0, RegionFunc); // dummy root node
 	CTree* tree = CTree::create(root);
-	CPositionInit();
-	CPositionSetTree(tree);
+	curr_pos.first = tree;
 	assert(root != NULL);
-	CPositionSetNode(root);
+	curr_pos.second = root;
 }
 
 void CRegionDeinit(const char* file) {
@@ -69,21 +63,21 @@ void CRegionDeinit(const char* file) {
 }
 
 void printPosition() {
-	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", CPositionToStr(), CPositionGetNode()->toString());
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), curr_pos.second->toString());
 }
 
 void CRegionEnter(SID sid, CID cid, RegionType type) {
 	if (KConfigGetCRegionSupport() == FALSE)
 		return;
 
-	CNode* parent = CPositionGetNode();
+	CNode* parent = curr_pos.second;
 	CNode* child = NULL;
 
 	// corner case: no graph exists 
 #if 0
 	if (parent == NULL) {
 		child = CNode::create(sid, cid);
-		CPositionSetNode(child);
+		curr_pos.second = child;
 		CRegionPush(child);
 		MSG(0, "CRegionEnter: sid: root -> 0x%llx, callSite: 0x%llx\n", 
 			sid, cid);
@@ -102,7 +96,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 		child = CNode::create(sid, cid, type);
 		parent->linkChild(child);
 		if (KConfigGetRSummarySupport())
-			CPositionGetTree()->handleRecursion(child);
+			curr_pos.first->handleRecursion(child);
 	} 
 
 	child->statForward();
@@ -111,15 +105,15 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	// set position, push the current region to the current tree
 	switch (child->type) {
 	case R_INIT:
-		CPositionSetNode(child);
+		curr_pos.second = child;
 		break;
 	case R_SINK:
 		assert(child->recursion != NULL);
-		CPositionSetNode(child->recursion);
+		curr_pos.second = child->recursion;
 		child->recursion->statForward();
 		break;
 	case NORMAL:
-		CPositionSetNode(child);
+		curr_pos.second = child;
 		break;
 	}
 	CRegionPush(child);
@@ -139,12 +133,12 @@ void CRegionExit(RegionField* info) {
 	MSG(DEBUG_CREGION, "CRegionLeave: Begin\n"); 
 	// don't update if we didn't give it any info
 	// this happens when we are out of range for logging
-	CNode* current = CPositionGetNode();
+	CNode* current = curr_pos.second;
 	CNode* popped = CRegionPop();
 	assert(popped != NULL);
 	assert(current != NULL);
 
-	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", CPositionToStr(), current->toString());
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), current->toString());
 #if 0
 	if (info != NULL) {
 		assert(current != NULL);
@@ -161,10 +155,10 @@ void CRegionExit(RegionField* info) {
 	assert(current->parent != NULL);
 
 	if (current->type == R_INIT) {
-		CPositionSetNode(popped->parent);	
+		curr_pos.second = popped->parent;
 
 	} else {
-		CPositionSetNode(current->parent);	
+		curr_pos.second = current->parent;
 	}
 
 	if (popped->type == R_SINK) {
@@ -207,64 +201,6 @@ static CNode* CRegionPop() {
 
 
 
-/******************************** 
- * CPosition Management 
- *********************************/
-static CPosition _curPosition;
-
-static void CPositionInit() {
-	_curPosition.node = NULL;
-}
-
-static void CPositionDeinit() {
-}
-
-#if 0
-static void CPositionUpdateEnter(CNode* node) {
-	tree->enterNode(node);
-}
-
-static void CPositionUpdateExit() {
-	
-}
-#endif
-
-
-static CTree* CPositionGetTree() {
-	return _curPosition.tree;
-}
-
-static CNode* CPositionGetNode() {
-	return _curPosition.node;
-}
-
-#if 0
-static void CPositionSet(CTree* tree, CNode* node) {
-	_curPosition.tree = tree;
-	_curPosition.node = node;
-
-}
-#endif
-
-
-static void CPositionSetNode(CNode* node) {
-	assert(node != NULL);
-	_curPosition.node = node;
-
-}
-
-static void CPositionSetTree(CTree* tree) {
-	_curPosition.tree = tree;
-}
-
-
-static char _bufCur[16];
-static char* CPositionToStr() {
-	CNode* node = CPositionGetNode();
-	UInt64 nodeId = (node == NULL) ? 0 : node->id;
-	sprintf(_bufCur, "<%5d>", nodeId);
-	return _bufCur;
-}
 
 /*
  * Emit Related 
@@ -280,7 +216,7 @@ static void emit(const char* file) {
 		fprintf(stderr,"[kremlin] ERROR: couldn't open binary output file\n");
 		exit(1);
 	}
-	emitRegion(fp, CPositionGetTree()->root->children[0], 0);
+	emitRegion(fp, curr_pos.first->root->children[0], 0);
 	fclose(fp);
 	fprintf(stderr, "[kremlin] Created File %s : %d Regions Emitted (all %d leaves %d)\n", 
 		file, numCreated, numEntries, numEntriesLeaf);
