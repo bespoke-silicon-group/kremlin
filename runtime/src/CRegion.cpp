@@ -283,27 +283,6 @@ static char* CPositionToStr() {
 
 
 
-/**
- * Convert a subgraph into a recursive node
- */
-
-// TODO: remove this one-line function?
-static int CNodeGetStatSize(CNode* node) {
-	return node->stats.size();
-}
-
-
-
-/******************************************
- * CTree Related
- ******************************************/
-
-static UInt64 lastTreeId = 0;
-static UInt64 CTreeAllocId() { return ++lastTreeId; }
-
-
-
-
 /*
  * Emit Related 
  */
@@ -428,7 +407,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
     assert(fp != NULL);
     assert(node != NULL);
 
-	UInt64 stat_size = CNodeGetStatSize(node);
+	UInt64 stat_size = node->getStatSize();
 	MSG(DEBUG_CREGION, "Emitting Node %d with %d stats\n", node->id, stat_size);
     assert(!node->stats.empty());
 	

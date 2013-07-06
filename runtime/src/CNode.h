@@ -50,6 +50,8 @@ public:
 	void   replaceChild(CNode* old_child, CNode* new_child);
 	char*  toString(); // make static to handle null case?
 
+	unsigned getStatSize() { return stats.size(); }
+
 
 	//CNodeType getType() { return type; }
 
