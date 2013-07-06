@@ -1,4 +1,3 @@
-
 #include <stdlib.h>
 #include <stack>
 #include <utility>
@@ -15,7 +14,8 @@
 static void   CRegionPush(CNode* node);
 static CNode* CRegionPop();
 
-static void CNodeStatBackward(CNode* current);
+static void emit(const char* file);
+static void emitRegion(FILE* fp, CNode* node, UInt level);
 
 /******************************** 
  * CPosition Management 
@@ -29,20 +29,6 @@ static char* currPosStr() {
 	sprintf(_bufCur, "<%5d>", nodeId);
 	return _bufCur;
 }
-
-
-static void emit(const char* file);
-static void emitRegion(FILE* fp, CNode* node, UInt level);
-
-static void* CRegionMemAlloc(int size, int site) {
-	void* ret = MemPoolAllocSmall(size);
-	return ret;
-}
-
-static void CRegionMemFree(void* addr, int size, int site) {
-	MemPoolFreeSmall(addr, size);
-}
-
 
 
 /******************************** 
