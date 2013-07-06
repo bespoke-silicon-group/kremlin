@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stack>
-#include <utility>
+#include <utility> // for std::pair
+#include <sstream>
 
 #include "config.h"
 #include "kremlin.h"
@@ -22,12 +23,12 @@ static void emitRegion(FILE* fp, CNode* node, UInt level);
  *********************************/
 static std::pair<CTree*, CNode*> curr_pos;
 
-static char _bufCur[16];
-static char* currPosStr() {
+static const char* currPosStr() {
 	CNode* node = curr_pos.second;
 	UInt64 nodeId = (node == NULL) ? 0 : node->id;
-	sprintf(_bufCur, "<%5d>", nodeId);
-	return _bufCur;
+	std::stringstream ss;
+	ss << "<" << nodeId << ">";
+	return ss.str().c_str();
 }
 
 
