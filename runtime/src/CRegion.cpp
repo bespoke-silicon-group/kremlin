@@ -49,7 +49,8 @@ void CRegionDeinit(const char* file) {
 }
 
 void printPosition() {
-	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), curr_pos.second->toString());
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), 
+			curr_pos.second->toString());
 }
 
 void CRegionEnter(SID sid, CID cid, RegionType type) {
@@ -136,7 +137,8 @@ void CRegionExit(RegionField* info) {
 	current->update(info);
 
 	assert(current->curr_stat_index != -1);
-	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", current->id, current->curr_stat_index);
+	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", current->id, 
+		current->curr_stat_index);
 	current->statBackward();
 	assert(current->parent != NULL);
 
@@ -149,7 +151,8 @@ void CRegionExit(RegionField* info) {
 
 	if (popped->type == R_SINK) {
 		popped->update(info);
-		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", popped->id, popped->curr_stat_index);
+		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", popped->id, 
+			popped->curr_stat_index);
 		popped->statBackward();
 	} 
 	printPosition();
@@ -207,18 +210,18 @@ static void emit(const char* file) {
 	fprintf(stderr, "[kremlin] Created File %s : %d Regions Emitted (all %d leaves %d)\n", 
 		file, numCreated, numEntries, numEntriesLeaf);
 
-	//fp = fopen("kremlin_region_graph.dot","w");
-	/*
+	// TODO: make DOT printing a command line option
+#if 0
+	fp = fopen("kremlin_region_graph.dot","w");
 	fprintf(fp,"digraph G {\n");
 	emitDOT(fp,root);
 	fprintf(fp,"}\n");
 	fclose(fp);
-	*/
+#endif
 }
 
-static Bool isEmittable(Level level) {
+static bool isEmittable(Level level) {
 	return level >= KConfigGetMinLevel() && level < KConfigGetMaxLevel();
-	//return TRUE;
 }
 
 /**
@@ -236,7 +239,6 @@ static Bool isEmittable(Level level) {
  *
  * Total (40 + C * 8) bytes
  */
-
 static void emitNode(FILE* fp, CNode* node) {
 	numCreated++;
 	MSG(DEBUG_CREGION, "Node id: %d, sid: %llx type: %d numInstance: %d nChildren: %d DOALL: %d\n", 
@@ -276,8 +278,6 @@ static void emitNode(FILE* fp, CNode* node) {
  *
  * Total 64 bytes
  */
-
-
 static void emitStat(FILE* fp, CStat* stat) {
 	MSG(DEBUG_CREGION, "\tstat: sWork = %d, pWork = %d, nInstance = %d\n", 
 		stat->totalWork, stat->spWork, stat->numInstance);
@@ -307,7 +307,6 @@ static void emitStat(FILE* fp, CStat* stat) {
  *  - N * Stat Info (emitStat)
  * 
  */
-
 static void emitRegion(FILE* fp, CNode* node, UInt level) {
     assert(fp != NULL);
     assert(node != NULL);
