@@ -31,6 +31,11 @@ static const char* currPosStr() {
 	return ss.str().c_str();
 }
 
+static void printPosition() {
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), 
+			curr_pos.second->toString());
+}
+
 
 /******************************** 
  * Public Functions
@@ -47,11 +52,6 @@ void CRegionInit() {
 void CRegionDeinit(const char* file) {
 	assert(CRegionPop() == NULL);
 	emit(file);
-}
-
-void printPosition() {
-	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), 
-			curr_pos.second->toString());
 }
 
 void CRegionEnter(SID sid, CID cid, RegionType type) {
