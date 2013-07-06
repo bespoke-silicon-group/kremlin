@@ -1,3 +1,5 @@
+#include <sstream>
+
 #include "CNode.h"
 #include "CStat.h"
 #include "CTree.h"
@@ -140,7 +142,7 @@ void CNode::replaceChild(CNode* old_child, CNode* new_child) {
 	return;
 }
 
-char* CNode::toString() {
+const char* CNode::toString() {
 #if 0
 	if (this == NULL) {
 		sprintf(_buf, "NULL"); 
@@ -152,9 +154,9 @@ char* CNode::toString() {
 
 	UInt64 parentId = (this->parent == NULL) ? 0 : this->parent->id;
 	UInt64 childId = (this->children.empty()) ? 0 : this->children[0]->id;
-	sprintf(_buf, "id: %d, type: %5s, parent: %d, firstChild: %d, sid: %llx", 
-		this->id, _strType[this->type], parentId, childId, this->sid);
-	return _buf;
+	std::stringstream ss;
+	ss << "id: " << this->id << "type: " << _strType[this->type] << ", parent: " << parentId << ", firstChild: " << childId << ", sid: " << this->sid;
+	return ss.str().c_str();
 }
 
 void CNode::statForward() {

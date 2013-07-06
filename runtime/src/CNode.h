@@ -48,7 +48,7 @@ public:
 	void   linkChild(CNode* child); 
 	void   update(RegionField* info);
 	void   replaceChild(CNode* old_child, CNode* new_child);
-	char*  toString(); // make static to handle null case?
+	const char*  toString(); // make static to handle null case?
 
 	unsigned getStatSize() { return stats.size(); }
 
