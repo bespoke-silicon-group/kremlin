@@ -15,7 +15,7 @@ CNode* CNode::create(SID sid, CID cid, RegionType type) {
 
 	// basic info
 	ret->parent = NULL;
-	new(&ret->children) std::vector<CNode*>();
+	new(&ret->children) std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
 	ret->type = NORMAL;
 	ret->rType = type;
 	ret->id = CNode::allocId();
@@ -29,7 +29,7 @@ CNode* CNode::create(SID sid, CID cid, RegionType type) {
 	ret->code = 0xDEADBEEF;
 
 	// stat
-	new(&ret->stats) std::vector<CStat*>();
+	new(&ret->stats) std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
 	ret->curr_stat_index = -1;
 
 	return ret;

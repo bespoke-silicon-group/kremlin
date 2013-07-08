@@ -15,6 +15,7 @@
 #include "MShadow.h"
 #include "RShadow.h"
 #include "RShadow.cpp" // WHY?
+#include "PoolAllocator.hpp"
 
 #include <vector>
 #include <iostream>
@@ -267,7 +268,7 @@ typedef struct _FuncContext {
 
 
 
-static std::vector<FuncContext*> funcContexts; // A vector used to represent the call stack.
+static std::vector<FuncContext*, MPoolLib::PoolAllocator<FuncContext*> > funcContexts; // A vector used to represent the call stack.
 #define DUMMY_RET		-1
 
 /**
@@ -378,7 +379,7 @@ typedef struct _region_t {
 
 class Region {
   private:
-	static std::vector<Region*> program_regions;
+	static std::vector<Region*, MPoolLib::PoolAllocator<Region*> > program_regions;
 	static unsigned int arraySize;
 	static Version* vArray;
 	static Time* tArray;
@@ -477,7 +478,7 @@ class Region {
 
 };
 
-std::vector<Region*> Region::program_regions;
+std::vector<Region*, MPoolLib::PoolAllocator<Region*> > Region::program_regions;
 unsigned int Region::arraySize = 512;
 Version* Region::vArray = NULL;
 Time* Region::tArray = NULL;

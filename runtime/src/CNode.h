@@ -2,6 +2,7 @@
 #define _CNODE_H_
 
 #include <vector>
+#include "PoolAllocator.hpp"
 #include "CRegion.h"
 #include "CStat.h"
 
@@ -31,12 +32,12 @@ public:
 	UInt32 code;
 
 	// statistics for node
-	std::vector<CStat*> stats;
+	std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> > stats;
 	int curr_stat_index;
 
 	// management of tree
 	CNode* parent;
-	std::vector<CNode*> children;
+	std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> > children;
 
 	CTree* tree; // for linking a CTree
 	CNode* recursion;
