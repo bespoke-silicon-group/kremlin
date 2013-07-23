@@ -281,46 +281,59 @@ static UInt64 decompressLTable(LTable* l_table) {
 }
 
 
-typedef struct _ActiveSetEntry {
+class ActiveSetEntry {
+public:
 	LTable* key;
 	UInt16 r_bit;
 	UT_hash_handle hh;
 	UInt32 code;
-} ASEntry;
+};
 
-static ASEntry* activeSet = NULL;
-static ASEntry* activeSetClockHand = NULL;
+static ActiveSetEntry* activeSet = NULL;
+static ActiveSetEntry* activeSetClockHand = NULL;
 
 UInt32 numInActiveSet = 0;
 
+/*! \brief Move "clockhand" to next entry in active set */
 static inline void advanceClockHand() {
-	activeSetClockHand = (ASEntry*)activeSetClockHand->hh.next;
+	activeSetClockHand = (ActiveSetEntry*)activeSetClockHand->hh.next;
 	if(activeSetClockHand == NULL) 
 		activeSetClockHand = activeSet;
 }
 
+/*! \brief Prints all entries in the active set.  */
 static inline void printActiveSet() {
-	ASEntry* as;
+	ActiveSetEntry* as;
 
 	int i = 0;
-	for(as = activeSet; as != NULL; as = (ASEntry*)as->hh.next, ++i) {
+	for(as = activeSet; as != NULL; as = (ActiveSetEntry*)as->hh.next, ++i) {
 		fprintf(stderr,"%d: key = %p, r_bit = %hu\n",i,as->key,as->r_bit);
 	}
 }
 
-static inline ASEntry* ASEntryAlloc(LTable* lTable) {
-	ASEntry *as = (ASEntry*)MemPoolAllocSmall(sizeof(ASEntry));
-	as->key = lTable;
+/*! \brief Allocate memory for a new active set entry.
+ *
+ * \param l_table The level table associated with the new entry.
+ * \return The newly allocated active set entry.
+ */
+static inline ActiveSetEntry* ActiveSetEntryAlloc(LTable* l_table) {
+	ActiveSetEntry *as = (ActiveSetEntry*)MemPoolAllocSmall(sizeof(ActiveSetEntry));
+	as->key = l_table;
 	as->r_bit = 1;
 	as->code = 0xDEADBEEF;
 	return as;
 }
 
-static inline void ASEntryFree(ASEntry* entry) {
-	MemPoolFreeSmall(entry, sizeof(ASEntry));
+/*! \brief Deallocates (i.e. frees) memory for active set entry
+ *
+ * \param entry The active set entry to deallocate.
+ */
+static inline void ActiveSetEntryFree(ActiveSetEntry* entry) {
+	MemPoolFreeSmall(entry, sizeof(ActiveSetEntry));
 }
 
 static int bufferSize;
+
 void CBufferInit(int size) {
 	if (KConfigGetCompression() == 0)
 		return;
@@ -342,7 +355,13 @@ void CBufferDeinit() {
 	fprintf(stderr, "Compression Overall Rate = %.2f X\n", (double)_compSrcSize / _compDestSize);
 }
 
-ASEntry* getVictim() {
+/*! \brief Find an entry to remove from active set.
+ *
+ * \return The active set entry that should be removed.
+ * \remark This simply returns an entry that should be removed. It does not
+ * actually remove the entry.
+ */
+ActiveSetEntry* getVictim() {
 	// set activeSetClockHand to entry that will be removed
 	while(activeSetClockHand->r_bit == 1) {
 		activeSetClockHand->r_bit = 0;
@@ -352,23 +371,27 @@ ASEntry* getVictim() {
 	}
 	assert(activeSetClockHand->code == 0xDEADBEEF);
 	assert(activeSetClockHand->key->code == 0xDEADBEEF);
-	ASEntry* ret = activeSetClockHand;
+	ActiveSetEntry* ret = activeSetClockHand;
 	advanceClockHand();
 	return ret;
 }
 
 
-static inline void addToBuffer(LTable* lTable) {
-	//fprintf(stderr, "adding lTable 0x%llx\n", lTable);
-	ASEntry *as = ASEntryAlloc(lTable);
+/*! \brief Adds a level table entry to the compression buffer.
+ *
+ * \param l_table The level table to add to the buffer.
+ */
+static inline void addToBuffer(LTable* l_table) {
+	//fprintf(stderr, "adding l_table 0x%llx\n", l_table);
+	ActiveSetEntry *as = ActiveSetEntryAlloc(l_table);
 	HASH_ADD_PTR(activeSet, key, as);
 	numInActiveSet++;
 
-	ASEntry *as2 = NULL;
-	HASH_FIND_PTR(activeSet, &lTable, as2);
+	ActiveSetEntry *as2 = NULL;
+	HASH_FIND_PTR(activeSet, &l_table, as2);
 	assert(as2 != NULL);
 	if (as2 == NULL) {
-		fprintf(stderr, "[0] as not found for lTable 0x%llx\n", lTable);
+		fprintf(stderr, "[0] as not found for l_table 0x%llx\n", l_table);
 	}
 
 	if(numInActiveSet == 1) 
@@ -376,264 +399,58 @@ static inline void addToBuffer(LTable* lTable) {
 	return;
 }
 
+/*! \brief Removes a suitable entry from the compression buffer.
+ *
+ * \return The number of bytes saved by removing from the buffer.
+ */
 static inline int evictFromBuffer() {
 	numInActiveSet--;
 
-	ASEntry* victim = getVictim();
+	ActiveSetEntry* victim = getVictim();
 	assert(victim->code == 0xDEADBEEF);
 	LTable* lTable = victim->key;
 	//fprintf(stderr, "\tevicting lTable 0x%llx\n", lTable);
 	assert(lTable->code == 0xDEADBEEF);
-	int sizeGained = compressLTable(lTable);
+	int bytes_gained = compressLTable(lTable);
 	assert(lTable->code == 0xDEADBEEF);
 	totalEvict++;
 	HASH_DEL(activeSet, victim);
-	ASEntryFree(victim);
-	return sizeGained;
+	ActiveSetEntryFree(victim);
+	return bytes_gained;
 }
 
-int CBufferDecompress(LTable* lTable) {
-	int loss = decompressLTable(lTable);
-	int gain = CBufferAdd(lTable);
+int CBufferDecompress(LTable* table) {
+	int loss = decompressLTable(table);
+	int gain = CBufferAdd(table);
 	return gain - loss;
 }
 
-int CBufferAdd(LTable* lTable) {
-	assert(lTable->code == 0xDEADBEEF);
-	int sizeGained = 0;
+int CBufferAdd(LTable* table) {
+	assert(table->code == 0xDEADBEEF);
 	if (KConfigGetCompression() == 0)
 		return 0;
 
-	//fprintf(stderr,"adding %p to active set\n",lTable);
+	//fprintf(stderr,"adding %p to active set\n",table);
+	int bytes_gained = 0;
 	if(numInActiveSet >= bufferSize) {
-		sizeGained = evictFromBuffer();
+		bytes_gained = evictFromBuffer();
 	}
 
-	addToBuffer(lTable);
-	return sizeGained;
+	addToBuffer(table);
+	return bytes_gained;
 }
 
-void CBufferAccess(LTable* lTable) {
+void CBufferAccess(LTable* table) {
 	if (KConfigGetCompression() == 0)
 		return;
 
-	ASEntry *as;
-	HASH_FIND_PTR(activeSet, &lTable, as);
+	ActiveSetEntry *as;
+	HASH_FIND_PTR(activeSet, &table, as);
 	if (as == NULL) {
-		fprintf(stderr, "[1] as not found for lTable 0x%llx\n", lTable);
+		fprintf(stderr, "[1] as not found for lTable 0x%llx\n", table);
 	}
 	assert(as != NULL);
 	assert(as->code == 0xDEADBEEF);
 	as->r_bit = 1;
 	totalAccess++;
 }
-
-#if 0   // byte gathering support functions
-void makeByteOrder(Time* array) {
-	int size = TIMETABLE_SIZE / 2;
-	Time* buffer = malloc(sizeof(Time) * size);
-	memcpy(buffer, array, sizeof(Time) * size);
-	UInt8* dest = (UInt8*)array;
-
-	int i, j;
-	for (i=0; i<size; i++) {
-		Time current = buffer[i];
-		char* byte = &current;
-		for (j=0; j<sizeof(Time); j++) {
-			int offset = getByteOffset(i, j);
-			dest[offset] = byte[j];
-		}
-	}
-	free(buffer);
-}
-
-void restoreByteOrder(Time* array) {
-	int size = TIMETABLE_SIZE / 2;
-	UInt8* buffer = malloc(sizeof(Time) * size);
-	memcpy(buffer, array, sizeof(Time) * size);
-	UInt8* dest = (UInt8*)array;
-
-	int i, j;
-	for (i=0; i<size; i++) {
-		Time current = buffer[i];
-		char* byte = &current;
-		for (j=0; j<sizeof(Time); j++) {
-			int offset = getByteOffset(i, j);
-			dest[i*sizeof(Time) + j] = buffer[offset];
-		}
-	}
-	free(buffer);
-}
-
-
-// we'll assume you already GC'ed lTable... otherwise you are going to be
-// doing useless work (i.e. compressing data that is out of date)
-// Returns: number of bytes saved by compression
-static UInt64 compressLTable(LTable* lTable) {
-	//fprintf(stderr,"[LTable] compressing LTable (%p)\n",lTable);
-	if (lTable->code != 0xDEADBEEF) {
-		fprintf(stderr, "LTable addr = 0x%p\n", lTable);
-		assert(0);
-	}
-	assert(lTable->code == 0xDEADBEEF);
-	assert(lTable->isCompressed == 0);
-
-	int size = getTimeTableSize(lTable);
-	if (size == 0) {
-		lTable->isCompressed = 1;
-		lTable->compressed = NULL;
-		return 0;
-	}
-
-	Time* buffer = malloc(sizeof(Time) * TIMETABLE_SIZE / 2 * size);
-
-	int i;
-	for(i = size-1; i >=1; i--) {
-		TimeTable* current = lTable->tArray[i];
-		TimeTable* prev = lTable->tArray[i-1];
-		if(current == NULL)
-			continue;
-
-		int j;
-		int offset = i * TIMETABLE_SIZE / 2;
-		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
-			//diffBuffer[j] = ttPrev->array[j] - tt2->array[j];
-			buffer[offset + j] = prev->array[j] - current->array[j];
-			//buffer[offset + j] = current->array[j];
-		}
-		makeDiff(&(buffer[offset]));
-		//fprintf(stderr, "\tlevel = %d\n", i);
-	}
-
-	memcpy(buffer, lTable->tArray[0]->array, sizeof(Time)*TIMETABLE_SIZE/2);
-	makeDiff(buffer);
-
-	UInt64 compressionSavings = 0;
-	lzo_uint srcLen = sizeof(Time)*TIMETABLE_SIZE/2 * size; 
-	lzo_uint compLen = 0;
-
-	Time* compressed = (Time*)compressData((UInt8*)buffer, srcLen, &compLen);
-	compressionSavings += (srcLen - compLen);
-
-	lTable->compressed = compressed;
-	lTable->compressedSize = compLen;
-	lTable->nLevel = size;
-
-	MemPoolFree(buffer);
-
-	lTable->isCompressed = 1;
-	return compressionSavings;
-}
-
-
-static UInt64 decompressLTable(LTable* lTable) {
-	if (lTable->code != 0xDEADBEEF) {
-		fprintf(stderr, "LTable addr = 0x%llx\n", lTable);
-		assert(0);
-	}
-	assert(lTable->code == 0xDEADBEEF);
-	assert(lTable->isCompressed == 1);
-
-	//fprintf(stderr,"[LTable] decompressing LTable (%p)\n",lTable);
-
-	// for now, we'll always diff based on level 0
-	if (lTable->compressed == NULL) {
-		lTable->isCompressed = 0;
-		return 0;
-	}
-
-	UInt64 decompressionCost = 0;
-	lzo_uint srcLen = lTable->compressedSize;
-	lzo_uint uncompLen = srcLen;
-
-	Time* decompedArray = malloc(lTable->nLevel * sizeof(Time) * TIMETABLE_SIZE / 2);
-	decompressData((UInt8*)decompedArray, (UInt8*)lTable->compressed, srcLen, &uncompLen);
-	restoreDiff((Time*)decompedArray);
-	decompressionCost += (uncompLen - srcLen);
-	memcpy(lTable->tArray[0]->array, decompedArray, sizeof(Time) * TIMETABLE_SIZE /2);
-
-
-	int i;
-	Time *diffBuffer = MemPoolAlloc();
-
-	for(i = 1; i < lTable->nLevel; ++i) {
-		TimeTable* current = lTable->tArray[i];
-		TimeTable* prev = lTable->tArray[i-1];
-		if(current == NULL) 
-			break;
-
-		// step 1: decompress time different table, 
-		// the src buffer will be freed in decompressData
-		int offset = i * TIMETABLE_SIZE / 2;
-		restoreDiff((Time*)&(decompedArray[offset]));
-
-		// step 2: add diffs to base TimeTable
-		int j;
-		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
-			current->array[j] = prev->array[j] - decompedArray[offset + j];
-			//current->array[j] = decompedArray[offset+j];
-		}
-	#if 0
-		if (memcmp(tt2->array, lTable->tArrayBackup[i], uncompLen) != 0) {
-			fprintf(stderr, "error at level %d\n", i);
-			assert(0);
-		}
-	#endif
-//		assert(memcmp(tt2->array, lTable->tArrayBackup[i], uncompLen) == 0);
-	}
-
-	lTable->isCompressed = 0;
-	return decompressionCost;
-}
-
-#endif
-
-#if 0
-// from now on, direct mapped cache implementation
-typedef struct _c_entry {
-	LTable* table;
-} CEntry;
-
-static CEntry* buffer;
-static int bufferSize = 1024;
-static int bufferMask;
-
-
-static inline int getIndex(LTable* table) {
-	int index1 = ((UInt64)table >> 4) & bufferMask;
-	int index2 = ((UInt64)table >> (4 + 14)) & bufferMask;
-	assert(ret < bufferSize);
-	return index1 ^ index2;
-}
-
-static int CBufferEvict(LTable* table) {
-	//fprintf(stderr, "evicting 0x%x\n", table);
-	return compressLTable(table);
-}
-
-void CBufferInit(int size) {
-	bufferSize = size;
-	bufferMask = size - 1;
-	buffer = calloc(sizeof(CEntry), bufferSize);
-}
-
-void CBufferDeinit() {
-	free(buffer);
-}
-
-
-#if 0
-int CBufferAdd(LTable* table) {
-	//fprintf(stderr, "CBufferAdd\n", table);
-	int index = getIndex(table);
-	int ret = 0;
-	LTable* prev = buffer[index].table;	
-	if (prev != NULL) {
-		ret = CBufferEvict(prev);
-	}
-	buffer[index].table = table;
-	return ret;
-}
-#endif
-#endif
-
