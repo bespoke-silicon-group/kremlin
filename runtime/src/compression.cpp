@@ -304,6 +304,7 @@ static inline void printActiveSet() {
 	unsigned i = 0;
 	for(std::map<LTable*, ActiveSetEntry*>::iterator it = active_set.begin(); 
 			it != active_set.end(); ++it, ++i) {
+		if (it == active_set_clock_hand) fprintf(stderr,"*");
 		fprintf(stderr,"%u: key = %p, r_bit = %hu\n", i, it->first, it->second->r_bit);
 	}
 }
