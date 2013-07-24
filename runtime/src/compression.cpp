@@ -1,3 +1,5 @@
+#include <map>
+
 #include "kremlin.h"
 #include "compression.h"
 #include "MShadowSkadu.h"
@@ -283,42 +285,35 @@ static UInt64 decompressLTable(LTable* l_table) {
 
 class ActiveSetEntry {
 public:
-	LTable* key;
 	UInt16 r_bit;
-	UT_hash_handle hh;
 	UInt32 code;
 };
 
-static ActiveSetEntry* activeSet = NULL;
-static ActiveSetEntry* activeSetClockHand = NULL;
-
-UInt32 numInActiveSet = 0;
+static std::map<LTable*, ActiveSetEntry*> active_set;
+static std::map<LTable*, ActiveSetEntry*>::iterator active_set_clock_hand;
 
 /*! \brief Move "clockhand" to next entry in active set */
 static inline void advanceClockHand() {
-	activeSetClockHand = (ActiveSetEntry*)activeSetClockHand->hh.next;
-	if(activeSetClockHand == NULL) 
-		activeSetClockHand = activeSet;
+	++active_set_clock_hand;
+	if (active_set_clock_hand == active_set.end())
+		active_set_clock_hand = active_set.begin();
 }
 
 /*! \brief Prints all entries in the active set.  */
 static inline void printActiveSet() {
-	ActiveSetEntry* as;
-
-	int i = 0;
-	for(as = activeSet; as != NULL; as = (ActiveSetEntry*)as->hh.next, ++i) {
-		fprintf(stderr,"%d: key = %p, r_bit = %hu\n",i,as->key,as->r_bit);
+	unsigned i = 0;
+	for(std::map<LTable*, ActiveSetEntry*>::iterator it = active_set.begin(); 
+			it != active_set.end(); ++it, ++i) {
+		fprintf(stderr,"%u: key = %p, r_bit = %hu\n", i, it->first, it->second->r_bit);
 	}
 }
 
 /*! \brief Allocate memory for a new active set entry.
  *
- * \param l_table The level table associated with the new entry.
  * \return The newly allocated active set entry.
  */
-static inline ActiveSetEntry* ActiveSetEntryAlloc(LTable* l_table) {
+static inline ActiveSetEntry* ActiveSetEntryAlloc() {
 	ActiveSetEntry *as = (ActiveSetEntry*)MemPoolAllocSmall(sizeof(ActiveSetEntry));
-	as->key = l_table;
 	as->r_bit = 1;
 	as->code = 0xDEADBEEF;
 	return as;
@@ -337,6 +332,8 @@ static int bufferSize;
 void CBufferInit(int size) {
 	if (KConfigGetCompression() == 0)
 		return;
+
+	fprintf(stderr,"Initializing compression buffer to size %d\n",size);
 	
 	if (lzo_init() != LZO_E_OK) {
 		printf("internal error - lzo_init() failed !!!\n");
@@ -361,17 +358,18 @@ void CBufferDeinit() {
  * \remark This simply returns an entry that should be removed. It does not
  * actually remove the entry.
  */
-ActiveSetEntry* getVictim() {
-	// set activeSetClockHand to entry that will be removed
-	while(activeSetClockHand->r_bit == 1) {
-		activeSetClockHand->r_bit = 0;
-		assert(activeSetClockHand->code == 0xDEADBEEF);
-		assert(activeSetClockHand->key->code == 0xDEADBEEF);
+std::map<LTable*, ActiveSetEntry*>::iterator getVictim() {
+	// set active_set_clock_hand to entry that will be removed
+	while(active_set_clock_hand->second->r_bit == 1) {
+		active_set_clock_hand->second->r_bit = 0;
+		assert(active_set_clock_hand->second->code == 0xDEADBEEF);
+		assert(active_set_clock_hand->first->code == 0xDEADBEEF);
 		advanceClockHand();
 	}
-	assert(activeSetClockHand->code == 0xDEADBEEF);
-	assert(activeSetClockHand->key->code == 0xDEADBEEF);
-	ActiveSetEntry* ret = activeSetClockHand;
+
+	assert(active_set_clock_hand->first->code == 0xDEADBEEF);
+	assert(active_set_clock_hand->second->code == 0xDEADBEEF);
+	std::map<LTable*, ActiveSetEntry*>::iterator ret = active_set_clock_hand;
 	advanceClockHand();
 	return ret;
 }
@@ -383,20 +381,13 @@ ActiveSetEntry* getVictim() {
  */
 static inline void addToBuffer(LTable* l_table) {
 	//fprintf(stderr, "adding l_table 0x%llx\n", l_table);
-	ActiveSetEntry *as = ActiveSetEntryAlloc(l_table);
-	HASH_ADD_PTR(activeSet, key, as);
-	numInActiveSet++;
+	ActiveSetEntry *as = ActiveSetEntryAlloc();
+	active_set.insert( std::pair<LTable*, ActiveSetEntry*>(l_table, as) );
 
-	ActiveSetEntry *as2 = NULL;
-	HASH_FIND_PTR(activeSet, &l_table, as2);
-	assert(as2 != NULL);
-	if (as2 == NULL) {
-		fprintf(stderr, "[0] as not found for l_table 0x%llx\n", l_table);
-	}
-
-	if(numInActiveSet == 1) 
-		activeSetClockHand = activeSet;
-	return;
+	// TRICKY: size will only be 1 the first time we add something to the
+	// buffer so we'll go ahead and initialize the clock hand to that first
+	// entry
+	if (active_set.size() == 1) active_set_clock_hand = active_set.begin();
 }
 
 /*! \brief Removes a suitable entry from the compression buffer.
@@ -404,18 +395,15 @@ static inline void addToBuffer(LTable* l_table) {
  * \return The number of bytes saved by removing from the buffer.
  */
 static inline int evictFromBuffer() {
-	numInActiveSet--;
-
-	ActiveSetEntry* victim = getVictim();
-	assert(victim->code == 0xDEADBEEF);
-	LTable* lTable = victim->key;
-	//fprintf(stderr, "\tevicting lTable 0x%llx\n", lTable);
+	std::map<LTable*, ActiveSetEntry*>::iterator victim = getVictim();
+	assert(victim->second->code == 0xDEADBEEF);
+	LTable* lTable = victim->first;
 	assert(lTable->code == 0xDEADBEEF);
 	int bytes_gained = compressLTable(lTable);
 	assert(lTable->code == 0xDEADBEEF);
 	totalEvict++;
-	HASH_DEL(activeSet, victim);
-	ActiveSetEntryFree(victim);
+	ActiveSetEntryFree(victim->second);
+	active_set.erase(victim);
 	return bytes_gained;
 }
 
@@ -432,7 +420,7 @@ int CBufferAdd(LTable* table) {
 
 	//fprintf(stderr,"adding %p to active set\n",table);
 	int bytes_gained = 0;
-	if(numInActiveSet >= bufferSize) {
+	if(active_set.size() >= bufferSize) {
 		bytes_gained = evictFromBuffer();
 	}
 
@@ -444,12 +432,12 @@ void CBufferAccess(LTable* table) {
 	if (KConfigGetCompression() == 0)
 		return;
 
-	ActiveSetEntry *as;
-	HASH_FIND_PTR(activeSet, &table, as);
-	if (as == NULL) {
+	std::map<LTable*, ActiveSetEntry*>::iterator it = active_set.find(table);
+	if (it == active_set.end()) {
 		fprintf(stderr, "[1] as not found for lTable 0x%llx\n", table);
 	}
-	assert(as != NULL);
+	assert(it != active_set.end());
+	ActiveSetEntry *as = it->second;
 	assert(as->code == 0xDEADBEEF);
 	as->r_bit = 1;
 	totalAccess++;
