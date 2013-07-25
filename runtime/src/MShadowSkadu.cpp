@@ -1,31 +1,22 @@
-#include "kremlin.h"
-
 #include <assert.h>
-#include <limits.h>
-#include <stdarg.h> /* for variable length args */
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
 
-#include "MShadowCache.h"
-#include "MemMapAllocator.h"
+#include "kremlin.h"
+#include "config.h"
 #include "debug.h"
+#include "MemMapAllocator.h"
+
+#include "Table.h"
 #include "CRegion.h"
+#include "MShadowCache.h"
 #include "MShadowSkadu.h"
 #include "MShadowStat.h"
-#include "Table.h"
-#include "uthash.h"
 #include "compression.h"
-#include "config.h"
 
-#include <string.h> // for memcpy
-
-#define WORD_SHIFT 2
-
+#include <vector>
 
 /*
- * STable: sparse table that tracks 4GB memory chunks being used
+ * SparseTable: sparse table that tracks 4GB memory chunks being used
  *
  * Since 64bit address is very sparsely used in a program,
  * we use a sparse table to reduce the memory requirement of the table.
@@ -33,18 +24,64 @@
  * the use of cache will make the frequency of walk-through very low.
  */
 
-typedef struct _SEntry {
+#define STABLE_SIZE		32		// 128GB addr space will be enough
+
+class SEntry {
+public:
 	UInt32 	addrHigh;	// upper 32bit in 64bit addr
 	SegTable* segTable;
-} SEntry;
+};
 
-#define STABLE_SIZE		32		// 128GB addr space will be enough
-typedef struct _STable {
-	SEntry entry[STABLE_SIZE];	
+/*
+ * SparseTable: introduced to support 64-bit address space
+ *
+ */
+
+class SparseTable {
+public:
+	//SEntry entry[STABLE_SIZE];	
+	std::vector<SEntry> entry;
 	int writePtr;
-} STable;
 
-static STable sTable;
+	void init() { 
+		entry.resize(STABLE_SIZE);
+		writePtr = 0;
+	}
+
+	void deinit() {
+		for (int i = 0; i < writePtr; i++) {
+			SEntry* e = &entry[i];
+			SegTable::Free(e->segTable);		
+			eventSegTableFree();
+		}
+	}
+
+	SEntry* getSEntry(Addr addr) {
+		UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
+
+		// walk-through SparseTable
+		for (int i=0; i < writePtr; i++) {
+			if (entry[i].addrHigh == highAddr) {
+				//MSG(0, "SparseTable Found an existing entry..\n");
+				return &entry[i];	
+			}
+		}
+
+		// not found - create an entry
+		MSG(0, "SparseTable Creating a new Entry..\n");
+		fprintf(stderr, "SparseTable Creating a new Entry..\n");
+
+		SEntry* ret = &entry[writePtr];
+		ret->addrHigh = highAddr;
+		ret->segTable = SegTable::Alloc();
+		eventSegTableAlloc();
+		writePtr++;
+		return ret;
+	}
+	
+};
+
+static SparseTable* sTable;
 
 
 /*
@@ -68,34 +105,22 @@ static void setCompression() {
  *
  */ 
 
-static int TimeTableEntrySize(int type) {
-	int size = TIMETABLE_SIZE;
-	if (type == TYPE_64BIT)
-		size >>= 1;
-	return size;
-}
-
-static inline void TimeTableClean(TimeTable* table) {
-	int size = TimeTableEntrySize(table->type);
-	bzero(table->array, sizeof(Time) * size);
-}
-
-static inline TimeTable* TimeTableAlloc(int sizeType) {
-	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
-	int size = TimeTableEntrySize(sizeType);
+TimeTable* TimeTable::Create(int size_type) {
+	assert(size_type == TYPE_32BIT || size_type == TYPE_64BIT);
+	int size = TimeTable::GetEntrySize(size_type);
 	TimeTable* ret = (TimeTable*)MemPoolAllocSmall(sizeof(TimeTable));
 	ret->array = (Time*)MemPoolAlloc();
-	bzero(ret->array, sizeof(Time) * size);
+	memset(ret->array, 0, sizeof(Time) * size);
 
-	ret->type = sizeType;
+	ret->type = size_type;
 	ret->size = sizeof(Time) * TIMETABLE_SIZE / 2;
 
-	eventTimeTableAlloc(sizeType, ret->size);
+	eventTimeTableAlloc(size_type, ret->size);
 	return ret;
 }
 
 
-static inline void TimeTableFree(TimeTable* table, UInt8 isCompressed) {
+void TimeTable::Destroy(TimeTable* table, UInt8 isCompressed) {
 	eventTimeTableFree(table->type, table->size);
 	int sizeType = table->type;
 	assert(sizeType == TYPE_32BIT || sizeType == TYPE_64BIT);
@@ -103,72 +128,9 @@ static inline void TimeTableFree(TimeTable* table, UInt8 isCompressed) {
 	MemPoolFreeSmall(table, sizeof(TimeTable));
 }
 
-
-static inline int TimeTableGetIndex(Addr addr, int type) {
-    int ret = ((UInt64)addr >> WORD_SHIFT) & TIMETABLE_MASK;
-	assert(ret < TIMETABLE_SIZE);
-	if (type == TYPE_64BIT)
-		ret >>= 1;
-
-	return ret;
-}
-
-// note that TimeTableGet is not affected by access width
-static inline Time TimeTableGet(TimeTable* table, Addr addr, Version ver, UInt32 type) {
-	assert(table != NULL);
-	int index = TimeTableGetIndex(addr, table->type);
-	Time ret = 0ULL;
-	ret = table->array[index];
-	return ret;
-}
-
-static inline void TimeTableSet(TimeTable* table, Addr addr, Time time, Version ver, UInt32 type) {
-	assert(table != NULL);
-	int index = TimeTableGetIndex(addr, table->type);
-
-	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &(table->array[index]), index);
-	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", table, &(table->array[0]));
-
-	table->array[index] = time;
-	if (table->type == TYPE_32BIT && type == TYPE_64BIT) {
-		table->array[index+1] = time;
-	}
-
-}
-
-
-/*
- * SegTable:
- *
- */ 
-
-static inline SegTable* SegTableAlloc() {
-	SegTable* ret = (SegTable*) MemPoolCallocSmall(1,sizeof(SegTable));
-	eventSegTableAlloc();
-	return ret;	
-}
-
-static void SegTableFree(SegTable* table) {
-	eventSegTableFree();
-	MemPoolFreeSmall(table, sizeof(SegTable));
-}
-
-static inline int SegTableGetIndex(Addr addr) {
-	return ((UInt64)addr >> SEGTABLE_SHIFT) & SEGTABLE_MASK;
-}
-
-
-static inline LTable* LTableAlloc() {
-	LTable* ret = (LTable*)MemPoolCallocSmall(1,sizeof(LTable));
-	ret->code = 0xDEADBEEF;
-	return ret;
-}
-
-// convert 64 bit format into 32 bit format
-static TimeTable* TimeTableConvert(TimeTable* table) {
-	eventTimeTableConvertTo32();
+TimeTable* TimeTable::Create32BitClone(TimeTable* table) {
 	assert(table->type == TYPE_64BIT);
-	TimeTable* ret = TimeTableAlloc(TYPE_32BIT);
+	TimeTable* ret = TimeTable::Create(TYPE_32BIT);
 	int i;
 	for (i=0; i<TIMETABLE_SIZE/2; i++) {
 		ret->array[i*2] = ret->array[i];
@@ -178,134 +140,91 @@ static TimeTable* TimeTableConvert(TimeTable* table) {
 }
 
 
-/*
- * STable: introduced to support 64-bit address space
- *
- */
-static void STableInit() {
-	sTable.writePtr = 0;
-}
+void TimeTable::setTimeAtAddr(Addr addr, Time time, UInt32 type) {
+	int index = TimeTable::GetIndex(addr, this->type);
 
-static void STableDeinit() {
-	int i;
-	for (i=0; i<sTable.writePtr; i++) {
-		SEntry* entry = &sTable.entry[i];
-		SegTableFree(entry->segTable);		
+	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &array[index], index);
+	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", this, &array[0]);
+
+	array[index] = time;
+	if (this->type == TYPE_32BIT && type == TYPE_64BIT) {
+		array[index+1] = time;
 	}
 }
 
-static SEntry* STableGetSEntry(Addr addr) {
-	UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
 
-	// walk-through STable
-	int i;
-	for (i=0; i<sTable.writePtr; i++) {
-		if (sTable.entry[i].addrHigh == highAddr) {
-			//MSG(0, "STable Found an existing entry..\n");
-			return &sTable.entry[i];	
-		}
-	}
-
-	// not found - create an entry
-	MSG(0, "STable Creating a new Entry..\n");
-
-	SEntry* ret = &sTable.entry[sTable.writePtr];
-	ret->addrHigh = highAddr;
-	ret->segTable = SegTableAlloc();
-	sTable.writePtr++;
-	return ret;
-
-}
-
-static inline Version LTableGetVer(LTable* lTable, Index level) {
-	return lTable->vArray[level];
-}
-
-static inline void LTableSetVer(LTable* lTable, Index level, Version ver) {
-	lTable->vArray[level] = ver;
-}
-
-static inline TimeTable* LTableGetTable(LTable* lTable, Index level) {
-	return lTable->tArray[level];
-}
-
-static inline void LTableSetTable(LTable* lTable, Index level, TimeTable* table) {
-	lTable->tArray[level] = table;
-}
-
-static inline Time LTableGetTime(LTable* lTable, Index level, Addr addr, Version verCurrent, UInt32 type) {
-	TimeTable* table = LTableGetTable(lTable, level);
-	Version version = lTable->vArray[level];
+Time LevelTable::getTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver) {
+	TimeTable* table = this->getTimeTableAtLevel(level);
+	Version stored_ver = this->vArray[level];
 
 	Time ret = 0ULL;
 	if (table == NULL) {
 		ret = 0ULL;
 
-	} else if (version == verCurrent) {
-		ret = TimeTableGet(table, addr, verCurrent, type);
-		MSG(0, "\t\tlv %d: \tversion = [%d, %d] value = %d\n", level, version, verCurrent, ret);
+	} else if (stored_ver == curr_ver) {
+		ret = table->getTimeAtAddr(addr);
+		MSG(0, "\t\tlv %d: \tversion = [%d, %d] value = %d\n", level, stored_ver, curr_ver, ret);
 	} 
 
 	return ret;
 }
 
-static inline void LTableSetTime(LTable* lTable, Index level, Addr addr, Version verCurrent, Time value, UInt32 type) {
-	TimeTable* table = LTableGetTable(lTable, level);
-	Version verOld = LTableGetVer(lTable, level);
+void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver, Time value, UInt32 type) {
+	TimeTable* table = this->getTimeTableAtLevel(level);
+	Version stored_ver = this->getVersionAtLevel(level);
 	eventLevelWrite(level);
 
 	// no timeTable exists so create it
 	if (table == NULL) {
 		eventTimeTableNewAlloc(level, type);
-		table = TimeTableAlloc(type);
+		table = TimeTable::Create(type);
 
-		LTableSetTable(lTable, level, table); 
+		this->setTimeTableAtLevel(level, table); 
 		assert(table->type == type);
-		TimeTableSet(table, addr, value, verCurrent, type);
+		table->setTimeAtAddr(addr, value, type);
 
 	} else {
 		// convert the table if needed
 		if (type == TYPE_32BIT && table->type == TYPE_64BIT) {
 			TimeTable* old = table;
-			table = TimeTableConvert(table);
-			TimeTableFree(old, lTable->isCompressed);
+			table = TimeTable::Create32BitClone(table);
+			eventTimeTableConvertTo32();
+			TimeTable::Destroy(old, this->isCompressed);
 		}
 
-		if (verOld == verCurrent) {
+		if (stored_ver == curr_ver) {
 			assert(table != NULL);
-			TimeTableSet(table, addr, value, verCurrent, type);
+			table->setTimeAtAddr(addr, value, type);
 
 		} else {
 			// exists but version is old so clean it and reuse
-			TimeTableClean(table);
-			TimeTableSet(table, addr, value, verCurrent, type);
+			table->clean();
+			table->setTimeAtAddr(addr, value, type);
 		}
 	}
-	LTableSetVer(lTable, level, verCurrent);
+	this->setVersionAtLevel(level, curr_ver);
 }
 
 
-
-
-static inline int findLowestInvalidIndex(LTable* lTable, Version* vArray) {
+int LevelTable::findLowestInvalidIndex(Version* vArray) {
 	int lowestInvalidIndex = 0;
 	while(lowestInvalidIndex < MAX_LEVEL 
-		&& lTable->tArray[lowestInvalidIndex] != NULL 
-		&& lTable->vArray[lowestInvalidIndex] >= vArray[lowestInvalidIndex]) {
+		&& this->tArray[lowestInvalidIndex] != NULL 
+		&& this->vArray[lowestInvalidIndex] >= vArray[lowestInvalidIndex]) {
 		++lowestInvalidIndex;
 	}
 
 	return lowestInvalidIndex;
 }
 
-static inline void cleanTimeTables(LTable* lTable, Index start) {
+void LevelTable::cleanTimeTablesFromLevel(Index start_level) {
 	Index i;
-	for(i = start; i < MAX_LEVEL; ++i) {
-		TimeTable* time = lTable->tArray[i];
+	for(i = start_level; i < MAX_LEVEL; ++i) {
+		TimeTable* time = this->tArray[i];
 		if (time != NULL) {
 			//fprintf(stderr, "(%d)\t", i);
-			TimeTableFree(time,lTable->isCompressed);
-			lTable->tArray[i] = NULL;
+			TimeTable::Destroy(time, this->isCompressed);
+			this->tArray[i] = NULL;
 		}
 	}
 }
@@ -326,12 +245,12 @@ static void setGCPeriod(int time) {
 }
 
 
-static inline void gcLevelUnknownSize(LTable* lTable, Version* vArray) {
-	int lii = findLowestInvalidIndex(lTable,vArray);
-	cleanTimeTables(lTable,lii);
+static inline void gcLevelUnknownSize(LevelTable* lTable, Version* vArray) {
+	int lii = lTable->findLowestInvalidIndex(vArray);
+	lTable->cleanTimeTablesFromLevel(lii);
 }
 
-void gcLevel(LTable* table, Version* vArray, int size) {
+void gcLevel(LevelTable* table, Version* vArray, int size) {
 	//fprintf(stderr, "%d: \t", size);
 	int i;
 	for (i=0; i<size; i++) {
@@ -343,24 +262,24 @@ void gcLevel(LTable* table, Version* vArray, int size) {
 		if (ver < vArray[i]) {
 			// out of date
 			//fprintf(stderr, "(%d, %d %d)\t", i, ver, vArray[i]);
-			TimeTableFree(time,table->isCompressed);
+			TimeTable::Destroy(time,table->isCompressed);
 			table->tArray[i] = NULL;
 		}
 	}
 
-	cleanTimeTables(table,size);
+	table->cleanTimeTablesFromLevel(size);
 }
 
 static void gcStart(Version* vArray, int size) {
 	int i, j;
 	eventGC();
 	for (i=0; i<STABLE_SIZE; i++) {
-		SegTable* table = sTable.entry[i].segTable;	
+		SegTable* table = sTable->entry[i].segTable;	
 		if (table == NULL)
 			continue;
 		
 		for (j=0; j<SEGTABLE_SIZE; j++) {
-			LTable* lTable = table->entry[j];
+			LevelTable* lTable = table->entry[j];
 			if (lTable != NULL) {
 				gcLevel(lTable, vArray, size);
 			}
@@ -369,23 +288,24 @@ static void gcStart(Version* vArray, int size) {
 }
 
 /*
- * LTable operations
+ * LevelTable operations
  */
 
-static inline LTable* LTableGet(Addr addr, Version* vArray) {
-	SEntry* sEntry = STableGetSEntry(addr);
+// TODO: make this a method in SparseTable
+static inline LevelTable* LevelTableGet(Addr addr, Version* vArray) {
+	SEntry* sEntry = sTable->getSEntry(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
-	int segIndex = SegTableGetIndex(addr);
-	LTable* lTable = segTable->entry[segIndex];
+	int segIndex = SegTable::GetIndex(addr);
+	LevelTable* lTable = segTable->entry[segIndex];
 	if (lTable == NULL) {
-		lTable = LTableAlloc();
+		lTable = LevelTable::Alloc();
 		if (useCompression()) {
 			int compressGain = CBufferAdd(lTable);
 			eventCompression(compressGain);
 		}
 		segTable->entry[segIndex] = lTable;
-		eventLTableAlloc();
+		eventLevelTableAlloc();
 	}
 	
 	if(useCompression() && lTable->isCompressed) {
@@ -435,13 +355,13 @@ void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, int type) {
 
 	MSG(0, "\tTVCacheEvict 0x%llx, size=%d, effectiveSize=%d \n", addr, size, size);
 		
-	LTable* lTable = LTableGet(addr,vArray);
+	LevelTable* lTable = LevelTableGet(addr,vArray);
 	for (i=0; i<size; i++) {
 		eventEvict(i);
 		if (tArray[i] == 0ULL) {
 			break;
 		}
-		LTableSetTime(lTable, i, addr, vArray[i], tArray[i], type);
+		lTable->setTimeForAddrAtLevel(i, addr, vArray[i], tArray[i], type);
 		MSG(0, "\t\toffset=%d, version=%d, value=%d\n", i, vArray[i], tArray[i]);
 	}
 	eventCacheEvict(size, size);
@@ -457,11 +377,11 @@ void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, int type) {
 void SkaduFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type) {
 	MSG(0, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
 	//fprintf(stderr, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
-	LTable* lTable = LTableGet(addr, vArray);
+	LevelTable* lTable = LevelTableGet(addr, vArray);
 
 	int i;
 	for (i=0; i<size; i++) {
-		destAddr[i] = LTableGetTime(lTable, i, addr, vArray[i], type);
+		destAddr[i] = lTable->getTimeForAddrAtLevel(i, addr, vArray[i]);
 	}
 
 	if (useCompression())
@@ -476,10 +396,10 @@ void SkaduFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type
 static Time tempArray[1000];
 
 static Time* NoCacheGet(Addr addr, Index size, Version* vArray, int type) {
-	LTable* lTable = LTableGet(addr, vArray);	
+	LevelTable* lTable = LevelTableGet(addr, vArray);	
 	Index i;
 	for (i=0; i<size; i++) {
-		tempArray[i] = LTableGetTime(lTable, i, addr, vArray[i], type);
+		tempArray[i] = lTable->getTimeForAddrAtLevel(i, addr, vArray[i]);
 	}
 
 	if (useCompression())
@@ -489,11 +409,11 @@ static Time* NoCacheGet(Addr addr, Index size, Version* vArray, int type) {
 }
 
 static void NoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
-	LTable* lTable = LTableGet(addr, vArray);	
+	LevelTable* lTable = LevelTableGet(addr, vArray);	
 	assert(lTable != NULL);
 	Index i;
 	for (i=0; i<size; i++) {
-		LTableSetTime(lTable, i, addr, vArray[i], tArray[i], type);
+		lTable->setTimeForAddrAtLevel(i, addr, vArray[i], tArray[i], type);
 	}
 
 	if (useCompression())
@@ -558,12 +478,13 @@ void MShadowInitSkadu() {
 	fprintf(stderr,"[kremlin] MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
 
-	int size = TimeTableEntrySize(TYPE_64BIT);
+	int size = TimeTable::GetEntrySize(TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
 	
 	setGCPeriod(KConfigGetGCPeriod());
  
-	STableInit();
+	sTable = new SparseTable();
+	sTable->init();
 	TVCacheInit(cacheSizeMB);
 
 	CBufferInit(KConfigGetCBufferSize());
@@ -576,7 +497,7 @@ void MShadowInitSkadu() {
 void MShadowDeinitSkadu() {
 	CBufferDeinit();
 	MShadowStatPrint();
-	STableDeinit();
+	sTable->deinit();
 	TVCacheDeinit();
 }
 

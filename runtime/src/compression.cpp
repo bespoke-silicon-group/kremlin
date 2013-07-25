@@ -113,7 +113,7 @@ static inline int getByteOffset(int a, int b) {
  * \param l_table The table to get number of entries from.
  * \return Number of entries in specified level table.
  */
-int getTimeTableSize(LTable* l_table) {
+int getTimeTableSize(LevelTable* l_table) {
 	int i;
 	for (i=0; i<MAX_LEVEL; i++) {
 		TimeTable* table = l_table->tArray[i];
@@ -131,10 +131,10 @@ int getTimeTableSize(LTable* l_table) {
  * \remark It is assumed you already garbage collected the table, otherwise
  * you are going to be compressing out of data data.
  */
-static UInt64 compressLTable(LTable* l_table) {
-	//fprintf(stderr,"[LTable] compressing LTable (%p)\n",l_table);
+static UInt64 compressLevelTable(LevelTable* l_table) {
+	//fprintf(stderr,"[LevelTable] compressing LevelTable (%p)\n",l_table);
 	if (l_table->code != 0xDEADBEEF) {
-		fprintf(stderr, "LTable addr = 0x%llx\n", l_table);
+		fprintf(stderr, "LevelTable addr = 0x%llx\n", l_table);
 		assert(0);
 	}
 	assert(l_table->code == 0xDEADBEEF);
@@ -205,16 +205,16 @@ static UInt64 compressLTable(LTable* l_table) {
  * \param l_table The level table to be decompressed.
  * \return The number of bytes lost by decompression.
  */
-static UInt64 decompressLTable(LTable* l_table) {
+static UInt64 decompressLevelTable(LevelTable* l_table) {
 
 	if (l_table->code != 0xDEADBEEF) {
-		fprintf(stderr, "LTable addr = 0x%llx\n", l_table);
+		fprintf(stderr, "LevelTable addr = 0x%llx\n", l_table);
 		assert(0);
 	}
 	assert(l_table->code == 0xDEADBEEF);
 	assert(l_table->isCompressed == 1);
 
-	//fprintf(stderr,"[LTable] decompressing LTable (%p)\n",l_table);
+	//fprintf(stderr,"[LevelTable] decompressing LevelTable (%p)\n",l_table);
 	UInt64 decompressionCost = 0;
 	lzo_uint srcLen = sizeof(Time)*TIMETABLE_SIZE/2;
 	lzo_uint uncompLen = srcLen;
@@ -289,8 +289,8 @@ public:
 	UInt32 code;
 };
 
-static std::map<LTable*, ActiveSetEntry*> active_set;
-static std::map<LTable*, ActiveSetEntry*>::iterator active_set_clock_hand;
+static std::map<LevelTable*, ActiveSetEntry*> active_set;
+static std::map<LevelTable*, ActiveSetEntry*>::iterator active_set_clock_hand;
 
 /*! \brief Move "clockhand" to next entry in active set */
 static inline void advanceClockHand() {
@@ -302,7 +302,7 @@ static inline void advanceClockHand() {
 /*! \brief Prints all entries in the active set.  */
 static inline void printActiveSet() {
 	unsigned i = 0;
-	for(std::map<LTable*, ActiveSetEntry*>::iterator it = active_set.begin(); 
+	for(std::map<LevelTable*, ActiveSetEntry*>::iterator it = active_set.begin(); 
 			it != active_set.end(); ++it, ++i) {
 		if (it == active_set_clock_hand) fprintf(stderr,"*");
 		fprintf(stderr,"%u: key = %p, r_bit = %hu\n", i, it->first, it->second->r_bit);
@@ -359,7 +359,7 @@ void CBufferDeinit() {
  * \remark This simply returns an entry that should be removed. It does not
  * actually remove the entry.
  */
-std::map<LTable*, ActiveSetEntry*>::iterator getVictim() {
+std::map<LevelTable*, ActiveSetEntry*>::iterator getVictim() {
 	// set active_set_clock_hand to entry that will be removed
 	while(active_set_clock_hand->second->r_bit == 1) {
 		active_set_clock_hand->second->r_bit = 0;
@@ -370,7 +370,7 @@ std::map<LTable*, ActiveSetEntry*>::iterator getVictim() {
 
 	assert(active_set_clock_hand->first->code == 0xDEADBEEF);
 	assert(active_set_clock_hand->second->code == 0xDEADBEEF);
-	std::map<LTable*, ActiveSetEntry*>::iterator ret = active_set_clock_hand;
+	std::map<LevelTable*, ActiveSetEntry*>::iterator ret = active_set_clock_hand;
 	advanceClockHand();
 	return ret;
 }
@@ -380,10 +380,10 @@ std::map<LTable*, ActiveSetEntry*>::iterator getVictim() {
  *
  * \param l_table The level table to add to the buffer.
  */
-static inline void addToBuffer(LTable* l_table) {
+static inline void addToBuffer(LevelTable* l_table) {
 	//fprintf(stderr, "adding l_table 0x%llx\n", l_table);
 	ActiveSetEntry *as = ActiveSetEntryAlloc();
-	active_set.insert( std::pair<LTable*, ActiveSetEntry*>(l_table, as) );
+	active_set.insert( std::pair<LevelTable*, ActiveSetEntry*>(l_table, as) );
 
 	// TRICKY: size will only be 1 the first time we add something to the
 	// buffer so we'll go ahead and initialize the clock hand to that first
@@ -396,11 +396,11 @@ static inline void addToBuffer(LTable* l_table) {
  * \return The number of bytes saved by removing from the buffer.
  */
 static inline int evictFromBuffer() {
-	std::map<LTable*, ActiveSetEntry*>::iterator victim = getVictim();
+	std::map<LevelTable*, ActiveSetEntry*>::iterator victim = getVictim();
 	assert(victim->second->code == 0xDEADBEEF);
-	LTable* lTable = victim->first;
+	LevelTable* lTable = victim->first;
 	assert(lTable->code == 0xDEADBEEF);
-	int bytes_gained = compressLTable(lTable);
+	int bytes_gained = compressLevelTable(lTable);
 	assert(lTable->code == 0xDEADBEEF);
 	totalEvict++;
 	ActiveSetEntryFree(victim->second);
@@ -408,13 +408,13 @@ static inline int evictFromBuffer() {
 	return bytes_gained;
 }
 
-int CBufferDecompress(LTable* table) {
-	int loss = decompressLTable(table);
+int CBufferDecompress(LevelTable* table) {
+	int loss = decompressLevelTable(table);
 	int gain = CBufferAdd(table);
 	return gain - loss;
 }
 
-int CBufferAdd(LTable* table) {
+int CBufferAdd(LevelTable* table) {
 	assert(table->code == 0xDEADBEEF);
 	if (KConfigGetCompression() == 0)
 		return 0;
@@ -429,11 +429,11 @@ int CBufferAdd(LTable* table) {
 	return bytes_gained;
 }
 
-void CBufferAccess(LTable* table) {
+void CBufferAccess(LevelTable* table) {
 	if (KConfigGetCompression() == 0)
 		return;
 
-	std::map<LTable*, ActiveSetEntry*>::iterator it = active_set.find(table);
+	std::map<LevelTable*, ActiveSetEntry*>::iterator it = active_set.find(table);
 	if (it == active_set.end()) {
 		fprintf(stderr, "[1] as not found for lTable 0x%llx\n", table);
 	}

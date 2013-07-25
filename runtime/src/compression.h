@@ -17,20 +17,20 @@ void CBufferDeinit();
  * \param table The level table to add to the compression buffer.
  * \return The number of bytes gained as a result of adding.
  */
-int  CBufferAdd(LTable* table);
+int  CBufferAdd(LevelTable* table);
 
 /*! \brief Marks buffer entry for level table as being accessed.
  *
  * \param table The level table to mark as accessed.
  * \pre The table to mark must be valid and in the compression buffer.
  */
-void CBufferAccess(LTable* table);
+void CBufferAccess(LevelTable* table);
 
 /*! \brief Decompress a level table and adds it to compression buffer.
  *
  * \param table The level table to decompress.
  * \return Number of extra bytes required for decompression.
  */
-int CBufferDecompress(LTable* table);
+int CBufferDecompress(LevelTable* table);
 
 #endif

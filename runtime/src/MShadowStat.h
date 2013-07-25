@@ -81,8 +81,8 @@ typedef struct _MemStat {
 
 extern MemStat _stat;
 
-static inline void eventLTableAlloc() {
-	//_stat.nLTableAlloc++;
+static inline void eventLevelTableAlloc() {
+	//_stat.nLevelTableAlloc++;
 	AStatAlloc(&_stat.lTable);
 }
 

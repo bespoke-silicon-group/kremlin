@@ -46,7 +46,7 @@ void printMemReqStat() {
 	//fprintf(stderr, "Overall allocated = %d, converted = %d, realloc = %d\n", 
 	//	totalAlloc, totalConvert, totalRealloc);
 	double segSize = getSizeMB(_stat.segTable.nActiveMax, sizeof(SegTable));
-	double lTableSize = getSizeMB(_stat.lTable.nActiveMax, sizeof(LTable));
+	double lTableSize = getSizeMB(_stat.lTable.nActiveMax, sizeof(LevelTable));
 
 	UInt64 nTable0 = _stat.tTable[0].nActiveMax;
 	UInt64 nTable1 = _stat.tTable[1].nActiveMax;
