@@ -30,7 +30,7 @@ typedef struct _CacheEntry {
 	Addr tag;  
 	Version version[2];
 	int lastSize[2];	// required to know the region depth at eviction
-	int type;
+	TimeTable::TableType type;
 
 } CacheLine;
 
@@ -156,7 +156,7 @@ static void TVCacheLookupRead(Addr addr, int type, int* pIndex, CacheLine** pLin
 	int index = getLineIndex(addr);
 	int offset = 0; 
 	CacheLine* line = TVCacheGetTag(index);
-	if (line->type == TYPE_32BIT && type == TYPE_64BIT) {
+	if (line->type == TimeTable::TYPE_32BIT && type == TimeTable::TYPE_64BIT) {
 		// in this case, use the more recently one
 		Time* option0 = TVCacheGetData(index, 0);
 		Time* option1 = TVCacheGetData(index, 1);
@@ -185,9 +185,9 @@ static void TVCacheLookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLi
 	assert(index < TVCacheGetLineCount());
 	CacheLine* line = TVCacheGetTag(index);
 
-	if (line->type == TYPE_64BIT && type == TYPE_32BIT) {
+	if (line->type == TimeTable::TYPE_64BIT && type == TimeTable::TYPE_32BIT) {
 		// convert to 32bit	by duplicating 64bit info
-		line->type = TYPE_32BIT;
+		line->type = TimeTable::TYPE_32BIT;
 		line->version[1] = line->version[0];
 		line->lastSize[1] = line->lastSize[1];
 
@@ -266,12 +266,12 @@ static void TVCacheEvict(int index, Version* vArray) {
 	Time* tArray0 = TVCacheGetData(index, 0);
 	SkaduEvict(tArray0, line->tag, evictSize, vArray, line->type);
 
-	if (line->type == TYPE_32BIT) {
+	if (line->type == TimeTable::TYPE_32BIT) {
 		lastSize = line->lastSize[1];
 		lastVer = line->version[1];
 		evictSize = getStartInvalidLevel(lastVer, vArray, lastSize);
 		Time* tArray1 = TVCacheGetData(index, 1);
-		SkaduEvict(tArray1, (char*)line->tag+4, evictSize, vArray, TYPE_32BIT);
+		SkaduEvict(tArray1, (char*)line->tag+4, evictSize, vArray, TimeTable::TYPE_32BIT);
 	}
 }
 
@@ -332,7 +332,7 @@ static void check(Addr addr, Time* src, int size, int site) {
 }
 
 
-Time* TVCacheGet(Addr addr, Index size, Version* vArray, int type) {
+Time* TVCacheGet(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
 	TVCacheCheckResize(size, vArray);
 	CacheLine* entry = NULL;
 	Time* destAddr = NULL;
@@ -376,7 +376,7 @@ Time* TVCacheGet(Addr addr, Index size, Version* vArray, int type) {
 	return destAddr;
 }
 
-void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) {
+void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
 	TVCacheCheckResize(size, vArray);
 	CacheLine* entry = NULL;
 	Time* destAddr = NULL;
@@ -416,7 +416,7 @@ void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, int type) 
 
 	// copy Timestamps
 	memcpy(destAddr, tArray, sizeof(Time) * size);
-	if (entry->type == TYPE_32BIT && type == TYPE_64BIT) {
+	if (entry->type == TimeTable::TYPE_32BIT && type == TimeTable::TYPE_64BIT) {
 		// corner case: duplicate the timestamp
 		// not yet implemented
 		Time* duplicated = TVCacheGetData(index, offset);

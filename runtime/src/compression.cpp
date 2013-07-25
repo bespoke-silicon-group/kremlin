@@ -76,7 +76,7 @@ static void decompressData(UInt8* dest, UInt8* src, lzo_uint src_size, lzo_uintp
  * \param[in,out] array The array to convert
  */
 void makeDiff(Time* array) {
-	int size = TIMETABLE_SIZE / 2;
+	int size = TimeTable::TIMETABLE_SIZE / 2;
 
 	for (int i=size-1; i>=1; --i) {
 		array[i] = array[i] - array[i-1];
@@ -88,7 +88,7 @@ void makeDiff(Time* array) {
  * \param[in,out] array The array to convert
  */
 void restoreDiff(Time* array) {
-	int size = TIMETABLE_SIZE / 2;
+	int size = TimeTable::TIMETABLE_SIZE / 2;
 	int i;
 
 	for (i=1; i<size; i++) {
@@ -103,19 +103,19 @@ void restoreDiff(Time* array) {
  * \return Offset in table given row and column.
  */
 static inline int getByteOffset(int a, int b) {
-	int size = TIMETABLE_SIZE / 2;
+	int size = TimeTable::TIMETABLE_SIZE / 2;
 	return b * size + a;
 }
 
 
+// TODO: make this a member function of Level Table
 /*! \brief Get the number of entries in Level table.
  *
  * \param l_table The table to get number of entries from.
  * \return Number of entries in specified level table.
  */
 int getTimeTableSize(LevelTable* l_table) {
-	int i;
-	for (i=0; i<MAX_LEVEL; i++) {
+	for (unsigned i = 0; i < LevelTable::MAX_LEVEL; ++i) {
 		TimeTable* table = l_table->tArray[i];
 		if (table == NULL)
 			return i;
@@ -149,14 +149,13 @@ static UInt64 compressLevelTable(LevelTable* l_table) {
 
 
 	UInt64 compressionSavings = 0;
-	lzo_uint srcLen = sizeof(Time)*TIMETABLE_SIZE/2; // XXX assumes 8 bytes
+	lzo_uint srcLen = sizeof(Time)*TimeTable::TIMETABLE_SIZE/2; // XXX assumes 8 bytes
 	lzo_uint compLen = 0;
 
-	int i;
 	Time* diffBuffer = (Time*)MemPoolAlloc();
 	void* compressedData;
 
-	for(i = MAX_LEVEL-1; i >=1; i--) {
+	for(unsigned i = LevelTable::MAX_LEVEL-1; i >=1; --i) {
 		// step 1: create/fill in time difference table
 		TimeTable* tt2 = l_table->tArray[i];
 		TimeTable* ttPrev = l_table->tArray[i-1];
@@ -167,7 +166,7 @@ static UInt64 compressLevelTable(LevelTable* l_table) {
 		assert(ttPrev != NULL);
 
 		int j;
-		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
+		for(j = 0; j < TimeTable::TIMETABLE_SIZE/2; ++j) {
 			diffBuffer[j] = ttPrev->array[j] - tt2->array[j];
 		}
 
@@ -216,7 +215,7 @@ static UInt64 decompressLevelTable(LevelTable* l_table) {
 
 	//fprintf(stderr,"[LevelTable] decompressing LevelTable (%p)\n",l_table);
 	UInt64 decompressionCost = 0;
-	lzo_uint srcLen = sizeof(Time)*TIMETABLE_SIZE/2;
+	lzo_uint srcLen = sizeof(Time)*TimeTable::TIMETABLE_SIZE/2;
 	lzo_uint uncompLen = srcLen;
 
 	// for now, we'll always diff based on level 0
@@ -237,10 +236,9 @@ static UInt64 decompressLevelTable(LevelTable* l_table) {
 
 	//tArrayIsDiff(tt1->array, l_table->tArrayBackup[0]);
 
-	int i;
 	Time *diffBuffer = (Time*)MemPoolAlloc();
 
-	for(i = 1; i < MAX_LEVEL; ++i) {
+	for(unsigned i = 1; i < LevelTable::MAX_LEVEL; ++i) {
 		TimeTable* tt2 = l_table->tArray[i];
 		TimeTable* ttPrev = l_table->tArray[i-1];
 		if(tt2 == NULL) 
@@ -262,7 +260,7 @@ static UInt64 decompressLevelTable(LevelTable* l_table) {
 		tt2->size = srcLen;
 
 		int j;
-		for(j = 0; j < TIMETABLE_SIZE/2; ++j) {
+		for(j = 0; j < TimeTable::TIMETABLE_SIZE/2; ++j) {
 			assert(diffBuffer[j] >= 0);
 			tt2->array[j] = ttPrev->array[j] - diffBuffer[j];
 

@@ -50,8 +50,8 @@ void printMemReqStat() {
 
 	UInt64 nTable0 = _stat.tTable[0].nActiveMax;
 	UInt64 nTable1 = _stat.tTable[1].nActiveMax;
-	int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TIMETABLE_SIZE / 2);
-	int sizeTable32 = sizeof(TimeTable) + sizeof(Time) * TIMETABLE_SIZE;
+	int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TimeTable::TIMETABLE_SIZE / 2);
+	int sizeTable32 = sizeof(TimeTable) + sizeof(Time) * TimeTable::TIMETABLE_SIZE;
 	//double tTableSize1 = getSizeMB(nTable1, sizeTable32);
 	//double tTableSize = tTableSize0 + tTableSize1;
 
@@ -109,7 +109,7 @@ void printLevelStat() {
 		totalConvert += _stat.nTimeTableConvert[i];
 		totalRealloc += _stat.nTimeTableRealloc[i];
 
-		int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TIMETABLE_SIZE / 2);
+		int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TimeTable::TIMETABLE_SIZE / 2);
 		double sizeSegTable = getSizeMB(_stat.nSegTableNewAlloc[i], sizeof(SegTable));
 		double sizeTimeTable = getSizeMB(_stat.nTimeTableNewAlloc[i], sizeTable64);
 		double sizeVersionTable = getSizeMB(_stat.nTimeTableConvert[i], sizeof(TimeTable));

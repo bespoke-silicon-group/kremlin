@@ -3,17 +3,14 @@
 
 #include "ktypes.h"
 
-#define TYPE_64BIT	0
-#define TYPE_32BIT	1
-
-
-// TimeTable Parameters
-#define TIMETABLE_MASK 0x3ff	// 4KB
-#define TIMETABLE_SIZE (TIMETABLE_MASK + 1)
-
 class TimeTable {
 public:
-	UInt8  type;	// 32BIT or 64BIT
+	enum TableType { TYPE_64BIT, TYPE_32BIT };
+
+	static const unsigned TIMETABLE_MASK = 0x3ff;
+	static const int TIMETABLE_SIZE = TIMETABLE_MASK+1;
+
+	TableType type;
 	UInt32 size;	// can be very small when compressed
 	Time*  array;	// actual Timestamp data
 
@@ -33,22 +30,22 @@ public:
 		return ret;
 	}
 
-	void setTimeAtAddr(Addr addr, Time time, UInt32 type);
+	void setTimeAtAddr(Addr addr, Time time, TableType type);
 
-	static TimeTable* Create(int size_type);
+	static TimeTable* Create(TableType size_type);
 	static void Destroy(TimeTable* table, UInt8 isCompressed);
 	static TimeTable* Create32BitClone(TimeTable* table);
 
-	static int GetEntrySize(int type) {
-		int size = TIMETABLE_SIZE;
+	static int GetEntrySize(TableType type) {
+		int size = TimeTable::TIMETABLE_SIZE;
 		if (type == TYPE_64BIT) size >>= 1;
 		return size;
 	}
 
-	static int GetIndex(Addr addr, int type) {
+	static int GetIndex(Addr addr, TableType type) {
 		const int WORD_SHIFT = 2;
-		int ret = ((UInt64)addr >> WORD_SHIFT) & TIMETABLE_MASK;
-		assert(ret < TIMETABLE_SIZE);
+		int ret = ((UInt64)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
+		assert(ret < TimeTable::TIMETABLE_SIZE);
 		if (type == TYPE_64BIT) ret >>= 1;
 
 		return ret;
@@ -56,14 +53,15 @@ public:
 };
 
 
-#define MAX_LEVEL	64
 //TODO: need to support dynamically growing / shrinking without MAX_LEVEL
 class LevelTable {
 public:
+	static const unsigned MAX_LEVEL = 64;
+
 	UInt32		code;
 	UInt8		isCompressed; 		// 0 = uncompressed, 1 = compressed
-	Version		vArray[MAX_LEVEL];	// version for each level
-	TimeTable* 	tArray[MAX_LEVEL];	// TimeTable for each level
+	Version		vArray[LevelTable::MAX_LEVEL];	// version for each level
+	TimeTable* 	tArray[LevelTable::MAX_LEVEL];	// TimeTable for each level
 
 	static LevelTable* Alloc() {
 		LevelTable* ret = (LevelTable*)MemPoolCallocSmall(1, sizeof(LevelTable));
@@ -84,7 +82,7 @@ public:
 	}
 
 	Time getTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver);
-	void setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver, Time value, UInt32 type);
+	void setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver, Time value, TimeTable::TableType type);
 
 	int findLowestInvalidIndex(Version* vArray);
 	void cleanTimeTablesFromLevel(Index start_level);
@@ -94,13 +92,14 @@ public:
 /*
  * SegTable: Covers a 4GB space 
  */
-#define SEGTABLE_MASK 	0xfffff	
-#define SEGTABLE_SHIFT	12
-#define SEGTABLE_SIZE 	(SEGTABLE_MASK + 1)
-
-
 class SegTable {
+private:
+	static const unsigned SEGTABLE_MASK = 0xfffff;
+	static const unsigned SEGTABLE_SHIFT = 12;
+
 public:
+	static const unsigned SEGTABLE_SIZE = SEGTABLE_MASK+1;
+
 	LevelTable* entry[SEGTABLE_SIZE];
 
 	static SegTable* Alloc() {
@@ -118,6 +117,6 @@ public:
 };
 
 
-void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, int type);
-void SkaduFetch(Addr addr, Index size, Version* vArray, Time* destAddr, int type);
+void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type);
+void SkaduFetch(Addr addr, Index size, Version* vArray, Time* destAddr, TimeTable::TableType type);
 #endif
