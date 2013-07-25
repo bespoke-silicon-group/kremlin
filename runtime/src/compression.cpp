@@ -3,7 +3,6 @@
 #include "kremlin.h"
 #include "compression.h"
 #include "MShadowSkadu.h"
-#include "uthash.h"
 #include "config.h"
 #include "minilzo.h"
 

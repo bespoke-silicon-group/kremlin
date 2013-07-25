@@ -14,7 +14,6 @@
 #include "MShadowSkadu.h"
 #include "MShadowStat.h"
 #include "Table.h"
-#include "uthash.h"
 #include "compression.h"
 #include "config.h"
 
