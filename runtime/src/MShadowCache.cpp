@@ -18,176 +18,14 @@
 #include "compression.h"
 #include "config.h"
 
+#include "TagVectorCache.h"
+#include "TagVectorCacheLine.h"
+
 #include <string.h> // for memcpy
 
 #define TVCacheDebug	0
 
-/*
- * TagVectorCache: cache for tag vectors
- */ 
 
-class CacheLine {
-public:
-	Addr tag;  
-	Version version[2];
-	int lastSize[2];	// required to know the region depth at eviction
-	TimeTable::TableType type;
-
-	Version getVersion(int offset) { return this->version[offset]; }
-
-	void setVersion(int offset, Version ver) {
-		//int index = lineIndex >> CACHE_VERSION_SHIFT;
-		//verTable[lineIndex] = ver;
-		this->version[offset] = ver;
-	}
-
-	void setValidSize(int offset, int size) {
-		this->lastSize[offset] = size;
-	}
-
-	bool isHit(Addr addr) {
-		// XXX: tag printed twice??? (-sat)
-		MSG(3, "isHit addr = 0x%llx, tag = 0x%llx, entry tag = 0x%llx\n",
-			addr, this->tag, this->tag);
-
-		return (((UInt64)this->tag ^ (UInt64)addr) >> 3) == 0;
-	}
-
-	void print() {
-		fprintf(stderr, "addr 0x%llx, ver [%d, %d], lastSize [%d, %d], type %d\n",
-			this->tag, this->version[0], this->version[1], this->lastSize[0], this->lastSize[1], this->type);
-	}
-
-	void validateTag(Time* destAddr, Version* vArray, Index size);
-};
-
-class TagVectorCache {
-private:
-	int  size_in_mb;
-	int  line_count;
-	int  line_shift;
-	int  depth;
-
-public:
-	CacheLine* tagTable;
-	Table* valueTable;
-
-	int getSize() { return size_in_mb; }
-	int getLineCount() { return line_count; }
-	int getLineMask() { return line_count - 1; }
-	int getDepth() { return depth; }
-	int getLineShift() { return line_shift; }
-
-	CacheLine* getTag(int index) {
-		assert(index < getLineCount());
-		return &tagTable[index];
-	}
-
-	Time* getData(int index, int offset) {
-		return TableGetElementAddr(valueTable, index*2 + offset, 0);
-	}
-
-	int getLineIndex(Addr addr);
-
-	void configure(int size_in_mb, int depth);
-	void lookupRead(Addr addr, int type, int* pIndex, CacheLine** pLine, int* pOffset, Time** pTArray);
-	void lookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLine, int* pOffset, Time** pTArray);
-};
-
-static inline int getFirstOnePosition(int input) {
-	int i;
-
-	for (i=0; i<8 * sizeof(int); i++) {
-		if (input & (1 << i))
-			return i;
-	}
-	assert(0);
-	return 0;
-}
-
-
-void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
-	const int new_line_size = 8;
-	int new_line_count = new_size_in_mb * 1024 * 1024 / new_line_size;
-	this->size_in_mb = new_size_in_mb;
-	this->line_count = new_line_count;
-	this->line_shift = getFirstOnePosition(new_line_count);
-	this->depth = new_depth;
-
-	fprintf(stderr, "MShadowCacheInit: size: %d MB, lineNum %d, lineShift %d, depth %d\n", 
-		new_size_in_mb, new_line_count, this->line_shift, this->depth);
-
-	tagTable = (CacheLine*)MemPoolCallocSmall(new_line_count, sizeof(CacheLine)); // 64bit granularity
-	valueTable = TableCreate(new_line_count * 2, this->depth);  // 32bit granularity
-
-	MSG(TVCacheDebug, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
-		new_line_count, KConfigGetIndexSize(), valueTable[0].array);
-}
-
-int TagVectorCache::getLineIndex(Addr addr) {
-#if 0
-	int nShift = 3; 	// 8 byte 
-	int ret = (((UInt64)addr) >> nShift) & lineMask;
-	assert(ret >= 0 && ret < lineNum);
-#endif
-	int nShift = 3;	
-	int lineMask = getLineMask();
-	int lineShift = getLineShift();
-	int val0 = (((UInt64)addr) >> nShift) & lineMask;
-	int val1 = (((UInt64)addr) >> (nShift + lineShift)) & lineMask;
-	return val0 ^ val1;
-}
-
-
-
-void TagVectorCache::lookupRead(Addr addr, int type, int* pIndex, CacheLine** pLine, int* pOffset, Time** pTArray) {
-	int index = this->getLineIndex(addr);
-	int offset = 0; 
-	CacheLine* line = this->getTag(index);
-	if (line->type == TimeTable::TYPE_32BIT && type == TimeTable::TYPE_64BIT) {
-		// in this case, use the more recently one
-		Time* option0 = this->getData(index, 0);
-		Time* option1 = this->getData(index, 1);
-		// check the first item only
-		offset = (*option0 > *option1) ? 0 : 1;
-
-	} else {
-		offset = ((UInt64)addr >> 2) & 0x1;
-	}
-
-	assert(index < this->getLineCount());
-
-	*pIndex = index;
-	*pTArray = this->getData(index, offset);
-	*pOffset = offset;
-	*pLine = line;
-}
-
-void TagVectorCache::lookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLine, int* pOffset, Time** pTArray) {
-	int index = this->getLineIndex(addr);
-	int offset = ((UInt64)addr >> 2) & 0x1;
-	assert(index < this->getLineCount());
-	CacheLine* line = this->getTag(index);
-
-	if (line->type == TimeTable::TYPE_64BIT && type == TimeTable::TYPE_32BIT) {
-		// convert to 32bit	by duplicating 64bit info
-		line->type = TimeTable::TYPE_32BIT;
-		line->version[1] = line->version[0];
-		line->lastSize[1] = line->lastSize[1];
-
-		Time* option0 = this->getData(index, 0);
-		Time* option1 = this->getData(index, 1);
-		memcpy(option1, option0, sizeof(Time) * line->lastSize[0]);
-	}
-
-
-	//fprintf(stderr, "index = %d, tableSize = %d\n", tTableIndex, this->valueTable->row);
-	*pIndex = index;
-	*pTArray = this->getData(index, offset);
-	*pLine = line;
-	*pOffset = offset;
-	return;
-}
 
 void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
 	tag_vector_cache = new TagVectorCache();
@@ -206,11 +44,12 @@ void SkaduCache::deinit() {
 
 	if (KConfigUseSkaduCache() == FALSE) return;
 	// XXX: not sure of logic behind the next two lines (-sat)
-	MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(CacheLine) * tag_vector_cache->getLineCount());
+	MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(TagVectorCacheLine) * tag_vector_cache->getLineCount());
 	TableFree(tag_vector_cache->valueTable);
 }
 
-static int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
+// XXX: not sure this should be a global function
+int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
 	int firstInvalid = 0;
 	if (size == 0)
 		return 0;
@@ -237,7 +76,7 @@ static int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
  */
 
 void SkaduCache::evict(int index, Version* vArray) {
-	CacheLine* line = tag_vector_cache->getTag(index);
+	TagVectorCacheLine* line = tag_vector_cache->getTag(index);
 	Addr addr = line->tag;
 	if (addr == 0x0)
 		return;
@@ -277,18 +116,6 @@ void SkaduCache::resize(int newSize, Version* vArray) {
 	tag_vector_cache->configure(size, newDepth);
 }
 
-/*
- * Actual load / store handlers with TagVectorCache
- */
-
-void CacheLine::validateTag(Time* destAddr, Version* vArray, Index size) {
-	int firstInvalid = getStartInvalidLevel(this->version[0], vArray, size);
-
-	MSG(TVCacheDebug, "\t\tTVCacheValidateTag: invalid from level %d\n", firstInvalid);
-	if (size > firstInvalid)
-		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
-}
-
 void SkaduCache::checkResize(int size, Version* vArray) {
 	int oldDepth = tag_vector_cache->getDepth();
 	if (oldDepth < size) {
@@ -309,10 +136,9 @@ static void check(Addr addr, Time* src, int size, int site) {
 #endif
 }
 
-
 Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
 	checkResize(size, vArray);
-	CacheLine* entry = NULL;
+	TagVectorCacheLine* entry = NULL;
 	Time* destAddr = NULL;
 	int offset = 0;
 	int index = 0;
@@ -356,7 +182,7 @@ Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableTy
 
 void SkaduCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
 	checkResize(size, vArray);
-	CacheLine* entry = NULL;
+	TagVectorCacheLine* entry = NULL;
 	Time* destAddr = NULL;
 	int index = 0;
 	int offset = 0;

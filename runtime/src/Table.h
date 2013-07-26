@@ -4,12 +4,12 @@
 #include "ktypes.h"
 
 
-typedef struct _Table {
+class Table {
+public:
 	int	row;
 	int col;
 	Time* array;
-
-} Table;
+};
 
 #if 0
 Table*	TableCreate(int row, int col);

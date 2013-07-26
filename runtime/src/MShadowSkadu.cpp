@@ -104,6 +104,15 @@ static void setCompression() {
  *
  */ 
 
+int TimeTable::GetIndex(Addr addr, TableType type) {
+	const int WORD_SHIFT = 2;
+	int ret = ((UInt64)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
+	assert(ret < TimeTable::TIMETABLE_SIZE);
+	if (type == TYPE_64BIT) ret >>= 1;
+
+	return ret;
+}
+
 TimeTable* TimeTable::Create(TimeTable::TableType size_type) {
 	assert(size_type == TimeTable::TYPE_32BIT || size_type == TimeTable::TYPE_64BIT);
 	int size = TimeTable::GetEntrySize(size_type);
@@ -151,6 +160,11 @@ void TimeTable::setTimeAtAddr(Addr addr, Time time, TimeTable::TableType type) {
 	}
 }
 
+LevelTable* LevelTable::Alloc() {
+	LevelTable* ret = (LevelTable*)MemPoolCallocSmall(1, sizeof(LevelTable));
+	ret->code = 0xDEADBEEF;
+	return ret;
+}
 
 Time LevelTable::getTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver) {
 	TimeTable* table = this->getTimeTableAtLevel(level);
@@ -334,6 +348,16 @@ static inline int hasVersionError(Version* vArray, int size) {
 #endif
 	return 0;
 }
+
+SegTable* SegTable::Alloc() {
+	SegTable* ret = (SegTable*)MemPoolCallocSmall(1,sizeof(SegTable));
+	return ret;	
+}
+
+void SegTable::Free(SegTable* table) {
+	MemPoolFreeSmall(table, sizeof(SegTable));
+}
+
 
 /*
  * Fetch / Evict from TVCache to TVStorage

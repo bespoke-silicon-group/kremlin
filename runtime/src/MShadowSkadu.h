@@ -43,14 +43,7 @@ public:
 		return size;
 	}
 
-	static int GetIndex(Addr addr, TableType type) {
-		const int WORD_SHIFT = 2;
-		int ret = ((UInt64)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
-		assert(ret < TimeTable::TIMETABLE_SIZE);
-		if (type == TYPE_64BIT) ret >>= 1;
-
-		return ret;
-	}
+	static int GetIndex(Addr addr, TableType type);
 };
 
 
@@ -64,11 +57,7 @@ public:
 	Version		vArray[LevelTable::MAX_LEVEL];	// version for each level
 	TimeTable* 	tArray[LevelTable::MAX_LEVEL];	// TimeTable for each level
 
-	static LevelTable* Alloc() {
-		LevelTable* ret = (LevelTable*)MemPoolCallocSmall(1, sizeof(LevelTable));
-		ret->code = 0xDEADBEEF;
-		return ret;
-	}
+	static LevelTable* Alloc();
 
 	Version getVersionAtLevel(Index level) { return vArray[level]; }
 	void setVersionAtLevel(Index level, Version ver) {
@@ -105,14 +94,8 @@ public:
 
 	LevelTable* entry[SEGTABLE_SIZE];
 
-	static SegTable* Alloc() {
-		SegTable* ret = (SegTable*)MemPoolCallocSmall(1,sizeof(SegTable));
-		return ret;	
-	}
-
-	static void Free(SegTable* table) {
-		MemPoolFreeSmall(table, sizeof(SegTable));
-	}
+	static SegTable* Alloc();
+	static void Free(SegTable* table);
 
 	static int GetIndex(Addr addr) {
 		return ((UInt64)addr >> SEGTABLE_SHIFT) & SEGTABLE_MASK;
