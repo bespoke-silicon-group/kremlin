@@ -1,31 +1,22 @@
 #include "kremlin.h"
 
-#include <assert.h>
-#include <limits.h>
-#include <stdarg.h> /* for variable length args */
+#include <cassert>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
+#include <string.h> // for memcpy
 
-#include "MemMapAllocator.h"
 #include "debug.h"
-#include "CRegion.h"
-#include "MShadowSkadu.h"
-#include "MShadowCache.h"
-#include "MShadowStat.h"
+#include "config.h"
+#include "MemMapAllocator.h"
 #include "Table.h"
 #include "compression.h"
-#include "config.h"
 
+#include "MShadowStat.h"
+#include "MShadowSkadu.h"
+#include "MShadowCache.h"
 #include "TagVectorCache.h"
 #include "TagVectorCacheLine.h"
 
-#include <string.h> // for memcpy
-
 #define TVCacheDebug	0
-
-
 
 void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
 	tag_vector_cache = new TagVectorCache();

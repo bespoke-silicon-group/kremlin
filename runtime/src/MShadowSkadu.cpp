@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <cassert>
 #include <stdio.h>
 
 #include "kremlin.h"
@@ -7,7 +7,6 @@
 #include "MemMapAllocator.h"
 
 #include "Table.h"
-#include "CRegion.h"
 #include "MShadowSkadu.h"
 #include "MShadowStat.h"
 #include "compression.h"
