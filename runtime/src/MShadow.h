@@ -1,34 +1,14 @@
 #ifndef _MSHADOW_H
 #define _MSHADOW_H
 
-/*
- * Memory Shadow Interface
- *
- * djeon@cs.ucsd.edu
- */
-
-
 #include "ktypes.h"
 
+class MShadow {
+public:
+	virtual void init() = 0;
+	virtual void deinit() = 0;
 
-//UInt 		MShadowInit(int, int);	// initialize global shadow memory system
-//UInt 		MShadowDeinit();		// free associated data structure
-
-Time		MShadowGetTime(Addr addr, Index size, Version version);
-void		MShadowSetTime(Addr addr, Index size, Version version, Time time);
-//Time*		MShadowGet(Addr addr, Index size, Version* vArray, UInt32 width);
-//void		MShadowSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width);
-
-
-void MShadowInitBase();
-void MShadowDeinitBase();
-
-void MShadowInitSTV();
-void MShadowDeinitSTV();
-
-void MShadowInitSkadu();
-void MShadowDeinitSkadu();
-
-void MShadowInitDummy();
-void MShadowDeinitDummy();
+	virtual Time* get(Addr addr, Index size, Version* versions, UInt32 width) = 0;
+	virtual void set(Addr addr, Index size, Version* versions, Time* times, UInt32 width) = 0;
+};
 #endif

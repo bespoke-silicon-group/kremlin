@@ -1,5 +1,6 @@
 #include "kremlin.h"
 #include "config.h"
+#include "MShadowSTV.h"
 
 #include <assert.h>
 #include <limits.h>
@@ -378,7 +379,7 @@ static SegTable* STableGetSegTable(Addr addr) {
 }
 
 
-static Time* _MShadowGetSTV(Addr addr, Index size, Version* vArray, UInt32 width) {
+Time* MShadowSTV::get(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(DEBUGLEVEL, "MShadowGet 0x%llx, size %d\n", addr, size);
 
 	if (size < 1)
@@ -394,7 +395,7 @@ static Time* _MShadowGetSTV(Addr addr, Index size, Version* vArray, UInt32 width
 	return SegTableGetTime(segEntry, addr, size, vArray, type);
 }
 
-static void _MShadowSetSTV(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
+void MShadowSTV::set(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(1, "MShadowSet 0x%llx, size %d\n", addr, size);
 
 	if (size < 1)
@@ -411,17 +412,13 @@ static void _MShadowSetSTV(Addr addr, Index size, Version* vArray, Time* tArray,
 	SegTableSetTime(segEntry, addr, size, vArray, tArray, type);
 }
 
-
-void MShadowInitSTV() {
+void MShadowSTV::init() {
 	fprintf(stderr, "[kremlin] MShadow STV Init\n");
 	STableInit();
 	//MemAllocInit(sizeof(TimeTable));
-	MShadowSet = _MShadowSetSTV;
-	MShadowGet = _MShadowGetSTV;
 }
 
-
-void MShadowDeinitSTV() {
+void MShadowSTV::deinit() {
 	printMemStat();
 	STableDeinit();
 	//MemAllocDeinit();

@@ -423,7 +423,7 @@ static void NoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, Tim
  * Entry point functions from Kremlin
  */
 
-static Time* _MShadowSkaduGet(Addr addr, Index size, Version* vArray, UInt32 width) {
+Time* MShadowSkadu::get(Addr addr, Index size, Version* vArray, UInt32 width) {
 	if (size < 1)
 		return NULL;
 
@@ -441,7 +441,7 @@ static Time* _MShadowSkaduGet(Addr addr, Index size, Version* vArray, UInt32 wid
 	}
 }
 
-static void _MShadowSkaduSet(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
+void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	MSG(0, "MShadowSet 0x%llx, size %d [", addr, size);
 	if (size < 1)
 		return;
@@ -471,7 +471,7 @@ static void _MShadowSkaduSet(Addr addr, Index size, Version* vArray, Time* tArra
  * Init / Deinit
  */
 
-void MShadowInitSkadu() {
+void MShadowSkadu::init() {
 	int cacheSizeMB = KConfigGetSkaduCacheSize();
 	fprintf(stderr,"[kremlin] MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
@@ -486,18 +486,13 @@ void MShadowInitSkadu() {
 	TVCacheInit(cacheSizeMB);
 
 	CBufferInit(KConfigGetCBufferSize());
-	MShadowGet = _MShadowSkaduGet;
-	MShadowSet = _MShadowSkaduSet;
 	setCompression();
 }
 
 
-void MShadowDeinitSkadu() {
+void MShadowSkadu::deinit() {
 	CBufferDeinit();
 	MShadowStatPrint();
 	sTable->deinit();
 	TVCacheDeinit();
 }
-
-
-

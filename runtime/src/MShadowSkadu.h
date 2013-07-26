@@ -1,7 +1,17 @@
-#ifndef _MSHADOW_LOW
-#define _MSHADOW_LOW
+#ifndef _MSHADOW_SKADU_H
+#define _MSHADOW_SKADU_H
 
 #include "ktypes.h"
+#include "MShadow.h"
+
+class MShadowSkadu : public MShadow {
+public:
+	void init();
+	void deinit();
+
+	Time* get(Addr addr, Index size, Version* versions, UInt32 width);
+	void set(Addr addr, Index size, Version* versions, Time* times, UInt32 width);
+};
 
 class TimeTable {
 public:

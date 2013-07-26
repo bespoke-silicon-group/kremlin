@@ -1,5 +1,6 @@
 #include "kremlin.h"
 #include "config.h"
+#include "MShadowBase.h"
 
 #include <assert.h>
 #include <limits.h>
@@ -360,7 +361,7 @@ static SegTable* STableGetSegTable(Addr addr) {
 
 
 
-static Time* _MShadowGetBase(Addr addr, Index size, Version* vArray, UInt32 width) {
+Time* MShadowBase::get(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(0, "MShadowGet 0x%llx, size %d\n", addr, size);
 
 	if (size < 1)
@@ -377,7 +378,7 @@ static Time* _MShadowGetBase(Addr addr, Index size, Version* vArray, UInt32 widt
 	return SegTableGetTime(segEntry, addr, size, vArray, type);
 }
 
-static void _MShadowSetBase(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
+void MShadowBase::set(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
 	if (size < 1)
 		return;
 
@@ -393,15 +394,13 @@ static void _MShadowSetBase(Addr addr, Index size, Version* vArray, Time* tArray
 }
 
 
-void MShadowInitBase() {
+void MShadowBase::init() {
 	fprintf(stderr, "[kremlin] MShadow Base Init\n");
 	STableInit();
-	MShadowSet = _MShadowSetBase;
-	MShadowGet = _MShadowGetBase;
 }
 
 
-void MShadowDeinitBase() {
+void MShadowBase::deinit() {
 	printMemStat();
 	STableDeinit();
 }

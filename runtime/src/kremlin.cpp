@@ -12,7 +12,13 @@
 #include "debug.h"
 #include "config.h"
 #include "CRegion.h"
+
 #include "MShadow.h"
+#include "MShadowDummy.h"
+#include "MShadowBase.h"
+#include "MShadowSTV.h"
+#include "MShadowSkadu.h"
+
 #include "RShadow.h"
 #include "RShadow.cpp" // WHY?
 #include "PoolAllocator.hpp"
@@ -44,9 +50,7 @@ static UInt64 _regionFuncCnt;
 static UInt64 _setupTableCnt;
 static int _requireSetupTable;
 
-
-Time* (*MShadowGet)(Addr, Index, Version*, UInt32) = NULL;
-void  (*MShadowSet)(Addr, Index, Version*, Time*, UInt32) = NULL;
+MShadow *mem_shadow = NULL;
 
 /*****************************************************************
  * Region Level Management 
@@ -1548,7 +1552,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 
 	Index region_depth = getIndexDepth();
 	Level min_level = getLevel(0); // XXX: this doesn't look right...
-	Time* src_addr_times = MShadowGet(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
+	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
 	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
@@ -1618,7 +1622,7 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
 
 	Index region_depth = getIndexDepth();
 	Level min_level = getLevel(0); // XXX: see note in KLoad
-	Time* src_addr_times = MShadowGet(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
+	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
 	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
@@ -1662,7 +1666,7 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
 
 	Index region_depth = getIndexDepth();
     Level min_level = getStartLevel(); // XXX: KLoad/KLoad0 use getLevel(0)
-	Time* src_addr_times = MShadowGet(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
+	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
 	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
@@ -1740,7 +1744,7 @@ void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
 #endif
 
 	Level min_level = getLevel(0); // XXX: see notes in KLoads
-	MShadowSet(dest_addr, getIndexDepth(), Region::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+	mem_shadow->set(dest_addr, getIndexDepth(), Region::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
     MSG(1, "store ts[0x%x] completed\n", dest_addr);
 }
 
@@ -1775,7 +1779,7 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
 #endif
 
 	Level min_level = getLevel(0);
-	MShadowSet(dest_addr, getIndexDepth(), Region::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+	mem_shadow->set(dest_addr, getIndexDepth(), Region::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
 }
 
 
@@ -1988,35 +1992,24 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
 void MShadowInit() {
 	switch(KConfigGetShadowType()) {
 		case 0:
-			MShadowInitBase();	
+			mem_shadow = new MShadowBase();
 			break;
 		case 1:
-			MShadowInitSTV();	
+			mem_shadow = new MShadowSTV();
 			break;
 		case 2:
-			MShadowInitSkadu();	
+			mem_shadow = new MShadowSkadu();
 			break;
-		case 3:
-			MShadowInitDummy();
-			break;
+		default:
+			mem_shadow = new MShadowDummy();
 	}
+	mem_shadow->init();
 }
 
 void MShadowDeinit() {
-	switch(KConfigGetShadowType()) {
-		case 0:
-			MShadowDeinitBase();	
-			break;
-		case 1:
-			MShadowDeinitSTV();	
-			break;
-		case 2:
-			MShadowDeinitSkadu();	
-			break;
-		case 3:
-			MShadowDeinitDummy();
-			break;
-	}
+	mem_shadow->deinit();
+	delete mem_shadow;
+	mem_shadow = NULL;
 }
 
 static UInt hasInitialized = 0;
@@ -2284,7 +2277,7 @@ void printMemoryTimes(Addr addr, Index size) {
 	Index index;
 	Index depth = getIndexDepth();
 	Level minLevel = getLevel(0);
-	Time* tArray = MShadowGet(addr, depth, Region::getVersionAtLevel(minLevel), size);
+	Time* tArray = mem_shadow->get(addr, depth, Region::getVersionAtLevel(minLevel), size);
 
     for (index = 0; index < depth; index++) {
 		Time ts = tArray[index];
