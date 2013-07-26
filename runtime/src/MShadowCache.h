@@ -1,7 +1,22 @@
+#ifndef MSHADOW_SKADUCACHE_H
+#define MSHADOW_SKADUCACHE_H
+
 #include "kremlin.h"
 #include "MShadowSkadu.h"
 
-void  TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type);
-Time* TVCacheGet(Addr addr, Index size, Version* vArray, TimeTable::TableType type);
-int   TVCacheInit(int size);
-void  TVCacheDeinit();
+class SkaduCache : public CacheInterface {
+public:
+	void init(int size, bool compress, MShadowSkadu* mshadow);
+	void deinit();
+
+	void  set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type);
+	Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type);
+
+private:
+	void evict(int index, Version* vArray);
+	void flush(Version* vArray);
+	void resize(int newSize, Version* vArray);
+	void checkResize(int size, Version* vArray);
+};
+
+#endif

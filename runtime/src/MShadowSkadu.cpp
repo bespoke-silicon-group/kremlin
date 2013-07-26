@@ -343,13 +343,11 @@ void MShadowSkadu::evict(Time* tArray, Addr addr, int size, Version* vArray, Tim
 	if (addr == NULL)
 		return;
 
-	int i;
-	//int startInvalid = getStartInvalidLevel(oldVersion, vArray, size);
 
 	MSG(0, "\tTVCacheEvict 0x%llx, size=%d, effectiveSize=%d \n", addr, size, size);
 		
 	LevelTable* lTable = this->getLevelTable(addr,vArray);
-	for (i=0; i<size; i++) {
+	for (int i=0; i<size; i++) {
 		eventEvict(i);
 		if (tArray[i] == 0ULL) {
 			break;
