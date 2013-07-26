@@ -4,6 +4,8 @@
 #include "kremlin.h"
 #include "MShadowSkadu.h"
 
+class TagVectorCache;
+
 class SkaduCache : public CacheInterface {
 public:
 	void init(int size, bool compress, MShadowSkadu* mshadow);
@@ -13,6 +15,8 @@ public:
 	Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type);
 
 private:
+	TagVectorCache *tag_vector_cache;
+
 	void evict(int index, Version* vArray);
 	void flush(Version* vArray);
 	void resize(int newSize, Version* vArray);

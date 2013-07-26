@@ -94,8 +94,6 @@ public:
 	void lookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLine, int* pOffset, Time** pTArray);
 };
 
-static TagVectorCache tag_vector_cache;
-
 static inline int getFirstOnePosition(int input) {
 	int i;
 
@@ -191,28 +189,25 @@ void TagVectorCache::lookupWrite(Addr addr, int type, int *pIndex, CacheLine** p
 	return;
 }
 
-/*
- * TagVectorCache Init/ Deinit
- */
-
 void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
+	tag_vector_cache = new TagVectorCache();
 	if (size_in_mb == 0) {
 		fprintf(stderr, "MShadowCacheInit: Bypass Cache\n"); 
-
 	} else {
-		tag_vector_cache.configure(size_in_mb, KConfigGetIndexSize());
+		tag_vector_cache->configure(size_in_mb, KConfigGetIndexSize());
 	}
 	this->use_compression = compress;
 	this->mem_shadow = mshadow;
 }
 
 void SkaduCache::deinit() {
-	if (KConfigUseSkaduCache() == FALSE) return;
+	delete tag_vector_cache;
+	tag_vector_cache = NULL;
 
-	//printStat();
-	MemPoolFreeSmall(tag_vector_cache.tagTable, sizeof(CacheLine) * tag_vector_cache.getLineCount());
-	TableFree(tag_vector_cache.valueTable);
-	//TableFree(valueTable[1]);
+	if (KConfigUseSkaduCache() == FALSE) return;
+	// XXX: not sure of logic behind the next two lines (-sat)
+	MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(CacheLine) * tag_vector_cache->getLineCount());
+	TableFree(tag_vector_cache->valueTable);
 }
 
 static int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
@@ -242,7 +237,7 @@ static int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
  */
 
 void SkaduCache::evict(int index, Version* vArray) {
-	CacheLine* line = tag_vector_cache.getTag(index);
+	CacheLine* line = tag_vector_cache->getTag(index);
 	Addr addr = line->tag;
 	if (addr == 0x0)
 		return;
@@ -250,21 +245,21 @@ void SkaduCache::evict(int index, Version* vArray) {
 	int lastSize = line->lastSize[0];
 	int lastVer = line->version[0];
 	int evictSize = getStartInvalidLevel(lastVer, vArray, lastSize);
-	Time* tArray0 = tag_vector_cache.getData(index, 0);
+	Time* tArray0 = tag_vector_cache->getData(index, 0);
 	mem_shadow->evict(tArray0, line->tag, evictSize, vArray, line->type);
 
 	if (line->type == TimeTable::TYPE_32BIT) {
 		lastSize = line->lastSize[1];
 		lastVer = line->version[1];
 		evictSize = getStartInvalidLevel(lastVer, vArray, lastSize);
-		Time* tArray1 = tag_vector_cache.getData(index, 1);
+		Time* tArray1 = tag_vector_cache->getData(index, 1);
 		mem_shadow->evict(tArray1, (char*)line->tag+4, evictSize, vArray, TimeTable::TYPE_32BIT);
 	}
 }
 
 void SkaduCache::flush(Version* vArray) {
 	int i;
-	int size = tag_vector_cache.getLineCount();
+	int size = tag_vector_cache->getLineCount();
 	for (i=0; i<size; i++) {
 		evict(i, vArray);
 	}
@@ -273,13 +268,13 @@ void SkaduCache::flush(Version* vArray) {
 
 void SkaduCache::resize(int newSize, Version* vArray) {
 	flush(vArray);
-	int size = tag_vector_cache.getSize();
-	int oldDepth = tag_vector_cache.getDepth();
+	int size = tag_vector_cache->getSize();
+	int oldDepth = tag_vector_cache->getDepth();
 	int newDepth = oldDepth + 10;
 
 	MSG(TVCacheDebug, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
 	fprintf(stderr, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
-	tag_vector_cache.configure(size, newDepth);
+	tag_vector_cache->configure(size, newDepth);
 }
 
 /*
@@ -295,7 +290,7 @@ void CacheLine::validateTag(Time* destAddr, Version* vArray, Index size) {
 }
 
 void SkaduCache::checkResize(int size, Version* vArray) {
-	int oldDepth = tag_vector_cache.getDepth();
+	int oldDepth = tag_vector_cache->getDepth();
 	if (oldDepth < size) {
 		resize(oldDepth + 10, vArray);
 	}
@@ -321,7 +316,7 @@ Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableTy
 	Time* destAddr = NULL;
 	int offset = 0;
 	int index = 0;
-	tag_vector_cache.lookupRead(addr, type, &index, &entry, &offset, &destAddr);
+	tag_vector_cache->lookupRead(addr, type, &index, &entry, &offset, &destAddr);
 	check(addr, destAddr, entry->lastSize[offset], 0);
 
 	if (entry->isHit(addr)) {
@@ -366,7 +361,7 @@ void SkaduCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeT
 	int index = 0;
 	int offset = 0;
 
-	tag_vector_cache.lookupWrite(addr, type, &index, &entry, &offset, &destAddr);
+	tag_vector_cache->lookupWrite(addr, type, &index, &entry, &offset, &destAddr);
 #if 0
 #ifndef NDEBUG
 	if (hasVersionError(vArray, size)) {
@@ -401,7 +396,7 @@ void SkaduCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeT
 	if (entry->type == TimeTable::TYPE_32BIT && type == TimeTable::TYPE_64BIT) {
 		// corner case: duplicate the timestamp
 		// not yet implemented
-		Time* duplicated = tag_vector_cache.getData(index, offset);
+		Time* duplicated = tag_vector_cache->getData(index, offset);
 		memcpy(duplicated, tArray, sizeof(Time) * size);
 	}
 	entry->type = type;
