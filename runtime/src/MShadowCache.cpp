@@ -12,6 +12,7 @@
 #include "debug.h"
 #include "CRegion.h"
 #include "MShadowSkadu.h"
+#include "MShadowCache.h"
 #include "MShadowStat.h"
 #include "Table.h"
 #include "compression.h"
@@ -208,18 +209,19 @@ static void TVCacheLookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLi
  * TVCache Init/ Deinit
  */
 
-void TVCacheInit(int cacheSizeMB) {
-	if (cacheSizeMB == 0) {
+void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
+	if (size_in_mb == 0) {
 		fprintf(stderr, "MShadowCacheInit: Bypass Cache\n"); 
 
 	} else {
-		TVCacheConfigure(cacheSizeMB, KConfigGetIndexSize());
+		TVCacheConfigure(size_in_mb, KConfigGetIndexSize());
 	}
+	this->use_compression = compress;
+	this->mem_shadow = mshadow;
 }
 
-void TVCacheDeinit() {
-	if (KConfigUseSkaduCache() == FALSE)
-		return;
+void SkaduCache::deinit() {
+	if (KConfigUseSkaduCache() == FALSE) return;
 
 	//printStat();
 	MemPoolFreeSmall(tvCache.tagTable, sizeof(CacheLine) * TVCacheGetLineCount());
@@ -253,7 +255,7 @@ int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
  * TVCache Evict / Flush / Resize 
  */
 
-static void TVCacheEvict(int index, Version* vArray) {
+void SkaduCache::evict(int index, Version* vArray) {
 	CacheLine* line = TVCacheGetTag(index);
 	Addr addr = line->tag;
 	if (addr == 0x0)
@@ -263,28 +265,28 @@ static void TVCacheEvict(int index, Version* vArray) {
 	int lastVer = line->version[0];
 	int evictSize = getStartInvalidLevel(lastVer, vArray, lastSize);
 	Time* tArray0 = TVCacheGetData(index, 0);
-	SkaduEvict(tArray0, line->tag, evictSize, vArray, line->type);
+	mem_shadow->evict(tArray0, line->tag, evictSize, vArray, line->type);
 
 	if (line->type == TimeTable::TYPE_32BIT) {
 		lastSize = line->lastSize[1];
 		lastVer = line->version[1];
 		evictSize = getStartInvalidLevel(lastVer, vArray, lastSize);
 		Time* tArray1 = TVCacheGetData(index, 1);
-		SkaduEvict(tArray1, (char*)line->tag+4, evictSize, vArray, TimeTable::TYPE_32BIT);
+		mem_shadow->evict(tArray1, (char*)line->tag+4, evictSize, vArray, TimeTable::TYPE_32BIT);
 	}
 }
 
-static void TVCacheFlush(Version* vArray) {
+void SkaduCache::flush(Version* vArray) {
 	int i;
 	int size = TVCacheGetLineCount();
 	for (i=0; i<size; i++) {
-		TVCacheEvict(i, vArray);
+		evict(i, vArray);
 	}
 		
 }
 
-static void TVCacheResize(int newSize, Version* vArray) {
-	TVCacheFlush(vArray);
+void SkaduCache::resize(int newSize, Version* vArray) {
+	flush(vArray);
 	int size = TVCacheGetSize();
 	int oldDepth = TVCacheGetDepth();
 	int newDepth = oldDepth + 10;
@@ -310,10 +312,10 @@ static inline void TVCacheValidateTag(CacheLine* line, Time* destAddr, Version* 
 		bzero(&destAddr[firstInvalid], sizeof(Time) * (size - firstInvalid));
 }
 
-static void TVCacheCheckResize(int size, Version* vArray) {
+void SkaduCache::checkResize(int size, Version* vArray) {
 	int oldDepth = TVCacheGetDepth();
 	if (oldDepth < size) {
-		TVCacheResize(oldDepth + 10, vArray);
+		resize(oldDepth + 10, vArray);
 	}
 }
 
@@ -331,8 +333,8 @@ static void check(Addr addr, Time* src, int size, int site) {
 }
 
 
-Time* TVCacheGet(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
-	TVCacheCheckResize(size, vArray);
+Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
+	checkResize(size, vArray);
 	CacheLine* entry = NULL;
 	Time* destAddr = NULL;
 	int offset = 0;
@@ -350,7 +352,7 @@ Time* TVCacheGet(Addr addr, Index size, Version* vArray, TimeTable::TableType ty
 		// Unfortunately, this access results in a miss
 		// 1. evict a line	
 		eventReadEvict();
-		TVCacheEvict(index, vArray);
+		evict(index, vArray);
 #if 0
 		Version lastVer = entry->version[offset];
 
@@ -363,7 +365,7 @@ Time* TVCacheGet(Addr addr, Index size, Version* vArray, TimeTable::TableType ty
 #endif
 
 		// 2. read line from MShadow to the evicted line
-		SkaduFetch(addr, size, vArray, destAddr, type);
+		mem_shadow->fetch(addr, size, vArray, destAddr, type);
 		entry->tag = addr;
 		check(addr, destAddr, size, 2);
 	}
@@ -375,8 +377,8 @@ Time* TVCacheGet(Addr addr, Index size, Version* vArray, TimeTable::TableType ty
 	return destAddr;
 }
 
-void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
-	TVCacheCheckResize(size, vArray);
+void SkaduCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
+	checkResize(size, vArray);
 	CacheLine* entry = NULL;
 	Time* destAddr = NULL;
 	int index = 0;
@@ -396,7 +398,7 @@ void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable:
 
 	} else {
 		eventWriteEvict();
-		TVCacheEvict(index, vArray);
+		evict(index, vArray);
 #if 0
 		Version lastVer = entry->version[offset];
 		int lastSize = entry->lastSize[offset];
@@ -409,7 +411,7 @@ void TVCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable:
 		MSG(0, "\t CacheSet: evict size = %d, lastSize = %d, size = %d\n", 
 			evictSize, lastSize, size);
 		if (entry->tag != NULL)
-			SkaduEvict(destAddr, entry->tag, evictSize, vArray, entry->type);
+			mem_shadow->evict(destAddr, entry->tag, evictSize, vArray, entry->type);
 #endif
 	} 		
 

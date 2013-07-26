@@ -4,15 +4,6 @@
 #include "ktypes.h"
 #include "MShadow.h"
 
-class MShadowSkadu : public MShadow {
-public:
-	void init();
-	void deinit();
-
-	Time* get(Addr addr, Index size, Version* versions, UInt32 width);
-	void set(Addr addr, Index size, Version* versions, Time* times, UInt32 width);
-};
-
 class TimeTable {
 public:
 	enum TableType { TYPE_64BIT, TYPE_32BIT };
@@ -96,6 +87,8 @@ public:
 
 	int findLowestInvalidIndex(Version* vArray);
 	void cleanTimeTablesFromLevel(Index start_level);
+	void gcLevel(Version* versions, int size);
+	void gcLevelUnknownSize(Version* versions);
 };
 
 
@@ -126,7 +119,42 @@ public:
 	}
 };
 
+class MShadowSkadu;
 
-void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type);
-void SkaduFetch(Addr addr, Index size, Version* vArray, Time* destAddr, TimeTable::TableType type);
+class CacheInterface {
+protected:
+	bool use_compression;
+	MShadowSkadu *mem_shadow;
+
+public:
+	virtual void init(int size, bool compress, MShadowSkadu* mshadow) = 0;
+	virtual void deinit() = 0;
+
+	virtual void set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) = 0;
+	virtual Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) = 0;
+};
+
+class MShadowSkadu : public MShadow {
+private:
+	UInt64 next_gc_time;
+	int gc_period;
+
+	void initGarbageCollector(int period);
+	void runGarbageCollector(Version* versions, int size);
+
+	CacheInterface *cache;
+
+public:
+	void init();
+	void deinit();
+
+	Time* get(Addr addr, Index size, Version* versions, UInt32 width);
+	void set(Addr addr, Index size, Version* versions, Time* times, UInt32 width);
+
+	void fetch(Addr addr, Index size, Version* vArray, Time* destAddr, TimeTable::TableType type);
+	void evict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type);
+
+	LevelTable* getLevelTable(Addr addr, Version* vArray);
+};
+
 #endif

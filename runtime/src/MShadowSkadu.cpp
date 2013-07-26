@@ -8,10 +8,12 @@
 
 #include "Table.h"
 #include "CRegion.h"
-#include "MShadowCache.h"
 #include "MShadowSkadu.h"
 #include "MShadowStat.h"
 #include "compression.h"
+
+#include "MShadowCache.h"
+#include "MShadowNullCache.h"
 
 #include <vector>
 
@@ -68,7 +70,6 @@ public:
 
 		// not found - create an entry
 		MSG(0, "SparseTable Creating a new Entry..\n");
-		fprintf(stderr, "SparseTable Creating a new Entry..\n");
 
 		SEntry* ret = &entry[writePtr];
 		ret->addrHigh = highAddr;
@@ -80,8 +81,7 @@ public:
 	
 };
 
-static SparseTable* sTable;
-
+static SparseTable* sTable; // TODO: make a private member of MShadowSkadu
 
 /*
  * Compression Configuration
@@ -232,44 +232,14 @@ void LevelTable::cleanTimeTablesFromLevel(Index start_level) {
 /*
  * Garbage collection related logic
  */
-static UInt64 nextGC = 1024;
-static int gcPeriod = -1;
-
-static void setGCPeriod(int time) {
-	fprintf(stderr, "[kremlin] set GC period to %d\n", time);
-	nextGC = time;
-	gcPeriod = time;
-	if (time == 0)
-		nextGC = 0xFFFFFFFFFFFFFFFF;
+void MShadowSkadu::initGarbageCollector(int period) {
+	fprintf(stderr, "[kremlin] set GC period to %d\n", period);
+	next_gc_time = period;
+	gc_period = period;
+	if (period == 0) next_gc_time = 0xFFFFFFFFFFFFFFFF;
 }
 
-
-static inline void gcLevelUnknownSize(LevelTable* lTable, Version* vArray) {
-	int lii = lTable->findLowestInvalidIndex(vArray);
-	lTable->cleanTimeTablesFromLevel(lii);
-}
-
-void gcLevel(LevelTable* table, Version* vArray, int size) {
-	//fprintf(stderr, "%d: \t", size);
-	int i;
-	for (i=0; i<size; i++) {
-		TimeTable* time = table->tArray[i];
-		if (time == NULL)
-			continue;
-
-		Version ver = table->vArray[i];
-		if (ver < vArray[i]) {
-			// out of date
-			//fprintf(stderr, "(%d, %d %d)\t", i, ver, vArray[i]);
-			TimeTable::Destroy(time,table->isCompressed);
-			table->tArray[i] = NULL;
-		}
-	}
-
-	table->cleanTimeTablesFromLevel(size);
-}
-
-static void gcStart(Version* vArray, int size) {
+void MShadowSkadu::runGarbageCollector(Version* versions, int size) {
 	eventGC();
 	for (unsigned i = 0; i < SparseTable::NUM_ENTRIES; ++i) {
 		SegTable* table = sTable->entry[i].segTable;	
@@ -279,18 +249,42 @@ static void gcStart(Version* vArray, int size) {
 		for (unsigned j = 0; j < SegTable::SEGTABLE_SIZE; ++j) {
 			LevelTable* lTable = table->entry[j];
 			if (lTable != NULL) {
-				gcLevel(lTable, vArray, size);
+				lTable->gcLevel(versions, size);
 			}
 		}
 	}
+}
+
+void LevelTable::gcLevel(Version* versions, int size) {
+	//fprintf(stderr, "%d: \t", size);
+	int i;
+	for (i=0; i<size; i++) {
+		TimeTable* time = this->tArray[i];
+		if (time == NULL)
+			continue;
+
+		Version ver = this->vArray[i];
+		if (ver < versions[i]) {
+			// out of date
+			//fprintf(stderr, "(%d, %d %d)\t", i, ver, versions[i]);
+			TimeTable::Destroy(time,this->isCompressed);
+			this->tArray[i] = NULL;
+		}
+	}
+
+	this->cleanTimeTablesFromLevel(size);
+}
+
+void LevelTable::gcLevelUnknownSize(Version* versions) {
+	int lii = this->findLowestInvalidIndex(versions);
+	this->cleanTimeTablesFromLevel(lii);
 }
 
 /*
  * LevelTable operations
  */
 
-// TODO: make this a method in SparseTable
-static inline LevelTable* LevelTableGet(Addr addr, Version* vArray) {
+LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	SEntry* sEntry = sTable->getSEntry(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
@@ -307,7 +301,7 @@ static inline LevelTable* LevelTableGet(Addr addr, Version* vArray) {
 	}
 	
 	if(useCompression() && lTable->isCompressed) {
-		gcLevelUnknownSize(lTable,vArray);
+		lTable->gcLevelUnknownSize(vArray);
 		int gain = CBufferDecompress(lTable);
 		eventCompression(gain);
 	}
@@ -315,6 +309,7 @@ static inline LevelTable* LevelTableGet(Addr addr, Version* vArray) {
 
 	return lTable;
 }
+
 static void check(Addr addr, Time* src, int size, int site) {
 #ifndef NDEBUG
 	int i;
@@ -344,7 +339,7 @@ static inline int hasVersionError(Version* vArray, int size) {
  * Fetch / Evict from TVCache to TVStorage
  */
 
-void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type) {
+void MShadowSkadu::evict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type) {
 	if (addr == NULL)
 		return;
 
@@ -353,7 +348,7 @@ void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::T
 
 	MSG(0, "\tTVCacheEvict 0x%llx, size=%d, effectiveSize=%d \n", addr, size, size);
 		
-	LevelTable* lTable = LevelTableGet(addr,vArray);
+	LevelTable* lTable = this->getLevelTable(addr,vArray);
 	for (i=0; i<size; i++) {
 		eventEvict(i);
 		if (tArray[i] == 0ULL) {
@@ -372,10 +367,10 @@ void SkaduEvict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::T
 	check(addr, tArray, size, 3);
 }
 
-void SkaduFetch(Addr addr, Index size, Version* vArray, Time* destAddr, TimeTable::TableType type) {
+void MShadowSkadu::fetch(Addr addr, Index size, Version* vArray, Time* destAddr, TimeTable::TableType type) {
 	MSG(0, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
 	//fprintf(stderr, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
-	LevelTable* lTable = LevelTableGet(addr, vArray);
+	LevelTable* lTable = this->getLevelTable(addr, vArray);
 
 	int i;
 	for (i=0; i<size; i++) {
@@ -388,44 +383,11 @@ void SkaduFetch(Addr addr, Index size, Version* vArray, Time* destAddr, TimeTabl
 
 
 /*
- * Actual load / store handlers without TVCache
- */
-
-static Time tempArray[1000];
-
-static Time* NoCacheGet(Addr addr, Index size, Version* vArray, int type) {
-	LevelTable* lTable = LevelTableGet(addr, vArray);	
-	Index i;
-	for (i=0; i<size; i++) {
-		tempArray[i] = lTable->getTimeForAddrAtLevel(i, addr, vArray[i]);
-	}
-
-	if (useCompression())
-		CBufferAccess(lTable);
-
-	return tempArray;	
-}
-
-static void NoCacheSet(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
-	LevelTable* lTable = LevelTableGet(addr, vArray);	
-	assert(lTable != NULL);
-	Index i;
-	for (i=0; i<size; i++) {
-		lTable->setTimeForAddrAtLevel(i, addr, vArray[i], tArray[i], type);
-	}
-
-	if (useCompression())
-		CBufferAccess(lTable);
-}
-
-
-/*
  * Entry point functions from Kremlin
  */
 
 Time* MShadowSkadu::get(Addr addr, Index size, Version* vArray, UInt32 width) {
-	if (size < 1)
-		return NULL;
+	if (size < 1) return NULL;
 
 	//TimeTable::TableType type = (width > 4) ? TimeTable::TYPE_64BIT: TimeTable::TYPE_32BIT;
 	TimeTable::TableType type = TimeTable::TYPE_64BIT; 
@@ -433,12 +395,7 @@ Time* MShadowSkadu::get(Addr addr, Index size, Version* vArray, UInt32 width) {
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	MSG(0, "MShadowGet 0x%llx, size %d \n", tAddr, size);
 	eventRead();
-	if (KConfigUseSkaduCache() == FALSE) {
-		return NoCacheGet(tAddr, size, vArray, type);
-
-	} else {
-		return TVCacheGet(tAddr, size, vArray, type);
-	}
+	return cache->get(tAddr, size, vArray, type);
 }
 
 void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
@@ -446,10 +403,10 @@ void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UIn
 	if (size < 1)
 		return;
 
-	if (getActiveTimeTableSize() >= nextGC) {
-		gcStart(vArray, size);
-		//nextGC = stat.nTimeTableActive + gcPeriod;
-		nextGC += gcPeriod;
+	if (getActiveTimeTableSize() >= next_gc_time) {
+		runGarbageCollector(vArray, size);
+		//next_gc_time = stat.nTimeTableActive + gc_period;
+		next_gc_time += gc_period;
 	}
 
 	//TimeTable::TableType type = (width > 4) ? TimeTable::TYPE_64BIT: TimeTable::TYPE_32BIT;
@@ -459,12 +416,7 @@ void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UIn
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	MSG(0, "]\n");
 	eventWrite();
-	if (KConfigUseSkaduCache() == FALSE) {
-		NoCacheSet(tAddr, size, vArray, tArray, type);
-
-	} else {
-		TVCacheSet(tAddr, size, vArray, tArray, type);
-	}
+	cache->set(tAddr, size, vArray, tArray, type);
 }
 
 /*
@@ -472,18 +424,25 @@ void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UIn
  */
 
 void MShadowSkadu::init() {
+	
 	int cacheSizeMB = KConfigGetSkaduCacheSize();
 	fprintf(stderr,"[kremlin] MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
 
+	if (KConfigUseSkaduCache() == TRUE) 
+		cache = new SkaduCache();
+	else
+		cache = new NullCache();
+
+	cache->init(cacheSizeMB, KConfigGetCompression(), this);
+
 	int size = TimeTable::GetEntrySize(TimeTable::TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
 	
-	setGCPeriod(KConfigGetGCPeriod());
+	initGarbageCollector(KConfigGetGCPeriod());
  
 	sTable = new SparseTable();
 	sTable->init();
-	TVCacheInit(cacheSizeMB);
 
 	CBufferInit(KConfigGetCBufferSize());
 	setCompression();
@@ -491,8 +450,10 @@ void MShadowSkadu::init() {
 
 
 void MShadowSkadu::deinit() {
+	cache->deinit();
+	delete cache;
+	cache = NULL;
 	CBufferDeinit();
 	MShadowStatPrint();
 	sTable->deinit();
-	TVCacheDeinit();
 }
