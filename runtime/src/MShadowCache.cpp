@@ -23,7 +23,7 @@
 #define TVCacheDebug	0
 
 /*
- * TVCache: cache for tag vectors
+ * TagVectorCache: cache for tag vectors
  */ 
 
 class CacheLine {
@@ -61,7 +61,7 @@ public:
 	void validateTag(Time* destAddr, Version* vArray, Index size);
 };
 
-class TVCache {
+class TagVectorCache {
 private:
 	int  size_in_mb;
 	int  line_count;
@@ -94,7 +94,7 @@ public:
 	void lookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLine, int* pOffset, Time** pTArray);
 };
 
-static TVCache tag_vector_cache;
+static TagVectorCache tag_vector_cache;
 
 static inline int getFirstOnePosition(int input) {
 	int i;
@@ -108,7 +108,7 @@ static inline int getFirstOnePosition(int input) {
 }
 
 
-void TVCache::configure(int new_size_in_mb, int new_depth) {
+void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
 	const int new_line_size = 8;
 	int new_line_count = new_size_in_mb * 1024 * 1024 / new_line_size;
 	this->size_in_mb = new_size_in_mb;
@@ -126,7 +126,7 @@ void TVCache::configure(int new_size_in_mb, int new_depth) {
 		new_line_count, KConfigGetIndexSize(), valueTable[0].array);
 }
 
-int TVCache::getLineIndex(Addr addr) {
+int TagVectorCache::getLineIndex(Addr addr) {
 #if 0
 	int nShift = 3; 	// 8 byte 
 	int ret = (((UInt64)addr) >> nShift) & lineMask;
@@ -142,7 +142,7 @@ int TVCache::getLineIndex(Addr addr) {
 
 
 
-void TVCache::lookupRead(Addr addr, int type, int* pIndex, CacheLine** pLine, int* pOffset, Time** pTArray) {
+void TagVectorCache::lookupRead(Addr addr, int type, int* pIndex, CacheLine** pLine, int* pOffset, Time** pTArray) {
 	int index = this->getLineIndex(addr);
 	int offset = 0; 
 	CacheLine* line = this->getTag(index);
@@ -165,7 +165,7 @@ void TVCache::lookupRead(Addr addr, int type, int* pIndex, CacheLine** pLine, in
 	*pLine = line;
 }
 
-void TVCache::lookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLine, int* pOffset, Time** pTArray) {
+void TagVectorCache::lookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLine, int* pOffset, Time** pTArray) {
 	int index = this->getLineIndex(addr);
 	int offset = ((UInt64)addr >> 2) & 0x1;
 	assert(index < this->getLineCount());
@@ -192,7 +192,7 @@ void TVCache::lookupWrite(Addr addr, int type, int *pIndex, CacheLine** pLine, i
 }
 
 /*
- * TVCache Init/ Deinit
+ * TagVectorCache Init/ Deinit
  */
 
 void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
@@ -238,7 +238,7 @@ static int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
 
 }
 /*
- * TVCache Evict / Flush / Resize 
+ * TagVectorCache Evict / Flush / Resize 
  */
 
 void SkaduCache::evict(int index, Version* vArray) {
@@ -283,7 +283,7 @@ void SkaduCache::resize(int newSize, Version* vArray) {
 }
 
 /*
- * Actual load / store handlers with TVCache
+ * Actual load / store handlers with TagVectorCache
  */
 
 void CacheLine::validateTag(Time* destAddr, Version* vArray, Index size) {
