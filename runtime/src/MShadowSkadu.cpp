@@ -56,7 +56,7 @@ public:
 		}
 	}
 
-	SparseTableElement* getSparseTableElement(Addr addr) {
+	SparseTableElement* getElement(Addr addr) {
 		UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
 
 		// walk-through SparseTable
@@ -296,7 +296,7 @@ void LevelTable::gcLevelUnknownSize(Version* versions) {
  */
 
 LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
-	SparseTableElement* sEntry = sparse_table->getSparseTableElement(addr);
+	SparseTableElement* sEntry = sparse_table->getElement(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
 	int segIndex = SegTable::GetIndex(addr);
