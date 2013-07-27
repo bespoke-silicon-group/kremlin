@@ -291,6 +291,185 @@ void LevelTable::gcLevelUnknownSize(Version* versions) {
 	this->cleanTimeTablesFromLevel(lii);
 }
 
+/*! \brief Compress the level table.
+ *
+ * \return The number of bytes saved by compression.
+ * \remark It is assumed you already garbage collected the table, otherwise
+ * you are going to be compressing out of data data.
+ */
+UInt64 LevelTable::compress() {
+	//fprintf(stderr,"[LevelTable] compressing LevelTable (%p)\n",l_table);
+	if (this->code != 0xDEADBEEF) {
+		fprintf(stderr, "LevelTable addr = 0x%llx\n", this);
+		assert(0);
+	}
+	assert(this->code == 0xDEADBEEF);
+	assert(this->isCompressed == 0);
+
+	TimeTable* tt1 = this->tArray[0];
+
+	if (tt1 == NULL) {
+		this->isCompressed = 1;
+		return 0;
+	}
+
+
+	UInt64 compressionSavings = 0;
+	lzo_uint srcLen = sizeof(Time)*TimeTable::TIMETABLE_SIZE/2; // XXX assumes 8 bytes
+	lzo_uint compLen = 0;
+
+	Time* diffBuffer = (Time*)MemPoolAlloc();
+	void* compressedData;
+
+	for(unsigned i = LevelTable::MAX_LEVEL-1; i >=1; --i) {
+		// step 1: create/fill in time difference table
+		TimeTable* tt2 = this->tArray[i];
+		TimeTable* ttPrev = this->tArray[i-1];
+		if(tt2 == NULL)
+			continue;
+
+		assert(tt2 != NULL);
+		assert(ttPrev != NULL);
+
+		int j;
+		for(j = 0; j < TimeTable::TIMETABLE_SIZE/2; ++j) {
+			diffBuffer[j] = ttPrev->array[j] - tt2->array[j];
+		}
+
+		// step 2: compress diffs
+		makeDiff(diffBuffer);
+		compressedData = compressData((UInt8*)diffBuffer, srcLen, &compLen);
+		compressionSavings += (srcLen - compLen);
+		tt2->size = compLen;
+
+		// step 3: profit
+		MemPoolFree(tt2->array); // XXX: comment this out if using tArrayBackup
+		tt2->array = (Time*)compressedData;
+	}
+	Time* level0Array = (Time*)MemPoolAlloc();
+	memcpy(level0Array, tt1->array, srcLen);
+	makeDiff(tt1->array);
+	compressedData = compressData((UInt8*)tt1->array, srcLen, &compLen);
+	MemPoolFree(tt1->array);
+	//Time* level0Array = tt1->array;
+	tt1->array = (Time*)compressedData;
+	tt1->size = compLen;
+	compressionSavings += (srcLen - compLen);
+
+
+	MemPoolFree(level0Array);  // XXX: comment this out if using tArrayBackup
+	MemPoolFree(diffBuffer);
+
+	this->isCompressed = 1;
+	return compressionSavings;
+}
+
+/*! \brief Decompress the level table.
+ *
+ * \return The number of bytes lost by decompression.
+ */
+UInt64 LevelTable::decompress() {
+
+	if (this->code != 0xDEADBEEF) {
+		fprintf(stderr, "LevelTable addr = 0x%llx\n", this);
+		assert(0);
+	}
+	assert(this->code == 0xDEADBEEF);
+	assert(this->isCompressed == 1);
+
+	//fprintf(stderr,"[LevelTable] decompressing LevelTable (%p)\n",this);
+	UInt64 decompressionCost = 0;
+	lzo_uint srcLen = sizeof(Time)*TimeTable::TIMETABLE_SIZE/2;
+	lzo_uint uncompLen = srcLen;
+
+	// for now, we'll always diff based on level 0
+	TimeTable* tt1 = this->tArray[0];
+	if (tt1 == NULL) {
+		this->isCompressed = 0;
+		return 0;
+	}
+	int compressedSize = tt1->size;
+
+	Time* decompedArray = (Time*)MemPoolAlloc();
+	decompressData((UInt8*)decompedArray, (UInt8*)tt1->array, compressedSize, &uncompLen);
+	restoreDiff((Time*)decompedArray);
+
+	tt1->array = decompedArray;
+	decompressionCost += (srcLen - compressedSize);
+	tt1->size = srcLen;
+
+	//tArrayIsDiff(tt1->array, this->tArrayBackup[0]);
+
+	Time *diffBuffer = (Time*)MemPoolAlloc();
+
+	for(unsigned i = 1; i < LevelTable::MAX_LEVEL; ++i) {
+		TimeTable* tt2 = this->tArray[i];
+		TimeTable* ttPrev = this->tArray[i-1];
+		if(tt2 == NULL) 
+			break;
+
+		assert(tt2 != NULL);
+		assert(ttPrev != NULL);
+
+		// step 1: decompress time different table, 
+		// the src buffer will be freed in decompressData
+		uncompLen = srcLen;
+		decompressData((UInt8*)diffBuffer, (UInt8*)tt2->array, tt2->size, &uncompLen);
+		restoreDiff((Time*)diffBuffer);
+		assert(srcLen == uncompLen);
+		decompressionCost += (srcLen - tt2->size);
+
+		// step 2: add diffs to base TimeTable
+		tt2->array = (Time*)MemPoolAlloc();
+		tt2->size = srcLen;
+
+		int j;
+		for(j = 0; j < TimeTable::TIMETABLE_SIZE/2; ++j) {
+			assert(diffBuffer[j] >= 0);
+			tt2->array[j] = ttPrev->array[j] - diffBuffer[j];
+
+		}
+	#if 0
+		if (memcmp(tt2->array, this->tArrayBackup[i], uncompLen) != 0) {
+			fprintf(stderr, "error at level %d\n", i);
+			assert(0);
+		}
+	#endif
+//		assert(memcmp(tt2->array, this->tArrayBackup[i], uncompLen) == 0);
+		//tArrayIsDiff(tt2->array, this->tArrayBackup[i]);
+	}
+
+	MemPoolFree(diffBuffer);
+	this->isCompressed = 0;
+	return decompressionCost;
+}
+
+/*! \brief Modify array so elements are difference between that element and
+ * the previous element.
+ *
+ * \param[in,out] array The array to convert
+ */
+void LevelTable::makeDiff(Time* array) {
+	int size = TimeTable::TIMETABLE_SIZE / 2;
+
+	for (int i=size-1; i>=1; --i) {
+		array[i] = array[i] - array[i-1];
+	}
+}
+
+/*! \brief Perform inverse operation of makeDiff
+ *
+ * \param[in,out] array The array to convert
+ */
+void LevelTable::restoreDiff(Time* array) {
+	int size = TimeTable::TIMETABLE_SIZE / 2;
+	int i;
+
+	for (i=1; i<size; i++) {
+		array[i] += array[i-1];
+	}
+}
+
 /*
  * LevelTable operations
  */

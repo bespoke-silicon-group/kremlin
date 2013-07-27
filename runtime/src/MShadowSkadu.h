@@ -78,6 +78,13 @@ public:
 	void cleanTimeTablesFromLevel(Index start_level);
 	void gcLevel(Version* versions, int size);
 	void gcLevelUnknownSize(Version* versions);
+
+	UInt64 compress();
+	UInt64 decompress();
+
+private:
+	void makeDiff(Time* array);
+	void restoreDiff(Time* array);
 };
 
 

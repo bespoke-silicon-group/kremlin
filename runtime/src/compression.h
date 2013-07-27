@@ -2,6 +2,7 @@
 #define _CBUFFER_H
 
 #include "MShadowSkadu.h"
+#include "lzoconf.h"
 
 /*! \brief Initializes the compression buffer.
  *
@@ -32,5 +33,8 @@ void CBufferAccess(LevelTable* table);
  * \return Number of extra bytes required for decompression.
  */
 int CBufferDecompress(LevelTable* table);
+
+UInt8* compressData(UInt8* src, lzo_uint src_size, lzo_uintp dest_size);
+void decompressData(UInt8* dest, UInt8* src, lzo_uint src_size, lzo_uintp dest_size);
 
 #endif
