@@ -30,13 +30,13 @@ void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
 }
 
 void SkaduCache::deinit() {
+	if (KConfigUseSkaduCache() == TRUE) {
+		// XXX: not sure of logic behind the next two lines (-sat)
+		MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(TagVectorCacheLine) * tag_vector_cache->getLineCount());
+		Table::destroy(tag_vector_cache->valueTable);
+	}
 	delete tag_vector_cache;
 	tag_vector_cache = NULL;
-
-	if (KConfigUseSkaduCache() == FALSE) return;
-	// XXX: not sure of logic behind the next two lines (-sat)
-	MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(TagVectorCacheLine) * tag_vector_cache->getLineCount());
-	Table::destroy(tag_vector_cache->valueTable);
 }
 
 // XXX: not sure this should be a global function
