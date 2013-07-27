@@ -10,7 +10,7 @@ Time* NullCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableTyp
 		tempArray[i] = lTable->getTimeForAddrAtLevel(i, addr, vArray[i]);
 	}
 
-	if (use_compression) CBufferAccess(lTable);
+	if (use_compression) mem_shadow->getCompressionBuffer()->touch(lTable);
 
 	return tempArray;	
 }
@@ -23,5 +23,5 @@ void NullCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTa
 		lTable->setTimeForAddrAtLevel(i, addr, vArray[i], tArray[i], type);
 	}
 
-	if (use_compression) CBufferAccess(lTable);
+	if (use_compression) mem_shadow->getCompressionBuffer()->touch(lTable);
 }

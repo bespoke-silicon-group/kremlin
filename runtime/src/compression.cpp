@@ -6,7 +6,6 @@
 #include "config.h"
 #include "minilzo.h"
 
-
 static UInt64 _compSrcSize;
 static UInt64 _compDestSize;
 static UInt64 totalAccess;
@@ -131,9 +130,7 @@ static inline void ActiveSetEntryFree(ActiveSetEntry* entry) {
 	MemPoolFreeSmall(entry, sizeof(ActiveSetEntry));
 }
 
-static int bufferSize;
-
-void CBufferInit(int size) {
+void CBuffer::init(int size) {
 	if (KConfigGetCompression() == 0)
 		return;
 
@@ -145,10 +142,10 @@ void CBufferInit(int size) {
 	    return;
 	}
 
-	bufferSize = size;
+	this->num_entries = size;
 }
 
-void CBufferDeinit() {
+void CBuffer::deinit() {
 	fprintf(stderr, "CBuffer (evict / access / ratio) = %lld, %lld, %.2f \%\n",
 		totalEvict, totalAccess, ((double)totalEvict / totalAccess) * 100.0);
 	fprintf(stderr, "Compression Overall Rate = %.2f X\n", (double)_compSrcSize / _compDestSize);
@@ -176,12 +173,7 @@ std::map<LevelTable*, ActiveSetEntry*>::iterator getVictim() {
 	return ret;
 }
 
-
-/*! \brief Adds a level table entry to the compression buffer.
- *
- * \param l_table The level table to add to the buffer.
- */
-static inline void addToBuffer(LevelTable* l_table) {
+void CBuffer::addToBuffer(LevelTable* l_table) {
 	//fprintf(stderr, "adding l_table 0x%llx\n", l_table);
 	ActiveSetEntry *as = ActiveSetEntryAlloc();
 	active_set.insert( std::pair<LevelTable*, ActiveSetEntry*>(l_table, as) );
@@ -192,11 +184,7 @@ static inline void addToBuffer(LevelTable* l_table) {
 	if (active_set.size() == 1) active_set_clock_hand = active_set.begin();
 }
 
-/*! \brief Removes a suitable entry from the compression buffer.
- *
- * \return The number of bytes saved by removing from the buffer.
- */
-static inline int evictFromBuffer() {
+int CBuffer::evictFromBuffer() {
 	std::map<LevelTable*, ActiveSetEntry*>::iterator victim = getVictim();
 	assert(victim->second->code == 0xDEADBEEF);
 	LevelTable* lTable = victim->first;
@@ -209,20 +197,20 @@ static inline int evictFromBuffer() {
 	return bytes_gained;
 }
 
-int CBufferDecompress(LevelTable* table) {
+int CBuffer::decompress(LevelTable* table) {
 	int loss = table->decompress();
-	int gain = CBufferAdd(table);
+	int gain = this->add(table);
 	return gain - loss;
 }
 
-int CBufferAdd(LevelTable* table) {
+int CBuffer::add(LevelTable* table) {
 	assert(table->code == 0xDEADBEEF);
 	if (KConfigGetCompression() == 0)
 		return 0;
 
 	//fprintf(stderr,"adding %p to active set\n",table);
 	int bytes_gained = 0;
-	if(active_set.size() >= bufferSize) {
+	if(active_set.size() >= this->num_entries) {
 		bytes_gained = evictFromBuffer();
 	}
 
@@ -230,7 +218,7 @@ int CBufferAdd(LevelTable* table) {
 	return bytes_gained;
 }
 
-void CBufferAccess(LevelTable* table) {
+void CBuffer::touch(LevelTable* table) {
 	if (KConfigGetCompression() == 0)
 		return;
 

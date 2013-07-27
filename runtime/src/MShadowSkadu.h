@@ -125,6 +125,7 @@ public:
 };
 
 class SparseTable;
+class CBuffer;
 
 class MShadowSkadu : public MShadow {
 private:
@@ -137,6 +138,7 @@ private:
 	void runGarbageCollector(Version* versions, int size);
 
 	CacheInterface *cache;
+	CBuffer* compression_buffer;
 
 public:
 	void init();
@@ -149,6 +151,7 @@ public:
 	void evict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type);
 
 	LevelTable* getLevelTable(Addr addr, Version* vArray);
+	CBuffer* getCompressionBuffer() { return compression_buffer; }
 };
 
 #endif

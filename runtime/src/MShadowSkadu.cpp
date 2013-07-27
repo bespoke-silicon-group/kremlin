@@ -483,7 +483,7 @@ LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	if (lTable == NULL) {
 		lTable = LevelTable::Alloc();
 		if (useCompression()) {
-			int compressGain = CBufferAdd(lTable);
+			int compressGain = compression_buffer->add(lTable);
 			eventCompression(compressGain);
 		}
 		segTable->entry[segIndex] = lTable;
@@ -492,7 +492,7 @@ LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	
 	if(useCompression() && lTable->isCompressed) {
 		lTable->gcLevelUnknownSize(vArray);
-		int gain = CBufferDecompress(lTable);
+		int gain = compression_buffer->decompress(lTable);
 		eventCompression(gain);
 	}
 
@@ -559,7 +559,7 @@ void MShadowSkadu::evict(Time* tArray, Addr addr, int size, Version* vArray, Tim
 
 	//fprintf(stderr, "\tTVCacheEvict lTable=%llx, 0x%llx, size=%d, effectiveSize=%d \n", lTable, addr, size, startInvalid);
 	if (useCompression())
-		CBufferAccess(lTable);
+		compression_buffer->touch(lTable);
 	
 	
 	check(addr, tArray, size, 3);
@@ -576,7 +576,7 @@ void MShadowSkadu::fetch(Addr addr, Index size, Version* vArray, Time* destAddr,
 	}
 
 	if (useCompression())
-		CBufferAccess(lTable);
+		compression_buffer->touch(lTable);
 }
 
 
@@ -642,7 +642,8 @@ void MShadowSkadu::init() {
 	sparse_table = new SparseTable();
 	sparse_table->init();
 
-	CBufferInit(KConfigGetCBufferSize());
+	compression_buffer = new CBuffer();
+	compression_buffer->init(KConfigGetCBufferSize());
 	setCompression();
 }
 
@@ -651,7 +652,9 @@ void MShadowSkadu::deinit() {
 	cache->deinit();
 	delete cache;
 	cache = NULL;
-	CBufferDeinit();
+	compression_buffer->deinit();
+	delete compression_buffer;
+	compression_buffer = NULL;
 	MShadowStatPrint();
 	sparse_table->deinit();
 }
