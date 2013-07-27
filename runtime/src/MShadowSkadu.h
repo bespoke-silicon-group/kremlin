@@ -117,8 +117,12 @@ public:
 	virtual Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) = 0;
 };
 
+class SparseTable;
+
 class MShadowSkadu : public MShadow {
 private:
+	SparseTable* sparse_table; 
+
 	UInt64 next_gc_time;
 	int gc_period;
 

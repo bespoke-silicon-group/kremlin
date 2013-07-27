@@ -80,8 +80,6 @@ public:
 	
 };
 
-static SparseTable* sTable; // TODO: make a private member of MShadowSkadu
-
 /*
  * Compression Configuration
  * instead of calling KConfigGetCompression repeatedly, 
@@ -255,7 +253,7 @@ void MShadowSkadu::initGarbageCollector(int period) {
 void MShadowSkadu::runGarbageCollector(Version* versions, int size) {
 	eventGC();
 	for (unsigned i = 0; i < SparseTable::NUM_ENTRIES; ++i) {
-		SegTable* table = sTable->entry[i].segTable;	
+		SegTable* table = sparse_table->entry[i].segTable;	
 		if (table == NULL)
 			continue;
 		
@@ -298,7 +296,7 @@ void LevelTable::gcLevelUnknownSize(Version* versions) {
  */
 
 LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
-	SparseTableElement* sEntry = sTable->getSparseTableElement(addr);
+	SparseTableElement* sEntry = sparse_table->getSparseTableElement(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
 	int segIndex = SegTable::GetIndex(addr);
@@ -462,8 +460,8 @@ void MShadowSkadu::init() {
 	
 	initGarbageCollector(KConfigGetGCPeriod());
  
-	sTable = new SparseTable();
-	sTable->init();
+	sparse_table = new SparseTable();
+	sparse_table->init();
 
 	CBufferInit(KConfigGetCBufferSize());
 	setCompression();
@@ -476,5 +474,5 @@ void MShadowSkadu::deinit() {
 	cache = NULL;
 	CBufferDeinit();
 	MShadowStatPrint();
-	sTable->deinit();
+	sparse_table->deinit();
 }
