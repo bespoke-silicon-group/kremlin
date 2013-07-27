@@ -208,7 +208,6 @@ int CBuffer::add(LevelTable* table) {
 	if (KConfigGetCompression() == 0)
 		return 0;
 
-	//fprintf(stderr,"adding %p to active set\n",table);
 	int bytes_gained = 0;
 	if(active_set.size() >= this->num_entries) {
 		bytes_gained = evictFromBuffer();

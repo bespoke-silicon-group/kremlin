@@ -39,7 +39,7 @@ public:
 	int decompress(LevelTable* table);
 
 private:
-	int num_entries;
+	int num_entries; /*! number of entries in the compression buffer */
 	
 	/*! \brief Adds a level table entry to the compression buffer.
 	 *
