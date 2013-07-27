@@ -25,7 +25,7 @@
  * the use of cache will make the frequency of walk-through very low.
  */
 
-class SEntry {
+class SparseTableElement {
 public:
 	UInt32 	addrHigh;	// upper 32bit in 64bit addr
 	SegTable* segTable;
@@ -40,7 +40,7 @@ class SparseTable {
 public:
 	static const unsigned int NUM_ENTRIES = 32;
 
-	std::vector<SEntry> entry;
+	std::vector<SparseTableElement> entry;
 	int writePtr;
 
 	void init() { 
@@ -50,13 +50,13 @@ public:
 
 	void deinit() {
 		for (int i = 0; i < writePtr; i++) {
-			SEntry* e = &entry[i];
+			SparseTableElement* e = &entry[i];
 			SegTable::Free(e->segTable);		
 			eventSegTableFree();
 		}
 	}
 
-	SEntry* getSEntry(Addr addr) {
+	SparseTableElement* getSparseTableElement(Addr addr) {
 		UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
 
 		// walk-through SparseTable
@@ -70,7 +70,7 @@ public:
 		// not found - create an entry
 		MSG(0, "SparseTable Creating a new Entry..\n");
 
-		SEntry* ret = &entry[writePtr];
+		SparseTableElement* ret = &entry[writePtr];
 		ret->addrHigh = highAddr;
 		ret->segTable = SegTable::Alloc();
 		eventSegTableAlloc();
@@ -298,7 +298,7 @@ void LevelTable::gcLevelUnknownSize(Version* versions) {
  */
 
 LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
-	SEntry* sEntry = sTable->getSEntry(addr);
+	SparseTableElement* sEntry = sTable->getSparseTableElement(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
 	int segIndex = SegTable::GetIndex(addr);
