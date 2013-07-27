@@ -9,26 +9,21 @@ public:
 	int	row;
 	int col;
 	Time* array;
+
+	inline int	getRow() { return this->row; }
+	inline int	getCol() { return this->col; }
+
+	static inline Table* create(int row, int col);
+	static inline void destroy(Table* table);
+
+	inline int getOffset(int row, int col);
+	inline Time* getElementAddr(int row, int col);
+	inline Time getValue(int row, int col);
+	inline void setValue(Time time, int row, int col);
+	inline void copyToDest(Table* destTable, int destReg, int srcReg, int start, int size);
 };
 
-#if 0
-Table*	TableCreate(int row, int col);
-void	TableFree(Table* table);
-
-int		TableGetRow(Table* table);
-int		TableGetCol(Table* table);
-Table* TableResize(int row, int col);
-
-Time*	TableGetElementAddr(Table* table, int row, int col);
-Time	TableGetValue(Table* table, int row, int col);
-void 	TableSetValue(Table* table, Time time, int row, int col) {
-
-Time	TableSetRow(Table* table, int row, int size, Time* values);
-void	TableCopy(Table* destTable, int destRow, Table* srcTable, int srcRow, int start, int size);
-#endif
-
-
-static inline Table* TableCreate(int row, int col) {
+Table* Table::create(int row, int col) {
 	Table* ret = (Table*) malloc(sizeof(Table));
 	ret->row = row;
 	ret->col = col;
@@ -39,8 +34,7 @@ static inline Table* TableCreate(int row, int col) {
 	return ret;
 }
 
-
-static inline void TableFree(Table* table) {
+void Table::destroy(Table* table) {
 	assert(table != NULL);
 	assert(table->array != NULL);
 
@@ -48,55 +42,48 @@ static inline void TableFree(Table* table) {
 	free(table);
 }
 
-static inline int		TableGetRow(Table* table) {
-	return table->row;
-}
-
-static inline int		TableGetCol(Table* table) {
-	return table->col;
-}
-
-static inline int TableGetOffset(Table* table, int row, int col) {
-	assert(row < table->row);
-	assert(col < table->col);
-	int offset = table->col * row + col;
+int Table::getOffset(int row, int col) {
+	assert(row < this->row);
+	assert(col < this->col);
+	int offset = this->col * row + col;
 	return offset;
 }
 
-static inline Time* TableGetElementAddr(Table* table, int row, int col) {
+Time* Table::getElementAddr(int row, int col) {
 	MSG(3, "TableGetElementAddr\n");
-	int offset = TableGetOffset(table, row, col);
-	Time* ret = &(table->array[offset]);
+	int offset = this->getOffset(row, col);
+	Time* ret = &(this->array[offset]);
 	return ret;
 }
 
 
-static inline Time TableGetValue(Table* table, int row, int col) {
+Time Table::getValue(int row, int col) {
 	MSG(3, "TableGetValue\n");
-	assert(table != NULL);
-	int offset = TableGetOffset(table, row, col);
-	Time ret = table->array[offset];
+	assert(this != NULL);
+	int offset = this->getOffset(row, col);
+	Time ret = this->array[offset];
 	return ret;
 }
 
-static inline void TableSetValue(Table* table, Time time, int row, int col) {
+void Table::setValue(Time time, int row, int col) {
 	MSG(3, "TableSetValue\n");
-	assert(table != NULL);
-	int offset = TableGetOffset(table, row, col);
-	table->array[offset] = time;
+	assert(this != NULL);
+	int offset = this->getOffset(row, col);
+	this->array[offset] = time;
 }
 
 /*
  * Copy values of a register to another table
  */
-static inline void TableCopy(Table* destTable, int destReg, Table* srcTable, int srcReg, int start, int size) {
+void Table::copyToDest(Table* destTable, int destReg, int srcReg, int start, int size) {
+	Table* srcTable = this;
 	MSG(3, "TableCopy: srcTable(%d from [%d,%d]) destTable(%d from [%d,%d]) start = %d, size = %d\n", 
 		srcReg, srcTable->row, srcTable->col, destReg, destTable->row, destTable->col, 
 		start, size);
 	assert(destTable != NULL);
 	assert(srcTable != NULL);
-	int indexDest = TableGetOffset(destTable, destReg, start);
-	int indexSrc = TableGetOffset(srcTable, srcReg, start);
+	int indexDest = destTable->getOffset(destReg, start);
+	int indexSrc = srcTable->getOffset(srcReg, start);
 
 	if (size == 0)
 		return;

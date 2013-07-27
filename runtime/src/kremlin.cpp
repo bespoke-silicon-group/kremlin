@@ -305,8 +305,7 @@ static void RegionPopFunc() {
     assert(_regionFuncCnt == _setupTableCnt);
     assert(_requireSetupTable == 0);
 
-    if (func->table != NULL)
-        TableFree(func->table);
+    if (func->table != NULL) Table::destroy(func->table);
 
 	MemPoolFreeSmall(func, sizeof(FuncContext));
 }
@@ -552,18 +551,18 @@ static Time* cTableCurrentBase;
 
 inline void CDepInit() {
 	cTableReadPtr = 0;
-	cTable = TableCreate(CDEP_ROW, CDEP_COL);
+	cTable = Table::create(CDEP_ROW, CDEP_COL);
 }
 
 inline void CDepDeinit() {
-	TableFree(cTable);
+	Table::destroy(cTable);
 }
 
 inline void CDepInitRegion(Index index) {
 	assert(cTable != NULL);
 	MSG(3, "CDepInitRegion ReadPtr = %d, Index = %d\n", cTableReadPtr, index);
-	TableSetValue(cTable, 0ULL, cTableReadPtr, index);
-	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
+	cTable->setValue(0ULL, cTableReadPtr, index);
+	cTableCurrentBase = cTable->getElementAddr(cTableReadPtr, 0);
 }
 
 inline Time CDepGet(Index index) {
@@ -585,12 +584,12 @@ void _KPushCDep(Reg cond) {
 	int indexSize = getIndexDepth();
 
 // TODO: rarely, ctable could require resizing..not implemented yet
-	if (cTableReadPtr == TableGetRow(cTable)) {
+	if (cTableReadPtr == cTable->getRow()) {
 		fprintf(stderr, "CDep Table requires entry resizing..\n");
 		assert(0);	
 	}
 
-	if (TableGetCol(cTable) < indexSize) {
+	if (cTable->getCol() < indexSize) {
 		fprintf(stderr, "CDep Table requires index resizing..\n");
 		assert(0);	
 	}
@@ -599,8 +598,8 @@ void _KPushCDep(Reg cond) {
 	//assert(lTable->col >= indexSize);
 	//assert(cTable->col >= indexSize);
 
-	TableCopy(cTable, cTableReadPtr, lTable, cond, 0, indexSize);
-	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
+	lTable->copyToDest(cTable, cTableReadPtr, cond, 0, indexSize);
+	cTableCurrentBase = cTable->getElementAddr(cTableReadPtr, 0);
 	assert(cTableReadPtr < cTable->row);
 	checkRegion();
 }
@@ -614,7 +613,7 @@ void _KPopCDep() {
 	}
 
 	cTableReadPtr--;
-	cTableCurrentBase = TableGetElementAddr(cTable, cTableReadPtr, 0);
+	cTableCurrentBase = cTable->getElementAddr(cTableReadPtr, 0);
 }
 
 /*****************************************************************
@@ -701,7 +700,7 @@ void _KDeqArg(Reg dest) {
 		// decrement one as the current level should not be copied
 		int indexSize = getIndexDepth() - 1;
 		assert(getCurrentLevel() >= 1);
-		TableCopy(calleeT, dest, callerT, src, 0, indexSize);
+		callerT->copyToDest(calleeT, dest, src, 0, indexSize);
 	}
     MSG(3, "\n", dest);
 }
@@ -735,7 +734,7 @@ void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
 	}
 
     assert(_requireSetupTable == 1);
-    Table* table = TableCreate(tableHeight, tableWidth);
+    Table* table = Table::create(tableHeight, tableWidth);
     FuncContext* funcHead = RegionGetFunc();
 	assert(funcHead != NULL);
     assert(funcHead->table == NULL);
@@ -786,7 +785,7 @@ void _KReturn(Reg src) {
 	// current level time does not need to be copied
 	int indexSize = getIndexDepth() - 1;
 	if (indexSize > 0)
-		TableCopy(caller->table, ret, callee->table, src, 0, indexSize);
+		callee->table->copyToDest(caller->table, ret, src, 0, indexSize);
 	
     MSG(1, "end write return value 0x%x\n", RegionGetFunc());
 }
@@ -807,7 +806,7 @@ void _KReturnConst(void) {
 	Index index;
     for (index = 0; index < caller->table->col; index++) {
 		Time cdt = CDepGet(index);
-		TableSetValue(caller->table, cdt, RegionGetRetReg(caller), index);
+		caller->table->setValue(cdt, RegionGetRetReg(caller), index);
     }
 }
 

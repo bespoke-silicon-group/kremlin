@@ -20,7 +20,7 @@ TagVectorCacheLine* TagVectorCache::getTag(int index) {
 }
 
 Time* TagVectorCache::getData(int index, int offset) {
-	return TableGetElementAddr(valueTable, index*2 + offset, 0);
+	return valueTable->getElementAddr(index*2 + offset, 0);
 }
 
 void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
@@ -35,7 +35,7 @@ void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
 		new_size_in_mb, new_line_count, this->line_shift, this->depth);
 
 	tagTable = (TagVectorCacheLine*)MemPoolCallocSmall(new_line_count, sizeof(TagVectorCacheLine)); // 64bit granularity
-	valueTable = TableCreate(new_line_count * 2, this->depth);  // 32bit granularity
+	valueTable = Table::create(new_line_count * 2, this->depth);  // 32bit granularity
 
 	MSG(TVCacheDebug, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
 		new_line_count, KConfigGetIndexSize(), valueTable[0].array);
