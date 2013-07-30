@@ -45,7 +45,7 @@ plain_clang_no_target_bld = Builder(action = llvm_clang + \
 
 llc_opts = ' -march=x86-64'
 if env['PLATFORM'] == 'darwin':
-	llc_opts += ' -disable-cfi'
+	llc_opts += ' -disable-cfi -mattr=-avx'
 if str(env['CCFLAGS']).find('-fPIC') != -1:
 	llc_opts += ' -relocation-model=pic'
 
