@@ -1,3 +1,4 @@
+#include <cstddef> // for std::size_t, std::ptrdiff_t
 #include <limits>
 #include "MemMapAllocator.h"
 
