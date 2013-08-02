@@ -380,9 +380,9 @@ typedef struct _region_t {
 } Region;
 #endif
 
-class Region {
+class ProgramRegion {
   private:
-	static std::vector<Region*, MPoolLib::PoolAllocator<Region*> > program_regions;
+	static std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > program_regions;
 	static unsigned int arraySize;
 	static Version* vArray;
 	static Time* tArray;
@@ -408,13 +408,13 @@ class Region {
 	UInt64 writeLineCnt;
 #endif
 
-	Region() : code(0xDEADBEEF), version(0), regionId(0), 
+	ProgramRegion() : code(0xDEADBEEF), version(0), regionId(0), 
 				regionType(RegionFunc), start(0), cp(0), 
 				childrenWork(0), childrenCP(0), childMaxCP(0), 
 				childCount(0) {}
 
 	void init(SID sid, RegionType regionType, Level level) {
-		Region::issueVersionToLevel(level);
+		ProgramRegion::issueVersionToLevel(level);
 
 		regionId = sid;
 		start = getTimetick();
@@ -434,16 +434,16 @@ class Region {
 #endif
 	}
 
-	static Region* getRegionAtLevel(Level l) {
+	static ProgramRegion* getRegionAtLevel(Level l) {
 		assert(l < program_regions.size());
-		Region* ret = program_regions[l];
+		ProgramRegion* ret = program_regions[l];
 		assert(ret->code == 0xDEADBEEF);
 		return ret;
 	}
 
 	static void increaseNumRegions(unsigned num_new) {
 		for (unsigned i = 0; i < num_new; ++i) {
-			program_regions.push_back(new Region());
+			program_regions.push_back(new ProgramRegion());
 		}
 	}
 
@@ -481,15 +481,15 @@ class Region {
 
 };
 
-std::vector<Region*, MPoolLib::PoolAllocator<Region*> > Region::program_regions;
-unsigned int Region::arraySize = 512;
-Version* Region::vArray = NULL;
-Time* Region::tArray = NULL;
-Version Region::nextVersion = 0;
+std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > ProgramRegion::program_regions;
+unsigned int ProgramRegion::arraySize = 512;
+Version* ProgramRegion::vArray = NULL;
+Time* ProgramRegion::tArray = NULL;
+Version ProgramRegion::nextVersion = 0;
 
 
 
-static inline void checkTimestamp(int index, Region* region, Timestamp value) {
+static inline void checkTimestamp(int index, ProgramRegion* region, Timestamp value) {
 #ifndef NDEBUG
 	if (value > getTimetick() - region->start) {
 		fprintf(stderr, "index = %d, value = %lld, getTimetick() = %lld, region start = %lld\n", 
@@ -499,7 +499,7 @@ static inline void checkTimestamp(int index, Region* region, Timestamp value) {
 #endif
 }
 
-static inline void RegionUpdateCp(Region* region, Timestamp value) {
+static inline void RegionUpdateCp(ProgramRegion* region, Timestamp value) {
 	region->cp = MAX(value, region->cp);
 	MSG(3, "RegionUpdateCp : value = %llu\n", region->cp);	
 	assert(region->code == 0xDEADBEEF);
@@ -518,9 +518,9 @@ void checkRegion() {
 #ifndef NDEBUG
 	int bug = 0;
 	for (unsigned i=0; i < regionInfo.size(); ++i) {
-		Region* ret = regionInfo[i];
+		ProgramRegion* ret = regionInfo[i];
 		if (ret->code != 0xDEADBEEF) {
-			MSG(0, "Region Error at index %d\n", i);	
+			MSG(0, "ProgramRegion Error at index %d\n", i);	
 			assert(0);
 			assert(ret->code == 0xDEADBEEF);
 		}
@@ -856,11 +856,11 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 
     incrementRegionLevel();
     Level level = getCurrentLevel();
-	if (level == Region::getNumRegions()) {
-		Region::doubleNumRegions();
+	if (level == ProgramRegion::getNumRegions()) {
+		ProgramRegion::doubleNumRegions();
 	}
 	
-	Region* region = Region::getRegionAtLevel(level);
+	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
 	region->init(regionId, regionType, level);
 
 	MSG(0, "\n");
@@ -915,7 +915,7 @@ static void handleFuncRegionExit() {
 /**
  * Creates RegionField and fills it based on inputs.
  */
-RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 isDoall, Region* region_info) {
+RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 isDoall, ProgramRegion* region_info) {
 	RegionField field;
 
     field.work = work;
@@ -954,7 +954,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 	}
 
     Level level = getCurrentLevel();
-	Region* region = Region::getRegionAtLevel(level);
+	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
     SID sid = regionId;
 	SID parentSid = 0;
     UInt64 work = getTimetick() - region->start;
@@ -990,7 +990,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 	// so no need to compare with max level.
 
 	if (level > getMinLevel()) {
-		Region* parentRegion = Region::getRegionAtLevel(level - 1);
+		ProgramRegion* parentRegion = ProgramRegion::getRegionAtLevel(level - 1);
     	parentSid = parentRegion->regionId;
 		parentRegion->childrenWork += work;
 		parentRegion->childrenCP += cp;
@@ -1048,7 +1048,7 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 	// find deepest level with region id that matches parameter regionId
 	Level end_level = getCurrentLevel()+1;
 	for (unsigned i = getCurrentLevel(); i >= 0; --i) {
-		if (Region::getRegionAtLevel(i)->regionId == regionId) {
+		if (ProgramRegion::getRegionAtLevel(i)->regionId == regionId) {
 			end_level = i;
 			break;
 		}
@@ -1057,7 +1057,7 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 	
 	while (getCurrentLevel() > end_level) {
 		Level level = getCurrentLevel();
-		Region* region = Region::getRegionAtLevel(level);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
 
 		sid = region->regionId;
 		UInt64 work = getTimetick() - region->start;
@@ -1093,7 +1093,7 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 
 		SID parentSid = 0;
 		if (level > getMinLevel()) {
-			Region* parentRegion = Region::getRegionAtLevel(level - 1);
+			ProgramRegion* parentRegion = ProgramRegion::getRegionAtLevel(level - 1);
 			parentSid = parentRegion->regionId;
 			parentRegion->childrenWork += work;
 			parentRegion->childrenCP += cp;
@@ -1156,7 +1156,7 @@ void _KAssignConst(UInt dest_reg) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		RShadowSetItem(control_dep_time, dest_reg, index);
         RegionUpdateCp(region, control_dep_time);
@@ -1190,7 +1190,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time cdt = CDepGet(index);
 		assert(cdt <= getTimetick() - region->start);
 
@@ -1199,7 +1199,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 
 		Time curr_max = cdt;
 
-        MSG(3, "kTime level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "kTime level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " dest_reg %u\t", dest_reg);
 
 		int arg_idx;
@@ -1240,7 +1240,7 @@ void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time control_dep_time = CDepGet(index);
         Time src_dep_time = RShadowGetItem(src_reg, index) + src_offset;
@@ -1249,7 +1249,7 @@ void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
         Time dest_time = MAX(control_dep_time,src_dep_time);
 		RShadowSetItem(dest_time, dest_reg, index);
 
-        MSG(3, "kTime1 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "kTime1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_reg %u | src_offset %u | dest_reg %u\n", src_reg, src_offset, dest_reg);
         MSG(3, " src_dep_time %u | control_dep_time %u | dest_time %u\n", src_dep_time, control_dep_time, dest_time);
         RegionUpdateCp(region, dest_time);
@@ -1265,7 +1265,7 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		assert(control_dep_time <= getTimetick() - region->start);
 
@@ -1277,7 +1277,7 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 
 		RShadowSetItem(dest_time, dest_reg, index);
 
-        MSG(3, "kTime2 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "kTime2 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src1_reg %u | src1_offset %u | src2_reg %u | src2_offset %u | dest_reg %u\n", src1_reg, src1_offset, src2_reg, src2_offset, dest_reg);
         MSG(3, " src1_dep_time %u | src2_dep_time %u | control_dep_time %u | dest_time %u\n", src1_dep_time, src2_dep_time, control_dep_time, dest_time);
         RegionUpdateCp(region, dest_time);
@@ -1296,7 +1296,7 @@ void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		assert(control_dep_time <= getTimetick() - region->start);
 
@@ -1309,7 +1309,7 @@ void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 		RShadowSetItem(dest_time, dest_reg, index);
         RegionUpdateCp(region, dest_time);
 
-        MSG(3, "kTime3 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "kTime3 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
 		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
 		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
@@ -1334,7 +1334,7 @@ void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		assert(control_dep_time <= getTimetick() - region->start);
 
@@ -1348,7 +1348,7 @@ void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 		RShadowSetItem(dest_time, dest_reg, index);
         RegionUpdateCp(region, dest_time);
 
-        MSG(3, "kTime4 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "kTime4 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
 		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
 		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
@@ -1377,7 +1377,7 @@ src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		assert(control_dep_time <= getTimetick() - region->start);
 
@@ -1393,7 +1393,7 @@ src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
 		RShadowSetItem(dest_time, dest_reg, index);
         RegionUpdateCp(region, dest_time);
 
-        MSG(3, "kTime5 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "kTime5 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
 		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
 		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
@@ -1425,7 +1425,7 @@ src6_reg, UInt32 src6_offset) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		assert(control_dep_time <= getTimetick() - region->start);
 
@@ -1442,7 +1442,7 @@ src6_reg, UInt32 src6_offset) {
 		RShadowSetItem(dest_time, dest_reg, index);
         RegionUpdateCp(region, dest_time);
 
-        MSG(3, "kTime6 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "kTime6 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
 		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
 		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
@@ -1477,7 +1477,7 @@ src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		assert(control_dep_time <= getTimetick() - region->start);
 
@@ -1496,7 +1496,7 @@ src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
 		RShadowSetItem(dest_time, dest_reg, index);
         RegionUpdateCp(region, dest_time);
 
-        MSG(3, "kTime7 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "kTime7 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
 		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
 		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
@@ -1551,7 +1551,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 
 	Index region_depth = getIndexDepth();
 	Level min_level = getLevel(0); // XXX: this doesn't look right...
-	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
+	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
 	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
@@ -1573,7 +1573,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 	Index index;
     for (index = 0; index < region_depth; index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time control_dep_time = CDepGet(index);
 
@@ -1594,7 +1594,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 		Time dest_time = max_dep_time + LOAD_COST;
 
 		// TODO: more verbose printout of src dependency times
-        MSG(3, "KLoad level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KLoad level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_addr 0x%x dest_reg %u\n", src_addr, dest_reg);
         MSG(3, " control_dep_time %u dest_time %u\n", control_dep_time, dest_time);
 
@@ -1621,7 +1621,7 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
 
 	Index region_depth = getIndexDepth();
 	Level min_level = getLevel(0); // XXX: see note in KLoad
-	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
+	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
 	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
@@ -1630,13 +1630,13 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
 	Index index;
     for (index = 0; index < region_depth; index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time control_dep_time = CDepGet(index);
 		Time src_addr_time = src_addr_times[index];
         Time dest_time = MAX(control_dep_time,src_addr_time) + LOAD_COST;
 
-        MSG(3, "KLoad level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KLoad level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_addr 0x%x dest_reg %u\n", src_addr, dest_reg);
         MSG(3, " control_dep_time %u src_addr_time %u dest_time %u\n", control_dep_time, src_addr_time, dest_time);
 #if 0
@@ -1665,7 +1665,7 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
 
 	Index region_depth = getIndexDepth();
     Level min_level = getStartLevel(); // XXX: KLoad/KLoad0 use getLevel(0)
-	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, Region::getVersionAtLevel(min_level), mem_access_size);
+	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
 	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
@@ -1674,7 +1674,7 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
 	Index index;
     for (index = 0; index < region_depth; index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		Time src_addr_time = src_addr_times[index];
 		Time dep_time = RShadowGetItem(src_reg, index);
@@ -1683,7 +1683,7 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
         max_dep_time = MAX(max_dep_time,dep_time);
 		Time dest_time = max_dep_time + LOAD_COST;
 
-        MSG(3, "KLoad1 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KLoad1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_addr 0x%x src_reg %u dest_reg %u\n", src_addr, src_reg, dest_reg);
         MSG(3, " control_dep_time %u src_addr_time %u dep_time %u max_dep_time %u\n", control_dep_time, src_addr_time, dep_time, max_dep_time);
 		checkTimestamp(index, region, src_addr_time); // XXX: see note in KLoad0
@@ -1717,12 +1717,12 @@ void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
 
 	assert(mem_access_size <= 8);
 
-	Time* dest_addr_times = Region::getTimeArray();
+	Time* dest_addr_times = ProgramRegion::getTimeArray();
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time control_dep_time = CDepGet(index);
 		Time src_time = RShadowGetItem(src_reg, index);
@@ -1743,7 +1743,7 @@ void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
 #endif
 
 	Level min_level = getLevel(0); // XXX: see notes in KLoads
-	mem_shadow->set(dest_addr, getIndexDepth(), Region::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+	mem_shadow->set(dest_addr, getIndexDepth(), ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
     MSG(1, "store ts[0x%x] completed\n", dest_addr);
 }
 
@@ -1756,12 +1756,12 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
 
 	assert(mem_access_size <= 8);
 
-	Time* dest_addr_times = Region::getTimeArray();
+	Time* dest_addr_times = ProgramRegion::getTimeArray();
 
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		// XXX: Why was the following line there but not in KStore or anywhere
 		// else????
@@ -1778,7 +1778,7 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
 #endif
 
 	Level min_level = getLevel(0);
-	mem_shadow->set(dest_addr, getIndexDepth(), Region::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+	mem_shadow->set(dest_addr, getIndexDepth(), ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
 }
 
 
@@ -1824,7 +1824,7 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
 
 		RShadowSetItem(dest_time, dest_reg, index);
 
-        MSG(3, "KPhi level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KPhi level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_reg %u dest_reg %u\n", src_reg, dest_reg);
         MSG(3, " src_time %u dest_time %u\n", src_time, dest_time);
     }
@@ -1847,7 +1847,7 @@ void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
         Time dest_time = MAX(src_time,ctrl_time);
 		RShadowSetItem(dest_time, dest_reg, index);
 
-        MSG(3, "KPhi1To1 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KPhi1To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_reg %u ctrl_reg %u dest_reg %u\n", src_reg, ctrl_reg, dest_reg);
         MSG(3, " src_time %u ctrl_time %u dest_time %u\n", src_time, ctrl_time, dest_time);
     }
@@ -1869,7 +1869,7 @@ void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg) {
 
 		RShadowSetItem(dest_time, dest_reg, index);
 
-        MSG(3, "KPhi2To1 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KPhi2To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_reg %u ctrl1_reg %u ctrl2_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, dest_reg);
         MSG(3, " src_time %u ctrl1_time %u ctrl2_time %u dest_time %u\n", src_time, ctrl1_time, ctrl2_time, dest_time);
     }
@@ -1892,7 +1892,7 @@ void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
 		Time dest_time = MAX4(src_time,ctrl1_time,ctrl2_time,ctrl3_time);
 		RShadowSetItem(dest_time, dest_reg, index);
 
-        MSG(3, "KPhi3To1 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KPhi3To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_reg %u ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, dest_reg);
         MSG(3, " src_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u dest_time %u\n", src_time, ctrl1_time, ctrl2_time, ctrl3_time, dest_time);
     }
@@ -1918,7 +1918,7 @@ void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
 		Time dest_time = MAX(src_time,MAX4(ctrl1_time,ctrl2_time,ctrl3_time,ctrl4_time));
 		RShadowSetItem(dest_time, dest_reg, index);
 
-        MSG(2, "KPhi4To1 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(2, "KPhi4To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(2, " src_reg %u ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u ctrl4_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg, dest_reg);
         MSG(2, " src_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u ctrl4_time %u dest_time %u\n", 
 			src_time, ctrl1_time, ctrl2_time, ctrl3_time, ctrl4_time, dest_time);
@@ -1946,7 +1946,7 @@ void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Re
 		Time new_dest_time = MAX(old_dest_time,MAX4(ctrl1_time,ctrl2_time,ctrl3_time,ctrl4_time));
 		RShadowSetItem(new_dest_time, dest_reg, index);
 
-        MSG(3, "KPhi4To1 level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KPhi4To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u ctrl4_reg %u dest_reg %u\n", ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg, dest_reg);
         MSG(3, " old_dest_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u ctrl4_time %u new_dest_time %u\n", old_dest_time, ctrl1_time, ctrl2_time, ctrl3_time, ctrl4_time, new_dest_time);
     }
@@ -1961,7 +1961,7 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
 	Index index;
     for (index = 0; index < getIndexDepth(); index++) {
 		Level i = getLevel(index);
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time src_time = RShadowGetItem(src_reg, index);
 		Time old_dest_time = RShadowGetItem(dest_reg, index);
@@ -1970,7 +1970,7 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
 
         RegionUpdateCp(region, new_dest_time);
 
-        MSG(3, "KPhiAddCond level %u version %u \n", i, *Region::getVersionAtLevel(i));
+        MSG(3, "KPhiAddCond level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
         MSG(3, " src_reg %u dest_reg %u\n", src_reg, dest_reg);
         MSG(3, " src_time %u old_dest_time %u new_dest_time %u\n", src_time, old_dest_time, new_dest_time);
     }
@@ -2036,7 +2036,7 @@ static bool kremlinInit() {
 	RShadowInit(getIndexSize());
 
 	MShadowInit(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
-	Region::initProgramRegions(REGION_INIT_SIZE);
+	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
    	_KTurnOn();
     return true;
 }
@@ -2050,7 +2050,7 @@ void kremlinCleanup() {
     Level level = getCurrentLevel();
 	int i;
 	for (i=level; i>=0; i--) {
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		_KExitRegion(region->regionId, region->regionType);
 	}
 }
@@ -2071,7 +2071,7 @@ static bool kremlinDeinit() {
 	MShadowDeinit();
 	ArgFifoDeinit();
 	CDepDeinit();
-	Region::deinitProgramRegions();
+	ProgramRegion::deinitProgramRegions();
     //MemMapAllocatorDelete(&memPool);
 
 	DebugDeinit();
@@ -2132,7 +2132,7 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 
     TEntryRealloc(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = *Region::getVersionAtLevel(i);
+        UInt version = *ProgramRegion::getVersionAtLevel(i);
         UInt64 max = 0;
         
 		/*
@@ -2231,7 +2231,7 @@ void printActiveRegionStack() {
 	Level level = getCurrentLevel();
 
 	for(i = 0; i <= level; ++i) {
-		Region* region = Region::getRegionAtLevel(i);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		fprintf(stdout,"#%d: ",i);
 		if(region->regionType == RegionFunc) {
 			fprintf(stdout,"type=FUNC ");
@@ -2276,7 +2276,7 @@ void printMemoryTimes(Addr addr, Index size) {
 	Index index;
 	Index depth = getIndexDepth();
 	Level minLevel = getLevel(0);
-	Time* tArray = mem_shadow->get(addr, depth, Region::getVersionAtLevel(minLevel), size);
+	Time* tArray = mem_shadow->get(addr, depth, ProgramRegion::getVersionAtLevel(minLevel), size);
 
     for (index = 0; index < depth; index++) {
 		Time ts = tArray[index];
@@ -2384,7 +2384,7 @@ void _KInvokeThrew(UInt64 id)
         while(getCurrentLevel() > currentRecord->stackHeight)
         {
             UInt64 lastLevel = getCurrentLevel();
-            Region* region = regionInfo + getLevelOffset(getCurrentLevel()); // FIXME: regionInfo is vector now
+            ProgramRegion* region = regionInfo + getLevelOffset(getCurrentLevel()); // FIXME: regionInfo is vector now
             _KExitRegion(region->regionId, region->regionType);
             assert(getCurrentLevel() < lastLevel);
             assert(getCurrentLevel() >= 0);
