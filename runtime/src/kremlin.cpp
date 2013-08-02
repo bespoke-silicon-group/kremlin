@@ -41,7 +41,7 @@
 #define isKremlinOn()		(kremlinOn == 1)
 
 
-static Bool 	kremlinOn = 0;
+static bool 	kremlinOn = false;
 static UInt64	loadCnt = 0llu;
 static UInt64	storeCnt = 0llu;
 
@@ -134,9 +134,9 @@ static inline void updateIndexDepth(Level newLevel) {
 }
 
 
-static Bool _instrumentable = TRUE;
+static bool _instrumentable = true;
 
-static inline Bool isInstrumentable() {
+static inline bool isInstrumentable() {
 #if 0	
     incIndentTab(); // only affects debug printing
 	MSG(1, "instrumentable = %d\n", _instrumentable);
@@ -145,11 +145,11 @@ static inline Bool isInstrumentable() {
 	return _instrumentable;
 }
 
-static inline Bool isLevelInstrumentable(Level level) {
+static inline bool isLevelInstrumentable(Level level) {
 	if (level >= getMinLevel() && level <= getMaxLevel())
-		return TRUE;
+		return true;
 	else 
-		return FALSE;
+		return false;
 }
 
 static inline void updateInstrumentable(Level level) {
@@ -2015,11 +2015,11 @@ static UInt hasInitialized = 0;
 
 #define REGION_INIT_SIZE	64
 
-static Bool kremlinInit() {
+static bool kremlinInit() {
 	DebugInit();
     if(hasInitialized++) {
         MSG(0, "kremlinInit skipped\n");
-        return FALSE;
+        return false;
     }
 	initLevels();
 
@@ -2038,7 +2038,7 @@ static Bool kremlinInit() {
 	MShadowInit(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
 	Region::initProgramRegions(REGION_INIT_SIZE);
    	_KTurnOn();
-    return TRUE;
+    return true;
 }
 
 /*
@@ -2055,11 +2055,11 @@ void kremlinCleanup() {
 	}
 }
 
-static Bool kremlinDeinit() {
+static bool kremlinDeinit() {
 	kremlinCleanup();
     if(--hasInitialized) {
         MSG(0, "kremlinDeinit skipped\n");
-        return FALSE;
+        return false;
     }
 
 	fprintf(stderr,"[kremlin] max active level = %d\n", 
@@ -2075,7 +2075,7 @@ static Bool kremlinDeinit() {
     //MemMapAllocatorDelete(&memPool);
 
 	DebugDeinit();
-    return TRUE;
+    return true;
 }
 
 void _KInit() {
@@ -2329,10 +2329,10 @@ void* _KInsertValueConst(UInt dest) {
 
 #ifdef CPP
 
-UInt isCpp = FALSE;
+bool isCpp = false;
 
 void cppEntry() {
-    isCpp = TRUE;
+    isCpp = true;
     kremlinInit();
 }
 
