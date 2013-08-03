@@ -23,6 +23,8 @@
 #include "RShadow.cpp" // WHY?
 #include "PoolAllocator.hpp"
 
+#include "ProgramRegion.hpp"
+
 #include <vector>
 #include <iostream>
 
@@ -40,7 +42,82 @@
 
 #define isKremlinOn()		(kremlinOn == 1)
 
+class KremlinProfiler {
+private:
+	Time curr_time; // the current time of the profiler (virtual)
+	Level curr_level; // current level 
+	Level min_level; // minimum level to instrument
+	Level max_level; // maximum level to instrument
+	Level max_active_level; // XXX: appears to be only debug related
 
+	Index curr_num_instrumented_levels; // number of regions currently instrumented
+	bool instrument_curr_level; // whether we should instrument the current level
+
+	void updateCurrLevelInstrumentableStatus() {
+		if (curr_level >= min_level && curr_level <= max_level)
+			instrument_curr_level = true;
+		else 
+			instrument_curr_level = false;
+	}
+
+public:
+	KremlinProfiler(Level min, Level max) {
+		this->curr_time = 0;
+		this->curr_level = -1;
+		this->min_level = min;
+		this->max_level = max;
+		this->max_active_level = 0;
+		this->curr_num_instrumented_levels = 0;
+		this->instrument_curr_level = false;
+	}
+
+	~KremlinProfiler() {}
+
+	int getCurrentTime() { return this->curr_time; }
+	int getCurrentLevel() { return this->curr_level; }
+	int getMinLevel() { return this->min_level; }
+	int getMaxLevel() { return this->max_level; }
+	int getMaxActiveLevel() { return this->max_active_level; }
+	bool shouldInstrumentCurrLevel() { return instrument_curr_level; }
+
+	int getIndexSize() { return max_level - min_level + 1; }
+	int getCurrNumInstrumentedLevels() { return curr_num_instrumented_levels; }
+	Level getCurrentLevelIndex() { return curr_level - min_level; }
+
+	void incrementLevel() { 
+		++curr_level;
+		updateCurrLevelInstrumentableStatus();
+
+		// XXX: following is debug only?
+		if (curr_level > max_active_level)
+			max_active_level = curr_level;
+	}
+	void decrementLevel() { 
+		--curr_level;
+		updateCurrLevelInstrumentableStatus();
+	}
+
+	/*! \brief Update number of levels being instrumented based on our current
+	 * level.
+	 */
+	void updateCurrNumInstrumentedLevels() {
+		if (!KConfigLimitLevel()) {
+			curr_num_instrumented_levels = curr_level + 1;
+		}
+
+		else if (curr_level < min_level) {
+			curr_num_instrumented_levels = 0;
+		}
+
+		else {
+			curr_num_instrumented_levels = MIN(max_level, curr_level) - min_level + 1;	
+		}
+	}
+};
+
+static KremlinProfiler *profiler;
+
+// BEGIN TODO: make these not global
 static bool 	kremlinOn = false;
 static UInt64	loadCnt = 0llu;
 static UInt64	storeCnt = 0llu;
@@ -51,6 +128,7 @@ static UInt64 _setupTableCnt;
 static int _requireSetupTable;
 
 MShadow *mem_shadow = NULL;
+// END TODO: make these not global
 
 /*****************************************************************
  * Region Level Management 
@@ -88,6 +166,7 @@ static inline Level getCurrentLevel() {
 	return levelNum;
 }
 
+// TODO: deprecate (functionality rolled into incrementLevel
 inline void updateMaxActiveLevel(Level level) {
 	if (level > __kremlin_max_active_level) {
 		__kremlin_max_active_level = level;
@@ -96,6 +175,7 @@ inline void updateMaxActiveLevel(Level level) {
 	}
 }
 
+// TODO: deprecate (member function)
 Level getMaxActiveLevel() {
 	return __kremlin_max_active_level;
 }
@@ -103,9 +183,11 @@ Level getMaxActiveLevel() {
 
 
 // what are lowest and highest levels to instrument now?
+// TODO: deprecated?
 static inline Level getStartLevel() { return getMinLevel(); }
 
 
+// TODO: deprecated?
 static inline Level getEndLevel() {
 	return MIN(getMaxLevel(), getCurrentLevel());
 }
@@ -114,10 +196,12 @@ static inline Level getEndLevel() {
 static Index nInstrument = 0;
 // what's the index depth currently being used?
 // can be optimized
+// TODO: becomes getCurrNumInstrumentedLevels
 static inline Index getIndexDepth() {
 	return nInstrument;
 }
 
+// TODO: becomes updateCurrNumInstrumentedLevels
 static inline void updateIndexDepth(Level newLevel) {
 	if (!KConfigLimitLevel()) {
 		nInstrument = newLevel + 1;
@@ -136,6 +220,7 @@ static inline void updateIndexDepth(Level newLevel) {
 
 static bool _instrumentable = true;
 
+// TODO: replace with shouldInstrumentCurrLevel
 static inline bool isInstrumentable() {
 #if 0	
     incIndentTab(); // only affects debug printing
@@ -145,6 +230,7 @@ static inline bool isInstrumentable() {
 	return _instrumentable;
 }
 
+// TODO: deprecate
 static inline bool isLevelInstrumentable(Level level) {
 	if (level >= getMinLevel() && level <= getMaxLevel())
 		return true;
@@ -152,16 +238,19 @@ static inline bool isLevelInstrumentable(Level level) {
 		return false;
 }
 
+// TODO: depcreate (part of incrementLevel and decrementLevel now)
 static inline void updateInstrumentable(Level level) {
 	_instrumentable = isLevelInstrumentable(level);
 }
 
+// TODO: deprecate (use incrementLevel)
 static inline void incrementRegionLevel() {
     levelNum++;
 	updateInstrumentable(levelNum);
 	updateIndexDepth(levelNum);
 }
 
+// TODO: deprecate (use decrementLevel)
 static inline void decrementRegionLevel() {
 	levelNum--; 
 	updateInstrumentable(levelNum);
@@ -174,6 +263,7 @@ static inline void decrementRegionLevel() {
  * Index represents the offset in multi-value shadow memory
  *************************************************************/
 
+// TODO: deprecate (use getCurrLevelIndex
 static inline Level getIndex(Level level) {
 	return level - getMinLevel();
 }
@@ -182,20 +272,24 @@ static inline Level getIndex(Level level) {
  * Global Timestamp Management
  *************************************************************/
 
+// TODO: depcreate (use curr_time in profiler class)
 static Time	timetick = 0llu;
 
 void _KWork(UInt32 work) {
 	timetick += work;
 }
 
+// TODO: decrement (use getCurrentTime in profiler)
 inline Time getTimetick() {
 	return timetick;
 }
 
+// TODO: addLoad and addStore are unused... delete!
 static inline void addLoad() {
 	loadCnt++;
 }
 
+// TODO: addLoad and addStore are unused... delete!
 static inline void addStore() {
 	storeCnt++; 
 }
@@ -357,129 +451,6 @@ static void RegionDeinitFunc()
 /*****************************************************************
  * Region Management
  *****************************************************************/
-#if 0
-typedef struct _region_t {
-	UInt32 code;
-	Version version;
-	SID	regionId;
-	RegionType regionType;
-	Time start;
-	Time cp;
-	Time childrenWork;
-	Time childrenCP;
-	Time childMaxCP;
-	UInt64 childCount;
-#ifdef EXTRA_STATS
-	UInt64 loadCnt;
-	UInt64 storeCnt;
-	UInt64 readCnt;
-	UInt64 writeCnt;
-	UInt64 readLineCnt;
-	UInt64 writeLineCnt;
-#endif
-} Region;
-#endif
-
-class ProgramRegion {
-  private:
-	static std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > program_regions;
-	static unsigned int arraySize;
-	static Version* vArray;
-	static Time* tArray;
-	static Version nextVersion;
-
-  public:
-	UInt32 code;
-	Version version;
-	SID	regionId;
-	RegionType regionType;
-	Time start;
-	Time cp;
-	Time childrenWork;
-	Time childrenCP;
-	Time childMaxCP;
-	UInt64 childCount;
-#ifdef EXTRA_STATS
-	UInt64 loadCnt;
-	UInt64 storeCnt;
-	UInt64 readCnt;
-	UInt64 writeCnt;
-	UInt64 readLineCnt;
-	UInt64 writeLineCnt;
-#endif
-
-	ProgramRegion() : code(0xDEADBEEF), version(0), regionId(0), 
-				regionType(RegionFunc), start(0), cp(0), 
-				childrenWork(0), childrenCP(0), childMaxCP(0), 
-				childCount(0) {}
-
-	void init(SID sid, RegionType regionType, Level level) {
-		ProgramRegion::issueVersionToLevel(level);
-
-		regionId = sid;
-		start = getTimetick();
-		cp = 0ULL;
-		childrenWork = 0LL;
-		childrenCP = 0LL;
-		childMaxCP = 0LL;
-		childCount = 0LL;
-		this->regionType = regionType;
-#ifdef EXTRA_STATS
-		loadCnt = 0LL;
-		storeCnt = 0LL;
-		readCnt = 0LL;
-		writeCnt = 0LL;
-		readLineCnt = 0LL;
-		writeLineCnt = 0LL;
-#endif
-	}
-
-	static ProgramRegion* getRegionAtLevel(Level l) {
-		assert(l < program_regions.size());
-		ProgramRegion* ret = program_regions[l];
-		assert(ret->code == 0xDEADBEEF);
-		return ret;
-	}
-
-	static void increaseNumRegions(unsigned num_new) {
-		for (unsigned i = 0; i < num_new; ++i) {
-			program_regions.push_back(new ProgramRegion());
-		}
-	}
-
-	static unsigned getNumRegions() { return program_regions.size(); }
-	static void doubleNumRegions() {
-		increaseNumRegions(program_regions.size());
-	}
-
-	static void initProgramRegions(unsigned num_regions) {
-		assert(program_regions.empty());
-		increaseNumRegions(num_regions);
-
-		initVersionArray();
-		initTimeArray();
-	}
-
-	static void deinitProgramRegions() { program_regions.clear(); }
-
-	static void initVersionArray() {
-		vArray = new Version[arraySize];
-		for (unsigned i = 0; i < arraySize; ++i) vArray[i] = 0;
-	}
-
-	static void initTimeArray() {
-		tArray = new Time[arraySize];
-		for (unsigned i = 0; i < arraySize; ++i) tArray[i] = 0;
-	}
-
-	static Time* getTimeArray() { return tArray; }
-	static Version* getVersionAtLevel(Level level) { return &vArray[level]; }
-
-	static void issueVersionToLevel(Level level) {
-		vArray[level] = nextVersion++;	
-	}
-
-};
 
 std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > ProgramRegion::program_regions;
 unsigned int ProgramRegion::arraySize = 512;
@@ -861,7 +832,7 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 	}
 	
 	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
-	region->init(regionId, regionType, level);
+	region->init(regionId, regionType, level, getTimetick());
 
 	MSG(0, "\n");
 	MSG(0, "[+++] region [type %u, level %d, sid 0x%llx] start: %llu\n",
@@ -2021,6 +1992,9 @@ static bool kremlinInit() {
         MSG(0, "kremlinInit skipped\n");
         return false;
     }
+
+	profiler = new KremlinProfiler(KConfigGetMinLevel(), KConfigGetMaxLevel());
+
 	initLevels();
 
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
@@ -2073,6 +2047,8 @@ static bool kremlinDeinit() {
 	CDepDeinit();
 	ProgramRegion::deinitProgramRegions();
     //MemMapAllocatorDelete(&memPool);
+	
+	delete profiler;
 
 	DebugDeinit();
     return true;
