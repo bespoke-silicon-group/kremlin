@@ -1,3 +1,6 @@
+#ifndef POOL_ALLOCATOR_H
+#define POOL_ALLOCATOR_H
+
 #include <limits>
 #include "MemMapAllocator.h"
 
@@ -74,3 +77,5 @@ namespace MPoolLib {
 		return false;
 	}
 }
+
+#endif // POOL_ALLOCATOR_H
