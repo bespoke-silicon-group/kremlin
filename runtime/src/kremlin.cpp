@@ -24,6 +24,7 @@
 #include "PoolAllocator.hpp"
 
 #include "ProgramRegion.hpp"
+#include "FuncContext.hpp"
 
 #include <vector>
 #include <iostream>
@@ -42,16 +43,27 @@
 
 #define isKremlinOn()		(kremlinOn == 1)
 
+static CID lastCallSiteId; // TODO: member of KremlinProfiler?
+
+// TODO: make this a member of KremlinProfiler?
+static std::vector<FuncContext*, MPoolLib::PoolAllocator<FuncContext*> > funcContexts; // A vector used to represent the call stack.
+
 class KremlinProfiler {
 private:
 	Time curr_time; // the current time of the profiler (virtual)
 	Level curr_level; // current level 
 	Level min_level; // minimum level to instrument
 	Level max_level; // maximum level to instrument
-	Level max_active_level; // XXX: appears to be only debug related
+	Level max_active_level; // max level we have seen thusfar
 
 	Index curr_num_instrumented_levels; // number of regions currently instrumented
 	bool instrument_curr_level; // whether we should instrument the current level
+
+
+	static const unsigned int FUNC_ARG_QUEUE_SIZE = 64;
+	std::vector<Reg> function_arg_queue;
+	unsigned int arg_queue_read_index;
+	unsigned int arg_queue_write_index;
 
 	void updateCurrLevelInstrumentableStatus() {
 		if (curr_level >= min_level && curr_level <= max_level)
@@ -75,26 +87,31 @@ public:
 
 	int getCurrentTime() { return this->curr_time; }
 	int getCurrentLevel() { return this->curr_level; }
+	Level getCurrentLevelIndex() { return curr_level - min_level; }
 	int getMinLevel() { return this->min_level; }
 	int getMaxLevel() { return this->max_level; }
 	int getMaxActiveLevel() { return this->max_active_level; }
 	bool shouldInstrumentCurrLevel() { return instrument_curr_level; }
 
-	int getIndexSize() { return max_level - min_level + 1; }
+	int getArraySize() { return max_level - min_level + 1; }
 	int getCurrNumInstrumentedLevels() { return curr_num_instrumented_levels; }
-	Level getCurrentLevelIndex() { return curr_level - min_level; }
+
+	Level getLevelForIndex(Index index) { return min_level + index; }
+
+	void increaseTime(UInt32 amount) { curr_time += amount; } // XXX: UInt32 -> Time?
 
 	void incrementLevel() { 
 		++curr_level;
 		updateCurrLevelInstrumentableStatus();
+		updateCurrNumInstrumentedLevels();
 
-		// XXX: following is debug only?
 		if (curr_level > max_active_level)
 			max_active_level = curr_level;
 	}
 	void decrementLevel() { 
 		--curr_level;
 		updateCurrLevelInstrumentableStatus();
+		updateCurrNumInstrumentedLevels();
 	}
 
 	/*! \brief Update number of levels being instrumented based on our current
@@ -113,9 +130,92 @@ public:
 			curr_num_instrumented_levels = MIN(max_level, curr_level) - min_level + 1;	
 		}
 	}
+
+	/**
+	 * Pushes new context onto function context stack.
+	 */
+	void addFunctionToStack(CID cid) {
+		FuncContext* fc = (FuncContext*) MemPoolAllocSmall(sizeof(FuncContext));
+		assert(fc);
+
+		fc->init(cid);
+		funcContexts.push_back(fc);
+
+		MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", fc, cid);
+	}
+
+	/**
+	 * Removes context at the top of the function context stack.
+	 */
+	void removeFunctionFromStack() {
+		FuncContext* fc = funcContexts.back();
+		funcContexts.pop_back();
+		
+		assert(fc);
+		MSG(3, "removeFunctionFromStack at 0x%x CID 0x%x\n", fc, fc->getCallSiteID());
+
+		assert(_regionFuncCnt == _setupTableCnt);
+		assert(_requireSetupTable == 0);
+
+		if (fc->table != NULL) Table::destroy(fc->table);
+
+		MemPoolFreeSmall(fc, sizeof(FuncContext));
+	}
+
+	FuncContext* getCurrentFunction() {
+		if (funcContexts.empty()) {
+			MSG(3, "getCurrentFunction  NULL\n");
+			return NULL;
+		}
+
+		FuncContext* func = funcContexts.back();
+
+		MSG(3, "getCurrentFunction  0x%x CID 0x%x\n", func, func->getCallSiteID());
+		func->sanityCheck();
+		return func;
+	}
+
+	FuncContext* getCallingFunction() {
+		if (funcContexts.size() == 1) {
+			MSG(3, "getCallingFunction  No Caller Context\n");
+			return NULL;
+		}
+		FuncContext* func = funcContexts[funcContexts.size()-2];
+
+		MSG(3, "getCallingFunction  0x%x CID 0x%x\n", func, func->getCallSiteID());
+		func->sanityCheck();
+		return func;
+	}
+
+	void initFunctionArgQueue() {
+		function_arg_queue.resize(KremlinProfiler::FUNC_ARG_QUEUE_SIZE, -1);
+		clearFunctionArgQueue();
+	}
+
+	void deinitFunctionArgQueue() {}
+
+	void functionArgQueuePushBack(Reg src) {
+		function_arg_queue[arg_queue_write_index++] = src;
+		assert(arg_queue_write_index < function_arg_queue.size());
+	}
+
+	Reg functionArgQueuePopFront() {
+		assert(arg_queue_read_index < arg_queue_write_index);
+		return function_arg_queue[arg_queue_read_index++];
+	}
+
+	void clearFunctionArgQueue() {
+		arg_queue_read_index = 0;
+		arg_queue_write_index = 0;
+	}
 };
 
 static KremlinProfiler *profiler;
+
+// XXX: hacky... badness!
+Level getMaxActiveLevel() {
+	return profiler->getMaxActiveLevel();
+}
 
 // BEGIN TODO: make these not global
 static bool 	kremlinOn = false;
@@ -130,175 +230,24 @@ static int _requireSetupTable;
 MShadow *mem_shadow = NULL;
 // END TODO: make these not global
 
-/*****************************************************************
- * Region Level Management 
- *****************************************************************/
-
-
-// min and max level for instrumentation
-Level __kremlin_min_level;
-Level __kremlin_max_level;	 
-Level __kremlin_max_active_level = 0;	 
-Level __kremlin_index_size;
-
-
-
-static inline int getMinLevel() { return __kremlin_min_level; }
-static inline int getMaxLevel() { return __kremlin_max_level; }
-
-static inline int initLevels() {
-	__kremlin_min_level = KConfigGetMinLevel();
-	__kremlin_max_level = KConfigGetMaxLevel();
-	__kremlin_index_size = KConfigGetMaxLevel() - KConfigGetMinLevel() + 1;
-}
-
-static inline int getLevel(Index index) {
-	return __kremlin_min_level + index;
-}
-
-static inline int getIndexSize() {
-	return __kremlin_index_size;
-}
-
-static Level levelNum = -1;
-
-static inline Level getCurrentLevel() {
-	return levelNum;
-}
-
-// TODO: deprecate (functionality rolled into incrementLevel
-inline void updateMaxActiveLevel(Level level) {
-	if (level > __kremlin_max_active_level) {
-		__kremlin_max_active_level = level;
-		__kremlin_max_level = level;
-		__kremlin_index_size = KConfigGetMaxLevel() - KConfigGetMinLevel() + 1;
-	}
-}
-
-// TODO: deprecate (member function)
-Level getMaxActiveLevel() {
-	return __kremlin_max_active_level;
-}
-
-
-
-// what are lowest and highest levels to instrument now?
-// TODO: deprecated?
-static inline Level getStartLevel() { return getMinLevel(); }
-
-
-// TODO: deprecated?
-static inline Level getEndLevel() {
-	return MIN(getMaxLevel(), getCurrentLevel());
-}
-
-
-static Index nInstrument = 0;
-// what's the index depth currently being used?
-// can be optimized
-// TODO: becomes getCurrNumInstrumentedLevels
-static inline Index getIndexDepth() {
-	return nInstrument;
-}
-
-// TODO: becomes updateCurrNumInstrumentedLevels
-static inline void updateIndexDepth(Level newLevel) {
-	if (!KConfigLimitLevel()) {
-		nInstrument = newLevel + 1;
-		return;
-	}
-
-	if (newLevel < getMinLevel()) {
-		nInstrument = 0;
-		return;
-	}
-
-	nInstrument = getEndLevel() - getStartLevel() + 1;	
-	return;
-}
-
-
-static bool _instrumentable = true;
-
-// TODO: replace with shouldInstrumentCurrLevel
-static inline bool isInstrumentable() {
-#if 0	
-    incIndentTab(); // only affects debug printing
-	MSG(1, "instrumentable = %d\n", _instrumentable);
-	decIndentTab();
-#endif
-	return _instrumentable;
-}
-
-// TODO: deprecate
-static inline bool isLevelInstrumentable(Level level) {
-	if (level >= getMinLevel() && level <= getMaxLevel())
-		return true;
-	else 
-		return false;
-}
-
-// TODO: depcreate (part of incrementLevel and decrementLevel now)
-static inline void updateInstrumentable(Level level) {
-	_instrumentable = isLevelInstrumentable(level);
-}
-
-// TODO: deprecate (use incrementLevel)
-static inline void incrementRegionLevel() {
-    levelNum++;
-	updateInstrumentable(levelNum);
-	updateIndexDepth(levelNum);
-}
-
-// TODO: deprecate (use decrementLevel)
-static inline void decrementRegionLevel() {
-	levelNum--; 
-	updateInstrumentable(levelNum);
-	updateIndexDepth(levelNum);
-}
-
-
 /*************************************************************
  * Index Management
  * Index represents the offset in multi-value shadow memory
  *************************************************************/
 
-// TODO: deprecate (use getCurrLevelIndex
-static inline Level getIndex(Level level) {
-	return level - getMinLevel();
-}
-
 /*************************************************************
  * Global Timestamp Management
  *************************************************************/
 
-// TODO: depcreate (use curr_time in profiler class)
-static Time	timetick = 0llu;
-
 void _KWork(UInt32 work) {
-	timetick += work;
-}
-
-// TODO: decrement (use getCurrentTime in profiler)
-inline Time getTimetick() {
-	return timetick;
-}
-
-// TODO: addLoad and addStore are unused... delete!
-static inline void addLoad() {
-	loadCnt++;
-}
-
-// TODO: addLoad and addStore are unused... delete!
-static inline void addStore() {
-	storeCnt++; 
+	profiler->increaseTime(work);
 }
 
 /*************************************************************
  * Arg Management
  *
  * Function Arg Transfer Sequence
- * 1) caller calls "_KPrepCall" to reset argFifo
+ * 1) caller calls "_KPrepCall" to reset function_arg_queue
  * 2) for each arg, the caller calls _KLinkArg or _KLinkArgConst
  * 3) callee function enters with "_KEnterRegion"
  * 4) callee links each arg with _KUnlinkArg by 
@@ -321,132 +270,12 @@ static inline void addStore() {
  * 
  *************************************************************/
 
-#define ARG_SIZE		64
-static Reg  argFifo[ARG_SIZE];
-static Reg* argFifoReadPointer;
-static Reg* argFifoWritePointer;
-
-static inline void ArgFifoInit() {
-	argFifoReadPointer = argFifo;
-	argFifoWritePointer = argFifo;
-}
-
-static inline void ArgFifoDeinit() {
-	// intentionally blank
-}
-
-static inline void ArgFifoPush(Reg src) {
-	*argFifoWritePointer++ = src;
-	assert(argFifoWritePointer < argFifo + ARG_SIZE);
-}
-
-static inline Reg ArgFifoPop() {
-	assert(argFifoReadPointer < argFifoWritePointer);
-	return *argFifoReadPointer++;
-}
-
-static inline void ArgFifoClear() {
-	argFifoReadPointer = argFifo;
-	argFifoWritePointer = argFifo;
-}
+// XXX: moved these to KremlinProfiler
 
 
 /*****************************************************************
  * Function Context Management
  *****************************************************************/
-
-static CID lastCallSiteId;
-
-typedef struct _FuncContext {
-	Table* table;
-	Reg ret;
-	CID callSiteId;
-	UInt32 code;
-} FuncContext;
-
-
-
-static std::vector<FuncContext*, MPoolLib::PoolAllocator<FuncContext*> > funcContexts; // A vector used to represent the call stack.
-#define DUMMY_RET		-1
-
-/**
- * Pushes new context onto function context stack.
- */
-static void RegionPushFunc(CID cid) {
-    FuncContext* funcContext = (FuncContext*) MemPoolAllocSmall(sizeof(FuncContext));
-    assert(funcContext);
-
-	funcContexts.push_back(funcContext);
-    funcContext->table = NULL;
-	funcContext->callSiteId = cid;
-	funcContext->ret = DUMMY_RET;
-	funcContext->code = 0xDEADBEEF;
-
-    MSG(3, "RegionPushFunc at 0x%x CID 0x%x\n", funcContext, cid);
-	//fprintf(stderr, "[push] head = 0x%x next = 0x%x\n", funcHead, funcHead->next);
-}
-
-/**
- * Removes context at the top of the function context stack.
- */
-static void RegionPopFunc() {
-    FuncContext* func = funcContexts.back();
-	funcContexts.pop_back();
-	
-    assert(func);
-    MSG(3, "RegionPopFunc at 0x%x CID 0x%x\n", func, func->callSiteId);
-
-    assert(_regionFuncCnt == _setupTableCnt);
-    assert(_requireSetupTable == 0);
-
-    if (func->table != NULL) Table::destroy(func->table);
-
-	MemPoolFreeSmall(func, sizeof(FuncContext));
-}
-
-static FuncContext* RegionGetFunc() {
-	if (funcContexts.empty()) {
-    	MSG(3, "RegionGetFunc  NULL\n");
-		return NULL;
-	}
-
-    FuncContext* func = funcContexts.back();
-
-    MSG(3, "RegionGetFunc  0x%x CID 0x%x\n", func, func->callSiteId);
-	assert(func->code == 0xDEADBEEF);
-	return func;
-}
-
-static FuncContext* RegionGetCallerFunc() {
-	if (funcContexts.size() == 1) {
-    	MSG(3, "RegionGetCallerFunc  No Caller Context\n");
-		return NULL;
-	}
-    FuncContext* func = funcContexts[funcContexts.size()-2];
-
-    MSG(3, "RegionGetCallerFunc  0x%x CID 0x%x\n", func, func->callSiteId);
-	assert(func->code == 0xDEADBEEF);
-	return func;
-}
-
-inline static void RegionSetRetReg(FuncContext* func, Reg reg) {
-	func->ret = reg;	
-}
-
-inline static Reg RegionGetRetReg(FuncContext* func) {
-	return func->ret;
-}
-
-inline static Table* RegionGetTable(FuncContext* func) {
-	return func->table;
-}
-
-static void RegionInitFunc() {}
-
-static void RegionDeinitFunc()
-{
-	assert(funcContexts.empty());
-}
 
 /*****************************************************************
  * Region Management
@@ -462,9 +291,9 @@ Version ProgramRegion::nextVersion = 0;
 
 static inline void checkTimestamp(int index, ProgramRegion* region, Timestamp value) {
 #ifndef NDEBUG
-	if (value > getTimetick() - region->start) {
-		fprintf(stderr, "index = %d, value = %lld, getTimetick() = %lld, region start = %lld\n", 
-		index, value, getTimetick(), region->start);
+	if (value > profiler->getCurrentTime() - region->start) {
+		fprintf(stderr, "index = %d, value = %lld, current time = %lld, region start = %lld\n", 
+		index, value, profiler->getCurrentTime(), region->start);
 		assert(0);
 	}
 #endif
@@ -473,12 +302,12 @@ static inline void checkTimestamp(int index, ProgramRegion* region, Timestamp va
 static inline void RegionUpdateCp(ProgramRegion* region, Timestamp value) {
 	region->cp = MAX(value, region->cp);
 	MSG(3, "RegionUpdateCp : value = %llu\n", region->cp);	
-	assert(region->code == 0xDEADBEEF);
+	region->sanityCheck();
 #ifndef NDEBUG
-	//assert(value <= getTimetick() - region->start);
-	if (value > getTimetick() - region->start) {
-		fprintf(stderr, "value = %lld, getTimetick() = %lld, region start = %lld\n", 
-		value, getTimetick(), region->start);
+	//assert(value <= profiler->getCurrentTime() - region->start);
+	if (value > profiler->getCurrentTime() - region->start) {
+		fprintf(stderr, "value = %lld, current time = %lld, region start = %lld\n", 
+		value, profiler->getCurrentTime(), region->start);
 		assert(0);
 	}
 #endif
@@ -486,11 +315,11 @@ static inline void RegionUpdateCp(ProgramRegion* region, Timestamp value) {
 
 
 void checkRegion() {
-#ifndef NDEBUG
+#if 0
 	int bug = 0;
 	for (unsigned i=0; i < regionInfo.size(); ++i) {
 		ProgramRegion* ret = regionInfo[i];
-		if (ret->code != 0xDEADBEEF) {
+		if (ret->code != 0xDEADBEEF) { // XXX: won't work now
 			MSG(0, "ProgramRegion Error at index %d\n", i);	
 			assert(0);
 			assert(ret->code == 0xDEADBEEF);
@@ -552,7 +381,7 @@ void _KPushCDep(Reg cond) {
 	}
 
 	cTableReadPtr++;
-	int indexSize = getIndexDepth();
+	int indexSize = profiler->getCurrNumInstrumentedLevels();
 
 // TODO: rarely, ctable could require resizing..not implemented yet
 	if (cTableReadPtr == cTable->getRow()) {
@@ -622,7 +451,7 @@ void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
     // Clear off any argument timestamps that have been left here before the
     // call. These are left on the deque because library calls never take
     // theirs off. 
-    ArgFifoClear();
+    profiler->clearFunctionArgQueue();
 	lastCallSiteId = callSiteId;
 }
 
@@ -631,7 +460,7 @@ void _KEnqArg(Reg src) {
 	idbgAction(KREM_LINK_ARG,"## _KEnqArg(src=%u)\n",src);
     if (!isKremlinOn())
         return;
-	ArgFifoPush(src);
+	profiler->functionArgQueuePushBack(src);
 }
 
 #define DUMMY_ARG		-1
@@ -641,7 +470,7 @@ void _KEnqArgConst() {
     if (!isKremlinOn())
         return;
 
-	ArgFifoPush(DUMMY_ARG); // dummy arg
+	profiler->functionArgQueuePushBack(DUMMY_ARG); // dummy arg
 }
 void _KLinkArg(Reg src) {
 	_KEnqArg(src);
@@ -660,17 +489,17 @@ void _KDeqArg(Reg dest) {
     if (!isKremlinOn())
         return;
 
-	Reg src = ArgFifoPop();
+	Reg src = profiler->functionArgQueuePopFront();
 	// copy parent's src timestamp into the currenf function's dest reg
-	if (src != DUMMY_ARG && getIndexDepth() > 0) {
-		FuncContext* caller = RegionGetCallerFunc();
-		FuncContext* callee = RegionGetFunc();
-		Table* callerT = RegionGetTable(caller);
-		Table* calleeT = RegionGetTable(callee);
+	if (src != DUMMY_ARG && profiler->getCurrNumInstrumentedLevels() > 0) {
+		FuncContext* caller = profiler->getCallingFunction();
+		FuncContext* callee = profiler->getCurrentFunction();
+		Table* callerT = caller->getTable();
+		Table* calleeT = callee->getTable();
 
 		// decrement one as the current level should not be copied
-		int indexSize = getIndexDepth() - 1;
-		assert(getCurrentLevel() >= 1);
+		int indexSize = profiler->getCurrNumInstrumentedLevels() - 1;
+		assert(profiler->getCurrentLevel() >= 1);
 		callerT->copyToDest(calleeT, dest, src, 0, indexSize);
 	}
     MSG(3, "\n", dest);
@@ -689,15 +518,15 @@ void _KUnlinkArg(Reg dest) {
  * Fortunately, it is possible to set the size of the table using 
  * both compile-time and runtime information. 
  *  - row: maxVregNum, as each row represents a virtual register
- *  - col: getCurrentLevel() + 1 + maxNestLevel
+ *  - col: profiler->getCurrentLevel() + 1 + maxNestLevel
  *		maxNestLevel represents the max depth of a region that can use 
  *		the RTable. 
  */
 void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
 	int tableHeight = maxVregNum;
-	int tableWidth = getCurrentLevel() + maxNestLevel + 1;
+	int tableWidth = profiler->getCurrentLevel() + maxNestLevel + 1;
     MSG(1, "KPrep RShadow Table row=%d, col=%d (curLevel=%d, maxNestLevel=%d)\n",
-		 tableHeight, tableWidth, getCurrentLevel(), maxNestLevel);
+		 tableHeight, tableWidth, profiler->getCurrentLevel(), maxNestLevel);
 	idbgAction(KREM_PREP_REG_TABLE,"## _KPrepRTable(maxVregNum=%u,maxNestLevel=%u)\n",maxVregNum,maxNestLevel);
 
     if (!isKremlinOn()) {
@@ -706,7 +535,7 @@ void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
 
     assert(_requireSetupTable == 1);
     Table* table = Table::create(tableHeight, tableWidth);
-    FuncContext* funcHead = RegionGetFunc();
+    FuncContext* funcHead = profiler->getCurrentFunction();
 	assert(funcHead != NULL);
     assert(funcHead->table == NULL);
     funcHead->table = table;
@@ -728,8 +557,8 @@ void _KLinkReturn(Reg dest) {
     if (!isKremlinOn())
         return;
 
-	FuncContext* caller = RegionGetFunc();
-	RegionSetRetReg(caller, dest);
+	FuncContext* caller = profiler->getCurrentFunction();
+	caller->setReturnRegister(dest);
 }
 
 // This is called right before callee's "_KExitRegion"
@@ -743,22 +572,22 @@ void _KReturn(Reg src) {
     if (!isKremlinOn())
         return;
 
-    FuncContext* callee = RegionGetFunc();
-    FuncContext* caller = RegionGetCallerFunc();
+    FuncContext* callee = profiler->getCurrentFunction();
+    FuncContext* caller = profiler->getCallingFunction();
 
 	// main function does not have a return point
 	if (caller == NULL)
 		return;
 
-	Reg ret = RegionGetRetReg(caller);
+	Reg ret = caller->getReturnRegister();
 	assert(ret >= 0);
 
 	// current level time does not need to be copied
-	int indexSize = getIndexDepth() - 1;
+	int indexSize = profiler->getCurrNumInstrumentedLevels() - 1;
 	if (indexSize > 0)
 		callee->table->copyToDest(caller->table, ret, src, 0, indexSize);
 	
-    MSG(1, "end write return value 0x%x\n", RegionGetFunc());
+    MSG(1, "end write return value 0x%x\n", profiler->getCurrentFunction());
 }
 
 void _KReturnConst(void) {
@@ -768,7 +597,7 @@ void _KReturnConst(void) {
         return;
 
     // Assert there is a function context before the top.
-	FuncContext* caller = RegionGetCallerFunc();
+	FuncContext* caller = profiler->getCallingFunction();
 
 	// main function does not have a return point
 	if (caller == NULL)
@@ -777,7 +606,7 @@ void _KReturnConst(void) {
 	Index index;
     for (index = 0; index < caller->table->col; index++) {
 		Time cdt = CDepGet(index);
-		caller->table->setValue(cdt, RegionGetRetReg(caller), index);
+		caller->table->setValue(cdt, caller->getReturnRegister(), index);
     }
 }
 
@@ -825,42 +654,40 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 		return; 
 	}
 
-    incrementRegionLevel();
-    Level level = getCurrentLevel();
+    profiler->incrementLevel();
+    Level level = profiler->getCurrentLevel();
 	if (level == ProgramRegion::getNumRegions()) {
 		ProgramRegion::doubleNumRegions();
 	}
 	
 	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
-	region->init(regionId, regionType, level, getTimetick());
+	region->init(regionId, regionType, level, profiler->getCurrentTime());
 
 	MSG(0, "\n");
 	MSG(0, "[+++] region [type %u, level %d, sid 0x%llx] start: %llu\n",
-        region->regionType, regionType, level, region->regionId, getTimetick());
+        region->regionType, regionType, level, region->regionId, profiler->getCurrentTime());
     incIndentTab(); // only affects debug printing
-
-	updateMaxActiveLevel(level);
 
 	// func region allocates a new RShadow Table.
 	// for other region types, it needs to "clean" previous region's timestamps
     if(regionType == RegionFunc) {
 		_regionFuncCnt++;
-        RegionPushFunc(lastCallSiteId);
+        profiler->addFunctionToStack(lastCallSiteId);
         _requireSetupTable = 1;
 
     } else {
-		if (isInstrumentable())
-			RShadowRestartIndex(getIndex(level));
+		if (profiler->shouldInstrumentCurrLevel())
+			RShadowRestartIndex(profiler->getCurrentLevelIndex());
 	}
 
-    FuncContext* funcHead = RegionGetFunc();
-	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->callSiteId;
+    FuncContext* funcHead = profiler->getCurrentFunction();
+	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->getCallSiteID();
 	CRegionEnter(regionId, callSiteId, regionType);
 
-	if (isInstrumentable()) {
+	if (profiler->shouldInstrumentCurrLevel()) {
     	//RegionPushCDep(region, 0);
-		CDepInitRegion(getIndex(level));
-		assert(CDepGet(getIndex(level)) == 0ULL);
+		CDepInitRegion(profiler->getCurrentLevelIndex());
+		assert(CDepGet(profiler->getCurrentLevelIndex()) == 0ULL);
 	}
 	MSG(0, "\n");
 }
@@ -869,15 +696,15 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
  * Does the clean up work when exiting a function region.
  */
 static void handleFuncRegionExit() {
-	RegionPopFunc();
+	profiler->removeFunctionFromStack();
 
 	// root function
 	if (funcContexts.empty()) {
-		assert(getCurrentLevel() == 0); 
+		assert(profiler->getCurrentLevel() == 0); 
 		return;
 	}
 
-	FuncContext* funcHead = RegionGetFunc();
+	FuncContext* funcHead = profiler->getCurrentFunction();
 	assert(funcHead != NULL);
 	RShadowActivateTable(funcHead->table); 
 }
@@ -924,15 +751,15 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 		return; 
 	}
 
-    Level level = getCurrentLevel();
+    Level level = profiler->getCurrentLevel();
 	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
     SID sid = regionId;
 	SID parentSid = 0;
-    UInt64 work = getTimetick() - region->start;
+    UInt64 work = profiler->getCurrentTime() - region->start;
 	decIndentTab(); // applies only to debug printing
 	MSG(0, "\n");
     MSG(0, "[---] region [type %u, level %u, sid 0x%llx] time %llu cp %llu work %llu\n",
-        regionType, level, regionId, getTimetick(), region->cp, work);
+        regionType, level, regionId, profiler->getCurrentTime(), region->cp, work);
 
 	assert(region->regionId == regionId);
     UInt64 cp = region->cp;
@@ -948,7 +775,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 		fprintf(stderr, "cp = %llu\n", cp);
 		assert(0);
 	}
-	if (level < getMaxLevel() && level >= getMinLevel()) {
+	if (level < profiler->getMaxLevel() && level >= profiler->getMinLevel()) {
 		assert(work >= cp);
 		assert(work >= region->childrenWork);
 	}
@@ -960,7 +787,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 	// it will not reach here - 
 	// so no need to compare with max level.
 
-	if (level > getMinLevel()) {
+	if (level > profiler->getMinLevel()) {
 		ProgramRegion* parentRegion = ProgramRegion::getRegionAtLevel(level - 1);
     	parentSid = parentRegion->regionId;
 		parentRegion->childrenWork += work;
@@ -976,14 +803,14 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 #ifdef KREMLIN_DEBUG
 	// Check that cp is positive if work is positive.
 	// This only applies when the current level gets instrumented (otherwise this condition always holds)
-    if (isInstrumentable() && cp == 0 && work > 0) {
+    if (profiler->shouldInstrumentCurrLevel() && cp == 0 && work > 0) {
         fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
         fprintf(stderr, "region [type: %u, level: %u, sid: %llu] parent [%llu] cp %llu work %llu\n",
             regionType, level, regionId,  parentSid,  region->cp, work);
         assert(0);
     }
 
-	if (level < getMaxLevel() && sp < 0.999) {
+	if (level < profiler->getMaxLevel() && sp < 0.999) {
 		fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
 			region->childrenWork, region->childrenCP, region->cp);
 		assert(0);
@@ -996,7 +823,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 	// spWork can be larger than work
 	if (spWork > work) { spWork = work; }
 
-	CID cid = RegionGetFunc()->callSiteId;
+	CID cid = profiler->getCurrentFunction()->getCallSiteID();
     RegionField field = fillRegionField(work, cp, cid, 
 						spWork, isDoall, region);
 	CRegionExit(&field);
@@ -1005,7 +832,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 		handleFuncRegionExit(); 
 	}
 
-    decrementRegionLevel();
+    profiler->decrementLevel();
 	MSG(0, "\n");
 }
 
@@ -1017,25 +844,25 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 	SID sid = 0;
 
 	// find deepest level with region id that matches parameter regionId
-	Level end_level = getCurrentLevel()+1;
-	for (unsigned i = getCurrentLevel(); i >= 0; --i) {
+	Level end_level = profiler->getCurrentLevel()+1;
+	for (unsigned i = profiler->getCurrentLevel(); i >= 0; --i) {
 		if (ProgramRegion::getRegionAtLevel(i)->regionId == regionId) {
 			end_level = i;
 			break;
 		}
 	}
-	assert(end_level != getCurrentLevel()+1);
+	assert(end_level != profiler->getCurrentLevel()+1);
 	
-	while (getCurrentLevel() > end_level) {
-		Level level = getCurrentLevel();
+	while (profiler->getCurrentLevel() > end_level) {
+		Level level = profiler->getCurrentLevel();
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
 
 		sid = region->regionId;
-		UInt64 work = getTimetick() - region->start;
+		UInt64 work = profiler->getCurrentTime() - region->start;
 		decIndentTab(); // applies only to debug printing
 		MSG(0, "\n");
 		MSG(0, "[!---] region [type %u, level %u, sid 0x%llx] time %llu cp %llu work %llu\n",
-			region->regionType, level, sid, getTimetick(), region->cp, work);
+			region->regionType, level, sid, profiler->getCurrentTime(), region->cp, work);
 
 		UInt64 cp = region->cp;
 #define DOALL_THRESHOLD	5
@@ -1050,7 +877,7 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 			fprintf(stderr, "cp = %llu\n", cp);
 			assert(0);
 		}
-		if (level < getMaxLevel() && level >= getMinLevel()) {
+		if (level < profiler->getMaxLevel() && level >= profiler->getMinLevel()) {
 			assert(work >= cp);
 			assert(work >= region->childrenWork);
 		}
@@ -1063,7 +890,7 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 		// so no need to compare with max level.
 
 		SID parentSid = 0;
-		if (level > getMinLevel()) {
+		if (level > profiler->getMinLevel()) {
 			ProgramRegion* parentRegion = ProgramRegion::getRegionAtLevel(level - 1);
 			parentSid = parentRegion->regionId;
 			parentRegion->childrenWork += work;
@@ -1079,14 +906,14 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 #ifdef KREMLIN_DEBUG
 		// Check that cp is positive if work is positive.
 		// This only applies when the current level gets instrumented (otherwise this condition always holds)
-		if (isInstrumentable() && cp == 0 && work > 0) {
+		if (profiler->shouldInstrumentCurrLevel() && cp == 0 && work > 0) {
 			fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
 			fprintf(stderr, "region [type: %u, level: %u, sid: %llu] parent [%llu] cp %llu work %llu\n",
 				regionType, level, regionId,  parentSid,  region->cp, work);
 			assert(0);
 		}
 
-		if (level < getMaxLevel() && sp < 0.999) {
+		if (level < profiler->getMaxLevel() && sp < 0.999) {
 			fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
 				region->childrenWork, region->childrenCP, region->cp);
 			assert(0);
@@ -1099,7 +926,7 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 		// spWork can be larger than work
 		if (spWork > work) { spWork = work; }
 
-		CID cid = RegionGetFunc()->callSiteId;
+		CID cid = profiler->getCurrentFunction()->getCallSiteID();
 		RegionField field = fillRegionField(work, cp, cid, 
 							spWork, isDoall, region);
 		CRegionExit(&field);
@@ -1108,7 +935,7 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 			handleFuncRegionExit(); 
 		}
 
-		decrementRegionLevel();
+		profiler->decrementLevel();
 		MSG(0, "\n");
 	}
 }
@@ -1125,8 +952,8 @@ void _KAssignConst(UInt dest_reg) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		RShadowSetItem(control_dep_time, dest_reg, index);
@@ -1149,7 +976,7 @@ void _KReduction(UInt op_cost, Reg dest_reg) {
     MSG(3, "KReduction ts[%u] with cost = %d\n", dest_reg, op_cost);
 	idbgAction(KREM_REDUCTION, "## KReduction(op_cost=%u,dest_reg=%u)\n",op_cost,dest_reg);
 
-    if (!isKremlinOn() || !isInstrumentable()) return;
+    if (!isKremlinOn() || !profiler->shouldInstrumentCurrLevel()) return;
 }
 
 void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
@@ -1159,11 +986,11 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time cdt = CDepGet(index);
-		assert(cdt <= getTimetick() - region->start);
+		assert(cdt <= profiler->getCurrentTime() - region->start);
 
 		va_list args;
 		va_start(args,num_srcs);
@@ -1209,13 +1036,13 @@ void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time control_dep_time = CDepGet(index);
         Time src_dep_time = RShadowGetItem(src_reg, index) + src_offset;
-		assert(control_dep_time <= getTimetick() - region->start);
+		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
 
         Time dest_time = MAX(control_dep_time,src_dep_time);
 		RShadowSetItem(dest_time, dest_reg, index);
@@ -1234,11 +1061,11 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= getTimetick() - region->start);
+		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
 
         Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
         Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
@@ -1265,11 +1092,11 @@ void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= getTimetick() - region->start);
+		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
 
         Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
         Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
@@ -1303,11 +1130,11 @@ void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= getTimetick() - region->start);
+		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
 
         Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
         Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
@@ -1346,11 +1173,11 @@ src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= getTimetick() - region->start);
+		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
 
         Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
         Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
@@ -1394,11 +1221,11 @@ src6_reg, UInt32 src6_offset) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= getTimetick() - region->start);
+		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
 
         Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
         Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
@@ -1446,11 +1273,11 @@ src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= getTimetick() - region->start);
+		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
 
         Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
         Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
@@ -1520,8 +1347,8 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 
 	assert(mem_access_size <= 8);
 
-	Index region_depth = getIndexDepth();
-	Level min_level = getLevel(0); // XXX: this doesn't look right...
+	Index region_depth = profiler->getCurrNumInstrumentedLevels();
+	Level min_level = profiler->getLevelForIndex(0); // XXX: this doesn't look right...
 	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
@@ -1543,7 +1370,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 
 	Index index;
     for (index = 0; index < region_depth; index++) {
-		Level i = getLevel(index);
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time control_dep_time = CDepGet(index);
@@ -1590,8 +1417,8 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
 
 	assert(mem_access_size <= 8);
 
-	Index region_depth = getIndexDepth();
-	Level min_level = getLevel(0); // XXX: see note in KLoad
+	Index region_depth = profiler->getCurrNumInstrumentedLevels();
+	Level min_level = profiler->getLevelForIndex(0); // XXX: see note in KLoad
 	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
@@ -1600,7 +1427,7 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
 
 	Index index;
     for (index = 0; index < region_depth; index++) {
-		Level i = getLevel(index);
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time control_dep_time = CDepGet(index);
@@ -1612,7 +1439,7 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
         MSG(3, " control_dep_time %u src_addr_time %u dest_time %u\n", control_dep_time, src_addr_time, dest_time);
 #if 0
 		// why are 0 to 3 hardwired in here???
-		if (src_addr_time > getTimetick()) {
+		if (src_addr_time > profiler->getCurrentTime()) {
 			fprintf(stderr, "@index %d, %llu, %llu, %llu, %llu\n", 
 				index, src_addr_times[0], src_addr_times[1], src_addr_times[2], src_addr_times[3]);
 			assert(0);
@@ -1634,8 +1461,8 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
 
 	assert(mem_access_size <= 8);
 
-	Index region_depth = getIndexDepth();
-    Level min_level = getStartLevel(); // XXX: KLoad/KLoad0 use getLevel(0)
+	Index region_depth = profiler->getCurrNumInstrumentedLevels();
+    Level min_level = profiler->getMinLevel(); // XXX: KLoad/KLoad0 use profiler->getLevelForIndex(0)
 	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
@@ -1644,7 +1471,7 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
 
 	Index index;
     for (index = 0; index < region_depth; index++) {
-		Level i = getLevel(index);
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		Time control_dep_time = CDepGet(index);
 		Time src_addr_time = src_addr_times[index];
@@ -1691,8 +1518,8 @@ void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
 	Time* dest_addr_times = ProgramRegion::getTimeArray();
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time control_dep_time = CDepGet(index);
@@ -1710,11 +1537,11 @@ void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
     }
 
 #ifdef KREMLIN_DEBUG
-	printStoreDebugInfo(src_reg,dest_addr,dest_addr_times,getIndexDepth());
+	printStoreDebugInfo(src_reg,dest_addr,dest_addr_times,profiler->getCurrNumInstrumentedLevels());
 #endif
 
-	Level min_level = getLevel(0); // XXX: see notes in KLoads
-	mem_shadow->set(dest_addr, getIndexDepth(), ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+	Level min_level = profiler->getLevelForIndex(0); // XXX: see notes in KLoads
+	mem_shadow->set(dest_addr, profiler->getCurrNumInstrumentedLevels(), ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
     MSG(1, "store ts[0x%x] completed\n", dest_addr);
 }
 
@@ -1730,13 +1557,13 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
 	Time* dest_addr_times = ProgramRegion::getTimeArray();
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		// XXX: Why was the following line there but not in KStore or anywhere
 		// else????
-		//Index index = getIndex(i);
+		//Index index = profiler->getCurrentLevelIndex();
 
 		Time control_dep_time = CDepGet(index);
         Time dest_time = control_dep_time + STORE_COST;
@@ -1745,11 +1572,11 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
     }
 
 #ifdef KREMLIN_DEBUG
-	printStoreConstDebugInfo(dest_addr,dest_addr_times,getIndexDepth());
+	printStoreConstDebugInfo(dest_addr,dest_addr_times,profiler->getCurrNumInstrumentedLevels());
 #endif
 
-	Level min_level = getLevel(0);
-	mem_shadow->set(dest_addr, getIndexDepth(), ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+	Level min_level = profiler->getLevelForIndex(0);
+	mem_shadow->set(dest_addr, profiler->getCurrNumInstrumentedLevels(), ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
 }
 
 
@@ -1781,8 +1608,8 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
 	}
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 
 		Time src_time = RShadowGetItem(src_reg, index);
 		Time dest_time = src_time;
@@ -1810,8 +1637,8 @@ void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 
 		Time src_time = RShadowGetItem(src_reg, index);
 		Time ctrl_time = RShadowGetItem(ctrl_reg, index);
@@ -1830,8 +1657,8 @@ void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 
 		Time src_time = RShadowGetItem(src_reg, index);
 		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
@@ -1853,8 +1680,8 @@ void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 
 		Time src_time = RShadowGetItem(src_reg, index);
 		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
@@ -1877,8 +1704,8 @@ void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 
 		Time src_time = RShadowGetItem(src_reg, index);
 		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
@@ -1905,8 +1732,8 @@ void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Re
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 
         Time old_dest_time = RShadowGetItem(dest_reg, index);
 		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
@@ -1930,8 +1757,8 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
     if (!isKremlinOn()) return;
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
-		Level i = getLevel(index);
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
+		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
 		Time src_time = RShadowGetItem(src_reg, index);
@@ -1995,19 +1822,17 @@ static bool kremlinInit() {
 
 	profiler = new KremlinProfiler(KConfigGetMinLevel(), KConfigGetMaxLevel());
 
-	initLevels();
-
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
-        getMinLevel(), getMaxLevel(), getIndexSize());
+        profiler->getMinLevel(), profiler->getMaxLevel(), profiler->getArraySize());
     MSG(0, "kremlinInit running....");
 	if(KConfigGetDebug()) { 
 		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", KConfigGetDebugLevel()); 
 	}
 
-	ArgFifoInit();
+	profiler->initFunctionArgQueue();
 	CDepInit();
 	CRegionInit();
-	RShadowInit(getIndexSize());
+	RShadowInit(profiler->getArraySize());
 
 	MShadowInit(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
 	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
@@ -2021,7 +1846,7 @@ static bool kremlinInit() {
    KExitRegion() calls for active regions
  */
 void kremlinCleanup() {
-    Level level = getCurrentLevel();
+    Level level = profiler->getCurrentLevel();
 	int i;
 	for (i=level; i>=0; i--) {
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
@@ -2037,13 +1862,13 @@ static bool kremlinDeinit() {
     }
 
 	fprintf(stderr,"[kremlin] max active level = %d\n", 
-		getMaxActiveLevel());	
+		profiler->getMaxActiveLevel());	
 
 	_KTurnOff();
 	CRegionDeinit(KConfigGetOutFileName());
 	RShadowDeinit();
 	MShadowDeinit();
-	ArgFifoDeinit();
+	profiler->deinitFunctionArgQueue();
 	CDepDeinit();
 	ProgramRegion::deinitProgramRegions();
     //MemMapAllocatorDelete(&memPool);
@@ -2103,7 +1928,7 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
     }   
     va_end(ap);
 
-    int minLevel = getStartLevel();
+    int minLevel = profiler->getMinLevel();
     int maxLevel = getEndLevel();
 
     TEntryRealloc(entryDest, maxLevel);
@@ -2114,7 +1939,7 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 		/*
         int j;
         for (j = 0; j < num_in; j++) {
-            UInt64 ts = getTimetick(entrySrc[j], i, version);
+            UInt64 ts = profiler->getCurrentTime(entrySrc[j], i, version);
             if (ts > max)
                 max = ts;
         } */  
@@ -2170,7 +1995,7 @@ void _KFree(Addr addr) {
     freeMEntry(addr);
 	_KWork(FREE_COST);
 	// make sure CP is at least the time needed to complete the free
-    int minLevel = getStartLevel();
+    int minLevel = profiler->getMinLevel();
     int maxLevel = getEndLevel();
 
     int i;
@@ -2204,7 +2029,7 @@ void printActiveRegionStack() {
 	fprintf(stdout,"Current Regions:\n");
 
 	int i;
-	Level level = getCurrentLevel();
+	Level level = profiler->getCurrentLevel();
 
 	for(i = 0; i <= level; ++i) {
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
@@ -2222,7 +2047,7 @@ void printActiveRegionStack() {
 			fprintf(stdout,"type=ILLEGAL ");
 		}
 
-    	UInt64 work = getTimetick() - region->start;
+    	UInt64 work = profiler->getCurrentTime() - region->start;
 		fprintf(stdout,"SID=%llu, WORK'=%llu, CP=%llu\n",region->regionId,work,region->cp);
 	}
 }
@@ -2231,7 +2056,7 @@ void printControlDepTimes() {
 	fprintf(stdout,"Control Dependency Times:\n");
 	Index index;
 
-    for (index = 0; index < getIndexDepth(); index++) {
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
 		Time cdt = CDepGet(index);
 		fprintf(stdout,"\t#%u: %llu\n",index,cdt);
 	}
@@ -2241,7 +2066,7 @@ void printRegisterTimes(Reg reg) {
 	fprintf(stdout,"Timestamps for reg[%u]:\n",reg);
 
 	Index index;
-    for (index = 0; index < getIndexDepth(); index++) {
+    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
         Time ts = RShadowGetItem(reg, index);
 		fprintf(stdout,"\t#%u: %llu\n",index,ts);
 	}
@@ -2250,8 +2075,8 @@ void printRegisterTimes(Reg reg) {
 void printMemoryTimes(Addr addr, Index size) {
 	fprintf(stdout,"Timestamps for Mem[%x]:\n",addr);
 	Index index;
-	Index depth = getIndexDepth();
-	Level minLevel = getLevel(0);
+	Index depth = profiler->getCurrNumInstrumentedLevels();
+	Level minLevel = profiler->getLevelForIndex(0);
 	Time* tArray = mem_shadow->get(addr, depth, ProgramRegion::getVersionAtLevel(minLevel), size);
 
     for (index = 0; index < depth; index++) {
@@ -2329,11 +2154,11 @@ void _KPrepInvoke(UInt64 id) {
     if(!isKremlinOn())
         return;
 
-    MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (UInt64)getCurrentLevel());
+    MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (UInt64)profiler->getCurrentLevel());
    
     InvokeRecord* currentRecord = InvokeRecordsPush(invokeRecords); // FIXME
     currentRecord->id = id;
-    currentRecord->stackHeight = getCurrentLevel();
+    currentRecord->stackHeight = profiler->getCurrentLevel();
 }
 
 void _KInvokeOkay(UInt64 id) {
@@ -2357,13 +2182,13 @@ void _KInvokeThrew(UInt64 id)
     if(!invokeRecords.empty() && invokeRecords.back()->id == id) {
         InvokeRecord* currentRecord = invokeRecords.back();
         MSG(1, "invokeThrew(%u) - Popping to %d\n", currentRecord->id, currentRecord->stackHeight);
-        while(getCurrentLevel() > currentRecord->stackHeight)
+        while(profiler->getCurrentLevel() > currentRecord->stackHeight)
         {
-            UInt64 lastLevel = getCurrentLevel();
-            ProgramRegion* region = regionInfo + getLevelOffset(getCurrentLevel()); // FIXME: regionInfo is vector now
+            UInt64 lastLevel = profiler->getCurrentLevel();
+            ProgramRegion* region = regionInfo + getLevelOffset(profiler->getCurrentLevel()); // FIXME: regionInfo is vector now
             _KExitRegion(region->regionId, region->regionType);
-            assert(getCurrentLevel() < lastLevel);
-            assert(getCurrentLevel() >= 0);
+            assert(profiler->getCurrentLevel() < lastLevel);
+            assert(profiler->getCurrentLevel() >= 0);
         }
 		invokeRecods.pop_back();
     }
