@@ -16,7 +16,8 @@
 #include "TagVectorCache.h"
 #include "TagVectorCacheLine.h"
 
-#define TVCacheDebug	0
+//#define TVCacheDebug	0
+static const int SKADU_CACHE_DEBUG_LVL = 0;
 
 void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
 	tag_vector_cache = new TagVectorCache();
@@ -46,7 +47,7 @@ int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
 		return 0;
 
 	if (size > 2)
-		MSG(TVCacheDebug, "\tgetStartInvalidLevel lastVer = %lld, newVer = %lld %lld \n", 
+		MSG(SKADU_CACHE_DEBUG_LVL, "\tgetStartInvalidLevel lastVer = %lld, newVer = %lld %lld \n", 
 			lastVer, vArray[size-2], vArray[size-1]);
 
 	if (lastVer == vArray[size-1])
@@ -102,7 +103,7 @@ void SkaduCache::resize(int newSize, Version* vArray) {
 	int oldDepth = tag_vector_cache->getDepth();
 	int newDepth = oldDepth + 10;
 
-	MSG(TVCacheDebug, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
+	MSG(SKADU_CACHE_DEBUG_LVL, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
 	fprintf(stderr, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
 	tag_vector_cache->configure(size, newDepth);
 }
@@ -138,7 +139,7 @@ Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableTy
 
 	if (entry->isHit(addr)) {
 		eventReadHit();
-		MSG(TVCacheDebug, "\t cache hit at 0x%llx size = %d\n", destAddr, size);
+		MSG(SKADU_CACHE_DEBUG_LVL, "\t cache hit at 0x%llx size = %d\n", destAddr, size);
 		entry->validateTag(destAddr, vArray, size);
 		check(addr, destAddr, size, 1);
 

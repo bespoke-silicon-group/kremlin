@@ -1,7 +1,10 @@
 #include <cassert>
+#include "config.h"
 #include "Table.h"
 #include "TagVectorCache.h"
 #include "TagVectorCacheLine.h"
+
+static const int TV_CACHE_DEBUG_LVL = 0;
 
 static inline int getFirstOnePosition(int input) {
 	int i;
@@ -37,7 +40,7 @@ void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
 	tagTable = (TagVectorCacheLine*)MemPoolCallocSmall(new_line_count, sizeof(TagVectorCacheLine)); // 64bit granularity
 	valueTable = Table::create(new_line_count * 2, this->depth);  // 32bit granularity
 
-	MSG(TVCacheDebug, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
+	MSG(TV_CACHE_DEBUG_LVL, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
 		new_line_count, KConfigGetIndexSize(), valueTable[0].array);
 }
 
