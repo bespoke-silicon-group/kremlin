@@ -27,6 +27,7 @@
 #include "FuncContext.hpp"
 
 #include <vector>
+#include <algorithm> // for max_element
 #include <iostream>
 
 //#include "idbg.h"
@@ -94,7 +95,7 @@ public:
 	bool shouldInstrumentCurrLevel() { return instrument_curr_level; }
 
 	int getArraySize() { return max_level - min_level + 1; }
-	int getCurrNumInstrumentedLevels() { return curr_num_instrumented_levels; }
+	Index getCurrNumInstrumentedLevels() { return curr_num_instrumented_levels; }
 
 	Level getLevelForIndex(Index index) { return min_level + index; }
 
@@ -933,20 +934,56 @@ void _KLandingPad(SID regionId, RegionType regionType) {
  * KInduction, KReduction, KTimestamp, KAssignConst
  *****************************************************************/
 
+template <bool use_cdep, bool update_cp, unsigned num_data_deps>
+static inline void timestampUpdater(UInt32 dest_reg, UInt32 src0_reg, UInt32 src0_offset,
+						UInt32 src1_reg, UInt32 src1_offset,
+						UInt32 src2_reg, UInt32 src2_offset,
+						UInt32 src3_reg, UInt32 src3_offset,
+						UInt32 src4_reg, UInt32 src4_offset
+						) {
+	Index end_index = profiler->getCurrNumInstrumentedLevels();
+    for (Index index = 0; index < end_index; ++index) {
+		Level i = profiler->getLevelForIndex(index);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
+
+		Time dest_time = 0;
+		
+		if (use_cdep) {
+			Time cdep_time = dest_time = CDepGet(index);
+			assert(cdep_time <= profiler->getCurrentTime() - region->start);
+		}
+
+		if (num_data_deps > 0) {
+			dest_time = MAX(dest_time, RShadowGetItem(src0_reg, index) + src0_offset);
+		}
+		if (num_data_deps > 1) {
+			dest_time = MAX(dest_time, RShadowGetItem(src1_reg, index) + src1_offset);
+		}
+		if (num_data_deps > 2) {
+			dest_time = MAX(dest_time, RShadowGetItem(src2_reg, index) + src2_offset);
+		}
+		if (num_data_deps > 3) {
+			dest_time = MAX(dest_time, RShadowGetItem(src3_reg, index) + src3_offset);
+		}
+		if (num_data_deps > 4) {
+			dest_time = MAX(dest_time, RShadowGetItem(src4_reg, index) + src4_offset);
+		}
+
+		RShadowSetItem(dest_time, dest_reg, index);
+
+		if (update_cp) {
+        	RegionUpdateCp(region, dest_time);
+		}
+    }
+}
+
 void _KAssignConst(UInt dest_reg) {
     MSG(1, "_KAssignConst ts[%u]\n", dest_reg);
 	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest_reg=%u)\n",dest_reg);
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time control_dep_time = CDepGet(index);
-		RShadowSetItem(control_dep_time, dest_reg, index);
-        RegionUpdateCp(region, control_dep_time);
-    }
+	timestampUpdater<true, true, 0>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 // This function is mainly to help identify induction variables in the source
@@ -957,7 +994,7 @@ void _KInduction(UInt dest_reg) {
 
     if (!isKremlinOn()) return;
 
-	_KAssignConst(dest_reg);
+	timestampUpdater<true, true, 0>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 void _KReduction(UInt op_cost, Reg dest_reg) {
@@ -1014,7 +1051,7 @@ void _KTimestamp0(UInt32 dest_reg) {
 	idbgAction(KREM_TS,"## _KTimestamp0(dest_reg=%u)\n",dest_reg);
     if (!isKremlinOn()) return;
 
-	_KAssignConst(dest_reg);
+	timestampUpdater<true, true, 0>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
@@ -1023,23 +1060,7 @@ void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-
-		Time control_dep_time = CDepGet(index);
-        Time src_dep_time = RShadowGetItem(src_reg, index) + src_offset;
-		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
-
-        Time dest_time = MAX(control_dep_time,src_dep_time);
-		RShadowSetItem(dest_time, dest_reg, index);
-
-        MSG(3, "kTime1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_reg %u | src_offset %u | dest_reg %u\n", src_reg, src_offset, dest_reg);
-        MSG(3, " src_dep_time %u | control_dep_time %u | dest_time %u\n", src_dep_time, control_dep_time, dest_time);
-        RegionUpdateCp(region, dest_time);
-    }
+	timestampUpdater<true, true, 1>(dest_reg, src_reg, src_offset, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset) {
@@ -1048,26 +1069,8 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
-
-        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
-        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
-
-        Time max_tmp = MAX(src1_dep_time,src2_dep_time);
-        Time dest_time = MAX(control_dep_time,max_tmp);
-
-		RShadowSetItem(dest_time, dest_reg, index);
-
-        MSG(3, "kTime2 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src1_reg %u | src1_offset %u | src2_reg %u | src2_offset %u | dest_reg %u\n", src1_reg, src1_offset, src2_reg, src2_offset, dest_reg);
-        MSG(3, " src1_dep_time %u | src2_dep_time %u | control_dep_time %u | dest_time %u\n", src1_dep_time, src2_dep_time, control_dep_time, dest_time);
-        RegionUpdateCp(region, dest_time);
-    }
+	timestampUpdater<true, true, 2>(dest_reg, src1_reg, src1_offset, 
+									src2_reg, src2_offset, 0, 0, 0, 0, 0, 0);
 }
 
 void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset) {
@@ -1079,32 +1082,9 @@ void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
-
-        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
-        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
-        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
-
-        Time dest_time = MAX4(src1_dep_time,src2_dep_time,src3_dep_time,control_dep_time);
-
-		RShadowSetItem(dest_time, dest_reg, index);
-        RegionUpdateCp(region, dest_time);
-
-        MSG(3, "kTime3 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
-		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
-		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
-		MSG(3, "dest_reg %u\n", dest_reg);
-        MSG(3, " src1_dep_time %u",src1_dep_time);
-        MSG(3, " | src2_dep_time %u",src2_dep_time);
-        MSG(3, " | src3_dep_time %u",src3_dep_time);
-        MSG(3, " | dest_time %u\n",dest_time);
-    }
+	timestampUpdater<true, true, 3>(dest_reg, src1_reg, src1_offset, 
+										src2_reg, src2_offset, 
+										src3_reg, src3_offset, 0, 0, 0, 0);
 }
 
 void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset) {
@@ -1117,35 +1097,10 @@ void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
-
-        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
-        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
-        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
-        Time src4_dep_time = RShadowGetItem(src4_reg, index) + src4_offset;
-
-        Time dest_time = MAX(MAX4(src1_dep_time,src2_dep_time,src3_dep_time,src4_dep_time),control_dep_time);
-
-		RShadowSetItem(dest_time, dest_reg, index);
-        RegionUpdateCp(region, dest_time);
-
-        MSG(3, "kTime4 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
-		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
-		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
-		MSG(3, " | src4_reg %u | src4_offset %u",src4_reg,src4_offset);
-		MSG(3, "dest_reg %u\n", dest_reg);
-        MSG(3, " src1_dep_time %u",src1_dep_time);
-        MSG(3, " | src2_dep_time %u",src2_dep_time);
-        MSG(3, " | src3_dep_time %u",src3_dep_time);
-        MSG(3, " | src4_dep_time %u",src4_dep_time);
-        MSG(3, " | dest_time %u\n",dest_time);
-    }
+	timestampUpdater<true, true, 4>(dest_reg, src1_reg, src1_offset, 
+										src2_reg, src2_offset, 
+										src3_reg, src3_offset, 
+										src4_reg, src4_offset, 0, 0);
 }
 
 void _KTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
@@ -1160,39 +1115,11 @@ src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
-
-        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
-        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
-        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
-        Time src4_dep_time = RShadowGetItem(src4_reg, index) + src4_offset;
-        Time src5_dep_time = RShadowGetItem(src5_reg, index) + src5_offset;
-
-        Time dest_time =
-		MAX3(MAX4(src1_dep_time,src2_dep_time,src3_dep_time,src4_dep_time),src5_dep_time,control_dep_time);
-
-		RShadowSetItem(dest_time, dest_reg, index);
-        RegionUpdateCp(region, dest_time);
-
-        MSG(3, "kTime5 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
-		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
-		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
-		MSG(3, " | src4_reg %u | src4_offset %u",src4_reg,src4_offset);
-		MSG(3, " | src5_reg %u | src5_offset %u",src5_reg,src5_offset);
-		MSG(3, "dest_reg %u\n", dest_reg);
-        MSG(3, " src1_dep_time %u",src1_dep_time);
-        MSG(3, " | src2_dep_time %u",src2_dep_time);
-        MSG(3, " | src3_dep_time %u",src3_dep_time);
-        MSG(3, " | src4_dep_time %u",src4_dep_time);
-        MSG(3, " | src5_dep_time %u",src5_dep_time);
-        MSG(3, " | dest_time %u\n",dest_time);
-    }
+	timestampUpdater<true, true, 5>(dest_reg, src1_reg, src1_offset, 
+										src2_reg, src2_offset, 
+										src3_reg, src3_offset, 
+										src4_reg, src4_offset, 
+										src5_reg, src5_offset);
 }
 
 void _KTimestamp6(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
@@ -1208,42 +1135,13 @@ src6_reg, UInt32 src6_offset) {
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
-
-        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
-        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
-        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
-        Time src4_dep_time = RShadowGetItem(src4_reg, index) + src4_offset;
-        Time src5_dep_time = RShadowGetItem(src5_reg, index) + src5_offset;
-        Time src6_dep_time = RShadowGetItem(src6_reg, index) + src6_offset;
-
-        Time dest_time =
-		MAX4(MAX4(src1_dep_time,src2_dep_time,src3_dep_time,src4_dep_time),src5_dep_time,src6_dep_time,control_dep_time);
-
-		RShadowSetItem(dest_time, dest_reg, index);
-        RegionUpdateCp(region, dest_time);
-
-        MSG(3, "kTime6 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
-		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
-		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
-		MSG(3, " | src4_reg %u | src4_offset %u",src4_reg,src4_offset);
-		MSG(3, " | src5_reg %u | src5_offset %u",src5_reg,src5_offset);
-		MSG(3, " | src6_reg %u | src6_offset %u",src6_reg,src6_offset);
-		MSG(3, "dest_reg %u\n", dest_reg);
-        MSG(3, " src1_dep_time %u",src1_dep_time);
-        MSG(3, " | src2_dep_time %u",src2_dep_time);
-        MSG(3, " | src3_dep_time %u",src3_dep_time);
-        MSG(3, " | src4_dep_time %u",src4_dep_time);
-        MSG(3, " | src5_dep_time %u",src5_dep_time);
-        MSG(3, " | src6_dep_time %u",src6_dep_time);
-        MSG(3, " | dest_time %u\n",dest_time);
-    }
+	timestampUpdater<true, false, 5>(dest_reg, src1_reg, src1_offset, 
+										src2_reg, src2_offset, 
+										src3_reg, src3_offset, 
+										src4_reg, src4_offset, 
+										src5_reg, src5_offset);
+	timestampUpdater<false, true, 2>(dest_reg, dest_reg, 0, 
+										src6_reg, src6_offset, 0, 0, 0, 0, 0, 0);
 }
 
 void _KTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
@@ -1260,46 +1158,14 @@ src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time control_dep_time = CDepGet(index);
-		assert(control_dep_time <= profiler->getCurrentTime() - region->start);
-
-        Time src1_dep_time = RShadowGetItem(src1_reg, index) + src1_offset;
-        Time src2_dep_time = RShadowGetItem(src2_reg, index) + src2_offset;
-        Time src3_dep_time = RShadowGetItem(src3_reg, index) + src3_offset;
-        Time src4_dep_time = RShadowGetItem(src4_reg, index) + src4_offset;
-        Time src5_dep_time = RShadowGetItem(src5_reg, index) + src5_offset;
-        Time src6_dep_time = RShadowGetItem(src6_reg, index) + src6_offset;
-        Time src7_dep_time = RShadowGetItem(src7_reg, index) + src7_offset;
-
-		Time max_tmp1 = MAX4(src1_dep_time,src2_dep_time,src3_dep_time,src4_dep_time);
-		Time max_tmp2 = MAX4(src5_dep_time,src6_dep_time,src7_dep_time,control_dep_time);
-        Time dest_time = MAX(max_tmp1,max_tmp2);
-
-		RShadowSetItem(dest_time, dest_reg, index);
-        RegionUpdateCp(region, dest_time);
-
-        MSG(3, "kTime7 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src1_reg %u | src1_offset %u",src1_reg,src1_offset);
-		MSG(3, " | src2_reg %u | src2_offset %u",src2_reg,src3_offset);
-		MSG(3, " | src3_reg %u | src3_offset %u",src3_reg,src3_offset);
-		MSG(3, " | src4_reg %u | src4_offset %u",src4_reg,src4_offset);
-		MSG(3, " | src5_reg %u | src5_offset %u",src5_reg,src5_offset);
-		MSG(3, " | src6_reg %u | src6_offset %u",src6_reg,src6_offset);
-		MSG(3, " | src7_reg %u | src7_offset %u",src7_reg,src7_offset);
-		MSG(3, "dest_reg %u\n", dest_reg);
-        MSG(3, " src1_dep_time %u",src1_dep_time);
-        MSG(3, " | src2_dep_time %u",src2_dep_time);
-        MSG(3, " | src3_dep_time %u",src3_dep_time);
-        MSG(3, " | src4_dep_time %u",src4_dep_time);
-        MSG(3, " | src5_dep_time %u",src5_dep_time);
-        MSG(3, " | src6_dep_time %u",src6_dep_time);
-        MSG(3, " | src7_dep_time %u",src7_dep_time);
-        MSG(3, " | dest_time %u\n",dest_time);
-    }
+	timestampUpdater<true, false, 5>(dest_reg, src1_reg, src1_offset, 
+										src2_reg, src2_offset, 
+										src3_reg, src3_offset, 
+										src4_reg, src4_offset, 
+										src5_reg, src5_offset);
+	timestampUpdater<false, true, 3>(dest_reg, dest_reg, 0, 
+										src6_reg, src6_offset, 
+										src7_reg, src7_offset, 0, 0, 0, 0);
 }
 
 static inline void printTArray(Time* times, Index depth) {
@@ -1624,19 +1490,8 @@ void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-
-		Time src_time = RShadowGetItem(src_reg, index);
-		Time ctrl_time = RShadowGetItem(ctrl_reg, index);
-        Time dest_time = MAX(src_time,ctrl_time);
-		RShadowSetItem(dest_time, dest_reg, index);
-
-        MSG(3, "KPhi1To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_reg %u ctrl_reg %u dest_reg %u\n", src_reg, ctrl_reg, dest_reg);
-        MSG(3, " src_time %u ctrl_time %u dest_time %u\n", src_time, ctrl_time, dest_time);
-    }
+	timestampUpdater<false, false, 2>(dest_reg, src_reg, 0, 
+										ctrl_reg, 0, 0, 0, 0, 0, 0, 0);
 }
 
 void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg) {
@@ -1644,21 +1499,9 @@ void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg) {
 	idbgAction(KREM_PHI,"## KPhi2To1 (dest_reg=%u,src_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u)\n",dest_reg,src_reg,ctrl1_reg,ctrl2_reg);
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-
-		Time src_time = RShadowGetItem(src_reg, index);
-		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
-		Time ctrl2_time = RShadowGetItem(ctrl2_reg, index);
-		Time dest_time = MAX3(src_time,ctrl1_time,ctrl2_time);
-
-		RShadowSetItem(dest_time, dest_reg, index);
-
-        MSG(3, "KPhi2To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_reg %u ctrl1_reg %u ctrl2_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, dest_reg);
-        MSG(3, " src_time %u ctrl1_time %u ctrl2_time %u dest_time %u\n", src_time, ctrl1_time, ctrl2_time, dest_time);
-    }
+	timestampUpdater<false, false, 3>(dest_reg, src_reg, 0, 
+										ctrl1_reg, 0, 
+										ctrl2_reg, 0, 0, 0, 0, 0);
 }
 
 void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg) {
@@ -1667,21 +1510,10 @@ void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-
-		Time src_time = RShadowGetItem(src_reg, index);
-		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
-		Time ctrl2_time = RShadowGetItem(ctrl2_reg, index);
-		Time ctrl3_time = RShadowGetItem(ctrl3_reg, index);
-		Time dest_time = MAX4(src_time,ctrl1_time,ctrl2_time,ctrl3_time);
-		RShadowSetItem(dest_time, dest_reg, index);
-
-        MSG(3, "KPhi3To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_reg %u ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, dest_reg);
-        MSG(3, " src_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u dest_time %u\n", src_time, ctrl1_time, ctrl2_time, ctrl3_time, dest_time);
-    }
+	timestampUpdater<false, false, 4>(dest_reg, src_reg, 0, 
+										ctrl1_reg, 0, 
+										ctrl2_reg, 0, 
+										ctrl3_reg, 0, 0, 0);
 }
 
 void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg) {
@@ -1691,24 +1523,11 @@ void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-
-		Time src_time = RShadowGetItem(src_reg, index);
-		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
-		Time ctrl2_time = RShadowGetItem(ctrl2_reg, index);
-		Time ctrl3_time = RShadowGetItem(ctrl3_reg, index);
-		Time ctrl4_time = RShadowGetItem(ctrl4_reg, index);
-		// TODO: MAX5???
-		Time dest_time = MAX(src_time,MAX4(ctrl1_time,ctrl2_time,ctrl3_time,ctrl4_time));
-		RShadowSetItem(dest_time, dest_reg, index);
-
-        MSG(2, "KPhi4To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(2, " src_reg %u ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u ctrl4_reg %u dest_reg %u\n", src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg, dest_reg);
-        MSG(2, " src_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u ctrl4_time %u dest_time %u\n", 
-			src_time, ctrl1_time, ctrl2_time, ctrl3_time, ctrl4_time, dest_time);
-    }
+	timestampUpdater<false, false, 5>(dest_reg, src_reg, 0, 
+										ctrl1_reg, 0, 
+										ctrl2_reg, 0, 
+										ctrl3_reg, 0, 
+										ctrl4_reg, 0);
 }
 
 void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg) {
@@ -1719,23 +1538,13 @@ void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Re
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-
-        Time old_dest_time = RShadowGetItem(dest_reg, index);
-		Time ctrl1_time = RShadowGetItem(ctrl1_reg, index);
-		Time ctrl2_time = RShadowGetItem(ctrl2_reg, index);
-		Time ctrl3_time = RShadowGetItem(ctrl3_reg, index);
-		Time ctrl4_time = RShadowGetItem(ctrl4_reg, index);
-		// TODO: MAX5???
-		Time new_dest_time = MAX(old_dest_time,MAX4(ctrl1_time,ctrl2_time,ctrl3_time,ctrl4_time));
-		RShadowSetItem(new_dest_time, dest_reg, index);
-
-        MSG(3, "KPhi4To1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " ctrl1_reg %u ctrl2_reg %u ctrl3_reg %u ctrl4_reg %u dest_reg %u\n", ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg, dest_reg);
-        MSG(3, " old_dest_time %u ctrl1_time %u ctrl2_time %u ctrl3_time %u ctrl4_time %u new_dest_time %u\n", old_dest_time, ctrl1_time, ctrl2_time, ctrl3_time, ctrl4_time, new_dest_time);
-    }
+	// XXX: either 2nd template should be true or 2nd template in KPhiAddCond
+	// should be false
+	timestampUpdater<false, false, 5>(dest_reg, dest_reg, 0, 
+										ctrl1_reg, 0, 
+										ctrl2_reg, 0, 
+										ctrl3_reg, 0, 
+										ctrl4_reg, 0);
 }
 
 void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
@@ -1744,22 +1553,8 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-
-		Time src_time = RShadowGetItem(src_reg, index);
-		Time old_dest_time = RShadowGetItem(dest_reg, index);
-        Time new_dest_time = MAX(src_time,old_dest_time);
-		RShadowSetItem(new_dest_time, dest_reg, index);
-
-        RegionUpdateCp(region, new_dest_time);
-
-        MSG(3, "KPhiAddCond level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_reg %u dest_reg %u\n", src_reg, dest_reg);
-        MSG(3, " src_time %u old_dest_time %u new_dest_time %u\n", src_time, old_dest_time, new_dest_time);
-    }
+	timestampUpdater<false, true, 2>(dest_reg, dest_reg, 0, 
+										src_reg, 0, 0, 0, 0, 0, 0, 0);
 }
 
 
