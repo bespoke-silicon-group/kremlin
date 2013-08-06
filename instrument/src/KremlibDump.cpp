@@ -192,9 +192,9 @@ namespace {
 			kremlib_calls.insert("_KLinkReturn");
 			kremlib_calls.insert("_KReturn");
 			kremlib_calls.insert("_KReturnConst");
-			kremlib_calls.insert("_KLinkArg");
-			kremlib_calls.insert("_KLinkArgConst");
-			kremlib_calls.insert("_KUnlinkArg");
+			kremlib_calls.insert("_KEnqArg");
+			kremlib_calls.insert("_KEnqArgConst");
+			kremlib_calls.insert("_KDeqArg");
 			kremlib_calls.insert("_KCallLib");
 			kremlib_calls.insert("_KBasicBlock");
 			kremlib_calls.insert("_KInduction");

@@ -22,11 +22,11 @@ CallableHandler<Callable>::CallableHandler(TimestampPlacer& timestamp_placer) :
     vector<Type*> func_arg_types;
 
     FunctionType* link_arg_const_func_type = FunctionType::get(types.voidTy(), func_arg_types, false);
-    linkArgConstFunc = cast<Function>(m.getOrInsertFunction("_KLinkArgConst", link_arg_const_func_type));
+    linkArgConstFunc = cast<Function>(m.getOrInsertFunction("_KEnqArgConst", link_arg_const_func_type));
     
     func_arg_types.push_back(types.i32());
     FunctionType* link_arg_func_type = FunctionType::get(types.voidTy(), func_arg_types, false);
-    linkArgFunc = cast<Function>(m.getOrInsertFunction("_KLinkArg", link_arg_func_type));
+    linkArgFunc = cast<Function>(m.getOrInsertFunction("_KEnqArg", link_arg_func_type));
 
     func_arg_types.clear();
     func_arg_types.push_back(types.i64());

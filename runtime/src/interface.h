@@ -86,9 +86,9 @@ void _KLinkReturn(Reg dest);
 void _KReturn(Reg src); 
 void _KReturnConst(void);
 
-void _KLinkArg(Reg src); 
-void _KLinkArgConst(void);
-void _KUnlinkArg(UInt dest); 
+void _KEnqArg(Reg src); 
+void _KEnqArgConst(void);
+void _KDeqArg(UInt dest); 
 
 void _KCallLib(UInt cost, UInt dest, UInt num_in, ...); 
 

@@ -345,28 +345,28 @@ void checkRegion() {
 #define CDEP_ROW 256
 #define CDEP_COL 64
 
-static Table* cTable;
+static Table* control_dependence_table;
 static int cTableReadPtr = 0;
 static Time* cTableCurrentBase;
 
 inline void CDepInit() {
 	cTableReadPtr = 0;
-	cTable = Table::create(CDEP_ROW, CDEP_COL);
+	control_dependence_table = Table::create(CDEP_ROW, CDEP_COL);
 }
 
 inline void CDepDeinit() {
-	Table::destroy(cTable);
+	Table::destroy(control_dependence_table);
 }
 
 inline void CDepInitRegion(Index index) {
-	assert(cTable != NULL);
+	assert(control_dependence_table != NULL);
 	MSG(3, "CDepInitRegion ReadPtr = %d, Index = %d\n", cTableReadPtr, index);
-	cTable->setValue(0ULL, cTableReadPtr, index);
-	cTableCurrentBase = cTable->getElementAddr(cTableReadPtr, 0);
+	control_dependence_table->setValue(0ULL, cTableReadPtr, index);
+	cTableCurrentBase = control_dependence_table->getElementAddr(cTableReadPtr, 0);
 }
 
 inline Time CDepGet(Index index) {
-	assert(cTable != NULL);
+	assert(control_dependence_table != NULL);
 	assert(cTableReadPtr >=  0);
 	return *(cTableCurrentBase + index);
 }
@@ -384,23 +384,23 @@ void _KPushCDep(Reg cond) {
 	int indexSize = profiler->getCurrNumInstrumentedLevels();
 
 // TODO: rarely, ctable could require resizing..not implemented yet
-	if (cTableReadPtr == cTable->getRow()) {
+	if (cTableReadPtr == control_dependence_table->getRow()) {
 		fprintf(stderr, "CDep Table requires entry resizing..\n");
 		assert(0);	
 	}
 
-	if (cTable->getCol() < indexSize) {
+	if (control_dependence_table->getCol() < indexSize) {
 		fprintf(stderr, "CDep Table requires index resizing..\n");
 		assert(0);	
 	}
 
 	Table* ltable = RShadowGetTable();
 	//assert(lTable->col >= indexSize);
-	//assert(cTable->col >= indexSize);
+	//assert(control_dependence_table->col >= indexSize);
 
-	lTable->copyToDest(cTable, cTableReadPtr, cond, 0, indexSize);
-	cTableCurrentBase = cTable->getElementAddr(cTableReadPtr, 0);
-	assert(cTableReadPtr < cTable->row);
+	lTable->copyToDest(control_dependence_table, cTableReadPtr, cond, 0, indexSize);
+	cTableCurrentBase = control_dependence_table->getElementAddr(cTableReadPtr, 0);
+	assert(cTableReadPtr < control_dependence_table->row);
 	checkRegion();
 }
 
@@ -413,7 +413,7 @@ void _KPopCDep() {
 	}
 
 	cTableReadPtr--;
-	cTableCurrentBase = cTable->getElementAddr(cTableReadPtr, 0);
+	cTableCurrentBase = control_dependence_table->getElementAddr(cTableReadPtr, 0);
 }
 
 /*****************************************************************
@@ -472,14 +472,6 @@ void _KEnqArgConst() {
 
 	profiler->functionArgQueuePushBack(DUMMY_ARG); // dummy arg
 }
-void _KLinkArg(Reg src) {
-	_KEnqArg(src);
-}
-
-void _KLinkArgConst() {
-	_KEnqArgConst();
-}
-
 
 // get timestamp for an arg and associate it with a local vreg
 // should be called in the order of linkArgToLocal
@@ -503,10 +495,6 @@ void _KDeqArg(Reg dest) {
 		callerT->copyToDest(calleeT, dest, src, 0, indexSize);
 	}
     MSG(3, "\n", dest);
-}
-
-void _KUnlinkArg(Reg dest) {
-	_KDeqArg(dest); 
 }
 
 /**
@@ -590,7 +578,7 @@ void _KReturn(Reg src) {
     MSG(1, "end write return value 0x%x\n", profiler->getCurrentFunction());
 }
 
-void _KReturnConst(void) {
+void _KReturnConst() {
     MSG(1, "_KReturnConst\n");
 	idbgAction(KREM_FUNC_RETURN,"## _KReturnConst()\n");
     if (!isKremlinOn())

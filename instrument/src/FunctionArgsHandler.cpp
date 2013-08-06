@@ -19,7 +19,7 @@ FunctionArgsHandler::FunctionArgsHandler(TimestampPlacer& ts_placer)
     FunctionType* func_type = FunctionType::get(types.voidTy(), *aref, false);
 	delete aref;
 
-    Function& log_func = *cast<Function>(m.getOrInsertFunction("_KUnlinkArg", func_type));
+    Function& log_func = *cast<Function>(m.getOrInsertFunction("_KDeqArg", func_type));
 
     // Add transfer and unlink to all the arguments passed by value.
 	// @TRICKY The exception is for main, which /likely/ isn't called from
