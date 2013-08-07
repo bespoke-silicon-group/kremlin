@@ -204,7 +204,6 @@ namespace {
 			kremlib_calls.insert("_KDeinit");
 			kremlib_calls.insert("_KTurnOn");
 			kremlib_calls.insert("_KTurnOff");
-			kremlib_calls.insert("_KPrintData");
 			kremlib_calls.insert("_KEnterRegion");
 			kremlib_calls.insert("_KExitRegion");
 			kremlib_calls.insert("_KLandingPad");

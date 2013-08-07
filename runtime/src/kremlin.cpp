@@ -1106,63 +1106,6 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 	va_start(args,num_srcs);
 	handleVarArgDeps<true, true, false, false>(dest_reg, 0, NULL, 0, num_srcs, args);
 	va_end(args);
-
-#if 0
-	va_list args;
-	va_start(args,num_srcs);
-
-	UInt32 src0_reg, src1_reg, src2_reg, src3_reg, src4_reg;
-	UInt32 src0_offset, src1_offset, src2_offset, src3_offset, src4_offset;
-
-	unsigned arg_idx;
-	for(arg_idx = 0; arg_idx < num_srcs; ++arg_idx) {
-		switch (arg_idx % 5) {
-			case 0:
-				src0_reg = va_arg(args,UInt32);
-				src0_offset = va_arg(args,UInt32);
-				// TRICKY: once we start another round, we initialize all srcs
-				// and src offsets to the first one (src0) to ensure that we
-				// have a valid call to timestamp updater.
-				// If we knew there were at least 5 sources, this would be
-				// unnecessary (because it doesn't hurt to do use the same
-				// source multiple times when calculating the timestamp.)
-				src4_reg = src3_reg = src2_reg = src1_reg = src0_reg;
-				src4_offset = src3_offset = src2_offset = src1_offset = src0_offset;
-				break;
-			case 1:
-				src1_reg = va_arg(args,UInt32);
-				src1_offset = va_arg(args,UInt32);
-				break;
-			case 2:
-				src2_reg = va_arg(args,UInt32);
-				src2_offset = va_arg(args,UInt32);
-				break;
-			case 3:
-				src3_reg = va_arg(args,UInt32);
-				src3_offset = va_arg(args,UInt32);
-				break;
-			default:
-				src4_reg = va_arg(args,UInt32);
-				src4_offset = va_arg(args,UInt32);
-				timestampUpdater<true, true, 5, false>(dest_reg, src0_reg, src0_offset, 
-													src1_reg, src1_offset, 
-													src2_reg, src2_offset, 
-													src3_reg, src3_offset, 
-													src4_reg, src4_offset);
-		}
-	}
-
-	// finish up any leftover args (beyond the last set of 5)
-	if (arg_idx % 5 != 0) {
-		timestampUpdater<true, true, 5, false>(dest_reg, src0_reg, src0_offset, 
-											src1_reg, src1_offset, 
-											src2_reg, src2_offset, 
-											src3_reg, src3_offset, 
-											src4_reg, src4_offset);
-	}
-
-	va_end(args);
-#endif
 }
 
 // XXX: not 100% sure this is the correct functionality
@@ -1631,9 +1574,6 @@ void _KInit() {
 void _KDeinit() {
     kremlinDeinit();
 }
-
-void _KPrintData() {}
-
 
 /**************************************************************************
  * Start of Non-Essential APIs

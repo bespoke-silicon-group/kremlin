@@ -92,13 +92,6 @@ void _KDeqArg(UInt dest);
 
 void _KCallLib(UInt cost, UInt dest, UInt num_in, ...); 
 
-void _KPrintData(); // deprecated?
-
-
-/* level management */
-//Level getMinReportLevel();
-//Level getMaxReportLevel();
-
 // the following two functions are part of our plans for c++ support
 void cppEntry();
 void cppExit();
