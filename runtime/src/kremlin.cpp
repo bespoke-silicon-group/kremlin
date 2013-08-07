@@ -37,10 +37,7 @@
 #define FREE_COST           10
 
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
-
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
-#define MAX3(a, b, c)   (((MAX(a,b)) > (c)) ? (MAX(a,b)) : (b))
-#define MAX4(a, b, c, d)   ( MAX(MAX(a,b),MAX(c,d)) )
 
 class KremlinProfiler {
 private:
@@ -64,6 +61,10 @@ private:
 	std::vector<Reg> function_arg_queue;
 	unsigned int arg_queue_read_index;
 	unsigned int arg_queue_write_index;
+
+	bool waiting_for_register_table_init;
+	UInt64 num_function_regions_entered;
+	UInt64 num_register_tables_setup;;
 
 	MShadow *shadow_mem;
 
@@ -91,10 +92,20 @@ public:
 		this->max_active_level = 0;
 		this->curr_num_instrumented_levels = 0;
 		this->instrument_curr_level = false;
+		this->waiting_for_register_table_init = false;
+		this->num_function_regions_entered = 0;
+		this->num_register_tables_setup = 0;
 		this->shadow_mem = NULL;
 	}
 
 	~KremlinProfiler() {}
+
+	// TODO: is the following function necessary?
+	bool waitingForRegisterTableSetup() {return this->waiting_for_register_table_init; }
+	void waitForRegisterTableSetup() { this->waiting_for_register_table_init = true; }
+	void finishRegisterTableSetup() { this->waiting_for_register_table_init = false; }
+	void incrementFunctionRegionCount() { this->num_function_regions_entered++; }
+	void incrementSetupTableCount() { this->num_register_tables_setup++; }
 
 	void enable() { this->enabled = true; }
 	void disable() { this->enabled = false; }
@@ -174,8 +185,8 @@ public:
 		assert(fc);
 		MSG(3, "removeFunctionFromStack at 0x%x CID 0x%x\n", fc, fc->getCallSiteID());
 
-		assert(_regionFuncCnt == _setupTableCnt);
-		assert(_requireSetupTable == 0);
+		assert(num_function_regions_entered == num_register_tables_setup);
+		assert(waiting_for_register_table_setup == 0);
 
 		if (fc->table != NULL) Table::destroy(fc->table);
 
@@ -263,11 +274,6 @@ Level getMaxActiveLevel() {
 // BEGIN TODO: make these not global
 static UInt64	loadCnt = 0llu;
 static UInt64	storeCnt = 0llu;
-
-
-static UInt64 _regionFuncCnt;
-static UInt64 _setupTableCnt;
-static int _requireSetupTable;
 // END TODO: make these not global
 
 /*************************************************************
@@ -561,7 +567,7 @@ void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
 		 return; 
 	}
 
-    assert(_requireSetupTable == 1);
+    assert(profiler->waitingForRegisterTableSetup());
     Table* table = Table::create(tableHeight, tableWidth);
     FunctionRegion* funcHead = profiler->getCurrentFunction();
 	assert(funcHead != NULL);
@@ -570,8 +576,8 @@ void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
     assert(funcHead->table != NULL);
 
     RShadowActivateTable(funcHead->table);
-    _setupTableCnt++;
-    _requireSetupTable = 0;
+	profiler->incrementSetupTableCount();
+    profiler->finishRegisterTableSetup();
 }
 
 // This function is called before 
@@ -698,9 +704,9 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 	// func region allocates a new RShadow Table.
 	// for other region types, it needs to "clean" previous region's timestamps
     if(regionType == RegionFunc) {
-		_regionFuncCnt++;
+		profiler->incrementFunctionRegionCount();
         profiler->addFunctionToStack(profiler->getLastCallsiteID());
-        _requireSetupTable = 1;
+        profiler->waitForRegisterTableSetup();
 
     } else {
 		if (profiler->shouldInstrumentCurrLevel())
