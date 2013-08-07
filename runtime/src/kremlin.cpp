@@ -66,12 +66,21 @@ private:
 	unsigned int arg_queue_read_index;
 	unsigned int arg_queue_write_index;
 
+	MShadow *shadow_mem;
+
 	void updateCurrLevelInstrumentableStatus() {
 		if (curr_level >= min_level && curr_level <= max_level)
 			instrument_curr_level = true;
 		else 
 			instrument_curr_level = false;
 	}
+
+	enum ShadowMemoryType {
+		ShadowMemoryBase = 0,
+		ShadowMemorySTV = 1,
+		ShadowMemorySkadu = 2,
+		ShadowMemoryDummy = 3
+	};
 
 public:
 	KremlinProfiler(Level min, Level max) {
@@ -82,6 +91,7 @@ public:
 		this->max_active_level = 0;
 		this->curr_num_instrumented_levels = 0;
 		this->instrument_curr_level = false;
+		this->shadow_mem = NULL;
 	}
 
 	~KremlinProfiler() {}
@@ -92,6 +102,7 @@ public:
 	int getMinLevel() { return this->min_level; }
 	int getMaxLevel() { return this->max_level; }
 	int getMaxActiveLevel() { return this->max_active_level; }
+	MShadow* getShadowMemory() { return this->shadow_mem; }
 	bool shouldInstrumentCurrLevel() { return instrument_curr_level; }
 
 	int getArraySize() { return max_level - min_level + 1; }
@@ -209,6 +220,29 @@ public:
 		arg_queue_read_index = 0;
 		arg_queue_write_index = 0;
 	}
+
+	void initShadowMemory() {
+		switch(KConfigGetShadowType()) {
+			case ShadowMemoryBase:
+				shadow_mem = new MShadowBase();
+				break;
+			case ShadowMemorySTV:
+				shadow_mem = new MShadowSTV();
+				break;
+			case ShadowMemorySkadu:
+				shadow_mem = new MShadowSkadu();
+				break;
+			default:
+				shadow_mem = new MShadowDummy();
+		}
+		shadow_mem->init();
+	}
+
+	void deinitShadowMemory() {
+		shadow_mem->deinit();
+		delete shadow_mem;
+		shadow_mem = NULL;
+	}
 };
 
 static KremlinProfiler *profiler;
@@ -227,8 +261,6 @@ static UInt64	storeCnt = 0llu;
 static UInt64 _regionFuncCnt;
 static UInt64 _setupTableCnt;
 static int _requireSetupTable;
-
-MShadow *mem_shadow = NULL;
 // END TODO: make these not global
 
 /*************************************************************
@@ -965,7 +997,7 @@ static inline void timestampUpdater(UInt32 dest_reg,
 		assert(mem_access_size <= 8);
 		Index region_depth = profiler->getCurrNumInstrumentedLevels();
 		Level min_level = profiler->getLevelForIndex(0); // XXX: this doesn't seem right (-sat)
-		src_addr_times = mem_shadow->get(src_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
+		src_addr_times = profiler->getShadowMemory()->get(src_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
 
 #ifdef KREMLIN_DEBUG
 		printLoadDebugInfo(src_addr, dest_reg, src_addr_times, end_index);
@@ -1342,7 +1374,7 @@ static void handleStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg) {
 #endif
 
 	Level min_level = profiler->getLevelForIndex(0); // XXX: see notes in KLoads
-	mem_shadow->set(dest_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+	profiler->getShadowMemory()->set(dest_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
 }
 
 void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
@@ -1468,34 +1500,6 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
  * Kremlin Init / Deinit
  *****************************/
 
-#define MSHADOW_BASE	0
-#define MSHADOW_STV		1
-#define MSHADOW_CACHE	2
-#define MSHADOW_DUMMY   3
-
-
-void MShadowInit() {
-	switch(KConfigGetShadowType()) {
-		case 0:
-			mem_shadow = new MShadowBase();
-			break;
-		case 1:
-			mem_shadow = new MShadowSTV();
-			break;
-		case 2:
-			mem_shadow = new MShadowSkadu();
-			break;
-		default:
-			mem_shadow = new MShadowDummy();
-	}
-	mem_shadow->init();
-}
-
-void MShadowDeinit() {
-	mem_shadow->deinit();
-	delete mem_shadow;
-	mem_shadow = NULL;
-}
 
 static UInt hasInitialized = 0;
 
@@ -1522,7 +1526,7 @@ static bool kremlinInit() {
 	CRegionInit();
 	RShadowInit(profiler->getArraySize());
 
-	MShadowInit(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
+	profiler->initShadowMemory(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
 	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
    	_KTurnOn();
     return true;
@@ -1555,7 +1559,7 @@ static bool kremlinDeinit() {
 	_KTurnOff();
 	CRegionDeinit(KConfigGetOutFileName());
 	RShadowDeinit();
-	MShadowDeinit();
+	profiler->deinitShadowMemory();
 	profiler->deinitFunctionArgQueue();
 	CDepDeinit();
 	ProgramRegion::deinitProgramRegions();
@@ -1762,7 +1766,7 @@ void printMemoryTimes(Addr addr, Index size) {
 	Index index;
 	Index depth = profiler->getCurrNumInstrumentedLevels();
 	Level minLevel = profiler->getLevelForIndex(0);
-	Time* tArray = mem_shadow->get(addr, depth, ProgramRegion::getVersionAtLevel(minLevel), size);
+	Time* tArray = profiler->getShadowMemory()->get(addr, depth, ProgramRegion::getVersionAtLevel(minLevel), size);
 
     for (index = 0; index < depth; index++) {
 		Time ts = tArray[index];
