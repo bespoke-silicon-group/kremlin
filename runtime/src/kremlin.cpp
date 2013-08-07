@@ -1010,39 +1010,60 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 
     if (!isKremlinOn()) return;
 
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time cdt = CDepGet(index);
-		assert(cdt <= profiler->getCurrentTime() - region->start);
+	va_list args;
+	va_start(args,num_srcs);
 
-		va_list args;
-		va_start(args,num_srcs);
+	UInt32 src0_reg, src1_reg, src2_reg, src3_reg, src4_reg;
+	UInt32 src0_offset, src1_offset, src2_offset, src3_offset, src4_offset;
 
-		Time curr_max = cdt;
-
-        MSG(3, "kTime level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " dest_reg %u\t", dest_reg);
-
-		int arg_idx;
-		for(arg_idx = 0; arg_idx < num_srcs; ++arg_idx) {
-			UInt32 src_reg = va_arg(args,UInt32);
-			UInt32 src_offset = va_arg(args,UInt32);
-
-        	Time ts_calc = RShadowGetItem(src_reg, index) + src_offset;
-
-			curr_max = MAX(curr_max,ts_calc);
-
-        	MSG(3, "  src_reg%u %u | src_offset%u %u | ts_calc %u\n", arg_idx, src_reg, arg_idx, src_offset, ts_calc);
+	unsigned arg_idx;
+	for(arg_idx = 0; arg_idx < num_srcs; ++arg_idx) {
+		switch (arg_idx % 5) {
+			case 0:
+				src0_reg = va_arg(args,UInt32);
+				src0_offset = va_arg(args,UInt32);
+				// TRICKY: once we start another round, we initialize all srcs
+				// and src offsets to the first one (src0) to ensure that we
+				// have a valid call to timestamp updater.
+				// If we knew there were at least 5 sources, this would be
+				// unnecessary (because it doesn't hurt to do use the same
+				// source multiple times when calculating the timestamp.)
+				src4_reg = src3_reg = src2_reg = src1_reg = src0_reg;
+				src4_offset = src3_offset = src2_offset = src1_offset = src0_offset;
+				break;
+			case 1:
+				src1_reg = va_arg(args,UInt32);
+				src1_offset = va_arg(args,UInt32);
+				break;
+			case 2:
+				src2_reg = va_arg(args,UInt32);
+				src2_offset = va_arg(args,UInt32);
+				break;
+			case 3:
+				src3_reg = va_arg(args,UInt32);
+				src3_offset = va_arg(args,UInt32);
+				break;
+			default:
+				src4_reg = va_arg(args,UInt32);
+				src4_offset = va_arg(args,UInt32);
+				timestampUpdater<true, true, 5>(dest_reg, src0_reg, src0_offset, 
+													src1_reg, src1_offset, 
+													src2_reg, src2_offset, 
+													src3_reg, src3_offset, 
+													src4_reg, src4_offset);
 		}
+	}
 
-        MSG(3, " cdt %u | curr_max %u\n", cdt, curr_max);
+	// finish up any leftover args (beyond the last set of 5)
+	if (arg_idx % 5 != 0) {
+		timestampUpdater<true, true, 5>(dest_reg, src0_reg, src0_offset, 
+											src1_reg, src1_offset, 
+											src2_reg, src2_offset, 
+											src3_reg, src3_offset, 
+											src4_reg, src4_offset);
+	}
 
-		RShadowSetItem(curr_max, dest_reg, index);
-
-        RegionUpdateCp(region, curr_max);
-    }
+	va_end(args);
 }
 
 // XXX: not 100% sure this is the correct functionality
@@ -1361,42 +1382,51 @@ void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_r
 }
 
 
+template <bool store_const>
+static void handleStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg) {
+	assert(mem_access_size <= 8);
+
+	Time* dest_addr_times = ProgramRegion::getTimeArray();
+
+	Index end_index = profiler->getCurrNumInstrumentedLevels();
+    for (Index index = 0; index < end_index; ++index) {
+		Level i = profiler->getLevelForIndex(index);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
+
+		Time control_dep_time = CDepGet(index);
+        Time dest_time = control_dep_time + STORE_COST;
+		if (!store_const) {
+			Time src_time = RShadowGetItem(src_reg, index);
+        	dest_time = MAX(control_dep_time,src_time) + STORE_COST;
+		}
+		dest_addr_times[index] = dest_time;
+        RegionUpdateCp(region, dest_time);
+
+#ifdef EXTRA_STATS
+        region->storeCnt++;
+#endif
+    }
+
+#ifdef KREMLIN_DEBUG
+	if (store_const)
+		printStoreConstDebugInfo(dest_addr, dest_addr_times, end_index);
+	else
+		printStoreDebugInfo(src_reg, dest_addr, dest_addr_times, end_index);
+#endif
+
+	Level min_level = profiler->getLevelForIndex(0); // XXX: see notes in KLoads
+	mem_shadow->set(dest_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+}
+
 void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
     MSG(1, "store size %d ts[0x%x] = ts[%u] + %u\n", mem_access_size, dest_addr, src_reg, STORE_COST);
 	idbgAction(KREM_STORE,"## KStore(src_reg=%u,dest_addr=0x%x,mem_access_size=%u)\n",src_reg,dest_addr,mem_access_size);
 
     if (!isKremlinOn()) return;
 
-	assert(mem_access_size <= 8);
+	handleStore<false>(dest_addr, mem_access_size, src_reg);
 
-	Time* dest_addr_times = ProgramRegion::getTimeArray();
-
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-
-		Time control_dep_time = CDepGet(index);
-		Time src_time = RShadowGetItem(src_reg, index);
-        Time dest_time = MAX(control_dep_time,src_time) + STORE_COST;
-		dest_addr_times[index] = dest_time;
-        RegionUpdateCp(region, dest_time);
-
-// TODO: EXTRA_STATS is a MESS. Clean is up!
-#ifdef EXTRA_STATS
-        region->storeCnt++;
-#endif
-
-		// TODO: add more verbose debug printout with MSG
-    }
-
-#ifdef KREMLIN_DEBUG
-	printStoreDebugInfo(src_reg,dest_addr,dest_addr_times,profiler->getCurrNumInstrumentedLevels());
-#endif
-
-	Level min_level = profiler->getLevelForIndex(0); // XXX: see notes in KLoads
-	mem_shadow->set(dest_addr, profiler->getCurrNumInstrumentedLevels(), ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
-    MSG(1, "store ts[0x%x] completed\n", dest_addr);
+    MSG(1, "store mem[0x%x] completed\n", dest_addr);
 }
 
 
@@ -1406,31 +1436,9 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
 
     if (!isKremlinOn()) return;
 
-	assert(mem_access_size <= 8);
+	handleStore<true>(dest_addr, mem_access_size, 0);
 
-	Time* dest_addr_times = ProgramRegion::getTimeArray();
-
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-
-		// XXX: Why was the following line there but not in KStore or anywhere
-		// else????
-		//Index index = profiler->getCurrentLevelIndex();
-
-		Time control_dep_time = CDepGet(index);
-        Time dest_time = control_dep_time + STORE_COST;
-		dest_addr_times[index] = dest_time;
-		RegionUpdateCp(region, dest_time);
-    }
-
-#ifdef KREMLIN_DEBUG
-	printStoreConstDebugInfo(dest_addr,dest_addr_times,profiler->getCurrNumInstrumentedLevels());
-#endif
-
-	Level min_level = profiler->getLevelForIndex(0);
-	mem_shadow->set(dest_addr, profiler->getCurrNumInstrumentedLevels(), ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+    MSG(1, "store const mem[0x%x] completed\n", dest_addr);
 }
 
 
