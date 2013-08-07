@@ -44,8 +44,6 @@
 
 #define isKremlinOn()		(kremlinOn == 1)
 
-static CID lastCallSiteId; // TODO: member of KremlinProfiler?
-
 // TODO: make this a member of KremlinProfiler?
 static std::vector<FuncContext*, MPoolLib::PoolAllocator<FuncContext*> > funcContexts; // A vector used to represent the call stack.
 
@@ -60,6 +58,7 @@ private:
 	Index curr_num_instrumented_levels; // number of regions currently instrumented
 	bool instrument_curr_level; // whether we should instrument the current level
 
+	CID last_callsite_id;
 
 	static const unsigned int FUNC_ARG_QUEUE_SIZE = 64;
 	std::vector<Reg> function_arg_queue;
@@ -102,6 +101,7 @@ public:
 	int getMinLevel() { return this->min_level; }
 	int getMaxLevel() { return this->max_level; }
 	int getMaxActiveLevel() { return this->max_active_level; }
+	CID getLastCallsiteID() { return this->last_callsite_id; }
 	MShadow* getShadowMemory() { return this->shadow_mem; }
 	bool shouldInstrumentCurrLevel() { return instrument_curr_level; }
 
@@ -110,6 +110,7 @@ public:
 
 	Level getLevelForIndex(Index index) { return min_level + index; }
 
+	void setLastCallsiteID(CID cs_id) { this->last_callsite_id = cs_id; }
 	void increaseTime(UInt32 amount) { curr_time += amount; } // XXX: UInt32 -> Time?
 
 	void incrementLevel() { 
@@ -485,7 +486,7 @@ void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
     // call. These are left on the deque because library calls never take
     // theirs off. 
     profiler->clearFunctionArgQueue();
-	lastCallSiteId = callSiteId;
+	profiler->setLastCallsiteID(callSiteId);
 }
 
 void _KEnqArg(Reg src) {
@@ -693,7 +694,7 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 	// for other region types, it needs to "clean" previous region's timestamps
     if(regionType == RegionFunc) {
 		_regionFuncCnt++;
-        profiler->addFunctionToStack(lastCallSiteId);
+        profiler->addFunctionToStack(profiler->getLastCallsiteID());
         _requireSetupTable = 1;
 
     } else {
