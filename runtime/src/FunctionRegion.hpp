@@ -1,8 +1,7 @@
-#ifndef FUNC_CONTEXT_HPP
-#define FUNC_CONTEXT_HPP
+#ifndef FUNCTION_REGION_HPP
+#define FUNCTION_REGION_HPP
 
-// TODO: better name (DynamicFunctionRegion)
-class FuncContext {
+class FunctionRegion {
 private:
 	static const int DUMMY_RETURN_REG = -1;
 	static const UInt32 ERROR_CHECK_CODE = 0xDEADBEEF; // XXX: debug only?
@@ -20,8 +19,8 @@ public:
 
 	void init(CID cid) { 
 		this->table = NULL;
-		this->return_register = FuncContext::DUMMY_RETURN_REG;
-		this->error_checking_code = FuncContext::ERROR_CHECK_CODE;
+		this->return_register = FunctionRegion::DUMMY_RETURN_REG;
+		this->error_checking_code = FunctionRegion::ERROR_CHECK_CODE;
 		this->call_site_id = cid;
 	}
 
@@ -30,9 +29,9 @@ public:
 	Table* getTable() { return this->table; }
 
 	void sanityCheck() {
-		assert(error_checking_code == FuncContext::ERROR_CHECK_CODE);
+		assert(error_checking_code == FunctionRegion::ERROR_CHECK_CODE);
 	}
 
 };
 
-#endif // FUNC_CONTEXT_HPP
+#endif // FUNCTION_REGION_HPP

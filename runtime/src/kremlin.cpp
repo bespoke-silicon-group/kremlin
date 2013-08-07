@@ -24,7 +24,7 @@
 #include "PoolAllocator.hpp"
 
 #include "ProgramRegion.hpp"
-#include "FuncContext.hpp"
+#include "FunctionRegion.hpp"
 
 #include <vector>
 #include <algorithm> // for max_element
@@ -56,7 +56,7 @@ private:
 	bool instrument_curr_level; // whether we should instrument the current level
 
 	// A vector used to represent the call stack.
-	std::vector<FuncContext*, MPoolLib::PoolAllocator<FuncContext*> > callstack;
+	std::vector<FunctionRegion*, MPoolLib::PoolAllocator<FunctionRegion*> > callstack;
 
 	CID last_callsite_id;
 
@@ -155,7 +155,7 @@ public:
 	 * Pushes new context onto function context stack.
 	 */
 	void addFunctionToStack(CID cid) {
-		FuncContext* fc = (FuncContext*) MemPoolAllocSmall(sizeof(FuncContext));
+		FunctionRegion* fc = (FunctionRegion*) MemPoolAllocSmall(sizeof(FunctionRegion));
 		assert(fc);
 
 		fc->init(cid);
@@ -168,7 +168,7 @@ public:
 	 * Removes context at the top of the function context stack.
 	 */
 	void removeFunctionFromStack() {
-		FuncContext* fc = callstack.back();
+		FunctionRegion* fc = callstack.back();
 		callstack.pop_back();
 		
 		assert(fc);
@@ -179,28 +179,28 @@ public:
 
 		if (fc->table != NULL) Table::destroy(fc->table);
 
-		MemPoolFreeSmall(fc, sizeof(FuncContext));
+		MemPoolFreeSmall(fc, sizeof(FunctionRegion));
 	}
 
-	FuncContext* getCurrentFunction() {
+	FunctionRegion* getCurrentFunction() {
 		if (callstack.empty()) {
 			MSG(3, "getCurrentFunction  NULL\n");
 			return NULL;
 		}
 
-		FuncContext* func = callstack.back();
+		FunctionRegion* func = callstack.back();
 
 		MSG(3, "getCurrentFunction  0x%x CID 0x%x\n", func, func->getCallSiteID());
 		func->sanityCheck();
 		return func;
 	}
 
-	FuncContext* getCallingFunction() {
+	FunctionRegion* getCallingFunction() {
 		if (callstack.size() == 1) {
 			MSG(3, "getCallingFunction  No Caller Context\n");
 			return NULL;
 		}
-		FuncContext* func = callstack[callstack.size()-2];
+		FunctionRegion* func = callstack[callstack.size()-2];
 
 		MSG(3, "getCallingFunction  0x%x CID 0x%x\n", func, func->getCallSiteID());
 		func->sanityCheck();
@@ -524,8 +524,8 @@ void _KDeqArg(Reg dest) {
 	Reg src = profiler->functionArgQueuePopFront();
 	// copy parent's src timestamp into the currenf function's dest reg
 	if (src != DUMMY_ARG && profiler->getCurrNumInstrumentedLevels() > 0) {
-		FuncContext* caller = profiler->getCallingFunction();
-		FuncContext* callee = profiler->getCurrentFunction();
+		FunctionRegion* caller = profiler->getCallingFunction();
+		FunctionRegion* callee = profiler->getCurrentFunction();
 		Table* callerT = caller->getTable();
 		Table* calleeT = callee->getTable();
 
@@ -563,7 +563,7 @@ void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
 
     assert(_requireSetupTable == 1);
     Table* table = Table::create(tableHeight, tableWidth);
-    FuncContext* funcHead = profiler->getCurrentFunction();
+    FunctionRegion* funcHead = profiler->getCurrentFunction();
 	assert(funcHead != NULL);
     assert(funcHead->table == NULL);
     funcHead->table = table;
@@ -585,7 +585,7 @@ void _KLinkReturn(Reg dest) {
     if (!profiler->isEnabled())
         return;
 
-	FuncContext* caller = profiler->getCurrentFunction();
+	FunctionRegion* caller = profiler->getCurrentFunction();
 	caller->setReturnRegister(dest);
 }
 
@@ -600,8 +600,8 @@ void _KReturn(Reg src) {
     if (!profiler->isEnabled())
         return;
 
-    FuncContext* callee = profiler->getCurrentFunction();
-    FuncContext* caller = profiler->getCallingFunction();
+    FunctionRegion* callee = profiler->getCurrentFunction();
+    FunctionRegion* caller = profiler->getCallingFunction();
 
 	// main function does not have a return point
 	if (caller == NULL)
@@ -625,7 +625,7 @@ void _KReturnConst() {
         return;
 
     // Assert there is a function context before the top.
-	FuncContext* caller = profiler->getCallingFunction();
+	FunctionRegion* caller = profiler->getCallingFunction();
 
 	// main function does not have a return point
 	if (caller == NULL)
@@ -707,7 +707,7 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 			RShadowRestartIndex(profiler->getCurrentLevelIndex());
 	}
 
-    FuncContext* funcHead = profiler->getCurrentFunction();
+    FunctionRegion* funcHead = profiler->getCurrentFunction();
 	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->getCallSiteID();
 	CRegionEnter(regionId, callSiteId, regionType);
 
@@ -731,7 +731,7 @@ static void handleFuncRegionExit() {
 		return;
 	}
 
-	FuncContext* funcHead = profiler->getCurrentFunction();
+	FunctionRegion* funcHead = profiler->getCurrentFunction();
 	assert(funcHead != NULL);
 	RShadowActivateTable(funcHead->table); 
 }
