@@ -45,7 +45,6 @@
 #define isKremlinOn()		(kremlinOn == 1)
 
 // TODO: make this a member of KremlinProfiler?
-static std::vector<FuncContext*, MPoolLib::PoolAllocator<FuncContext*> > funcContexts; // A vector used to represent the call stack.
 
 class KremlinProfiler {
 private:
@@ -57,6 +56,9 @@ private:
 
 	Index curr_num_instrumented_levels; // number of regions currently instrumented
 	bool instrument_curr_level; // whether we should instrument the current level
+
+	// A vector used to represent the call stack.
+	std::vector<FuncContext*, MPoolLib::PoolAllocator<FuncContext*> > callstack;
 
 	CID last_callsite_id;
 
@@ -144,6 +146,8 @@ public:
 		}
 	}
 
+	bool callstackIsEmpty() { return callstack.empty(); }
+
 	/**
 	 * Pushes new context onto function context stack.
 	 */
@@ -152,7 +156,7 @@ public:
 		assert(fc);
 
 		fc->init(cid);
-		funcContexts.push_back(fc);
+		callstack.push_back(fc);
 
 		MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", fc, cid);
 	}
@@ -161,8 +165,8 @@ public:
 	 * Removes context at the top of the function context stack.
 	 */
 	void removeFunctionFromStack() {
-		FuncContext* fc = funcContexts.back();
-		funcContexts.pop_back();
+		FuncContext* fc = callstack.back();
+		callstack.pop_back();
 		
 		assert(fc);
 		MSG(3, "removeFunctionFromStack at 0x%x CID 0x%x\n", fc, fc->getCallSiteID());
@@ -176,12 +180,12 @@ public:
 	}
 
 	FuncContext* getCurrentFunction() {
-		if (funcContexts.empty()) {
+		if (callstack.empty()) {
 			MSG(3, "getCurrentFunction  NULL\n");
 			return NULL;
 		}
 
-		FuncContext* func = funcContexts.back();
+		FuncContext* func = callstack.back();
 
 		MSG(3, "getCurrentFunction  0x%x CID 0x%x\n", func, func->getCallSiteID());
 		func->sanityCheck();
@@ -189,11 +193,11 @@ public:
 	}
 
 	FuncContext* getCallingFunction() {
-		if (funcContexts.size() == 1) {
+		if (callstack.size() == 1) {
 			MSG(3, "getCallingFunction  No Caller Context\n");
 			return NULL;
 		}
-		FuncContext* func = funcContexts[funcContexts.size()-2];
+		FuncContext* func = callstack[callstack.size()-2];
 
 		MSG(3, "getCallingFunction  0x%x CID 0x%x\n", func, func->getCallSiteID());
 		func->sanityCheck();
@@ -721,7 +725,7 @@ static void handleFuncRegionExit() {
 	profiler->removeFunctionFromStack();
 
 	// root function
-	if (funcContexts.empty()) {
+	if (profiler->callstackIsEmpty()) {
 		assert(profiler->getCurrentLevel() == 0); 
 		return;
 	}
