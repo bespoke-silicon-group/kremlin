@@ -42,12 +42,10 @@
 #define MAX3(a, b, c)   (((MAX(a,b)) > (c)) ? (MAX(a,b)) : (b))
 #define MAX4(a, b, c, d)   ( MAX(MAX(a,b),MAX(c,d)) )
 
-#define isKremlinOn()		(kremlinOn == 1)
-
-// TODO: make this a member of KremlinProfiler?
-
 class KremlinProfiler {
 private:
+	bool enabled; // true if profiling is on (i.e. enabled), false otherwise
+
 	Time curr_time; // the current time of the profiler (virtual)
 	Level curr_level; // current level 
 	Level min_level; // minimum level to instrument
@@ -85,6 +83,7 @@ private:
 
 public:
 	KremlinProfiler(Level min, Level max) {
+		this->enabled = false;
 		this->curr_time = 0;
 		this->curr_level = -1;
 		this->min_level = min;
@@ -96,6 +95,10 @@ public:
 	}
 
 	~KremlinProfiler() {}
+
+	void enable() { this->enabled = true; }
+	void disable() { this->enabled = false; }
+	bool isEnabled() { return this->enabled; }
 
 	int getCurrentTime() { return this->curr_time; }
 	int getCurrentLevel() { return this->curr_level; }
@@ -258,7 +261,6 @@ Level getMaxActiveLevel() {
 }
 
 // BEGIN TODO: make these not global
-static bool 	kremlinOn = false;
 static UInt64	loadCnt = 0llu;
 static UInt64	storeCnt = 0llu;
 
@@ -414,7 +416,7 @@ void _KPushCDep(Reg cond) {
 	idbgAction(KREM_ADD_CD,"## KPushCDep(cond=%u)\n",cond);
 
 	checkRegion();
-    if (!isKremlinOn()) {
+    if (!profiler->isEnabled()) {
 		return;
 	}
 
@@ -446,7 +448,7 @@ void _KPopCDep() {
     MSG(3, "Pop CDep\n");
 	idbgAction(KREM_REMOVE_CD, "## KPopCDep()\n");
 
-    if (!isKremlinOn()) {
+    if (!profiler->isEnabled()) {
 		return;
 	}
 
@@ -482,7 +484,7 @@ void _KPopCDep() {
 void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
     MSG(1, "KPrepCall\n");
 	idbgAction(KREM_PREP_CALL, "## _KPrepCall(callSiteId=%llu,calledRegionId=%llu)\n",callSiteId,calledRegionId);
-    if (!isKremlinOn()) { 
+    if (!profiler->isEnabled()) { 
 		return; 
 	}
 
@@ -496,7 +498,7 @@ void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
 void _KEnqArg(Reg src) {
     MSG(1, "Enque Arg Reg [%u]\n", src);
 	idbgAction(KREM_LINK_ARG,"## _KEnqArg(src=%u)\n",src);
-    if (!isKremlinOn())
+    if (!profiler->isEnabled())
         return;
 	profiler->functionArgQueuePushBack(src);
 }
@@ -505,7 +507,7 @@ void _KEnqArg(Reg src) {
 void _KEnqArgConst() {
     MSG(1, "Enque Const Arg\n");
 	idbgAction(KREM_LINK_ARG,"## _KEnqArgConst()\n");
-    if (!isKremlinOn())
+    if (!profiler->isEnabled())
         return;
 
 	profiler->functionArgQueuePushBack(DUMMY_ARG); // dummy arg
@@ -516,7 +518,7 @@ void _KEnqArgConst() {
 void _KDeqArg(Reg dest) {
     MSG(3, "Deq Arg to Reg[%u] \n", dest);
 	idbgAction(KREM_UNLINK_ARG,"## _KDeqArg(dest=%u)\n",dest);
-    if (!isKremlinOn())
+    if (!profiler->isEnabled())
         return;
 
 	Reg src = profiler->functionArgQueuePopFront();
@@ -555,7 +557,7 @@ void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
 		 tableHeight, tableWidth, profiler->getCurrentLevel(), maxNestLevel);
 	idbgAction(KREM_PREP_REG_TABLE,"## _KPrepRTable(maxVregNum=%u,maxNestLevel=%u)\n",maxVregNum,maxNestLevel);
 
-    if (!isKremlinOn()) {
+    if (!profiler->isEnabled()) {
 		 return; 
 	}
 
@@ -580,7 +582,7 @@ void _KLinkReturn(Reg dest) {
     MSG(1, "_KLinkReturn with reg %u\n", dest);
 	idbgAction(KREM_ARVL,"## _KLinkReturn(dest=%u)\n",dest);
 
-    if (!isKremlinOn())
+    if (!profiler->isEnabled())
         return;
 
 	FuncContext* caller = profiler->getCurrentFunction();
@@ -595,7 +597,7 @@ void _KReturn(Reg src) {
     MSG(1, "_KReturn with reg %u\n", src);
 	idbgAction(KREM_FUNC_RETURN,"## _KReturn (src=%u)\n",src);
 
-    if (!isKremlinOn())
+    if (!profiler->isEnabled())
         return;
 
     FuncContext* callee = profiler->getCurrentFunction();
@@ -619,7 +621,7 @@ void _KReturn(Reg src) {
 void _KReturnConst() {
     MSG(1, "_KReturnConst\n");
 	idbgAction(KREM_FUNC_RETURN,"## _KReturnConst()\n");
-    if (!isKremlinOn())
+    if (!profiler->isEnabled())
         return;
 
     // Assert there is a function context before the top.
@@ -649,11 +651,10 @@ void _KReturnConst() {
  * loop type seems weird, but using function type as the root region
  * causes several problems regarding local table
  *
- * when kremlinOn == 0,
- * most instrumentation functions do nothing.
+ * when kremlin is disabled, most instrumentation functions do nothing.
  */ 
 void _KTurnOn() {
-    kremlinOn = 1;
+	profiler->enable();
     MSG(0, "_KTurnOn\n");
 	fprintf(stderr, "[kremlin] Logging started.\n");
 }
@@ -662,7 +663,7 @@ void _KTurnOn() {
  * end profiling
  */
 void _KTurnOff() {
-    kremlinOn = 0;
+	profiler->disable();
     MSG(0, "_KTurnOff\n");
 	fprintf(stderr, "[kremlin] Logging stopped.\n");
 }
@@ -676,7 +677,7 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 	iDebugHandlerRegionEntry(regionId);
 	idbgAction(KREM_REGION_ENTRY,"## KEnterRegion(regionID=%llu,regionType=%u)\n",regionId,regionType);
 
-    if (!isKremlinOn()) { 
+    if (!profiler->isEnabled()) { 
 		return; 
 	}
 
@@ -773,7 +774,7 @@ RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWor
 void _KExitRegion(SID regionId, RegionType regionType) {
 	idbgAction(KREM_REGION_EXIT, "## KExitRegion(regionID=%llu,regionType=%u)\n",regionId,regionType);
 
-    if (!isKremlinOn()) { 
+    if (!profiler->isEnabled()) { 
 		return; 
 	}
 
@@ -865,7 +866,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
 void _KLandingPad(SID regionId, RegionType regionType) {
 	idbgAction(KREM_REGION_EXIT, "## KLandingPad(regionID=%llu,regionType=%u)\n",regionId,regionType);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	SID sid = 0;
 
@@ -1048,7 +1049,7 @@ void _KAssignConst(UInt dest_reg) {
     MSG(1, "_KAssignConst ts[%u]\n", dest_reg);
 	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest_reg=%u)\n",dest_reg);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
@@ -1059,7 +1060,7 @@ void _KInduction(UInt dest_reg) {
     MSG(1, "KInduction to %u\n", dest_reg);
 	idbgAction(KREM_INDUCTION,"## _KInduction(dest_reg=%u)\n",dest_reg);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
@@ -1068,7 +1069,7 @@ void _KReduction(UInt op_cost, Reg dest_reg) {
     MSG(3, "KReduction ts[%u] with cost = %d\n", dest_reg, op_cost);
 	idbgAction(KREM_REDUCTION, "## KReduction(op_cost=%u,dest_reg=%u)\n",op_cost,dest_reg);
 
-    if (!isKremlinOn() || !profiler->shouldInstrumentCurrLevel()) return;
+    if (!profiler->isEnabled() || !profiler->shouldInstrumentCurrLevel()) return;
 }
 
 
@@ -1137,7 +1138,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
     MSG(1, "KTimestamp ts[%u] = (0..%u) \n", dest_reg,num_srcs);
 	idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,num_srcs=%u,...)\n",dest_reg,num_srcs);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	va_list args;
 	va_start(args,num_srcs);
@@ -1149,7 +1150,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 void _KTimestamp0(UInt32 dest_reg) {
     MSG(1, "KTimestamp0 to %u\n", dest_reg);
 	idbgAction(KREM_TS,"## _KTimestamp0(dest_reg=%u)\n",dest_reg);
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
@@ -1158,7 +1159,7 @@ void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
     MSG(3, "KTimestamp1 ts[%u] = ts[%u] + %u\n", dest_reg, src_reg, src_offset);
 	idbgAction(KREM_TS,"## _KTimestamp1(dest_reg=%u,src_reg=%u,src_offset=%u)\n",dest_reg,src_reg,src_offset);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 1, false>(dest_reg, src_reg, src_offset, 0, 0, 0, 0, 0, 0, 0, 0);
 }
@@ -1167,7 +1168,7 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
     MSG(3, "KTimestamp2 ts[%u] = max(ts[%u] + %u,ts[%u] + %u)\n", dest_reg, src1_reg, src1_offset, src2_reg, src2_offset);
 	idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 2, false>(dest_reg, src1_reg, src1_offset, 
 									src2_reg, src2_offset, 0, 0, 0, 0, 0, 0);
@@ -1180,7 +1181,7 @@ void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 	// TODO: fix next line
 	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 3, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
@@ -1195,7 +1196,7 @@ void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 	// TODO: fix next line
 	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 4, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
@@ -1213,7 +1214,7 @@ src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
 	// TODO: fix next line
 	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 5, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
@@ -1233,7 +1234,7 @@ src6_reg, UInt32 src6_offset) {
 	// TODO: fix next line
 	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, false, 5, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
@@ -1256,7 +1257,7 @@ src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
 	// TODO: fix next line
 	//idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, false, 5, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
@@ -1297,7 +1298,7 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
     MSG(1, "KLoad ts[%u] = max(ts[0x%x],...,ts_src%u[...]) + %u (access size: %u)\n", dest_reg,src_addr,num_srcs,LOAD_COST,mem_access_size);
 	idbgAction(KREM_LOAD,"## _KLoad(src_addr=0x%x,dest_reg=%u,mem_access_size=%u,num_srcs=%u,...)\n",src_addr,dest_reg,mem_access_size,num_srcs);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	va_list args;
 	va_start(args,num_srcs);
@@ -1310,7 +1311,7 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
 	idbgAction(KREM_LOAD, "## KLoad0(Addr=0x%x,dest_reg=%u,mem_access_size=%u)\n",
 		src_addr, dest_reg, mem_access_size);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 0, true>(dest_reg, 
 											0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1322,7 +1323,7 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
     MSG(1, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest_reg, src_addr, src_reg, LOAD_COST);
 	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src_reg=%u,dest_reg=%u,mem_access_size=%u)\n",src_addr,src_reg,dest_reg,mem_access_size);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<true, true, 1, true>(dest_reg, 
 											src_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1386,7 +1387,7 @@ void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
     MSG(1, "store size %d ts[0x%x] = ts[%u] + %u\n", mem_access_size, dest_addr, src_reg, STORE_COST);
 	idbgAction(KREM_STORE,"## KStore(src_reg=%u,dest_addr=0x%x,mem_access_size=%u)\n",src_reg,dest_addr,mem_access_size);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	handleStore<false>(dest_addr, mem_access_size, src_reg);
 
@@ -1398,7 +1399,7 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
     MSG(1, "KStoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
 	idbgAction(KREM_STORE,"## _KStoreConst(dest_addr=0x%x,mem_access_size=%u)\n",dest_addr,mem_access_size);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	handleStore<true>(dest_addr, mem_access_size, 0);
 
@@ -1418,7 +1419,7 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
     MSG(1, "KPhi ts[%u] = max(ts[%u],ts[ctrl0]...ts[ctrl%u])\n", dest_reg, src_reg,num_ctrls);
 	idbgAction(KREM_PHI,"## KPhi (dest_reg=%u,src_reg=%u,num_ctrls=%u)\n",dest_reg,src_reg,num_ctrls);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	va_list args;
 	va_start(args, num_ctrls);
@@ -1430,7 +1431,7 @@ void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
     MSG(1, "KPhi1To1 ts[%u] = max(ts[%u], ts[%u])\n", dest_reg, src_reg, ctrl_reg);
 	idbgAction(KREM_PHI,"## KPhi1To1 (dest_reg=%u,src_reg=%u,ctrl_reg=%u)\n",dest_reg,src_reg,ctrl_reg);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<false, false, 2, false>(dest_reg, src_reg, 0, 
 										ctrl_reg, 0, 0, 0, 0, 0, 0, 0);
@@ -1439,7 +1440,7 @@ void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
 void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg) {
     MSG(1, "KPhi2To1 ts[%u] = max(ts[%u], ts[%u], ts[%u])\n", dest_reg, src_reg, ctrl1_reg, ctrl2_reg);
 	idbgAction(KREM_PHI,"## KPhi2To1 (dest_reg=%u,src_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u)\n",dest_reg,src_reg,ctrl1_reg,ctrl2_reg);
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<false, false, 3, false>(dest_reg, src_reg, 0, 
 										ctrl1_reg, 0, 
@@ -1450,7 +1451,7 @@ void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
     MSG(1, "KPhi3To1 ts[%u] = max(ts[%u], ts[%u], ts[%u], ts[%u])\n", dest_reg, src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg);
 	idbgAction(KREM_PHI,"## KPhi3To1 (dest_reg=%u,src_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u,ctrl3_reg=%u)\n",dest_reg,src_reg,ctrl1_reg,ctrl2_reg,ctrl3_reg);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<false, false, 4, false>(dest_reg, src_reg, 0, 
 										ctrl1_reg, 0, 
@@ -1463,7 +1464,7 @@ void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
 		dest_reg, src_reg, ctrl1_reg, ctrl2_reg, ctrl3_reg, ctrl4_reg);
 	idbgAction(KREM_PHI,"## KPhi4To1 (dest_reg=%u,src_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u,ctrl3_reg=%u,ctrl4_reg=%u)\n", dest_reg,src_reg,ctrl1_reg,ctrl2_reg,ctrl3_reg,ctrl4_reg);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<false, false, 5, false>(dest_reg, src_reg, 0, 
 										ctrl1_reg, 0, 
@@ -1478,7 +1479,7 @@ void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Re
 	idbgAction(KREM_CD_TO_PHI,"## KPhi4To1 (dest_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u,ctrl3_reg=%u,ctrl4_reg=%u)\n",
 		dest_reg,ctrl1_reg,ctrl2_reg,ctrl3_reg,ctrl4_reg);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	// XXX: either 2nd template should be true or 2nd template in KPhiAddCond
 	// should be false
@@ -1493,7 +1494,7 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
     MSG(1, "KPhiAddCond ts[%u] = max(ts[%u], ts[%u])\n", dest_reg, src_reg, dest_reg);
 	idbgAction(KREM_CD_TO_PHI,"## KPhiAddCond (dest_reg=%u,src_reg=%u)\n",dest_reg,src_reg);
 
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
 	timestampUpdater<false, true, 2, false>(dest_reg, dest_reg, 0, 
 										src_reg, 0, 0, 0, 0, 0, 0, 0);
@@ -1602,7 +1603,7 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 	idbgAction(KREM_CD_TO_PHI,"## KCallLib(cost=%u,dest=%u,num_in=%u,...)\n",cost,dest,num_in);
 
 #if 0
-    if (!isKremlinOn())
+    if (!profiler->isEnabled())
         return;
 
     MSG(1, "KCallLib to ts[%u] with cost %u\n", dest, cost);
@@ -1657,7 +1658,7 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 void _KMalloc(Addr addr, size_t size, UInt dest) {
 	// TODO: idbgAction
 #if 0
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
     
     MSG(1, "KMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
 
@@ -1672,7 +1673,7 @@ void _KMalloc(Addr addr, size_t size, UInt dest) {
 void _KFree(Addr addr) {
 	// TODO: idbgAction
 #if 0
-    if (!isKremlinOn()) return;
+    if (!profiler->isEnabled()) return;
 
     MSG(1, "KFree addr=0x%x\n", addr);
 
@@ -1707,7 +1708,7 @@ void _KFree(Addr addr) {
 void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
 	// TODO: idbgAction
 #if 0
-    if (!isKremlinOn())
+    if (!profiler->isEnabled())
         return;
 
     MSG(1, "KRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (UInt64)size);
@@ -1845,7 +1846,7 @@ InvokeRecords*      invokeRecords;
 static std::vector<InvokeRecord*> invokeRecords; // A vector used to record invoked calls.
 
 void _KPrepInvoke(UInt64 id) {
-    if(!isKremlinOn())
+    if(!profiler->isEnabled())
         return;
 
     MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (UInt64)profiler->getCurrentLevel());
@@ -1856,7 +1857,7 @@ void _KPrepInvoke(UInt64 id) {
 }
 
 void _KInvokeOkay(UInt64 id) {
-    if(!isKremlinOn())
+    if(!profiler->isEnabled())
         return;
 
     if(!invokeRecords.empty() && invokeRecords.back()->id == id) {
@@ -1868,7 +1869,7 @@ void _KInvokeOkay(UInt64 id) {
 
 void _KInvokeThrew(UInt64 id)
 {
-    if(!isKremlinOn())
+    if(!profiler->isEnabled())
         return;
 
     fprintf(stderr, "invokeRecordOnTop: %u\n", invokeRecords.back()->id);
