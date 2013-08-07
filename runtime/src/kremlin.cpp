@@ -934,14 +934,44 @@ void _KLandingPad(SID regionId, RegionType regionType) {
  * KInduction, KReduction, KTimestamp, KAssignConst
  *****************************************************************/
 
-template <bool use_cdep, bool update_cp, unsigned num_data_deps>
-static inline void timestampUpdater(UInt32 dest_reg, UInt32 src0_reg, UInt32 src0_offset,
-						UInt32 src1_reg, UInt32 src1_offset,
-						UInt32 src2_reg, UInt32 src2_offset,
-						UInt32 src3_reg, UInt32 src3_offset,
-						UInt32 src4_reg, UInt32 src4_offset
-						) {
+template <unsigned num_data_deps, unsigned cond, bool load_inst>
+static inline Time calcNewDestTime(Time curr_dest_time, UInt32 src_reg, 
+									UInt32 src_offset, Index i) {
+	if (num_data_deps > cond) {
+		Time src_time = RShadowGetItem(src_reg, i);
+		if (!load_inst) src_time += src_offset;
+		return MAX(curr_dest_time, src_time);
+	}
+	else
+		return curr_dest_time;
+}
+
+// TODO: once C++11 is widespread, give load_inst a default value of false
+template <bool use_cdep, bool update_cp, unsigned num_data_deps, bool load_inst>
+static inline void timestampUpdater(UInt32 dest_reg, 
+									UInt32 src0_reg, UInt32 src0_offset,
+									UInt32 src1_reg, UInt32 src1_offset,
+									UInt32 src2_reg, UInt32 src2_offset,
+									UInt32 src3_reg, UInt32 src3_offset,
+									UInt32 src4_reg, UInt32 src4_offset,
+									Addr src_addr=NULL,
+									UInt32 mem_access_size=0
+									) {
+
+	Time* src_addr_times = NULL;
 	Index end_index = profiler->getCurrNumInstrumentedLevels();
+
+	if (load_inst) {
+		assert(mem_access_size <= 8);
+		Index region_depth = profiler->getCurrNumInstrumentedLevels();
+		Level min_level = profiler->getLevelForIndex(0); // XXX: this doesn't seem right (-sat)
+		src_addr_times = mem_shadow->get(src_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
+
+#ifdef KREMLIN_DEBUG
+		printLoadDebugInfo(src_addr, dest_reg, src_addr_times, end_index);
+#endif
+	}
+
     for (Index index = 0; index < end_index; ++index) {
 		Level i = profiler->getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
@@ -953,21 +983,21 @@ static inline void timestampUpdater(UInt32 dest_reg, UInt32 src0_reg, UInt32 src
 			assert(cdep_time <= profiler->getCurrentTime() - region->start);
 		}
 
-		if (num_data_deps > 0) {
-			dest_time = MAX(dest_time, RShadowGetItem(src0_reg, index) + src0_offset);
+		if (load_inst) {
+			// XXX: Why check timestamp here? Looks like this only occurs in KLoad
+			// insts. If this is necessary, we might need to add checkTimestamp to
+			// each src time (below).
+			checkTimestamp(index, region, src_addr_times[index]);
+			dest_time = MAX(dest_time, src_addr_times[index]);
 		}
-		if (num_data_deps > 1) {
-			dest_time = MAX(dest_time, RShadowGetItem(src1_reg, index) + src1_offset);
-		}
-		if (num_data_deps > 2) {
-			dest_time = MAX(dest_time, RShadowGetItem(src2_reg, index) + src2_offset);
-		}
-		if (num_data_deps > 3) {
-			dest_time = MAX(dest_time, RShadowGetItem(src3_reg, index) + src3_offset);
-		}
-		if (num_data_deps > 4) {
-			dest_time = MAX(dest_time, RShadowGetItem(src4_reg, index) + src4_offset);
-		}
+
+		dest_time = calcNewDestTime<num_data_deps, 0, load_inst>(dest_time, src0_reg, src0_offset, index);
+		dest_time = calcNewDestTime<num_data_deps, 1, load_inst>(dest_time, src1_reg, src1_offset, index);
+		dest_time = calcNewDestTime<num_data_deps, 2, load_inst>(dest_time, src2_reg, src2_offset, index);
+		dest_time = calcNewDestTime<num_data_deps, 3, load_inst>(dest_time, src3_reg, src3_offset, index);
+		dest_time = calcNewDestTime<num_data_deps, 4, load_inst>(dest_time, src4_reg, src4_offset, index);
+
+		if (load_inst) dest_time += LOAD_COST;
 
 		RShadowSetItem(dest_time, dest_reg, index);
 
@@ -983,7 +1013,7 @@ void _KAssignConst(UInt dest_reg) {
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, true, 0>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 // This function is mainly to help identify induction variables in the source
@@ -994,7 +1024,7 @@ void _KInduction(UInt dest_reg) {
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, true, 0>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 void _KReduction(UInt op_cost, Reg dest_reg) {
@@ -1004,12 +1034,80 @@ void _KReduction(UInt op_cost, Reg dest_reg) {
     if (!isKremlinOn() || !profiler->shouldInstrumentCurrLevel()) return;
 }
 
+
+template <bool use_cdep, bool update_cp, bool phi_inst, bool load_inst>
+static inline void handleVarArgDeps(UInt32 dest_reg, UInt32 src_reg, 
+									Addr load_addr, UInt32 mem_access_size,
+									unsigned num_srcs, va_list args) {
+	UInt32 src_regs[5];
+	UInt32 src_offsets[5];
+
+	//UInt32 src0_reg, src1_reg, src2_reg, src3_reg, src4_reg;
+	//UInt32 src0_offset, src1_offset, src2_offset, src3_offset, src4_offset;
+
+	if (phi_inst || load_inst) {
+		memset(&src_offsets, 0, sizeof(UInt32)*5);
+		//src0_offset =  src1_offset = src2_offset =  src3_offset = src4_offset = 0;
+	}
+
+	unsigned arg_idx;
+	for(arg_idx = 0; arg_idx < num_srcs; ++arg_idx) {
+		unsigned place = arg_idx % 5;
+		src_regs[place] = va_arg(args,UInt32);
+		if (!phi_inst && !load_inst) {
+			src_offsets[place] = va_arg(args,UInt32);
+		}
+
+		if (place == 0) {
+			// TRICKY: once we start another round, we initialize all srcs
+			// and src offsets to the first one (src0) to ensure that we
+			// have a valid call to timestamp updater.
+			// If we knew there were at least 5 sources, this would be
+			// unnecessary (because it doesn't hurt to do use the same
+			// source multiple times when calculating the timestamp.)
+			src_regs[4] = src_regs[3] = src_regs[2] = src_regs[1] = src_regs[0];
+
+			if (!phi_inst && !load_inst) {
+				src_offsets[4] = src_offsets[3] = src_offsets[2] = src_offsets[1] = src_offsets[0];
+			}
+		}
+		else if (place == 4) {
+			timestampUpdater<true, true, 5, load_inst>(dest_reg, src_regs[0], src_offsets[0], 
+														src_regs[1], src_offsets[1], 
+														src_regs[2], src_offsets[2], 
+														src_regs[3], src_offsets[3], 
+														src_regs[4], src_offsets[4],
+														load_addr, mem_access_size);
+		}
+	}
+
+	if (phi_inst) {
+		src_regs[arg_idx % 5] = src_reg;
+	}
+
+	// finish up any leftover args (beyond the last set of 5)
+	if (arg_idx % 5 != 0 || phi_inst) {
+		timestampUpdater<true, true, 5, load_inst>(dest_reg, src_regs[0], src_offsets[0], 
+													src_regs[1], src_offsets[1], 
+													src_regs[2], src_offsets[2], 
+													src_regs[3], src_offsets[3], 
+													src_regs[4], src_offsets[4],
+													load_addr, mem_access_size);
+	}
+}
+
 void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
     MSG(1, "KTimestamp ts[%u] = (0..%u) \n", dest_reg,num_srcs);
 	idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,num_srcs=%u,...)\n",dest_reg,num_srcs);
 
     if (!isKremlinOn()) return;
 
+	va_list args;
+	va_start(args,num_srcs);
+	handleVarArgDeps<true, true, false, false>(dest_reg, 0, NULL, 0, num_srcs, args);
+	va_end(args);
+
+#if 0
 	va_list args;
 	va_start(args,num_srcs);
 
@@ -1046,7 +1144,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 			default:
 				src4_reg = va_arg(args,UInt32);
 				src4_offset = va_arg(args,UInt32);
-				timestampUpdater<true, true, 5>(dest_reg, src0_reg, src0_offset, 
+				timestampUpdater<true, true, 5, false>(dest_reg, src0_reg, src0_offset, 
 													src1_reg, src1_offset, 
 													src2_reg, src2_offset, 
 													src3_reg, src3_offset, 
@@ -1056,7 +1154,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 
 	// finish up any leftover args (beyond the last set of 5)
 	if (arg_idx % 5 != 0) {
-		timestampUpdater<true, true, 5>(dest_reg, src0_reg, src0_offset, 
+		timestampUpdater<true, true, 5, false>(dest_reg, src0_reg, src0_offset, 
 											src1_reg, src1_offset, 
 											src2_reg, src2_offset, 
 											src3_reg, src3_offset, 
@@ -1064,6 +1162,7 @@ void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
 	}
 
 	va_end(args);
+#endif
 }
 
 // XXX: not 100% sure this is the correct functionality
@@ -1072,7 +1171,7 @@ void _KTimestamp0(UInt32 dest_reg) {
 	idbgAction(KREM_TS,"## _KTimestamp0(dest_reg=%u)\n",dest_reg);
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, true, 0>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
@@ -1081,7 +1180,7 @@ void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, true, 1>(dest_reg, src_reg, src_offset, 0, 0, 0, 0, 0, 0, 0, 0);
+	timestampUpdater<true, true, 1, false>(dest_reg, src_reg, src_offset, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset) {
@@ -1090,7 +1189,7 @@ void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, true, 2>(dest_reg, src1_reg, src1_offset, 
+	timestampUpdater<true, true, 2, false>(dest_reg, src1_reg, src1_offset, 
 									src2_reg, src2_offset, 0, 0, 0, 0, 0, 0);
 }
 
@@ -1103,7 +1202,7 @@ void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, true, 3>(dest_reg, src1_reg, src1_offset, 
+	timestampUpdater<true, true, 3, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
 										src3_reg, src3_offset, 0, 0, 0, 0);
 }
@@ -1118,7 +1217,7 @@ void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, true, 4>(dest_reg, src1_reg, src1_offset, 
+	timestampUpdater<true, true, 4, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
 										src3_reg, src3_offset, 
 										src4_reg, src4_offset, 0, 0);
@@ -1136,7 +1235,7 @@ src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, true, 5>(dest_reg, src1_reg, src1_offset, 
+	timestampUpdater<true, true, 5, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
 										src3_reg, src3_offset, 
 										src4_reg, src4_offset, 
@@ -1156,12 +1255,12 @@ src6_reg, UInt32 src6_offset) {
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, false, 5>(dest_reg, src1_reg, src1_offset, 
+	timestampUpdater<true, false, 5, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
 										src3_reg, src3_offset, 
 										src4_reg, src4_offset, 
 										src5_reg, src5_offset);
-	timestampUpdater<false, true, 2>(dest_reg, dest_reg, 0, 
+	timestampUpdater<false, true, 2, false>(dest_reg, dest_reg, 0, 
 										src6_reg, src6_offset, 0, 0, 0, 0, 0, 0);
 }
 
@@ -1179,12 +1278,12 @@ src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<true, false, 5>(dest_reg, src1_reg, src1_offset, 
+	timestampUpdater<true, false, 5, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
 										src3_reg, src3_offset, 
 										src4_reg, src4_offset, 
 										src5_reg, src5_offset);
-	timestampUpdater<false, true, 3>(dest_reg, dest_reg, 0, 
+	timestampUpdater<false, true, 3, false>(dest_reg, dest_reg, 0, 
 										src6_reg, src6_offset, 
 										src7_reg, src7_offset, 0, 0, 0, 0);
 }
@@ -1220,67 +1319,10 @@ void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs
 
     if (!isKremlinOn()) return;
 
-	assert(mem_access_size <= 8);
-
-	Index region_depth = profiler->getCurrNumInstrumentedLevels();
-	Level min_level = profiler->getLevelForIndex(0); // XXX: this doesn't look right...
-	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
-
-#ifdef KREMLIN_DEBUG
-	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
-#endif
-
-	// create an array holding the registers that are srcs
-	Reg* src_regs = new Reg[num_srcs];
-
 	va_list args;
 	va_start(args,num_srcs);
-
-	int src_idx;
-	for(src_idx = 0; src_idx < num_srcs; ++src_idx) {
-		Reg src_reg = va_arg(args,UInt32);
-		src_regs[src_idx] = src_reg;
-		// TODO: debug print out of src reg
-	}
-
-	Index index;
-    for (index = 0; index < region_depth; index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-
-		Time control_dep_time = CDepGet(index);
-
-		// Find the maximum time of all dependencies. Dependencies include the
-		// time loaded from memory as well as the times for all the "source"
-		// registers that are inputs to this function. These "sources" are the
-		// dependencies needed to calculate the address of the load.
-		Time src_addr_time = src_addr_times[index];
-		Time max_dep_time = src_addr_time;
-
-		int src_idx;
-		for(src_idx = 0; src_idx < num_srcs; ++src_idx) {
-			Time src_time = RShadowGetItem(src_regs[src_idx], index);
-			max_dep_time = MAX(max_dep_time,src_time);
-		}
-
-		// Take into account the cost of the load
-		Time dest_time = max_dep_time + LOAD_COST;
-
-		// TODO: more verbose printout of src dependency times
-        MSG(3, "KLoad level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_addr 0x%x dest_reg %u\n", src_addr, dest_reg);
-        MSG(3, " control_dep_time %u dest_time %u\n", control_dep_time, dest_time);
-
-		// XXX: Why check timestamp here? Looks like this only occurs in KLoad
-		// insts. If this is necessary, we might need to add checkTimestamp to
-		// each src time (above). At the very least, we can move this check to
-		// right after we calculate src_addr_time.
-		checkTimestamp(index, region, src_addr_time);
-        RShadowSetItem(dest_time, dest_reg, index);
-        RegionUpdateCp(region, dest_time);
-	}
-
-	delete src_regs; 
+	handleVarArgDeps<true, true, false, true>(dest_reg, 0, src_addr, mem_access_size, num_srcs, args);
+	va_end(args);
 }
 
 void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
@@ -1290,41 +1332,9 @@ void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
 
     if (!isKremlinOn()) return;
 
-	assert(mem_access_size <= 8);
-
-	Index region_depth = profiler->getCurrNumInstrumentedLevels();
-	Level min_level = profiler->getLevelForIndex(0); // XXX: see note in KLoad
-	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
-
-#ifdef KREMLIN_DEBUG
-	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
-#endif
-
-	Index index;
-    for (index = 0; index < region_depth; index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-
-		Time control_dep_time = CDepGet(index);
-		Time src_addr_time = src_addr_times[index];
-        Time dest_time = MAX(control_dep_time,src_addr_time) + LOAD_COST;
-
-        MSG(3, "KLoad level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_addr 0x%x dest_reg %u\n", src_addr, dest_reg);
-        MSG(3, " control_dep_time %u src_addr_time %u dest_time %u\n", control_dep_time, src_addr_time, dest_time);
-#if 0
-		// why are 0 to 3 hardwired in here???
-		if (src_addr_time > profiler->getCurrentTime()) {
-			fprintf(stderr, "@index %d, %llu, %llu, %llu, %llu\n", 
-				index, src_addr_times[0], src_addr_times[1], src_addr_times[2], src_addr_times[3]);
-			assert(0);
-		}
-#endif
-		checkTimestamp(index, region, src_addr_time); // XXX: see note in KLoad0
-        RShadowSetItem(dest_time, dest_reg, index);
-        RegionUpdateCp(region, dest_time);
-    }
-
+	timestampUpdater<true, true, 0, true>(dest_reg, 
+											0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+											src_addr, mem_access_size);
     MSG(3, "load ts[%u] completed\n\n",dest_reg);
 }
 
@@ -1334,35 +1344,9 @@ void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
 
     if (!isKremlinOn()) return;
 
-	assert(mem_access_size <= 8);
-
-	Index region_depth = profiler->getCurrNumInstrumentedLevels();
-    Level min_level = profiler->getMinLevel(); // XXX: KLoad/KLoad0 use profiler->getLevelForIndex(0)
-	Time* src_addr_times = mem_shadow->get(src_addr, region_depth, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
-
-#ifdef KREMLIN_DEBUG
-	printLoadDebugInfo(src_addr,dest_reg,src_addr_times,region_depth);
-#endif
-
-	Index index;
-    for (index = 0; index < region_depth; index++) {
-		Level i = profiler->getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		Time control_dep_time = CDepGet(index);
-		Time src_addr_time = src_addr_times[index];
-		Time dep_time = RShadowGetItem(src_reg, index);
-
-        Time max_dep_time = MAX(src_addr_time,control_dep_time);
-        max_dep_time = MAX(max_dep_time,dep_time);
-		Time dest_time = max_dep_time + LOAD_COST;
-
-        MSG(3, "KLoad1 level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_addr 0x%x src_reg %u dest_reg %u\n", src_addr, src_reg, dest_reg);
-        MSG(3, " control_dep_time %u src_addr_time %u dep_time %u max_dep_time %u\n", control_dep_time, src_addr_time, dep_time, max_dep_time);
-		checkTimestamp(index, region, src_addr_time); // XXX: see note in KLoad0
-        RShadowSetItem(dest_time, dest_reg, index);
-        RegionUpdateCp(region, dest_time);
-    }
+	timestampUpdater<true, true, 1, true>(dest_reg, 
+											src_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+											src_addr, mem_access_size);
 }
 
 // XXX: KLoad{2,3,4} will soon be deprecated
@@ -1456,40 +1440,10 @@ void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
 
     if (!isKremlinOn()) return;
 
-	// create an array holding the registers that are srcs
-	Reg* ctrl_regs = new Reg[num_ctrls]; 
-
 	va_list args;
-	va_start(args,num_ctrls);
-
-	int ctrl_idx;
-	for(ctrl_idx = 0; ctrl_idx < num_ctrls; ++ctrl_idx) {
-		Reg ctrl_reg = va_arg(args,UInt32);
-		ctrl_regs[ctrl_idx] = ctrl_reg;
-		// TODO: debug print out of src reg
-	}
-
-	Index index;
-    for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Level i = profiler->getLevelForIndex(index);
-
-		Time src_time = RShadowGetItem(src_reg, index);
-		Time dest_time = src_time;
-
-		int ctrl_idx;
-		for(ctrl_idx = 0; ctrl_idx < num_ctrls; ++ctrl_idx) {
-			Time ctrl_time = RShadowGetItem(ctrl_regs[ctrl_idx], index);
-			dest_time = MAX(dest_time,ctrl_time);
-		}
-
-		RShadowSetItem(dest_time, dest_reg, index);
-
-        MSG(3, "KPhi level %u version %u \n", i, *ProgramRegion::getVersionAtLevel(i));
-        MSG(3, " src_reg %u dest_reg %u\n", src_reg, dest_reg);
-        MSG(3, " src_time %u dest_time %u\n", src_time, dest_time);
-    }
-
-	delete ctrl_regs; 
+	va_start(args, num_ctrls);
+	handleVarArgDeps<false, false, true, false>(dest_reg, src_reg, NULL, 0, num_ctrls, args);
+	va_end(args);
 }
 
 void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
@@ -1498,7 +1452,7 @@ void _KPhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<false, false, 2>(dest_reg, src_reg, 0, 
+	timestampUpdater<false, false, 2, false>(dest_reg, src_reg, 0, 
 										ctrl_reg, 0, 0, 0, 0, 0, 0, 0);
 }
 
@@ -1507,7 +1461,7 @@ void _KPhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg) {
 	idbgAction(KREM_PHI,"## KPhi2To1 (dest_reg=%u,src_reg=%u,ctrl1_reg=%u,ctrl2_reg=%u)\n",dest_reg,src_reg,ctrl1_reg,ctrl2_reg);
     if (!isKremlinOn()) return;
 
-	timestampUpdater<false, false, 3>(dest_reg, src_reg, 0, 
+	timestampUpdater<false, false, 3, false>(dest_reg, src_reg, 0, 
 										ctrl1_reg, 0, 
 										ctrl2_reg, 0, 0, 0, 0, 0);
 }
@@ -1518,7 +1472,7 @@ void _KPhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<false, false, 4>(dest_reg, src_reg, 0, 
+	timestampUpdater<false, false, 4, false>(dest_reg, src_reg, 0, 
 										ctrl1_reg, 0, 
 										ctrl2_reg, 0, 
 										ctrl3_reg, 0, 0, 0);
@@ -1531,7 +1485,7 @@ void _KPhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<false, false, 5>(dest_reg, src_reg, 0, 
+	timestampUpdater<false, false, 5, false>(dest_reg, src_reg, 0, 
 										ctrl1_reg, 0, 
 										ctrl2_reg, 0, 
 										ctrl3_reg, 0, 
@@ -1548,7 +1502,7 @@ void _KPhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Re
 
 	// XXX: either 2nd template should be true or 2nd template in KPhiAddCond
 	// should be false
-	timestampUpdater<false, false, 5>(dest_reg, dest_reg, 0, 
+	timestampUpdater<false, false, 5, false>(dest_reg, dest_reg, 0, 
 										ctrl1_reg, 0, 
 										ctrl2_reg, 0, 
 										ctrl3_reg, 0, 
@@ -1561,7 +1515,7 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
 
     if (!isKremlinOn()) return;
 
-	timestampUpdater<false, true, 2>(dest_reg, dest_reg, 0, 
+	timestampUpdater<false, true, 2, false>(dest_reg, dest_reg, 0, 
 										src_reg, 0, 0, 0, 0, 0, 0, 0);
 }
 
