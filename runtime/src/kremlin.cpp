@@ -39,6 +39,8 @@
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 
+static Table *shadow_reg_file; // TODO: static member of KremlinProfiler?
+
 class KremlinProfiler {
 private:
 	bool enabled; // true if profiling is on (i.e. enabled), false otherwise
@@ -96,9 +98,20 @@ public:
 		this->num_function_regions_entered = 0;
 		this->num_register_tables_setup = 0;
 		this->shadow_mem = NULL;
+		//this->shadow_reg_file = NULL; // XXX: remove?
 	}
 
 	~KremlinProfiler() {}
+
+	static void initShadowRegisterFile(Index depth) { shadow_reg_file = NULL; }
+	static void deinitShadowRegisterFile() {}
+
+	static Time getRegisterTimeAtIndex(Reg reg, Index index);
+	static void setRegisterTimeAtIndex(Time time, Reg reg, Index index);
+	static void zeroRegistersAtIndex(Index index);
+
+	static void setRegisterFileTable(Table* table) { shadow_reg_file = table; }
+	static Table* getRegisterFileTable() { return shadow_reg_file; }
 
 	// TODO: is the following function necessary?
 	bool waitingForRegisterTableSetup() {return this->waiting_for_register_table_init; }
@@ -276,6 +289,45 @@ static UInt64	loadCnt = 0llu;
 static UInt64	storeCnt = 0llu;
 // END TODO: make these not global
 
+/*
+ * Register Shadow Memory 
+ */
+Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
+	MSG(3, "RShadowGet [%d, %d] in table [%d, %d]\n",
+		reg, index, shadow_reg_file->row, shadow_reg_file->col);
+	assert(reg < shadow_reg_file->row);	
+	assert(index < shadow_reg_file->col);
+	int offset = shadow_reg_file->getOffset(reg, index);
+	Time ret = shadow_reg_file->array[offset];
+	return ret;
+}
+
+void KremlinProfiler::setRegisterTimeAtIndex(Time time, Reg reg, Index index) {
+	MSG(3, "RShadowSet [%d, %d] in table [%d, %d]\n",
+		reg, index, shadow_reg_file->row, shadow_reg_file->col);
+	assert(reg < shadow_reg_file->row);
+	assert(index < shadow_reg_file->col);
+	int offset = shadow_reg_file->getOffset(reg, index);
+	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
+		&(shadow_reg_file->array[offset]), time, reg, index, offset);
+	assert(shadow_reg_file != NULL);
+	shadow_reg_file->array[offset] = time;
+}
+
+
+void KremlinProfiler::zeroRegistersAtIndex(Index index) {
+	if (index >= shadow_reg_file->col)
+		return;
+
+	MSG(3, "zeroRegistersAtIndex col [%d] in table [%d, %d]\n",
+		index, shadow_reg_file->row, shadow_reg_file->col);
+	Reg i;
+	assert(shadow_reg_file != NULL);
+	for (i=0; i<shadow_reg_file->row; i++) {
+		setRegisterTimeAtIndex(0ULL, i, index);
+	}
+}
+
 /*************************************************************
  * Index Management
  * Index represents the offset in multi-value shadow memory
@@ -440,7 +492,7 @@ void _KPushCDep(Reg cond) {
 		assert(0);	
 	}
 
-	Table* ltable = RShadowGetTable();
+	Table* lTable = KremlinProfiler::getRegisterFileTable();
 	//assert(lTable->col >= indexSize);
 	//assert(control_dependence_table->col >= indexSize);
 
@@ -575,7 +627,7 @@ void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
     funcHead->table = table;
     assert(funcHead->table != NULL);
 
-    RShadowActivateTable(funcHead->table);
+    KremlinProfiler::setRegisterFileTable(funcHead->table);
 	profiler->incrementSetupTableCount();
     profiler->finishRegisterTableSetup();
 }
@@ -710,7 +762,7 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 
     } else {
 		if (profiler->shouldInstrumentCurrLevel())
-			RShadowRestartIndex(profiler->getCurrentLevelIndex());
+			KremlinProfiler::zeroRegistersAtIndex(profiler->getCurrentLevelIndex());
 	}
 
     FunctionRegion* funcHead = profiler->getCurrentFunction();
@@ -739,7 +791,7 @@ static void handleFuncRegionExit() {
 
 	FunctionRegion* funcHead = profiler->getCurrentFunction();
 	assert(funcHead != NULL);
-	RShadowActivateTable(funcHead->table); 
+	KremlinProfiler::setRegisterFileTable(funcHead->table); 
 }
 
 
@@ -982,7 +1034,7 @@ template <unsigned num_data_deps, unsigned cond, bool load_inst>
 static inline Time calcNewDestTime(Time curr_dest_time, UInt32 src_reg, 
 									UInt32 src_offset, Index i) {
 	if (num_data_deps > cond) {
-		Time src_time = RShadowGetItem(src_reg, i);
+		Time src_time = KremlinProfiler::getRegisterTimeAtIndex(src_reg, i);
 		if (!load_inst) src_time += src_offset;
 		return MAX(curr_dest_time, src_time);
 	}
@@ -1043,7 +1095,7 @@ static inline void timestampUpdater(UInt32 dest_reg,
 
 		if (load_inst) dest_time += LOAD_COST;
 
-		RShadowSetItem(dest_time, dest_reg, index);
+		KremlinProfiler::setRegisterTimeAtIndex(dest_time, dest_reg, index);
 
 		if (update_cp) {
         	region->updateCriticalPathLength(dest_time);
@@ -1367,7 +1419,7 @@ static void handleStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg) {
 		Time control_dep_time = CDepGet(index);
         Time dest_time = control_dep_time + STORE_COST;
 		if (!store_const) {
-			Time src_time = RShadowGetItem(src_reg, index);
+			Time src_time = KremlinProfiler::getRegisterTimeAtIndex(src_reg, index);
         	dest_time = MAX(control_dep_time,src_time) + STORE_COST;
 		}
 		dest_addr_times[index] = dest_time;
@@ -1536,7 +1588,7 @@ static bool kremlinInit() {
 	profiler->initFunctionArgQueue();
 	CDepInit();
 	CRegionInit();
-	RShadowInit(profiler->getArraySize());
+	profiler->initShadowRegisterFile(profiler->getArraySize());
 
 	profiler->initShadowMemory(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
 	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
@@ -1570,7 +1622,7 @@ static bool kremlinDeinit() {
 
 	_KTurnOff();
 	CRegionDeinit(KConfigGetOutFileName());
-	RShadowDeinit();
+	profiler->deinitShadowRegisterFile();
 	profiler->deinitShadowMemory();
 	profiler->deinitFunctionArgQueue();
 	CDepDeinit();
@@ -1768,7 +1820,7 @@ void printRegisterTimes(Reg reg) {
 
 	Index index;
     for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-        Time ts = RShadowGetItem(reg, index);
+        Time ts = KremlinProfiler::getRegisterTimeAtIndex(reg, index);
 		fprintf(stdout,"\t#%u: %llu\n",index,ts);
 	}
 }
