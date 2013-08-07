@@ -64,6 +64,8 @@ class ProgramRegion {
 		assert(code == ProgramRegion::ERROR_CHECK_CODE);
 	}
 
+	void updateCriticalPathLength(Timestamp value);
+
 	static ProgramRegion* getRegionAtLevel(Level l) {
 		assert(l < program_regions.size());
 		ProgramRegion* ret = program_regions[l];

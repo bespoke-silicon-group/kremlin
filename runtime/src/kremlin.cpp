@@ -300,15 +300,15 @@ static inline void checkTimestamp(int index, ProgramRegion* region, Timestamp va
 #endif
 }
 
-static inline void RegionUpdateCp(ProgramRegion* region, Timestamp value) {
-	region->cp = MAX(value, region->cp);
-	MSG(3, "RegionUpdateCp : value = %llu\n", region->cp);	
-	region->sanityCheck();
+void ProgramRegion::updateCriticalPathLength(Timestamp value) {
+	this->cp = MAX(value, this->cp);
+	MSG(3, "updateCriticalPathLength : value = %llu\n", this->cp);	
+	this->sanityCheck();
 #ifndef NDEBUG
-	//assert(value <= profiler->getCurrentTime() - region->start);
-	if (value > profiler->getCurrentTime() - region->start) {
+	//assert(value <= profiler->getCurrentTime() - this->start);
+	if (value > profiler->getCurrentTime() - this->start) {
 		fprintf(stderr, "value = %lld, current time = %lld, region start = %lld\n", 
-		value, profiler->getCurrentTime(), region->start);
+		value, profiler->getCurrentTime(), this->start);
 		assert(0);
 	}
 #endif
@@ -1002,7 +1002,7 @@ static inline void timestampUpdater(UInt32 dest_reg,
 		RShadowSetItem(dest_time, dest_reg, index);
 
 		if (update_cp) {
-        	RegionUpdateCp(region, dest_time);
+        	region->updateCriticalPathLength(dest_time);
 		}
     }
 }
@@ -1384,7 +1384,7 @@ static void handleStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg) {
         	dest_time = MAX(control_dep_time,src_time) + STORE_COST;
 		}
 		dest_addr_times[index] = dest_time;
-        RegionUpdateCp(region, dest_time);
+        region->updateCriticalPathLength(dest_time);
 
 #ifdef EXTRA_STATS
         region->storeCnt++;
