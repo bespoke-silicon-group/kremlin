@@ -44,6 +44,7 @@ static Table *shadow_reg_file; // TODO: static member of KremlinProfiler?
 class KremlinProfiler {
 private:
 	bool enabled; // true if profiling is on (i.e. enabled), false otherwise
+	bool initialized; // true iff init was called without corresponding deinit
 
 	Time curr_time; // the current time of the profiler (virtual)
 	Level curr_level; // current level 
@@ -87,6 +88,7 @@ private:
 public:
 	KremlinProfiler(Level min, Level max) {
 		this->enabled = false;
+		this->initialized = false;
 		this->curr_time = 0;
 		this->curr_level = -1;
 		this->min_level = min;
@@ -102,6 +104,10 @@ public:
 	}
 
 	~KremlinProfiler() {}
+
+	void init();
+	void deinit();
+	void cleanup();
 
 	static void initShadowRegisterFile(Index depth) { shadow_reg_file = NULL; }
 	static void deinitShadowRegisterFile() {}
@@ -1565,82 +1571,76 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
  *****************************/
 
 
-static UInt hasInitialized = 0;
-
 #define REGION_INIT_SIZE	64
 
-static bool kremlinInit() {
+void KremlinProfiler::init() {
 	DebugInit();
-    if(hasInitialized++) {
+    if (initialized) {
         MSG(0, "kremlinInit skipped\n");
-        return false;
+		return;
     }
-
-	profiler = new KremlinProfiler(KConfigGetMinLevel(), KConfigGetMaxLevel());
+	initialized = true;
 
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
-        profiler->getMinLevel(), profiler->getMaxLevel(), profiler->getArraySize());
+        getMinLevel(), getMaxLevel(), getArraySize());
     MSG(0, "kremlinInit running....");
-	if(KConfigGetDebug()) { 
+	if (KConfigGetDebug()) { 
 		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", KConfigGetDebugLevel()); 
 	}
 
-	profiler->initFunctionArgQueue();
+	initFunctionArgQueue();
 	CDepInit();
 	CRegionInit();
-	profiler->initShadowRegisterFile(profiler->getArraySize());
+	initShadowRegisterFile(getArraySize());
 
-	profiler->initShadowMemory(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
+	initShadowMemory(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
 	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
    	_KTurnOn();
-    return true;
 }
 
 /*
    if a program exits out of main(),
-   kremlinCleanup() enforces 
+   cleanup() enforces 
    KExitRegion() calls for active regions
  */
-void kremlinCleanup() {
-    Level level = profiler->getCurrentLevel();
-	int i;
-	for (i=level; i>=0; i--) {
+void KremlinProfiler::cleanup() {
+    Level level = getCurrentLevel();
+	for (int i = level; i >= 0; --i) {
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 		_KExitRegion(region->regionId, region->regionType);
 	}
 }
 
-static bool kremlinDeinit() {
-	kremlinCleanup();
-    if(--hasInitialized) {
+void KremlinProfiler::deinit() {
+	cleanup();
+    if (!initialized) {
         MSG(0, "kremlinDeinit skipped\n");
-        return false;
+        return;
     }
+	initialized = false;
 
 	fprintf(stderr,"[kremlin] max active level = %d\n", 
-		profiler->getMaxActiveLevel());	
+		getMaxActiveLevel());	
 
 	_KTurnOff();
 	CRegionDeinit(KConfigGetOutFileName());
-	profiler->deinitShadowRegisterFile();
-	profiler->deinitShadowMemory();
-	profiler->deinitFunctionArgQueue();
+	deinitShadowRegisterFile();
+	deinitShadowMemory();
+	deinitFunctionArgQueue();
 	CDepDeinit();
 	ProgramRegion::deinitProgramRegions();
     //MemMapAllocatorDelete(&memPool);
 	
-	delete profiler;
-
 	DebugDeinit();
-    return true;
 }
 
-void _KInit() {
-    kremlinInit();
+void _KInit() { 
+	profiler = new KremlinProfiler(KConfigGetMinLevel(), KConfigGetMaxLevel());
+	profiler->init();
 }
-
-void _KDeinit() {
-    kremlinDeinit();
+void _KDeinit() { 
+	profiler->deinit();
+	delete profiler;
 }
 
 /**************************************************************************
@@ -1887,11 +1887,11 @@ bool isCpp = false;
 
 void cppEntry() {
     isCpp = true;
-    kremlinInit();
+    profiler->init();
 }
 
 void cppExit() {
-    kremlinDeinit();
+    profiler->deinit();
 }
 
 typedef struct _InvokeRecord {
