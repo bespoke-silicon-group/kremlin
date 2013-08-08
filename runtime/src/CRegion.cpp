@@ -206,7 +206,7 @@ static void emit(const char* file) {
 		fprintf(stderr,"[kremlin] ERROR: couldn't open binary output file\n");
 		exit(1);
 	}
-	emitRegion(fp, curr_pos.first->root->children[0], 0);
+	emitRegion(fp, curr_pos.first->getRoot()->children[0], 0);
 	fclose(fp);
 	fprintf(stderr, "[kremlin] Created File %s : %d Regions Emitted (all %d leaves %d)\n", 
 		file, numCreated, numEntries, numEntriesLeaf);

@@ -3,16 +3,13 @@
 #include "MemMapAllocator.h"
 #include "debug.h"
 
-static UInt64 lastTreeId = 0; // TODO: make this member var?
+static UInt64 last_id = 0; // TODO: make this member var?
 
-UInt64 CTree::allocId() { return ++lastTreeId; }
+UInt64 CTree::getNewID() { return ++last_id; }
 
 CTree* CTree::create(CNode* root) {
 	CTree* ret = (CTree*)MemPoolAllocSmall(sizeof(CTree));
-	ret->id = allocId();
-	ret->maxDepth = 0;
-	ret->currentDepth = 0;
-	ret->parent = NULL;
+	ret->id = getNewID();
 	ret->root = root;
 	return ret;
 }
@@ -34,51 +31,52 @@ CTree* CTree::createFromSubTree(CNode* root, CNode* recurseNode) {
 	return ret;
 }
 
-// XXX: "this" unused???
-CNode* CTree::findAncestorBySid(CNode* child) {
-	MSG(DEBUG_CREGION, "findAncestor: sid: 0x%llx....", child->sid);
-	SID sid = child->sid;
-	CNode* node = child->parent;
+// TODO: this appears as though it should be a member of CNode function
+// (doesn't use "this" pointer anywhere)
+CNode* CTree::findAncestorBySid(CNode* node) {
+	MSG(DEBUG_CREGION, "findAncestor: sid: 0x%llx....", node->sid);
+	SID sid = node->sid;
+	CNode* ancestor = node->parent;
 	
-	while (node != NULL) {
-		if (node->sid == sid) {
-			return node;
+	while (ancestor != NULL) {
+		if (ancestor->sid == sid) {
+			return ancestor;
 		}
 
-		node = node->parent;
+		ancestor = ancestor->parent;
 	}
 	return NULL;
 }
 
 
-void CTree::handleRecursion(CNode* child) {
+void CTree::handleRecursion(CNode* node) {
 	// detect a recursion with a new node
-	// - find an ancestor where ancestor.sid == child.sid
+	// - find an ancestor where ancestor.sid == node.sid
 	// - case a) no ancestor found - no recursion
 	// - case b) recursion to the root node: self recursion
-	//			 transform child to RNode
+	//			 transform node to RNode
 	// - case c) recursion to a non-root node: a new tree needed
 	//	       - create a CTree from a subtree starting from the ancestor
 	//         - set current tree and node appropriately
 
-	CNode* ancestor = findAncestorBySid(child);
+	CNode* ancestor = findAncestorBySid(node);
 
 	if (ancestor == NULL) {
 		return;
 #if 0
 	} else if (ancestor == this->root) {
-		child->convertToSelfRNode(this);
+		node->convertToSelfRNode(this);
 		return;
 #endif
 
 	} else {
 		assert(ancestor->parent != NULL);
-		//CTree* rTree = CTree::createFromSubTree(ancestor, child);	
+		//CTree* rTree = CTree::createFromSubTree(ancestor, node);	
 		//CNode* rNode = CNode::createExtRNode(ancestor->sid, ancestor->cid, rTree);
 		//ancestor->parent->replaceChild(ancestor, rNode);
 		ancestor->type = R_INIT;
-		child->type = R_SINK;
-		child->recursion = ancestor;
+		node->type = R_SINK;
+		node->recursion = ancestor;
 		return;
 	}
 }
