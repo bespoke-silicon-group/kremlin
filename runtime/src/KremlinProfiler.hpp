@@ -269,4 +269,6 @@ public:
 
 };
 
+extern Table *shadow_reg_file;
+
 #endif // KREMLIN_PROFILER_HPP

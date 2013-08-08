@@ -33,7 +33,7 @@
 
 //#include "idbg.h"
 
-static Table *shadow_reg_file; // TODO: static member of KremlinProfiler?
+Table *shadow_reg_file; // TODO: static member of KremlinProfiler?
 
 
 static KremlinProfiler *profiler;
@@ -136,28 +136,6 @@ void KremlinProfiler::setRegisterFileTable(Table* table) {
 
 Table* KremlinProfiler::getRegisterFileTable() { 
 	return shadow_reg_file;
-}
-
-Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
-	MSG(3, "RShadowGet [%d, %d] in table [%d, %d]\n",
-		reg, index, shadow_reg_file->row, shadow_reg_file->col);
-	assert(reg < shadow_reg_file->row);	
-	assert(index < shadow_reg_file->col);
-	int offset = shadow_reg_file->getOffset(reg, index);
-	Time ret = shadow_reg_file->array[offset];
-	return ret;
-}
-
-void KremlinProfiler::setRegisterTimeAtIndex(Time time, Reg reg, Index index) {
-	MSG(3, "RShadowSet [%d, %d] in table [%d, %d]\n",
-		reg, index, shadow_reg_file->row, shadow_reg_file->col);
-	assert(reg < shadow_reg_file->row);
-	assert(index < shadow_reg_file->col);
-	int offset = shadow_reg_file->getOffset(reg, index);
-	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
-		&(shadow_reg_file->array[offset]), time, reg, index, offset);
-	assert(shadow_reg_file != NULL);
-	shadow_reg_file->array[offset] = time;
 }
 
 
