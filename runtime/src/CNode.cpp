@@ -145,14 +145,8 @@ void CNode::replaceChild(CNode* old_child, CNode* new_child) {
 }
 
 const char* CNode::toString() {
-#if 0
-	if (this == NULL) {
-		sprintf(_buf, "NULL"); 
-		return _buf;
-	}
-#endif
 	char _buf[256]; // FIXME: C++ string?
-	char* _strType[] = {"NORM", "RINIT", "RSINK"};
+	const char* _strType[] = {"NORM", "RINIT", "RSINK"};
 
 	UInt64 parentId = (this->parent == NULL) ? 0 : this->parent->id;
 	UInt64 childId = (this->children.empty()) ? 0 : this->children[0]->id;
