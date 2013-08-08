@@ -33,7 +33,6 @@
 
 //#include "idbg.h"
 
-Table *shadow_reg_file; // TODO: static member of KremlinProfiler?
 
 
 static KremlinProfiler *profiler;
@@ -123,34 +122,6 @@ void KremlinProfiler::deinitShadowMemory() {
 }
 
 
-/*
- * Register Shadow Memory 
- */
-void KremlinProfiler::initShadowRegisterFile(Index depth) { 
-	shadow_reg_file = NULL;
-}
-
-void KremlinProfiler::setRegisterFileTable(Table* table) { 
-	shadow_reg_file = table;
-}
-
-Table* KremlinProfiler::getRegisterFileTable() { 
-	return shadow_reg_file;
-}
-
-
-void KremlinProfiler::zeroRegistersAtIndex(Index index) {
-	if (index >= shadow_reg_file->col)
-		return;
-
-	MSG(3, "zeroRegistersAtIndex col [%d] in table [%d, %d]\n",
-		index, shadow_reg_file->row, shadow_reg_file->col);
-	Reg i;
-	assert(shadow_reg_file != NULL);
-	for (i=0; i<shadow_reg_file->row; i++) {
-		setRegisterTimeAtIndex(0ULL, i, index);
-	}
-}
 
 /*************************************************************
  * Index Management
