@@ -211,20 +211,6 @@ Version ProgramRegion::nextVersion = 0;
 
 
 
-void ProgramRegion::updateCriticalPathLength(Timestamp value) {
-	this->cp = MAX(value, this->cp);
-	MSG(3, "updateCriticalPathLength : value = %llu\n", this->cp);	
-	this->sanityCheck();
-#ifndef NDEBUG
-	//assert(value <= profiler->getCurrentTime() - this->start);
-	if (value > profiler->getCurrentTime() - this->start) {
-		fprintf(stderr, "value = %lld, current time = %lld, region start = %lld\n", 
-		value, profiler->getCurrentTime(), this->start);
-		assert(0);
-	}
-#endif
-}
-
 
 void checkRegion() {
 #if 0
