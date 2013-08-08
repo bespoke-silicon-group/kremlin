@@ -30,7 +30,7 @@ void DebugInit();
 void DebugDeinit();
 
 #ifdef KREMLIN_DEBUG 
-    void MSG(int level, char* format, ...);
+    void MSG(int level, const char* format, ...);
 	void updateTabString();
 	void incIndentTab();
 	void decIndentTab();
