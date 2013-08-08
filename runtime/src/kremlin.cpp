@@ -276,49 +276,47 @@ void checkRegion() {
 /*****************************************************************
  * Control Dependence Management
  *****************************************************************/
+
+// TODO: make these static const member vars in KremlinProfiler
 #define CDEP_ROW 256
 #define CDEP_COL 64
 
-static Table* control_dependence_table;
-static int cTableReadPtr = 0;
-static Time* cTableCurrentBase;
-
-inline void CDepInit() {
-	cTableReadPtr = 0;
+void KremlinProfiler::initControlDependences() {
+	cdt_read_ptr = 0;
 	control_dependence_table = Table::create(CDEP_ROW, CDEP_COL);
 }
 
-inline void CDepDeinit() {
+void KremlinProfiler::deinitControlDependences() {
 	Table::destroy(control_dependence_table);
 }
 
-inline void CDepInitRegion(Index index) {
+// XXX: what is this really doing? (-sat)
+void KremlinProfiler::initRegionControlDependences(Index index) {
 	assert(control_dependence_table != NULL);
-	MSG(3, "CDepInitRegion ReadPtr = %d, Index = %d\n", cTableReadPtr, index);
-	control_dependence_table->setValue(0ULL, cTableReadPtr, index);
-	cTableCurrentBase = control_dependence_table->getElementAddr(cTableReadPtr, 0);
-}
-
-Time CDepGet(Index index) {
-	assert(control_dependence_table != NULL);
-	assert(cTableReadPtr >=  0);
-	return *(cTableCurrentBase + index);
+	MSG(3, "initRegionControlDependences ReadPtr = %d, Index = %d\n", cdt_read_ptr, index);
+	control_dependence_table->setValue(0ULL, cdt_read_ptr, index);
+	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
 }
 
 void _KPushCDep(Reg cond) {
+	profiler->handlePushCDep(cond);
+}
+void _KPopCDep() {
+	profiler->handlePopCDep();
+}
+
+void KremlinProfiler::handlePushCDep(Reg cond) {
     MSG(3, "Push CDep ts[%u]\n", cond);
 	idbgAction(KREM_ADD_CD,"## KPushCDep(cond=%u)\n",cond);
 
 	checkRegion();
-    if (!profiler->isEnabled()) {
-		return;
-	}
+    if (!enabled) return;
 
-	cTableReadPtr++;
+	cdt_read_ptr++;
 	int indexSize = profiler->getCurrNumInstrumentedLevels();
 
 // TODO: rarely, ctable could require resizing..not implemented yet
-	if (cTableReadPtr == control_dependence_table->getRow()) {
+	if (cdt_read_ptr == control_dependence_table->getRow()) {
 		fprintf(stderr, "CDep Table requires entry resizing..\n");
 		assert(0);	
 	}
@@ -332,22 +330,20 @@ void _KPushCDep(Reg cond) {
 	//assert(lTable->col >= indexSize);
 	//assert(control_dependence_table->col >= indexSize);
 
-	lTable->copyToDest(control_dependence_table, cTableReadPtr, cond, 0, indexSize);
-	cTableCurrentBase = control_dependence_table->getElementAddr(cTableReadPtr, 0);
-	assert(cTableReadPtr < control_dependence_table->row);
+	lTable->copyToDest(control_dependence_table, cdt_read_ptr, cond, 0, indexSize);
+	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
+	assert(cdt_read_ptr < control_dependence_table->row);
 	checkRegion();
 }
 
-void _KPopCDep() {
+void KremlinProfiler::handlePopCDep() {
     MSG(3, "Pop CDep\n");
 	idbgAction(KREM_REMOVE_CD, "## KPopCDep()\n");
 
-    if (!profiler->isEnabled()) {
-		return;
-	}
+	if (!enabled) return;
 
-	cTableReadPtr--;
-	cTableCurrentBase = control_dependence_table->getElementAddr(cTableReadPtr, 0);
+	cdt_read_ptr--;
+	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
 }
 
 /*****************************************************************
@@ -527,7 +523,7 @@ void _KReturnConst() {
 
 	Index index;
     for (index = 0; index < caller->table->col; index++) {
-		Time cdt = CDepGet(index);
+		Time cdt = profiler->getControlDependenceAtIndex(index);
 		caller->table->setValue(cdt, caller->getReturnRegister(), index);
     }
 }
@@ -609,8 +605,8 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 
 	if (shouldInstrumentCurrLevel()) {
     	//RegionPushCDep(region, 0);
-		CDepInitRegion(getCurrentLevelIndex());
-		assert(CDepGet(getCurrentLevelIndex()) == 0ULL);
+		initRegionControlDependences(getCurrentLevelIndex());
+		assert(getControlDependenceAtIndex(getCurrentLevelIndex()) == 0ULL);
 	}
 	MSG(0, "\n");
 }
@@ -1012,7 +1008,7 @@ void KremlinProfiler::init() {
 	}
 
 	initFunctionArgQueue();
-	CDepInit();
+	initControlDependences();
 	CRegionInit();
 	initShadowRegisterFile(getArraySize());
 
@@ -1050,7 +1046,7 @@ void KremlinProfiler::deinit() {
 	deinitShadowRegisterFile();
 	deinitShadowMemory();
 	deinitFunctionArgQueue();
-	CDepDeinit();
+	deinitControlDependences();
 	ProgramRegion::deinitProgramRegions();
     //MemMapAllocatorDelete(&memPool);
 	
@@ -1176,7 +1172,7 @@ void _KFree(Addr addr) {
 
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt64 value = CDepGet(i) + FREE_COST;
+        UInt64 value = profiler->getControlDependenceAtIndex(i) + FREE_COST;
 
         updateCP(value, i);
     }
@@ -1233,7 +1229,7 @@ void printControlDepTimes() {
 	Index index;
 
     for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-		Time cdt = CDepGet(index);
+		Time cdt = profiler->getControlDependenceAtIndex(index);
 		fprintf(stdout,"\t#%u: %llu\n",index,cdt);
 	}
 }

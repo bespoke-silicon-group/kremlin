@@ -42,6 +42,22 @@ private:
 	UInt64 num_function_regions_entered;
 	UInt64 num_register_tables_setup;;
 
+	Table* control_dependence_table;
+	int cdt_read_ptr;
+	Time* cdt_current_base;
+
+	void initControlDependences();
+	void deinitControlDependences();
+	void initRegionControlDependences(Index index);
+
+
+	enum ShadowMemoryType {
+		ShadowMemoryBase = 0,
+		ShadowMemorySTV = 1,
+		ShadowMemorySkadu = 2,
+		ShadowMemoryDummy = 3
+	};
+
 	MShadow *shadow_mem;
 
 	void updateCurrLevelInstrumentableStatus() {
@@ -50,13 +66,6 @@ private:
 		else 
 			instrument_curr_level = false;
 	}
-
-	enum ShadowMemoryType {
-		ShadowMemoryBase = 0,
-		ShadowMemorySTV = 1,
-		ShadowMemorySkadu = 2,
-		ShadowMemoryDummy = 3
-	};
 
 	template <unsigned num_data_deps, unsigned cond, bool load_inst>
 	Time calcNewDestTime(Time curr_dest_time, UInt32 src_reg, UInt32 src_offset, Index i);
@@ -93,6 +102,9 @@ public:
 		this->waiting_for_register_table_init = false;
 		this->num_function_regions_entered = 0;
 		this->num_register_tables_setup = 0;
+		this->control_dependence_table = NULL;
+		this->cdt_read_ptr = 0;
+		this->cdt_current_base = NULL;
 		this->shadow_mem = NULL;
 	}
 
@@ -212,6 +224,8 @@ public:
 	void initShadowMemory();
 	void deinitShadowMemory();
 
+	Time getControlDependenceAtIndex(Index index);
+
 	void handleRegionEntry(SID regionId, RegionType regionType);
 	void handleRegionExit(SID regionId, RegionType regionType);
 	void handleLandingPad(SID regionId, RegionType regionType);
@@ -248,10 +262,11 @@ public:
 	void handlePhiCond4To1(Reg dest_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg);
 	void handlePhiAddCond(Reg dest_reg, Reg src_reg);
 
+	void handlePopCDep();
+	void handlePushCDep(Reg cond);
+
 	void checkTimestamp(int index, ProgramRegion* region, Timestamp value);
 
 };
-
-extern Time CDepGet(Index index);
 
 #endif // KREMLIN_PROFILER_HPP

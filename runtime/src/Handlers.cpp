@@ -20,6 +20,13 @@ void KremlinProfiler::checkTimestamp(int index, ProgramRegion* region, Timestamp
 #endif
 }
 
+Time KremlinProfiler::getControlDependenceAtIndex(Index index) {
+	assert(control_dependence_table != NULL);
+	assert(cdt_read_ptr >=  0);
+	return *(cdt_current_base + index);
+}
+
+
 // BEGIN: move to iteractive debugger file
 static inline void printTArray(Time* times, Index depth) {
 	Index index;
@@ -91,7 +98,7 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
 		Time dest_time = 0;
 		
 		if (use_cdep) {
-			Time cdep_time = dest_time = CDepGet(index);
+			Time cdep_time = dest_time = getControlDependenceAtIndex(index);
 			assert(cdep_time <= getCurrentTime() - region->start);
 		}
 
@@ -191,7 +198,7 @@ void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_si
 		Level i = getLevelForIndex(index);
 		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
 
-		Time control_dep_time = CDepGet(index);
+		Time control_dep_time = getControlDependenceAtIndex(index);
         Time dest_time = control_dep_time + STORE_COST;
 		if (!store_const) {
 			Time src_time = KremlinProfiler::getRegisterTimeAtIndex(src_reg, index);
