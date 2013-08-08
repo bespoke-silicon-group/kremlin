@@ -24,21 +24,21 @@ static double getSizeMB(UInt64 nUnit, UInt64 size) {
 
 void printCacheStat() {
 	fprintf(stderr, "\nShadow Memory Cache Stat\n");	
-	fprintf(stderr, "\tread  all / hit / evict = %ld / %ld / %ld\n", 
+	fprintf(stderr, "\tread  all / hit / evict = %llu / %llu / %llu\n", 
 		_cacheStat.nRead, _cacheStat.nReadHit, _cacheStat.nReadEvict);
-	fprintf(stderr, "\twrite all / hit / evict = %ld / %ld / %ld\n", 
+	fprintf(stderr, "\twrite all / hit / evict = %llu / %llu / %llu\n", 
 		_cacheStat.nWrite, _cacheStat.nWriteHit, _cacheStat.nWriteEvict);
 	double hitRead = _cacheStat.nReadHit * 100.0 / _cacheStat.nRead;
 	double hitWrite = _cacheStat.nWriteHit * 100.0 / _cacheStat.nWrite;
 	double hit = (_cacheStat.nReadHit + _cacheStat.nWriteHit) * 100.0 / (_cacheStat.nRead + _cacheStat.nWrite);
 	fprintf(stderr, "\tCache hit (read / write / overall) = %.2f / %.2f / %.2f\n", 
 		hitRead, hitWrite, hit);
-	fprintf(stderr, "\tEvict (total / levelAvg / levelEffective) = %ld / %.2f / %.2f\n\n", 
+	fprintf(stderr, "\tEvict (total / levelAvg / levelEffective) = %llu / %.2f / %.2f\n\n", 
 		_cacheStat.nCacheEvict, 
 		(double)_cacheStat.nCacheEvictLevelTotal / _cacheStat.nCacheEvict, 
 		(double)_cacheStat.nCacheEvictLevelEffective / _cacheStat.nCacheEvict);
 
-	fprintf(stderr, "\tnGC = %ld\n", _stat.nGC);
+	fprintf(stderr, "\tnGC = %llu\n", _stat.nGC);
 }
 
 
@@ -84,12 +84,12 @@ void printMemReqStat() {
 
 static void printMemStatAllocation() {
 	fprintf(stderr, "\nShadow Memory Allocation Stats\n");
-	fprintf(stderr, "\tnSegTable: Alloc / Active / ActiveMax = %ld / %ld / %ld\n",
+	fprintf(stderr, "\tnSegTable: Alloc / Active / ActiveMax = %llu / %llu / %llu\n",
 		 _stat.segTable.nAlloc, _stat.segTable.nActive, _stat.segTable.nActiveMax);
 
-	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %ld / %ld / %ld / %ld\n",
+	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %llu / %llu / %llu / %llu\n",
 		 0, _stat.tTable[0].nAlloc, _stat.tTable[0].nDealloc, _stat.tTable[0].nConvertOut, _stat.tTable[0].nActiveMax);
-	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %ld / %ld / %ld / %ld\n",
+	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %llu / %llu / %llu / %llu\n",
 		 1, _stat.tTable[1].nAlloc, _stat.tTable[1].nDealloc, _stat.tTable[1].nConvertIn, _stat.tTable[1].nActiveMax);
 }
 

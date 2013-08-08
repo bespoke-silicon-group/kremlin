@@ -56,7 +56,7 @@ static char *rcs_id = "$Id: mpool.c,v 1.5 2006/05/31 20:28:31 gray Exp $";
 #endif
 
 /* version */
-static	char *version = "mpool library version 2.1.0";
+static	const char *version = "mpool library version 2.1.0";
 
 /* local variables */
 static	int		enabled_b = 0;		/* lib initialized? */

@@ -1013,7 +1013,7 @@ void _KExitRegion(SID regionId, RegionType regionType) {
     }
 
 	if (level < getMaxLevel() && sp < 0.999) {
-		fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
+		fprintf(stderr, "sp = %.2f sid=%llu work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
 			region->childrenWork, region->childrenCP, region->cp);
 		assert(0);
 	}
@@ -1116,7 +1116,7 @@ void _KLandingPad(SID regionId, RegionType regionType) {
 		}
 
 		if (level < getMaxLevel() && sp < 0.999) {
-			fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
+			fprintf(stderr, "sp = %.2f sid=%llu work=%llu childrenWork = %llu childrenCP=%llu cp=%llu\n", sp, sid, work,
 				region->childrenWork, region->childrenCP, region->cp);
 			assert(0);
 		}
@@ -2272,7 +2272,7 @@ void printRegisterTimes(Reg reg) {
 }
 
 void printMemoryTimes(Addr addr, Index size) {
-	fprintf(stdout,"Timestamps for Mem[%x]:\n",addr);
+	fprintf(stdout,"Timestamps for Mem[%p]:\n",addr);
 	Index index;
 	Index depth = getIndexDepth();
 	Level minLevel = getLevel(0);

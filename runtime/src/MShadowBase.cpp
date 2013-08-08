@@ -67,19 +67,19 @@ typedef struct _MemStat {
 static MemStat stat;
 
 static void printMemStat() {
-	fprintf(stderr, "nSTableEntry = %d\n\n", stat.nSTableEntry);
+	fprintf(stderr, "nSTableEntry = %llu\n\n", stat.nSTableEntry);
 
-	fprintf(stderr, "nSegTableAllocated = %lld\n", stat.nSegTableAllocated);
-	fprintf(stderr, "nSegTableActive = %d\n", stat.nSegTableActive);
-	fprintf(stderr, "nSegTableActiveMax = %d\n\n", stat.nSegTableActiveMax);
+	fprintf(stderr, "nSegTableAllocated = %llu\n", stat.nSegTableAllocated);
+	fprintf(stderr, "nSegTableActive = %llu\n", stat.nSegTableActive);
+	fprintf(stderr, "nSegTableActiveMax = %llu\n\n", stat.nSegTableActiveMax);
 
-	fprintf(stderr, "nTimeTableAllocated = %lld, %lld\n", 
+	fprintf(stderr, "nTimeTableAllocated = %llu, %llu\n", 
 		stat.nTimeTableAllocated[0], stat.nTimeTableAllocated[1]);
-	fprintf(stderr, "nTimeTableFreed = %lld, %lld\n", 
+	fprintf(stderr, "nTimeTableFreed = %llu, %llu\n", 
 		stat.nTimeTableFreed[0], stat.nTimeTableFreed[1]);
-	fprintf(stderr, "nTimeTableActive = %lld\n", stat.nTimeTableActive);
-	fprintf(stderr, "nTimeTableActiveMax = %lld\n\n", stat.nTimeTableActiveMax);
-	fprintf(stderr, "nTimeTableConverted = %lld\n\n", stat.nTimeTableConverted);
+	fprintf(stderr, "nTimeTableActive = %llu\n", stat.nTimeTableActive);
+	fprintf(stderr, "nTimeTableActiveMax = %llu\n\n", stat.nTimeTableActiveMax);
+	fprintf(stderr, "nTimeTableConverted = %llu\n\n", stat.nTimeTableConverted);
 
 	double segTableSize = sizeof(SegTable) * stat.nSegTableAllocated / (1024.0 * 1024.0);
 

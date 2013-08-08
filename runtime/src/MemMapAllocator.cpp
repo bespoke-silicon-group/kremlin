@@ -3,6 +3,8 @@
  * @brief Defines a pool of memory backed by mmap.
  */
 
+// TODO: replace usage of fprintf with MSG
+
 #include "kremlin.h"
 #include "MemMapAllocator.h"
 
@@ -111,7 +113,7 @@ static void FillFreeList() {
 	}
 
 	unsigned char* current = data;
-	int cnt = 0;	
+	unsigned cnt = 0;	
 	while ((current + chunkSize) < (data + mmapSizeMB * 1024 * 1024)) {
 		//fprintf(stderr, "current = 0x%llx\n", current);
 		MChunk* toAdd = MChunkAlloc(current);		
@@ -119,8 +121,8 @@ static void FillFreeList() {
 		current += chunkSize;
 		cnt++;
 	}
-	fprintf(stderr, "Allocated %d chunks starting at 0x%llx\n", cnt, data);
-	fprintf(stderr, "last = 0x%llx\n", current - chunkSize);
+	fprintf(stderr, "Allocated %u chunks starting at 0x%p\n", cnt, data);
+	fprintf(stderr, "last = 0x%p\n", current - chunkSize);
 }
 
 

@@ -300,7 +300,7 @@ void LevelTable::gcLevelUnknownSize(Version* versions) {
 UInt64 LevelTable::compress() {
 	//fprintf(stderr,"[LevelTable] compressing LevelTable (%p)\n",l_table);
 	if (this->code != 0xDEADBEEF) {
-		fprintf(stderr, "LevelTable addr = 0x%llx\n", this);
+		fprintf(stderr, "LevelTable addr = 0x%p\n", this);
 		assert(0);
 	}
 	assert(this->code == 0xDEADBEEF);
@@ -371,7 +371,7 @@ UInt64 LevelTable::compress() {
 UInt64 LevelTable::decompress() {
 
 	if (this->code != 0xDEADBEEF) {
-		fprintf(stderr, "LevelTable addr = 0x%llx\n", this);
+		fprintf(stderr, "LevelTable addr = 0x%p\n", this);
 		assert(0);
 	}
 	assert(this->code == 0xDEADBEEF);

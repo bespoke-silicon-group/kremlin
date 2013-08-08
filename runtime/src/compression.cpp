@@ -146,7 +146,7 @@ void CBuffer::init(int size) {
 }
 
 void CBuffer::deinit() {
-	fprintf(stderr, "CBuffer (evict / access / ratio) = %lld, %lld, %.2f \%\n",
+	fprintf(stderr, "CBuffer (evict / access / ratio) = %llu, %llu, %.2f\n",
 		totalEvict, totalAccess, ((double)totalEvict / totalAccess) * 100.0);
 	fprintf(stderr, "Compression Overall Rate = %.2f X\n", (double)_compSrcSize / _compDestSize);
 }
@@ -223,7 +223,7 @@ void CBuffer::touch(LevelTable* table) {
 
 	std::map<LevelTable*, ActiveSetEntry*>::iterator it = active_set.find(table);
 	if (it == active_set.end()) {
-		fprintf(stderr, "[1] as not found for lTable 0x%llx\n", table);
+		fprintf(stderr, "[1] as not found for lTable 0x%p\n", table);
 	}
 	assert(it != active_set.end());
 	ActiveSetEntry *as = it->second;

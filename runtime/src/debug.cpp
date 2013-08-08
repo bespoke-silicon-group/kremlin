@@ -144,7 +144,7 @@ void iDebugHandler(UInt kremFunc) {
 			}
 			else {
 				Addr addr;
-				sscanf(tokens[1],"%llX\n",&addr);
+				sscanf(tokens[1],"%p\n",&addr);
 				Index size;
 				sscanf(tokens[2],"%X\n",&size);
 				printMemoryTimes(addr,size);

@@ -340,7 +340,7 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 }
 
 void emitDOT(FILE* fp, CNode* node) {
-	fprintf(stderr,"DOT: visiting %lu\n",node->id);
+	fprintf(stderr,"DOT: visiting %llu\n",node->id);
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children

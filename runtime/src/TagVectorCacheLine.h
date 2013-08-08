@@ -24,7 +24,7 @@ public:
 	}
 
 	void print() {
-		fprintf(stderr, "addr 0x%llx, ver [%d, %d], lastSize [%d, %d], type %d\n",
+		fprintf(stderr, "addr 0x%p, ver [%llu, %llu], lastSize [%d, %d], type %d\n",
 			this->tag, this->version[0], this->version[1], this->lastSize[0], this->lastSize[1], this->type);
 	}
 
