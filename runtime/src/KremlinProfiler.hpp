@@ -228,6 +228,7 @@ public:
 
 	void handleRegionEntry(SID regionId, RegionType regionType);
 	void handleRegionExit(SID regionId, RegionType regionType);
+	void handleFunctionExit();
 	void handleLandingPad(SID regionId, RegionType regionType);
 	void handleAssignConst(UInt dest_reg);
 	void handleInduction(UInt dest_reg);

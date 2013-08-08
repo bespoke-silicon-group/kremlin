@@ -2,6 +2,8 @@
 #include "config.h"
 #include "KremlinProfiler.hpp"
 #include "ProgramRegion.hpp"
+#include "FunctionRegion.hpp"
+#include "CRegion.h"
 #include "MShadow.h"
 #include "Table.h"
 
@@ -26,7 +28,6 @@ void ProgramRegion::updateCriticalPathLength(Timestamp value) {
 	MSG(3, "updateCriticalPathLength : value = %llu\n", this->cp);	
 	this->sanityCheck();
 #ifndef NDEBUG
-	//assert(value <= profiler->getCurrentTime() - this->start);
 	if (value > profiler->getCurrentTime() - this->start) {
 		fprintf(stderr, "value = %lld, current time = %lld, region start = %lld\n", 
 		value, profiler->getCurrentTime(), this->start);
@@ -288,6 +289,288 @@ void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_si
 
 	Level min_level = getLevelForIndex(0); // XXX: see notes in KLoads
 	getShadowMemory()->set(dest_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+}
+
+
+void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
+	iDebugHandlerRegionEntry(regionId);
+	idbgAction(KREM_REGION_ENTRY,"## KEnterRegion(regionID=%llu,regionType=%u)\n",regionId,regionType);
+
+    if (!enabled) return; 
+
+    incrementLevel();
+    Level level = getCurrentLevel();
+	if (level == ProgramRegion::getNumRegions()) {
+		ProgramRegion::doubleNumRegions();
+	}
+	
+	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
+	region->init(regionId, regionType, level, getCurrentTime());
+
+	MSG(0, "\n");
+	MSG(0, "[+++] region [type %u, level %d, sid 0x%llx] start: %llu\n",
+        region->regionType, regionType, level, region->regionId, getCurrentTime());
+    incIndentTab(); // only affects debug printing
+
+	// func region allocates a new RShadow Table.
+	// for other region types, it needs to "clean" previous region's timestamps
+    if(regionType == RegionFunc) {
+		incrementFunctionRegionCount();
+        addFunctionToStack(getLastCallsiteID());
+        waitForRegisterTableSetup();
+
+    } else {
+		if (shouldInstrumentCurrLevel())
+			KremlinProfiler::zeroRegistersAtIndex(getCurrentLevelIndex());
+	}
+
+    FunctionRegion* funcHead = getCurrentFunction();
+	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->getCallSiteID();
+	CRegionEnter(regionId, callSiteId, regionType);
+
+	if (shouldInstrumentCurrLevel()) {
+    	//RegionPushCDep(region, 0);
+		initRegionControlDependences(getCurrentLevelIndex());
+		assert(getControlDependenceAtIndex(getCurrentLevelIndex()) == 0ULL);
+	}
+	MSG(0, "\n");
+}
+
+/**
+ * Creates RegionField and fills it based on inputs.
+ */
+static RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 isDoall, ProgramRegion* region_info) {
+	RegionField field;
+
+    field.work = work;
+    field.cp = cp;
+	field.callSite = callSiteId;
+	field.spWork = spWork;
+	field.isDoall = isDoall; 
+	field.childCnt = region_info->childCount;
+
+#ifdef EXTRA_STATS
+    field.loadCnt = region_info->loadCnt;
+    field.storeCnt = region_info->storeCnt;
+    field.readCnt = region_info->readCnt;
+    field.writeCnt = region_info->writeCnt;
+    field.readLineCnt = region_info->readLineCnt;
+    field.writeLineCnt = region_info->writeLineCnt;
+    assert(work >= field.readCnt && work >= field.writeCnt);
+#endif
+
+	return field;
+}
+
+/**
+ * Does the clean up work when exiting a function region.
+ */
+void KremlinProfiler::handleFunctionExit() {
+	removeFunctionFromStack();
+
+	// root function
+	if (callstackIsEmpty()) {
+		assert(getCurrentLevel() == 0); 
+		return;
+	}
+
+	FunctionRegion* funcHead = getCurrentFunction();
+	assert(funcHead != NULL);
+	KremlinProfiler::setRegisterFileTable(funcHead->table); 
+}
+
+void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
+	idbgAction(KREM_REGION_EXIT, "## KExitRegion(regionID=%llu,regionType=%u)\n",regionId,regionType);
+
+    if (!enabled) return; 
+
+    Level level = getCurrentLevel();
+	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
+    SID sid = regionId;
+	SID parentSid = 0;
+    UInt64 work = getCurrentTime() - region->start;
+	decIndentTab(); // applies only to debug printing
+	MSG(0, "\n");
+    MSG(0, "[---] region [type %u, level %u, sid 0x%llx] time %llu cp %llu work %llu\n",
+        regionType, level, regionId, getCurrentTime(), region->cp, work);
+
+	assert(region->regionId == regionId);
+    UInt64 cp = region->cp;
+#define DOALL_THRESHOLD	5
+	UInt64 isDoall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
+	if (regionType != RegionLoop)
+		isDoall = 0;
+	//fprintf(stderr, "isDoall = %d\n", isDoall);
+
+#ifdef KREMLIN_DEBUG
+	if (work < cp) {
+		fprintf(stderr, "work = %llu\n", work);
+		fprintf(stderr, "cp = %llu\n", cp);
+		assert(0);
+	}
+	if (level < getMaxLevel() && level >= getMinLevel()) {
+		assert(work >= cp);
+		assert(work >= region->childrenWork);
+	}
+#endif
+
+	// Only update parent region's childrenWork and childrenCP 
+	// when we are logging the parent
+	// If level is higher than max,
+	// it will not reach here - 
+	// so no need to compare with max level.
+
+	if (level > getMinLevel()) {
+		ProgramRegion* parentRegion = ProgramRegion::getRegionAtLevel(level - 1);
+    	parentSid = parentRegion->regionId;
+		parentRegion->childrenWork += work;
+		parentRegion->childrenCP += cp;
+		parentRegion->childCount++;
+		if (parentRegion->childMaxCP < cp) 
+			parentRegion->childMaxCP = cp;
+	} 
+
+	double spTemp = (work - region->childrenWork + region->childrenCP) / (double)cp;
+	double sp = (work > 0) ? spTemp : 1.0;
+
+#ifdef KREMLIN_DEBUG
+	// Check that cp is positive if work is positive.
+	// This only applies when the current level gets instrumented (otherwise this condition always holds)
+    if (shouldInstrumentCurrLevel() && cp == 0 && work > 0) {
+        fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
+        fprintf(stderr, "region [type: %u, level: %u, sid: %llu] parent [%llu] cp %llu work %llu\n",
+            regionType, level, regionId,  parentSid,  region->cp, work);
+        assert(0);
+    }
+
+	if (level < getMaxLevel() && sp < 0.999) {
+		fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
+			region->childrenWork, region->childrenCP, region->cp);
+		assert(0);
+	}
+#endif
+
+	UInt64 spWork = (UInt64)((double)work / sp);
+
+	// due to floating point variables,
+	// spWork can be larger than work
+	if (spWork > work) { spWork = work; }
+
+	CID cid = getCurrentFunction()->getCallSiteID();
+    RegionField field = fillRegionField(work, cp, cid, 
+						spWork, isDoall, region);
+	CRegionExit(&field);
+        
+    if (regionType == RegionFunc) { 
+		handleFunctionExit(); 
+	}
+
+    decrementLevel();
+	MSG(0, "\n");
+}
+
+void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
+	idbgAction(KREM_REGION_EXIT, "## KLandingPad(regionID=%llu,regionType=%u)\n",regionId,regionType);
+
+    if (!enabled) return;
+
+	SID sid = 0;
+
+	// find deepest level with region id that matches parameter regionId
+	Level end_level = getCurrentLevel()+1;
+	for (unsigned i = getCurrentLevel(); i >= 0; --i) {
+		if (ProgramRegion::getRegionAtLevel(i)->regionId == regionId) {
+			end_level = i;
+			break;
+		}
+	}
+	assert(end_level != getCurrentLevel()+1);
+	
+	while (getCurrentLevel() > end_level) {
+		Level level = getCurrentLevel();
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
+
+		sid = region->regionId;
+		UInt64 work = getCurrentTime() - region->start;
+		decIndentTab(); // applies only to debug printing
+		MSG(0, "\n");
+		MSG(0, "[!---] region [type %u, level %u, sid 0x%llx] time %llu cp %llu work %llu\n",
+			region->regionType, level, sid, getCurrentTime(), region->cp, work);
+
+		UInt64 cp = region->cp;
+#define DOALL_THRESHOLD	5
+		UInt64 isDoall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
+		if (region->regionType != RegionLoop)
+			isDoall = 0;
+		//fprintf(stderr, "isDoall = %d\n", isDoall);
+
+#ifdef KREMLIN_DEBUG
+		if (work < cp) {
+			fprintf(stderr, "work = %llu\n", work);
+			fprintf(stderr, "cp = %llu\n", cp);
+			assert(0);
+		}
+		if (level < getMaxLevel() && level >= getMinLevel()) {
+			assert(work >= cp);
+			assert(work >= region->childrenWork);
+		}
+#endif
+
+		// Only update parent region's childrenWork and childrenCP 
+		// when we are logging the parent
+		// If level is higher than max,
+		// it will not reach here - 
+		// so no need to compare with max level.
+
+		SID parentSid = 0;
+		if (level > getMinLevel()) {
+			ProgramRegion* parentRegion = ProgramRegion::getRegionAtLevel(level - 1);
+			parentSid = parentRegion->regionId;
+			parentRegion->childrenWork += work;
+			parentRegion->childrenCP += cp;
+			parentRegion->childCount++;
+			if (parentRegion->childMaxCP < cp) 
+				parentRegion->childMaxCP = cp;
+		} 
+
+		double spTemp = (work - region->childrenWork + region->childrenCP) / (double)cp;
+		double sp = (work > 0) ? spTemp : 1.0;
+
+#ifdef KREMLIN_DEBUG
+		// Check that cp is positive if work is positive.
+		// This only applies when the current level gets instrumented (otherwise this condition always holds)
+		if (shouldInstrumentCurrLevel() && cp == 0 && work > 0) {
+			fprintf(stderr, "cp should be a non-zero number when work is non-zero\n");
+			fprintf(stderr, "region [type: %u, level: %u, sid: %llu] parent [%llu] cp %llu work %llu\n",
+				regionType, level, regionId,  parentSid,  region->cp, work);
+			assert(0);
+		}
+
+		if (level < getMaxLevel() && sp < 0.999) {
+			fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
+				region->childrenWork, region->childrenCP, region->cp);
+			assert(0);
+		}
+#endif
+
+		UInt64 spWork = (UInt64)((double)work / sp);
+
+		// due to floating point variables,
+		// spWork can be larger than work
+		if (spWork > work) { spWork = work; }
+
+		CID cid = getCurrentFunction()->getCallSiteID();
+		RegionField field = fillRegionField(work, cp, cid, 
+							spWork, isDoall, region);
+		CRegionExit(&field);
+			
+		if (region->regionType == RegionFunc) { 
+			handleFunctionExit(); 
+		}
+
+		decrementLevel();
+		MSG(0, "\n");
+	}
 }
 
 
