@@ -23,8 +23,13 @@ public:
 
 	UInt64 numInstance;
 
-	static CStat* create();
-	static void destroy(CStat* region);
+	CStat() : totalWork(0), minSP(-1), maxSP(0), spWork(0), tpWork(0), readCnt(0),
+				writeCnt(0), loadCnt(0), storeCnt(0), totalIterCount(0),
+				minIterCount(-1), maxIterCount(0), numInstance(0) {}
+	~CStat() {}
+
+	static void* operator new(size_t size);
+	static void operator delete(void* ptr);
 };
 
 #endif
