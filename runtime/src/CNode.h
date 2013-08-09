@@ -70,21 +70,19 @@ public:
 	 */
 	void handleRecursion(); 
 
-	//CNodeType getType() { return type; }
+	static CNode* create(SID sid, CID cid, RegionType type); 
+	
+private:
+	void updateCurrentCStat(RegionField* info);
+	static UInt64 allocId();
 
 #if 0
+	static CNode* createExtRNode(SID sid, CID cid, CTree* childTree); 
 	bool isRNode() { return (this->tree != NULL); }
 	bool isSelfRNode(CTree* tree);
 	static void   convertToSelfRNode(CTree* tree);
 	static CNode* createSelfRNode(SID sid, CID cid, CTree* childTree); 
 #endif
-
-	static CNode* create(SID sid, CID cid, RegionType type); 
-	//static CNode* createExtRNode(SID sid, CID cid, CTree* childTree); 
-	
-private:
-	void updateCurrentCStat(RegionField* info);
-	static UInt64 allocId();
 };
 
 #endif

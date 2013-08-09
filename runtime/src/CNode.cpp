@@ -35,28 +35,6 @@ CNode* CNode::create(SID sid, CID cid, RegionType type) {
 	return ret;
 }
 
-#if 0
-CNode* CNode::createExtRNode(SID sid, CID cid, CTree* childTree) {
-	CNode* ret = CNode::create(sid, cid);
-	ret->type = EXT_R;
-	ret->tree = childTree;
-	childTree->parent = ret;
-	return ret;
-}; 
-
-void CNode::convertToSelfRNode(CTree* tree) {
-	this->tree = tree;
-	this->type = SELF_R;
-}
-
-bool CNode::isRNode() { return (this->tree != NULL); }
-
-bool CNode::isSelfRNode(CTree* tree) {
-	if (!this->isRNode()) return FALSE;
-	return (this->tree == tree);
-}
-#endif
-
 CNode* CNode::findChild(UInt64 sid, UInt64 callSite) {
 	//fprintf(stderr, "looking for sid : 0x%llx, callSite: 0x%llx\n", sid, callSite);
 	for (unsigned i = 0; i < this->children.size(); ++i) {
@@ -228,3 +206,27 @@ void CNode::handleRecursion() {
 		return;
 	}
 }
+
+// No idea what this stuff was supposed to do (-sat)
+#if 0
+CNode* CNode::createExtRNode(SID sid, CID cid, CTree* childTree) {
+	CNode* ret = CNode::create(sid, cid);
+	ret->type = EXT_R;
+	ret->tree = childTree;
+	childTree->parent = ret;
+	return ret;
+}; 
+
+void CNode::convertToSelfRNode(CTree* tree) {
+	this->tree = tree;
+	this->type = SELF_R;
+}
+
+bool CNode::isRNode() { return (this->tree != NULL); }
+
+bool CNode::isSelfRNode(CTree* tree) {
+	if (!this->isRNode()) return FALSE;
+	return (this->tree == tree);
+}
+#endif
+
