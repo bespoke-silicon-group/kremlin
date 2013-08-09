@@ -54,6 +54,21 @@ public:
 
 	unsigned getStatSize() { return stats.size(); }
 
+	/*!
+	 * Returns an ancestor with the same static region ID. If no such ancestor
+	 * is found, returns NULL.
+	 *
+	 * @return The ancestor with the same static ID as this node; NULL if none exist.
+	 */
+	CNode* findAncestorBySid();
+
+	/*!
+	 * Checks if this node is a recursive instance of an already existing node.
+	 * If this node is a recursive node, we set its type and its
+	 * ancestor (of which it is a recursive instance) and creates a link from
+	 * this node to this ancestor.
+	 */
+	void handleRecursion(); 
 
 	//CNodeType getType() { return type; }
 

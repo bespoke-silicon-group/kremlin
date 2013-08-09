@@ -22,10 +22,11 @@ static void emitRegion(FILE* fp, CNode* node, UInt level);
 /******************************** 
  * CPosition Management 
  *********************************/
-static std::pair<CTree*, CNode*> curr_pos;
+static CNode* region_tree_root; // TODO: make member var of profiler?
+static CNode* curr_region_node; // TODO: make mem var of profiler?
 
 static const char* currPosStr() {
-	CNode* node = curr_pos.second;
+	CNode* node = curr_region_node;
 	UInt64 nodeId = (node == NULL) ? 0 : node->id;
 	std::stringstream ss;
 	ss << "<" << nodeId << ">";
@@ -34,7 +35,7 @@ static const char* currPosStr() {
 
 static void printPosition() {
 	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), 
-			curr_pos.second->toString());
+			curr_region_node->toString());
 }
 
 
@@ -43,11 +44,9 @@ static void printPosition() {
  *********************************/
 
 void CRegionInit() {
-	CNode* root = CNode::create(0, 0, RegionFunc); // dummy root node
-	CTree* tree = CTree::create(root);
-	curr_pos.first = tree;
+	region_tree_root = CNode::create(0, 0, RegionFunc); // dummy root node
+	curr_region_node = region_tree_root;
 	assert(root != NULL);
-	curr_pos.second = root;
 }
 
 void CRegionDeinit(const char* file) {
@@ -59,14 +58,14 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	if (KConfigGetCRegionSupport() == FALSE)
 		return;
 
-	CNode* parent = curr_pos.second;
+	CNode* parent = curr_region_node;
 	CNode* child = NULL;
 
 	// corner case: no graph exists 
 #if 0
 	if (parent == NULL) {
 		child = CNode::create(sid, cid);
-		curr_pos.second = child;
+		curr_region_node = child;
 		CRegionPush(child);
 		MSG(0, "CRegionEnter: sid: root -> 0x%llx, callSite: 0x%llx\n", 
 			sid, cid);
@@ -85,7 +84,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 		child = CNode::create(sid, cid, type);
 		parent->linkChild(child);
 		if (KConfigGetRSummarySupport())
-			curr_pos.first->handleRecursion(child);
+			child->handleRecursion();
 	} 
 
 	child->statForward();
@@ -94,15 +93,15 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	// set position, push the current region to the current tree
 	switch (child->type) {
 	case R_INIT:
-		curr_pos.second = child;
+		curr_region_node = child;
 		break;
 	case R_SINK:
 		assert(child->recursion != NULL);
-		curr_pos.second = child->recursion;
+		curr_region_node = child->recursion;
 		child->recursion->statForward();
 		break;
 	case NORMAL:
-		curr_pos.second = child;
+		curr_region_node = child;
 		break;
 	}
 	CRegionPush(child);
@@ -122,7 +121,7 @@ void CRegionExit(RegionField* info) {
 	MSG(DEBUG_CREGION, "CRegionLeave: Begin\n"); 
 	// don't update if we didn't give it any info
 	// this happens when we are out of range for logging
-	CNode* current = curr_pos.second;
+	CNode* current = curr_region_node;
 	CNode* popped = CRegionPop();
 	assert(popped != NULL);
 	assert(current != NULL);
@@ -145,10 +144,10 @@ void CRegionExit(RegionField* info) {
 	assert(current->parent != NULL);
 
 	if (current->type == R_INIT) {
-		curr_pos.second = popped->parent;
+		curr_region_node = popped->parent;
 
 	} else {
-		curr_pos.second = current->parent;
+		curr_region_node = current->parent;
 	}
 
 	if (popped->type == R_SINK) {
@@ -207,7 +206,7 @@ static void emit(const char* file) {
 		fprintf(stderr,"[kremlin] ERROR: couldn't open binary output file\n");
 		exit(1);
 	}
-	emitRegion(fp, curr_pos.first->getRoot()->children[0], 0);
+	emitRegion(fp, region_tree_root->children[0], 0);
 	fclose(fp);
 	fprintf(stderr, "[kremlin] Created File %s : %d Regions Emitted (all %d leaves %d)\n", 
 		file, numCreated, numEntries, numEntriesLeaf);

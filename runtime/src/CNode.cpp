@@ -178,3 +178,53 @@ void CNode::statBackward() {
 	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", this->id, this->curr_stat_index);
 	--(this->curr_stat_index);
 }
+
+CNode* CNode::findAncestorBySid() {
+	MSG(DEBUG_CREGION, "findAncestor: sid: 0x%llx....", this->sid);
+	SID sid = this->sid;
+	CNode* ancestor = this->parent;
+	
+	while (ancestor != NULL) {
+		if (ancestor->sid == sid) {
+			return ancestor;
+		}
+
+		ancestor = ancestor->parent;
+	}
+	return NULL;
+}
+
+
+void CNode::handleRecursion() {
+	// detect a recursion with a new node
+	// - find an ancestor where ancestor.sid == node.sid
+	// - case a) no ancestor found - no recursion
+	// - case b) recursion to the root node: self recursion
+	//			 transform node to RNode
+	// - case c) recursion to a non-root node: a new tree needed
+	//	       - create a CTree from a subtree starting from the ancestor
+	//         - set current tree and node appropriately
+
+	CNode* ancestor = findAncestorBySid();
+
+	if (ancestor == NULL) {
+		return;
+#if 0
+	} else if (ancestor == this->root) {
+		convertToSelfRNode();
+		return;
+#endif
+
+	} else {
+		assert(ancestor->parent != NULL);
+#if 0 // XXX: don't use the following code!
+		CTree* rTree = CTree::createFromSubTree(ancestor, this);
+		CNode* rNode = CNode::createExtRNode(ancestor->sid, ancestor->cid, rTree);
+		ancestor->parent->replaceChild(ancestor, rNode);
+#endif
+		ancestor->type = R_INIT;
+		this->type = R_SINK;
+		this->recursion = ancestor;
+		return;
+	}
+}
