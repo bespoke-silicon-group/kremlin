@@ -23,6 +23,48 @@ void KremlinProfiler::checkTimestamp(int index, ProgramRegion* region, Timestamp
 #endif
 }
 
+static void checkRegion() {
+#if 0
+	int bug = 0;
+	for (unsigned i=0; i < regionInfo.size(); ++i) {
+		ProgramRegion* ret = regionInfo[i];
+		if (ret->code != 0xDEADBEEF) { // XXX: won't work now
+			MSG(0, "ProgramRegion Error at index %d\n", i);	
+			assert(0);
+			assert(ret->code == 0xDEADBEEF);
+		}
+	}
+	if (bug > 0)
+		assert(0);
+#endif
+}
+
+void KremlinProfiler::addFunctionToStack(CID cid) {
+	FunctionRegion* fc = (FunctionRegion*) MemPoolAllocSmall(sizeof(FunctionRegion));
+	assert(fc);
+
+	fc->init(cid);
+	callstack.push_back(fc);
+
+	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", fc, cid);
+}
+
+void KremlinProfiler::removeFunctionFromStack() {
+	FunctionRegion* fc = callstack.back();
+	callstack.pop_back();
+	
+	assert(fc);
+	MSG(3, "removeFunctionFromStack at 0x%x CID 0x%x\n", fc, fc->getCallSiteID());
+
+	assert(num_function_regions_entered == num_register_tables_setup);
+	assert(waiting_for_register_table_setup == 0);
+
+	if (fc->table != NULL) Table::destroy(fc->table);
+
+	MemPoolFreeSmall(fc, sizeof(FunctionRegion));
+}
+
+
 void ProgramRegion::updateCriticalPathLength(Timestamp value) {
 	this->cp = MAX(value, this->cp);
 	MSG(3, "updateCriticalPathLength : value = %llu\n", this->cp);	
@@ -873,3 +915,193 @@ void KremlinProfiler::handlePhiAddCond(Reg dest_reg, Reg src_reg) {
 	timestampUpdater<false, true, 2, false>(dest_reg, dest_reg, 0, 
 										src_reg, 0, 0, 0, 0, 0, 0, 0);
 }
+
+void KremlinProfiler::handlePushCDep(Reg cond) {
+    MSG(3, "Push CDep ts[%u]\n", cond);
+	idbgAction(KREM_ADD_CD,"## KPushCDep(cond=%u)\n",cond);
+
+	checkRegion();
+    if (!enabled) return;
+
+	cdt_read_ptr++;
+	int indexSize = getCurrNumInstrumentedLevels();
+
+// TODO: rarely, ctable could require resizing..not implemented yet
+	if (cdt_read_ptr == control_dependence_table->getRow()) {
+		fprintf(stderr, "CDep Table requires entry resizing..\n");
+		assert(0);	
+	}
+
+	if (control_dependence_table->getCol() < indexSize) {
+		fprintf(stderr, "CDep Table requires index resizing..\n");
+		assert(0);	
+	}
+
+	Table* lTable = KremlinProfiler::getRegisterFileTable();
+	//assert(lTable->col >= indexSize);
+	//assert(control_dependence_table->col >= indexSize);
+
+	lTable->copyToDest(control_dependence_table, cdt_read_ptr, cond, 0, indexSize);
+	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
+	assert(cdt_read_ptr < control_dependence_table->row);
+	checkRegion();
+}
+
+void KremlinProfiler::handlePopCDep() {
+    MSG(3, "Pop CDep\n");
+	idbgAction(KREM_REMOVE_CD, "## KPopCDep()\n");
+
+	if (!enabled) return;
+
+	cdt_read_ptr--;
+	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
+}
+
+void KremlinProfiler::handlePrepCall(CID callSiteId, UInt64 calledRegionId) {
+    MSG(1, "KPrepCall\n");
+	idbgAction(KREM_PREP_CALL, "## _KPrepCall(callSiteId=%llu,calledRegionId=%llu)\n",callSiteId,calledRegionId);
+    if (!enabled) return; 
+
+    // Clear off any argument timestamps that have been left here before the
+    // call. These are left on the deque because library calls never take
+    // theirs off. 
+    clearFunctionArgQueue();
+	setLastCallsiteID(callSiteId);
+}
+
+#define DUMMY_ARG		-1
+
+// TODO: make template function to handle both Enq and EnqConst?
+void KremlinProfiler::handleEnqueueArgument(Reg arg) {
+    MSG(1, "Enque Arg Reg [%u]\n", arg);
+	idbgAction(KREM_LINK_ARG,"## _KEnqArg(arg=%u)\n",arg);
+    if (!enabled) return;
+	functionArgQueuePushBack(arg);
+}
+
+void KremlinProfiler::handleEnqueueConstArgument() {
+    MSG(1, "Enque Const Arg\n");
+	idbgAction(KREM_LINK_ARG,"## _KEnqArgConst()\n");
+    if (!enabled) return;
+	functionArgQueuePushBack(DUMMY_ARG);
+}
+
+// get timestamp for an arg and associate it with a local vreg
+// should be called in the order of linkArgToLocal
+void KremlinProfiler::handleDequeueArgument(Reg dest) {
+    MSG(3, "Deq Arg to Reg[%u] \n", dest);
+	idbgAction(KREM_UNLINK_ARG,"## _KDeqArg(dest=%u)\n",dest);
+    if (!enabled) return;
+
+	Reg src = functionArgQueuePopFront();
+	// copy parent's src timestamp into the currenf function's dest reg
+	if (src != DUMMY_ARG && getCurrNumInstrumentedLevels() > 0) {
+		FunctionRegion* caller = getCallingFunction();
+		FunctionRegion* callee = getCurrentFunction();
+		Table* callerT = caller->getTable();
+		Table* calleeT = callee->getTable();
+
+		// decrement one as the current level should not be copied
+		int indexSize = getCurrNumInstrumentedLevels() - 1;
+		assert(getCurrentLevel() >= 1);
+		callerT->copyToDest(calleeT, dest, src, 0, indexSize);
+	}
+    MSG(3, "\n", dest);
+}
+
+/**
+ * Setup the local shadow register table.
+ * @param num_virt_regs	Number of virtual registers to allocate.
+ * @param nested_depth	Max relative region depth that can touch the table.
+ *
+ * A RTable is used by regions in the same function. 
+ * Fortunately, it is possible to set the size of the table using 
+ * both compile-time and runtime information. 
+ *  - row: num_virt_regs, as each row represents a virtual register
+ *  - col: getCurrentLevel() + 1 + nested_depth
+ *		nested_depth represents the max depth of a region that can use 
+ *		the RTable. 
+ */
+void KremlinProfiler::handlePrepRTable(UInt num_virt_regs, UInt nested_depth) {
+	int tableHeight = num_virt_regs;
+	int tableWidth = getCurrentLevel() + nested_depth + 1;
+    MSG(1, "KPrep RShadow Table row=%d, col=%d (curLevel=%d, nested_depth=%d)\n",
+		 tableHeight, tableWidth, getCurrentLevel(), nested_depth);
+	idbgAction(KREM_PREP_REG_TABLE,"## _KPrepRTable(num_virt_regs=%u,nested_depth=%u)\n",num_virt_regs,nested_depth);
+
+    if (!enabled) return; 
+
+    assert(waitingForRegisterTableSetup());
+    Table* table = Table::create(tableHeight, tableWidth);
+    FunctionRegion* funcHead = getCurrentFunction();
+	assert(funcHead != NULL);
+    assert(funcHead->table == NULL);
+    funcHead->table = table;
+    assert(funcHead->table != NULL);
+
+    KremlinProfiler::setRegisterFileTable(funcHead->table);
+	incrementSetupTableCount();
+    finishRegisterTableSetup();
+}
+
+// This function is called before 
+// callee's _KEnterRegion is called.
+// Save the return register name in caller's context
+void KremlinProfiler::handleLinkReturn(Reg dest) {
+    MSG(1, "_KLinkReturn with reg %u\n", dest);
+	idbgAction(KREM_ARVL,"## _KLinkReturn(dest=%u)\n",dest);
+
+    if (!enabled) return;
+
+	FunctionRegion* caller = getCurrentFunction();
+	caller->setReturnRegister(dest);
+}
+
+// This is called right before callee's "_KExitRegion"
+// read timestamp of the callee register and 
+// update the caller register that will hold the return value
+//
+void KremlinProfiler::handleReturn(Reg src) {
+    MSG(1, "_KReturn with reg %u\n", src);
+	idbgAction(KREM_FUNC_RETURN,"## _KReturn (src=%u)\n",src);
+
+    if (!enabled) return;
+
+    FunctionRegion* callee = getCurrentFunction();
+    FunctionRegion* caller = getCallingFunction();
+
+	// main function does not have a return point
+	if (caller == NULL)
+		return;
+
+	Reg ret = caller->getReturnRegister();
+	assert(ret >= 0);
+
+	// current level time does not need to be copied
+	int indexSize = getCurrNumInstrumentedLevels() - 1;
+	if (indexSize > 0)
+		callee->table->copyToDest(caller->table, ret, src, 0, indexSize);
+	
+    MSG(1, "end write return value 0x%x\n", getCurrentFunction());
+}
+
+void KremlinProfiler::handleReturnConst() {
+    MSG(1, "_KReturnConst\n");
+	idbgAction(KREM_FUNC_RETURN,"## _KReturnConst()\n");
+
+    if (!enabled) return;
+
+    // Assert there is a function context before the top.
+	FunctionRegion* caller = getCallingFunction();
+
+	// main function does not have a return point
+	if (caller == NULL)
+		return;
+
+	Index index;
+    for (index = 0; index < caller->table->col; index++) {
+		Time cdt = getControlDependenceAtIndex(index);
+		caller->table->setValue(cdt, caller->getReturnRegister(), index);
+    }
+}
+

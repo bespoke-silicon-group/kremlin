@@ -266,6 +266,15 @@ public:
 	void handlePopCDep();
 	void handlePushCDep(Reg cond);
 
+	void handlePrepCall(CID callSiteId, UInt64 calledRegionId);
+	void handleEnqueueArgument(Reg src);
+	void handleEnqueueConstArgument();
+	void handleDequeueArgument(Reg dest);
+	void handlePrepRTable(UInt num_virt_regs, UInt nested_depth);
+	void handleLinkReturn(Reg dest);
+	void handleReturn(Reg src);
+	void handleReturnConst();
+
 	void checkTimestamp(int index, ProgramRegion* region, Timestamp value);
 
 };

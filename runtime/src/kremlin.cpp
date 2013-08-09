@@ -48,31 +48,6 @@ static UInt64	storeCnt = 0llu;
 // END TODO: make these not global
 
 
-void KremlinProfiler::addFunctionToStack(CID cid) {
-	FunctionRegion* fc = (FunctionRegion*) MemPoolAllocSmall(sizeof(FunctionRegion));
-	assert(fc);
-
-	fc->init(cid);
-	callstack.push_back(fc);
-
-	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", fc, cid);
-}
-
-void KremlinProfiler::removeFunctionFromStack() {
-	FunctionRegion* fc = callstack.back();
-	callstack.pop_back();
-	
-	assert(fc);
-	MSG(3, "removeFunctionFromStack at 0x%x CID 0x%x\n", fc, fc->getCallSiteID());
-
-	assert(num_function_regions_entered == num_register_tables_setup);
-	assert(waiting_for_register_table_setup == 0);
-
-	if (fc->table != NULL) Table::destroy(fc->table);
-
-	MemPoolFreeSmall(fc, sizeof(FunctionRegion));
-}
-
 FunctionRegion* KremlinProfiler::getCurrentFunction() {
 	if (callstack.empty()) {
 		MSG(3, "getCurrentFunction  NULL\n");
@@ -240,46 +215,6 @@ void _KPopCDep() {
 	profiler->handlePopCDep();
 }
 
-void KremlinProfiler::handlePushCDep(Reg cond) {
-    MSG(3, "Push CDep ts[%u]\n", cond);
-	idbgAction(KREM_ADD_CD,"## KPushCDep(cond=%u)\n",cond);
-
-	checkRegion();
-    if (!enabled) return;
-
-	cdt_read_ptr++;
-	int indexSize = profiler->getCurrNumInstrumentedLevels();
-
-// TODO: rarely, ctable could require resizing..not implemented yet
-	if (cdt_read_ptr == control_dependence_table->getRow()) {
-		fprintf(stderr, "CDep Table requires entry resizing..\n");
-		assert(0);	
-	}
-
-	if (control_dependence_table->getCol() < indexSize) {
-		fprintf(stderr, "CDep Table requires index resizing..\n");
-		assert(0);	
-	}
-
-	Table* lTable = KremlinProfiler::getRegisterFileTable();
-	//assert(lTable->col >= indexSize);
-	//assert(control_dependence_table->col >= indexSize);
-
-	lTable->copyToDest(control_dependence_table, cdt_read_ptr, cond, 0, indexSize);
-	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
-	assert(cdt_read_ptr < control_dependence_table->row);
-	checkRegion();
-}
-
-void KremlinProfiler::handlePopCDep() {
-    MSG(3, "Pop CDep\n");
-	idbgAction(KREM_REMOVE_CD, "## KPopCDep()\n");
-
-	if (!enabled) return;
-
-	cdt_read_ptr--;
-	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
-}
 
 /*****************************************************************
  * Function Call Management
@@ -307,160 +242,35 @@ void KremlinProfiler::handlePopCDep() {
 
 
 void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
-    MSG(1, "KPrepCall\n");
-	idbgAction(KREM_PREP_CALL, "## _KPrepCall(callSiteId=%llu,calledRegionId=%llu)\n",callSiteId,calledRegionId);
-    if (!profiler->isEnabled()) { 
-		return; 
-	}
-
-    // Clear off any argument timestamps that have been left here before the
-    // call. These are left on the deque because library calls never take
-    // theirs off. 
-    profiler->clearFunctionArgQueue();
-	profiler->setLastCallsiteID(callSiteId);
+	profiler->handlePrepCall(callSiteId, calledRegionId);
 }
 
 void _KEnqArg(Reg src) {
-    MSG(1, "Enque Arg Reg [%u]\n", src);
-	idbgAction(KREM_LINK_ARG,"## _KEnqArg(src=%u)\n",src);
-    if (!profiler->isEnabled())
-        return;
-	profiler->functionArgQueuePushBack(src);
+	profiler->handleEnqueueArgument(src);
 }
 
-#define DUMMY_ARG		-1
 void _KEnqArgConst() {
-    MSG(1, "Enque Const Arg\n");
-	idbgAction(KREM_LINK_ARG,"## _KEnqArgConst()\n");
-    if (!profiler->isEnabled())
-        return;
-
-	profiler->functionArgQueuePushBack(DUMMY_ARG); // dummy arg
+	profiler->handleEnqueueConstArgument();
 }
 
-// get timestamp for an arg and associate it with a local vreg
-// should be called in the order of linkArgToLocal
 void _KDeqArg(Reg dest) {
-    MSG(3, "Deq Arg to Reg[%u] \n", dest);
-	idbgAction(KREM_UNLINK_ARG,"## _KDeqArg(dest=%u)\n",dest);
-    if (!profiler->isEnabled())
-        return;
-
-	Reg src = profiler->functionArgQueuePopFront();
-	// copy parent's src timestamp into the currenf function's dest reg
-	if (src != DUMMY_ARG && profiler->getCurrNumInstrumentedLevels() > 0) {
-		FunctionRegion* caller = profiler->getCallingFunction();
-		FunctionRegion* callee = profiler->getCurrentFunction();
-		Table* callerT = caller->getTable();
-		Table* calleeT = callee->getTable();
-
-		// decrement one as the current level should not be copied
-		int indexSize = profiler->getCurrNumInstrumentedLevels() - 1;
-		assert(profiler->getCurrentLevel() >= 1);
-		callerT->copyToDest(calleeT, dest, src, 0, indexSize);
-	}
-    MSG(3, "\n", dest);
+	profiler->handleDequeueArgument(dest);
 }
 
-/**
- * Setup the local shadow register table.
- * @param maxVregNum	Number of virtual registers to allocate.
- * @param maxNestLevel	Max relative region depth that can touch the table.
- *
- * A RTable is used by regions in the same function. 
- * Fortunately, it is possible to set the size of the table using 
- * both compile-time and runtime information. 
- *  - row: maxVregNum, as each row represents a virtual register
- *  - col: profiler->getCurrentLevel() + 1 + maxNestLevel
- *		maxNestLevel represents the max depth of a region that can use 
- *		the RTable. 
- */
 void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
-	int tableHeight = maxVregNum;
-	int tableWidth = profiler->getCurrentLevel() + maxNestLevel + 1;
-    MSG(1, "KPrep RShadow Table row=%d, col=%d (curLevel=%d, maxNestLevel=%d)\n",
-		 tableHeight, tableWidth, profiler->getCurrentLevel(), maxNestLevel);
-	idbgAction(KREM_PREP_REG_TABLE,"## _KPrepRTable(maxVregNum=%u,maxNestLevel=%u)\n",maxVregNum,maxNestLevel);
-
-    if (!profiler->isEnabled()) {
-		 return; 
-	}
-
-    assert(profiler->waitingForRegisterTableSetup());
-    Table* table = Table::create(tableHeight, tableWidth);
-    FunctionRegion* funcHead = profiler->getCurrentFunction();
-	assert(funcHead != NULL);
-    assert(funcHead->table == NULL);
-    funcHead->table = table;
-    assert(funcHead->table != NULL);
-
-    KremlinProfiler::setRegisterFileTable(funcHead->table);
-	profiler->incrementSetupTableCount();
-    profiler->finishRegisterTableSetup();
+	profiler->handlePrepRTable(maxVregNum, maxNestLevel);
 }
-
-// This function is called before 
-// callee's _KEnterRegion is called.
-// Save the return register name in caller's context
 
 void _KLinkReturn(Reg dest) {
-    MSG(1, "_KLinkReturn with reg %u\n", dest);
-	idbgAction(KREM_ARVL,"## _KLinkReturn(dest=%u)\n",dest);
-
-    if (!profiler->isEnabled())
-        return;
-
-	FunctionRegion* caller = profiler->getCurrentFunction();
-	caller->setReturnRegister(dest);
+	profiler->handleLinkReturn(dest);
 }
 
-// This is called right before callee's "_KExitRegion"
-// read timestamp of the callee register and 
-// update the caller register that will hold the return value
-//
 void _KReturn(Reg src) {
-    MSG(1, "_KReturn with reg %u\n", src);
-	idbgAction(KREM_FUNC_RETURN,"## _KReturn (src=%u)\n",src);
-
-    if (!profiler->isEnabled())
-        return;
-
-    FunctionRegion* callee = profiler->getCurrentFunction();
-    FunctionRegion* caller = profiler->getCallingFunction();
-
-	// main function does not have a return point
-	if (caller == NULL)
-		return;
-
-	Reg ret = caller->getReturnRegister();
-	assert(ret >= 0);
-
-	// current level time does not need to be copied
-	int indexSize = profiler->getCurrNumInstrumentedLevels() - 1;
-	if (indexSize > 0)
-		callee->table->copyToDest(caller->table, ret, src, 0, indexSize);
-	
-    MSG(1, "end write return value 0x%x\n", profiler->getCurrentFunction());
+	profiler->handleReturn(src);
 }
 
 void _KReturnConst() {
-    MSG(1, "_KReturnConst\n");
-	idbgAction(KREM_FUNC_RETURN,"## _KReturnConst()\n");
-    if (!profiler->isEnabled())
-        return;
-
-    // Assert there is a function context before the top.
-	FunctionRegion* caller = profiler->getCallingFunction();
-
-	// main function does not have a return point
-	if (caller == NULL)
-		return;
-
-	Index index;
-    for (index = 0; index < caller->table->col; index++) {
-		Time cdt = profiler->getControlDependenceAtIndex(index);
-		caller->table->setValue(cdt, caller->getReturnRegister(), index);
-    }
+	profiler->handleReturnConst();
 }
 
 
