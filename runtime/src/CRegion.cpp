@@ -9,7 +9,6 @@
 
 #include "CRegion.h"
 #include "CNode.h"
-#include "CTree.h"
 #include "CStat.h"
 
 /*** local functions ***/
