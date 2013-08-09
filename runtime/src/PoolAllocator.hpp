@@ -1,3 +1,6 @@
+#ifndef POOL_ALLOCATOR_H
+#define POOL_ALLOCATOR_H
+
 #include <cstddef> // for std::size_t, std::ptrdiff_t
 #include <limits>
 #include "MemMapAllocator.h"
@@ -75,3 +78,5 @@ namespace MPoolLib {
 		return false;
 	}
 }
+
+#endif // POOL_ALLOCATOR_H

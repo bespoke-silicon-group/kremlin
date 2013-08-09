@@ -4,7 +4,8 @@ files = ['debug.cpp', 'kremlin.cpp', 'ATable.cpp', 'MemMapAllocator.cpp',
 	'MShadowBase.cpp', 'MShadowSkadu.cpp', 'MShadowSTV.cpp', 
 	'compression.cpp', 'config.cpp', 'minilzo.cpp', 'mpool.cpp',
     'MShadowStat.cpp', 'MShadowDummy.cpp', 'MShadowCache.cpp',
-	'MShadowNullCache.cpp', 'TagVectorCache.cpp', 'TagVectorCacheLine.cpp'
+	'MShadowNullCache.cpp', 'TagVectorCache.cpp', 'TagVectorCacheLine.cpp',
+	'Handlers.cpp'
 	]
 kremlib_dynamic = env.SharedLibrary('kremlin', files)
 files.append('arg.cpp')

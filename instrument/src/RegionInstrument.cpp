@@ -84,7 +84,6 @@ namespace {
 
 		bool add_initProfiler_func;
 		bool add_deinitProfiler_func;
-		bool add_printProfileData_func;
 		bool add_logBBVisit_func;
 		bool add_logRegionEntry_func;
 		bool add_logRegionExit_func;
@@ -636,7 +635,6 @@ namespace {
 
 				add_initProfiler_func = false;
 				add_deinitProfiler_func = false;
-				add_printProfileData_func = false;
 				add_logBBVisit_func = false;
 				add_logRegionEntry_func = false;
 				add_logRegionExit_func = false;
@@ -648,7 +646,6 @@ namespace {
 
 					if(line == "_KInit") add_initProfiler_func = true;
 					else if(line == "_KDeinit") add_deinitProfiler_func = true;
-					else if(line == "_KPrintData") add_printProfileData_func = true;
 					else if(line == "_KBasicBlock") add_logBBVisit_func = true;
 					else if(line == "_KEnterRegion") add_logRegionEntry_func = true;
 					else if(line == "_KExitRegion") add_logRegionExit_func = true;
@@ -672,7 +669,6 @@ namespace {
 			else { // otherwise, we assume we do full instrumenting
 				add_initProfiler_func = true;
 				add_deinitProfiler_func = true;
-				add_printProfileData_func = true;
 				add_logBBVisit_func = true;
 				add_logRegionEntry_func = true;
 				add_logRegionExit_func = true;
@@ -745,8 +741,6 @@ namespace {
 				profilerFunctions.insert("_KInit");
 			if(add_deinitProfiler_func)
 				profilerFunctions.insert("_KDeinit");
-			if(add_printProfileData_func)
-				profilerFunctions.insert("_KPrintData");
 			if(add_logBBVisit_func)
 				profilerFunctions.insert("_KBasicBlock");
 			if(add_logRegionEntry_func)
@@ -849,7 +843,6 @@ namespace {
 			// these will be our instrumentation functions
 			Function* initProfiler_func = NULL;
 			Function* deinitProfiler_func = NULL;
-			Function* printProfileData_func = NULL;
 			Function* logBBVisit_func = NULL;
 			Function* logRegionEntry_func = NULL;
 			Function* logRegionExit_func = NULL;
@@ -859,9 +852,6 @@ namespace {
 				initProfiler_func = cast<Function>(m.getOrInsertFunction("_KInit", FunctionType::get(types.voidTy(), false)));
 				deinitProfiler_func = cast<Function>(m.getOrInsertFunction("_KDeinit", FunctionType::get(types.voidTy(), false)));
 			}
-
-			if(add_printProfileData_func)
-				printProfileData_func = cast<Function>(m.getOrInsertFunction("_KPrintData", FunctionType::get(types.voidTy(), false)));
 
 			args.push_back(types.i64()); // unique ID (bb_id for _KBasicBlock, region_id for _KEnter/ExitRegion)
 
@@ -1084,15 +1074,11 @@ namespace {
 							op_args.clear();
 						}
 
-						// if this is "main" we insert call to
-						// _KPrintData() then _KDeinit
+						// if this is "main" we insert call to _KDeinit
 						if(!(non_returning_call && non_returning_call->getCalledFunction() &&  isCppThrowFunc(non_returning_call->getCalledFunction())) && 
                             (func.getName().compare("main") == 0 || func.getName().compare("MAIN__") == 0 || is_exit_point)) 
                         {
 							ArrayRef<Value*> *aref = new ArrayRef<Value*>(op_args);
-							if(add_printProfileData_func) {
-								CallInst::Create(printProfileData_func, *aref, "", insert_before);
-							}
 							if(add_deinitProfiler_func) {
 								CallInst::Create(deinitProfiler_func, *aref, "", insert_before);
 							}
