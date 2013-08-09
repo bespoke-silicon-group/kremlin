@@ -43,6 +43,9 @@ public:
 	CTree* tree; // for linking a CTree
 	CNode* recursion;
 
+	CNode(SID static_id, CID callsite_id, RegionType type);
+	~CNode();
+
 	CNode* findChild(UInt64 sid, UInt64 callSite);
 	void   CNodeAttach(CStat* region);
 	void   statForward();
@@ -70,7 +73,8 @@ public:
 	 */
 	void handleRecursion(); 
 
-	static CNode* create(SID sid, CID cid, RegionType type); 
+	static void* operator new(size_t size);
+	static void operator delete(void* ptr);
 	
 private:
 	void updateCurrentCStat(RegionField* info);

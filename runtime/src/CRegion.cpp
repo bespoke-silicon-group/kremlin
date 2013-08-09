@@ -43,7 +43,8 @@ static void printPosition() {
  *********************************/
 
 void CRegionInit() {
-	region_tree_root = CNode::create(0, 0, RegionFunc); // dummy root node
+	// create dummy root node
+	region_tree_root = new CNode(0, 0, RegionFunc); // XXX: mem leak
 	curr_region_node = region_tree_root;
 	assert(root != NULL);
 }
@@ -63,7 +64,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	// corner case: no graph exists 
 #if 0
 	if (parent == NULL) {
-		child = CNode::create(sid, cid);
+		child = new CNode(sid, cid); // XXX: wrong
 		curr_region_node = child;
 		CRegionPush(child);
 		MSG(0, "CRegionEnter: sid: root -> 0x%llx, callSite: 0x%llx\n", 
@@ -80,7 +81,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	child = parent->findChild(sid, cid);
 	if (child == NULL) {
 		// case 3) step a - new node required
-		child = CNode::create(sid, cid, type);
+		child = new CNode(sid, cid, type); // XXX: mem leak
 		parent->linkChild(child);
 		if (KConfigGetRSummarySupport())
 			child->handleRecursion();

@@ -8,30 +8,37 @@
 static UInt64 lastId = 0; // FIXME: change to member variable?
 UInt64 CNode::allocId() { return ++lastId; }
 
-CNode* CNode::create(SID sid, CID cid, RegionType type) {
-	CNode* ret = (CNode*)MemPoolAllocSmall(sizeof(CNode));
-	MSG(DEBUG_CREGION, "CNode: created CNode at 0x%x\n", ret);
+void* CNode::operator new(size_t size) {
+	return (CNode*)MemPoolAllocSmall(sizeof(CNode));
+}
 
-	// basic info
-	ret->parent = NULL;
-	new(&ret->children) std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
-	ret->type = NORMAL;
-	ret->rType = type;
-	ret->id = CNode::allocId();
-	ret->sid = sid;
-	ret->cid = cid;
-	ret->recursion = NULL;
-	ret->numInstance = 0;
-	ret->isDoall = 1;
+void CNode::operator delete(void* ptr) {
+	MemPoolFreeSmall(ptr, sizeof(CNode));
+}
+
+CNode::CNode(SID static_id, CID callsite_id, RegionType type) {
+	this->parent = NULL;
+	new(&this->children) std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
+	this->type = NORMAL;
+	this->rType = type;
+	this->id = CNode::allocId();
+	this->sid = static_id;
+	this->cid = callsite_id;
+	this->recursion = NULL;
+	this->numInstance = 0;
+	this->isDoall = 1;
 
 	// debug info
-	ret->code = 0xDEADBEEF;
+	this->code = 0xDEADBEEF;
 
 	// stat
-	new(&ret->stats) std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
-	ret->curr_stat_index = -1;
+	new(&this->stats) std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
+	this->curr_stat_index = -1;
+}
 
-	return ret;
+CNode::~CNode() {
+	this->children.~vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
+	this->stats.~vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
 }
 
 CNode* CNode::findChild(UInt64 sid, UInt64 callSite) {
@@ -209,7 +216,7 @@ void CNode::handleRecursion() {
 // No idea what this stuff was supposed to do (-sat)
 #if 0
 CNode* CNode::createExtRNode(SID sid, CID cid, CTree* childTree) {
-	CNode* ret = CNode::create(sid, cid);
+	CNode* ret = new CNode(sid, cid);
 	ret->type = EXT_R;
 	ret->tree = childTree;
 	childTree->parent = ret;
