@@ -4,7 +4,7 @@
 #include <vector>
 #include "PoolAllocator.hpp"
 #include "CRegion.h"
-#include "CStat.h"
+//#include "CStat.h"
 
 #define DEBUG_CREGION	3
 
@@ -16,6 +16,7 @@ enum _cnode_type {NORMAL, R_INIT, R_SINK};
 typedef enum _cnode_type CNodeType;
 
 class CTree;
+class CStat;
 
 class CNode {
 public:
