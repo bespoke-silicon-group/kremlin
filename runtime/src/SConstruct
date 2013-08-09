@@ -1,5 +1,5 @@
 env = Environment(CCFLAGS = '-O3')
-files = ['debug.cpp', 'kremlin.cpp', 'ATable.cpp', 'MemMapAllocator.cpp',
+files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
     'CNode.cpp', 'CRegion.cpp', 'CStat.cpp', 'CTree.cpp',
 	'MShadowBase.cpp', 'MShadowSkadu.cpp', 'MShadowSTV.cpp', 
 	'compression.cpp', 'config.cpp', 'minilzo.cpp', 'mpool.cpp',
