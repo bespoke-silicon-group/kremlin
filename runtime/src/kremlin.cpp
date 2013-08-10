@@ -19,8 +19,8 @@
 #include "MShadowSTV.h"
 #include "MShadowSkadu.h"
 
+#include "Table.h"
 #include "RShadow.h"
-#include "RShadow.cpp" // WHY?
 #include "PoolAllocator.hpp"
 
 #include "KremlinProfiler.hpp"
@@ -28,11 +28,7 @@
 #include "FunctionRegion.hpp"
 
 #include <vector>
-#include <algorithm> // for max_element
 #include <iostream>
-
-//#include "idbg.h"
-
 
 
 static KremlinProfiler *profiler;
@@ -445,70 +441,6 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
 /******************************
  * Kremlin Init / Deinit
  *****************************/
-
-
-#define REGION_INIT_SIZE	64
-
-void KremlinProfiler::init() {
-	DebugInit();
-    if (initialized) {
-        MSG(0, "kremlinInit skipped\n");
-		return;
-    }
-	initialized = true;
-
-    MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
-        getMinLevel(), getMaxLevel(), getArraySize());
-    MSG(0, "kremlinInit running....");
-	if (KConfigGetDebug()) { 
-		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", KConfigGetDebugLevel()); 
-	}
-
-	initFunctionArgQueue();
-	initControlDependences();
-	CRegionInit();
-	initShadowRegisterFile(getArraySize());
-
-	initShadowMemory(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
-	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
-   	_KTurnOn();
-}
-
-/*
-   if a program exits out of main(),
-   cleanup() enforces 
-   KExitRegion() calls for active regions
- */
-void KremlinProfiler::cleanup() {
-    Level level = getCurrentLevel();
-	for (int i = level; i >= 0; --i) {
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-		_KExitRegion(region->regionId, region->regionType);
-	}
-}
-
-void KremlinProfiler::deinit() {
-	cleanup();
-    if (!initialized) {
-        MSG(0, "kremlinDeinit skipped\n");
-        return;
-    }
-	initialized = false;
-
-	fprintf(stderr,"[kremlin] max active level = %d\n", 
-		getMaxActiveLevel());	
-
-	_KTurnOff();
-	CRegionDeinit(KConfigGetOutFileName());
-	deinitShadowRegisterFile();
-	deinitShadowMemory();
-	deinitFunctionArgQueue();
-	deinitControlDependences();
-	ProgramRegion::deinitProgramRegions();
-    //MemMapAllocatorDelete(&memPool);
-	
-	DebugDeinit();
-}
 
 void _KInit() { 
 	profiler = new KremlinProfiler(KConfigGetMinLevel(), KConfigGetMaxLevel());
