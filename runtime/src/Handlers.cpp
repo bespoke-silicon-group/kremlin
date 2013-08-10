@@ -32,6 +32,38 @@ void KremlinProfiler::callstackPop() {
 	delete func;
 }
 
+/*****************************************************************
+ * Control Dependence Management
+ *****************************************************************/
+
+void KremlinProfiler::initControlDependences() {
+	assert(control_dependence_table == NULL);
+	cdt_read_ptr = 0;
+	control_dependence_table = new Table(KremlinProfiler::CDEP_ROW, 
+											KremlinProfiler::CDEP_COL);
+	assert(control_dependence_table != NULL);
+}
+
+void KremlinProfiler::deinitControlDependences() {
+	assert(control_dependence_table != NULL);
+	delete control_dependence_table;
+	control_dependence_table = NULL;
+}
+
+Time KremlinProfiler::getControlDependenceAtIndex(Index index) {
+	assert(control_dependence_table != NULL);
+	assert(index < KremlinProfiler::CDEP_COL);
+	return *(cdt_current_base + index);
+}
+
+void KremlinProfiler::initRegionControlDependences(Index index) {
+	assert(control_dependence_table != NULL);
+	MSG(3, "initRegionControlDependences ReadPtr = %d, Index = %d\n", cdt_read_ptr, index);
+	control_dependence_table->setValue(0, cdt_read_ptr, index);
+	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
+	assert(control_dependence_table->getValue(cdt_read_ptr, index) == 0);
+}
+
 /* BEGIN UNAUDITED CODE */
 
 void KremlinProfiler::checkTimestamp(int index, ProgramRegion* region, Timestamp value) {
@@ -74,12 +106,6 @@ void ProgramRegion::updateCriticalPathLength(Timestamp value) {
 #endif
 }
 
-Time KremlinProfiler::getControlDependenceAtIndex(Index index) {
-	assert(control_dependence_table != NULL);
-	assert(cdt_read_ptr >=  0);
-	return *(cdt_current_base + index);
-}
-
 /*
  * Register Shadow Memory 
  */
@@ -110,6 +136,7 @@ void KremlinProfiler::zeroRegistersAtIndex(Index index) {
 		setRegisterTimeAtIndex(0ULL, i, index);
 	}
 }
+
 Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
 	MSG(3, "RShadowGet [%d, %d] in table [%d, %d]\n",
 		reg, index, shadow_reg_file->getRow(), shadow_reg_file->getCol());

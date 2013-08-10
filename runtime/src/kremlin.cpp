@@ -179,32 +179,6 @@ void checkRegion() {
  *
  *****************************************************************/
 
-/*****************************************************************
- * Control Dependence Management
- *****************************************************************/
-
-// TODO: make these static const member vars in KremlinProfiler
-#define CDEP_ROW 256
-#define CDEP_COL 64
-
-void KremlinProfiler::initControlDependences() {
-	// TODO: check that we haven't initialized before
-	cdt_read_ptr = 0;
-	control_dependence_table = new Table(CDEP_ROW, CDEP_COL);
-}
-
-void KremlinProfiler::deinitControlDependences() {
-	delete control_dependence_table;
-}
-
-// XXX: what is this really doing? (-sat)
-void KremlinProfiler::initRegionControlDependences(Index index) {
-	assert(control_dependence_table != NULL);
-	MSG(3, "initRegionControlDependences ReadPtr = %d, Index = %d\n", cdt_read_ptr, index);
-	control_dependence_table->setValue(0ULL, cdt_read_ptr, index);
-	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
-}
-
 void _KPushCDep(Reg cond) {
 	profiler->handlePushCDep(cond);
 }

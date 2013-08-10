@@ -46,10 +46,37 @@ private:
 	int cdt_read_ptr;
 	Time* cdt_current_base;
 
-	void initControlDependences();
-	void deinitControlDependences();
-	void initRegionControlDependences(Index index);
+	// Width and height of control dependence table.
+	static const unsigned CDEP_ROW = 256;
+	static const unsigned CDEP_COL = 64;
 
+	/*!
+	 * Initializes the control dependence table to size of CDEP_ROW by
+	 * CDEP_COL.
+	 * @pre Control dependence table either hasn't been initialized or it's been
+	 * deinitialized after initialization.
+	 * @post control_dependence_table points to a valid Table in memory
+	 */
+	void initControlDependences();
+
+	/*!
+	 * @pre Control dependence table hasn't been deinitialized since the last time
+	 * it was initialized.
+	 * @post control_dependence_table is NULL
+	 */
+	void deinitControlDependences();
+
+	/*!
+	 * Clears current control dependence at specified depth (index). Also updates
+	 * cdt_current_base to point to entry in control dependence table
+	 * corresponding to the current control dependence.
+	 *
+	 * @param The index (depth) of current control dependence to set to zero.
+	 *
+	 * @pre The control dependence table has been initialized.
+	 * @post Time of current control dependence will be zero at the given index.
+	 */
+	void initRegionControlDependences(Index index);
 
 	enum ShadowMemoryType {
 		ShadowMemoryBase = 0,
@@ -93,7 +120,7 @@ private:
 	 *
 	 * @post Function call stack will not be empty.
 	 */
-	void addFunctionToStack(CID cid);
+	void addFunctionToStack(CID callsite_id);
 
 	/*!
 	 * Pops function region from callstack
@@ -225,10 +252,20 @@ public:
 		arg_queue_write_index = 0;
 	}
 
+	/*!
+	 * Returns time for the current control dependence at the specified region
+	 * depth.
+	 *
+	 * @param index The depth in the region tree.
+	 * @return The time of control dep at specified index.
+	 *
+	 * @pre Control dependence table has been initialized.
+	 * @pre index doesn't exceed maximum depth of control dependence table.
+	 */
+	Time getControlDependenceAtIndex(Index index);
+
 	void initShadowMemory();
 	void deinitShadowMemory();
-
-	Time getControlDependenceAtIndex(Index index);
 
 	void handleRegionEntry(SID regionId, RegionType regionType);
 	void handleRegionExit(SID regionId, RegionType regionType);
