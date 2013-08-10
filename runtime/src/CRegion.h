@@ -21,7 +21,6 @@ public:
 #endif
 };
 
-
 void CRegionInit();
 void CRegionDeinit(const char* file);
 void CRegionEnter(SID sid, CID callSite, RegionType type);

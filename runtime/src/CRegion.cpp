@@ -11,9 +11,10 @@
 #include "CNode.h"
 #include "CStat.h"
 
-/*** local functions ***/
-static void   CRegionPush(CNode* node);
-static CNode* CRegionPop();
+static std::stack<CNode*> c_region_stack;
+
+static void pushOnRegionStack(CNode* node);
+static CNode* popFromRegionStack();
 
 static void emit(const char* file);
 static void emitRegion(FILE* fp, CNode* node, UInt level);
@@ -50,7 +51,7 @@ void CRegionInit() {
 }
 
 void CRegionDeinit(const char* file) {
-	assert(CRegionPop() == NULL);
+	assert(popFromRegionStack() == NULL);
 	emit(file);
 }
 
@@ -66,7 +67,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	if (parent == NULL) {
 		child = new CNode(sid, cid); // XXX: wrong
 		curr_region_node = child;
-		CRegionPush(child);
+		pushOnRegionStack(child);
 		MSG(0, "CRegionEnter: sid: root -> 0x%llx, callSite: 0x%llx\n", 
 			sid, cid);
 		return;
@@ -104,7 +105,7 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 		curr_region_node = child;
 		break;
 	}
-	CRegionPush(child);
+	pushOnRegionStack(child);
 	printPosition();
 
 	MSG(DEBUG_CREGION, "CRegionEnter: End\n"); 
@@ -122,7 +123,7 @@ void CRegionExit(RegionField* info) {
 	// don't update if we didn't give it any info
 	// this happens when we are out of range for logging
 	CNode* current = curr_region_node;
-	CNode* popped = CRegionPop();
+	CNode* popped = popFromRegionStack();
 	assert(popped != NULL);
 	assert(current != NULL);
 
@@ -161,22 +162,20 @@ void CRegionExit(RegionField* info) {
 }
 
 /**
- * CRegionPush / CRegionPop
+ * pushOnRegionStack / popFromRegionStack
  *
  */
 
-static std::stack<CNode*> c_region_stack;
-
-static void CRegionPush(CNode* node) {
-	MSG(DEBUG_CREGION, "CRegionPush: ");
+void pushOnRegionStack(CNode* node) {
+	MSG(DEBUG_CREGION, "addOnRegionStack: ");
 
 	c_region_stack.push(node);
 
 	MSG(DEBUG_CREGION, "%s\n", node->toString());
 }
 
-static CNode* CRegionPop() {
-	MSG(DEBUG_CREGION, "CRegionPop: ");
+CNode* popFromRegionStack() {
+	MSG(DEBUG_CREGION, "popFromRegionStack: ");
 
 	if (c_region_stack.empty()) {
 		return NULL;
