@@ -49,15 +49,20 @@ void KremlinProfiler::addFunctionToStack(CID cid) {
 	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", fc, cid);
 }
 
-void KremlinProfiler::removeFunctionFromStack() {
-	FunctionRegion* fc = callstack.back();
-	callstack.pop_back();
-	
-	assert(fc);
-	MSG(3, "removeFunctionFromStack at 0x%x CID 0x%x\n", fc, fc->getCallSiteID());
+/*!
+ * Pops function region from callstack
+ * \pre Callstack is not empty.
+ * \pre All function regions have had their tables setup
+ */
+void KremlinProfiler::callstackPop() {
+	assert(!callstackIsEmpty());
+	assert(!waitingForRegisterTableSetup());
 
-	assert(num_function_regions_entered == num_register_tables_setup);
-	assert(waiting_for_register_table_setup == 0);
+	FunctionRegion* fc = callstack.back();
+	MSG(3, "callstackPop at 0x%x CID 0x%x\n", fc, fc->getCallSiteID());
+
+	callstack.pop_back();
+
 
 	if (fc->table != NULL) Table::destroy(fc->table);
 
@@ -357,7 +362,6 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 	// func region allocates a new RShadow Table.
 	// for other region types, it needs to "clean" previous region's timestamps
     if(regionType == RegionFunc) {
-		incrementFunctionRegionCount();
         addFunctionToStack(getLastCallsiteID());
         waitForRegisterTableSetup();
 
@@ -408,7 +412,7 @@ static RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt6
  * Does the clean up work when exiting a function region.
  */
 void KremlinProfiler::handleFunctionExit() {
-	removeFunctionFromStack();
+	callstackPop();
 
 	// root function
 	if (callstackIsEmpty()) {
@@ -1040,7 +1044,6 @@ void KremlinProfiler::handlePrepRTable(UInt num_virt_regs, UInt nested_depth) {
     assert(funcHead->table != NULL);
 
     KremlinProfiler::setRegisterFileTable(funcHead->table);
-	incrementSetupTableCount();
     finishRegisterTableSetup();
 }
 

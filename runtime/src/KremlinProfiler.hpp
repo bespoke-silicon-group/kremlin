@@ -128,8 +128,6 @@ public:
 	bool waitingForRegisterTableSetup() {return this->waiting_for_register_table_init; }
 	void waitForRegisterTableSetup() { this->waiting_for_register_table_init = true; }
 	void finishRegisterTableSetup() { this->waiting_for_register_table_init = false; }
-	void incrementFunctionRegionCount() { this->num_function_regions_entered++; }
-	void incrementSetupTableCount() { this->num_register_tables_setup++; }
 
 	void enable() { this->enabled = true; }
 	void disable() { this->enabled = false; }
@@ -194,7 +192,7 @@ public:
 	/**
 	 * Removes context at the top of the function context stack.
 	 */
-	void removeFunctionFromStack();
+	void callstackPop();
 
 	FunctionRegion* getCurrentFunction();
 	FunctionRegion* getCallingFunction();
