@@ -1,10 +1,11 @@
 #ifndef _TABLE_H
 #define _TABLE_H
-#include "debug.h"
-#include "ktypes.h"
 
+#include "ktypes.h"
+#include "debug.h"
 #include "MemMapAllocator.h"
-#include <cstdlib> // for malloc/calloc
+
+#include <cstdlib> // for calloc
 
 class Table {
 private:
@@ -58,11 +59,12 @@ public:
 int Table::getOffset(int row, int col) {
 	assert(row < this->row);
 	assert(col < this->col);
-	int offset = this->col * row + col;
-	return offset;
+	return (this->col * row + col);
 }
 
 Time* Table::getElementAddr(int row, int col) {
+	assert(row < this->row);
+	assert(col < this->col);
 	MSG(3, "TableGetElementAddr\n");
 	int offset = this->getOffset(row, col);
 	Time* ret = &(this->array[offset]);
@@ -71,7 +73,8 @@ Time* Table::getElementAddr(int row, int col) {
 
 
 Time Table::getValue(int row, int col) {
-	// TODO: validate input
+	assert(row < this->row);
+	assert(col < this->col);
 	MSG(3, "TableGetValue\n");
 	assert(this != NULL);
 	int offset = this->getOffset(row, col);
@@ -80,7 +83,8 @@ Time Table::getValue(int row, int col) {
 }
 
 void Table::setValue(Time time, int row, int col) {
-	// TODO: validate input
+	assert(row < this->row);
+	assert(col < this->col);
 	MSG(3, "TableSetValue\n");
 	assert(this != NULL);
 	int offset = this->getOffset(row, col);
@@ -105,7 +109,4 @@ void Table::copyToDest(Table* dest_table, Reg dest_reg, Reg src_reg,
 	memcpy(destAddr, srcAddr, size * sizeof(Time));
 }
 
-
 #endif
-
-
