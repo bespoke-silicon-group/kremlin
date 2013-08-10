@@ -603,7 +603,7 @@ void printRegisterTimes(Reg reg) {
 
 	Index index;
     for (index = 0; index < profiler->getCurrNumInstrumentedLevels(); index++) {
-        Time ts = KremlinProfiler::getRegisterTimeAtIndex(reg, index);
+        Time ts = profiler->getRegisterTimeAtIndex(reg, index);
 		fprintf(stdout,"\t#%u: %llu\n",index,ts);
 	}
 }

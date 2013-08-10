@@ -85,6 +85,7 @@ private:
 		ShadowMemoryDummy = 3
 	};
 
+	Table *shadow_reg_file;
 	MShadow *shadow_mem;
 
 	void updateCurrLevelInstrumentableStatus() {
@@ -129,6 +130,12 @@ private:
 	 */
 	void callstackPop();
 
+	Table* getRegisterFileTable() { return shadow_reg_file; }
+
+	void setRegisterFileTable(Table* table) { 
+		assert(table != NULL);
+		shadow_reg_file = table;
+	}
 
 
 public:
@@ -148,6 +155,7 @@ public:
 		this->control_dependence_table = NULL;
 		this->cdt_read_ptr = 0;
 		this->cdt_current_base = NULL;
+		this->shadow_reg_file = NULL;
 		this->shadow_mem = NULL;
 	}
 
@@ -157,15 +165,9 @@ public:
 	void deinit();
 	void cleanup();
 
-	static void initShadowRegisterFile(Index depth);
-	static void deinitShadowRegisterFile() {}
-
-	static Time getRegisterTimeAtIndex(Reg reg, Index index);
-	static void setRegisterTimeAtIndex(Time time, Reg reg, Index index);
-	static void zeroRegistersAtIndex(Index index);
-
-	static void setRegisterFileTable(Table* table);
-	static Table* getRegisterFileTable();
+	Time getRegisterTimeAtIndex(Reg reg, Index index);
+	void setRegisterTimeAtIndex(Time time, Reg reg, Index index);
+	void zeroRegistersAtIndex(Index index);
 
 	// TODO: is the following function necessary?
 	bool waitingForRegisterTableSetup() {return this->waiting_for_register_table_init; }

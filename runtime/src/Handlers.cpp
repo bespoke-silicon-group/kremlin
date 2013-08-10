@@ -109,20 +109,6 @@ void ProgramRegion::updateCriticalPathLength(Timestamp value) {
 /*
  * Register Shadow Memory 
  */
-static Table *shadow_reg_file; // TODO: static member of KremlinProfiler?
-
-void KremlinProfiler::initShadowRegisterFile(Index depth) { 
-	shadow_reg_file = NULL;
-}
-
-void KremlinProfiler::setRegisterFileTable(Table* table) { 
-	shadow_reg_file = table;
-}
-
-Table* KremlinProfiler::getRegisterFileTable() { 
-	return shadow_reg_file;
-}
-
 
 void KremlinProfiler::zeroRegistersAtIndex(Index index) {
 	if (index >= shadow_reg_file->getCol())
@@ -1055,9 +1041,7 @@ void KremlinProfiler::handlePrepRTable(UInt num_virt_regs, UInt nested_depth) {
     Table* table = new Table(tableHeight, tableWidth);
     FunctionRegion* funcHead = getCurrentFunction();
 	assert(funcHead != NULL);
-    assert(funcHead->table == NULL);
     funcHead->table = table;
-    assert(funcHead->table != NULL);
 
     KremlinProfiler::setRegisterFileTable(funcHead->table);
     finishRegisterTableSetup();
@@ -1144,7 +1128,6 @@ void KremlinProfiler::init() {
 	initFunctionArgQueue();
 	initControlDependences();
 	CRegionInit();
-	initShadowRegisterFile(getArraySize());
 
 	initShadowMemory(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
 	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
@@ -1177,7 +1160,6 @@ void KremlinProfiler::deinit() {
 
 	disable();
 	CRegionDeinit(KConfigGetOutFileName());
-	deinitShadowRegisterFile();
 	deinitShadowMemory();
 	deinitFunctionArgQueue();
 	deinitControlDependences();
