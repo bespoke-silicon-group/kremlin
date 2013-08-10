@@ -34,7 +34,7 @@ void SkaduCache::deinit() {
 	if (KConfigUseSkaduCache() == TRUE) {
 		// XXX: not sure of logic behind the next two lines (-sat)
 		MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(TagVectorCacheLine) * tag_vector_cache->getLineCount());
-		Table::destroy(tag_vector_cache->valueTable);
+		delete tag_vector_cache->valueTable;
 	}
 	delete tag_vector_cache;
 	tag_vector_cache = NULL;

@@ -188,12 +188,13 @@ void checkRegion() {
 #define CDEP_COL 64
 
 void KremlinProfiler::initControlDependences() {
+	// TODO: check that we haven't initialized before
 	cdt_read_ptr = 0;
-	control_dependence_table = Table::create(CDEP_ROW, CDEP_COL);
+	control_dependence_table = new Table(CDEP_ROW, CDEP_COL);
 }
 
 void KremlinProfiler::deinitControlDependences() {
-	Table::destroy(control_dependence_table);
+	delete control_dependence_table;
 }
 
 // XXX: what is this really doing? (-sat)

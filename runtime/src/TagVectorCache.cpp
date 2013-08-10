@@ -27,6 +27,7 @@ Time* TagVectorCache::getData(int index, int offset) {
 }
 
 void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
+	// TODO: make sure we haven't configured before
 	const int new_line_size = 8;
 	int new_line_count = new_size_in_mb * 1024 * 1024 / new_line_size;
 	this->size_in_mb = new_size_in_mb;
@@ -38,7 +39,7 @@ void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
 		new_size_in_mb, new_line_count, this->line_shift, this->depth);
 
 	tagTable = (TagVectorCacheLine*)MemPoolCallocSmall(new_line_count, sizeof(TagVectorCacheLine)); // 64bit granularity
-	valueTable = Table::create(new_line_count * 2, this->depth);  // 32bit granularity
+	valueTable = new Table(new_line_count * 2, this->depth);  // 32bit granularity
 
 	MSG(TV_CACHE_DEBUG_LVL, "MShadowCacheInit: value Table created row %d col %d at addr 0x%x\n", 
 		new_line_count, KConfigGetIndexSize(), valueTable[0].array);
@@ -101,7 +102,7 @@ void TagVectorCache::lookupWrite(Addr addr, int type, int *pIndex, TagVectorCach
 	}
 
 
-	//fprintf(stderr, "index = %d, tableSize = %d\n", tTableIndex, this->valueTable->row);
+	//fprintf(stderr, "index = %d, tableSize = %d\n", tTableIndex, this->valueTable->getRow());
 	*pIndex = index;
 	*pTArray = this->getData(index, offset);
 	*pLine = line;

@@ -189,8 +189,10 @@ public:
 	 */
 	void addFunctionToStack(CID cid);
 
-	/**
-	 * Removes context at the top of the function context stack.
+	/*!
+	 * Pops function region from callstack
+	 * @pre Callstack is not empty.
+	 * @pre All function regions have had their tables setup.
 	 */
 	void callstackPop();
 

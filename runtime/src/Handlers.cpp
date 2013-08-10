@@ -46,11 +46,6 @@ void KremlinProfiler::addFunctionToStack(CID cid) {
 	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", fc, cid);
 }
 
-/*!
- * Pops function region from callstack
- * \pre Callstack is not empty.
- * \pre All function regions have had their tables setup
- */
 void KremlinProfiler::callstackPop() {
 	assert(!callstackIsEmpty());
 	assert(!waitingForRegisterTableSetup());
@@ -60,7 +55,7 @@ void KremlinProfiler::callstackPop() {
 
 	callstack.pop_back();
 
-	if (fc->table != NULL) Table::destroy(fc->table);
+	if (fc->table != NULL) delete fc->table;
 
 	delete fc;
 }
@@ -104,37 +99,35 @@ Table* KremlinProfiler::getRegisterFileTable() {
 
 
 void KremlinProfiler::zeroRegistersAtIndex(Index index) {
-	if (index >= shadow_reg_file->col)
+	if (index >= shadow_reg_file->getCol())
 		return;
 
 	MSG(3, "zeroRegistersAtIndex col [%d] in table [%d, %d]\n",
-		index, shadow_reg_file->row, shadow_reg_file->col);
+		index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
 	Reg i;
 	assert(shadow_reg_file != NULL);
-	for (i=0; i<shadow_reg_file->row; i++) {
+	for (i=0; i<shadow_reg_file->getRow(); i++) {
 		setRegisterTimeAtIndex(0ULL, i, index);
 	}
 }
 Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
 	MSG(3, "RShadowGet [%d, %d] in table [%d, %d]\n",
-		reg, index, shadow_reg_file->row, shadow_reg_file->col);
-	assert(reg < shadow_reg_file->row);	
-	assert(index < shadow_reg_file->col);
-	int offset = shadow_reg_file->getOffset(reg, index);
-	Time ret = shadow_reg_file->array[offset];
+		reg, index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
+	assert(reg < shadow_reg_file->getRow());	
+	assert(index < shadow_reg_file->getCol());
+	Time ret = shadow_reg_file->getValue(reg, index);
 	return ret;
 }
 
 void KremlinProfiler::setRegisterTimeAtIndex(Time time, Reg reg, Index index) {
 	MSG(3, "RShadowSet [%d, %d] in table [%d, %d]\n",
-		reg, index, shadow_reg_file->row, shadow_reg_file->col);
-	assert(reg < shadow_reg_file->row);
-	assert(index < shadow_reg_file->col);
-	int offset = shadow_reg_file->getOffset(reg, index);
-	MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
-		&(shadow_reg_file->array[offset]), time, reg, index, offset);
-	assert(shadow_reg_file != NULL);
-	shadow_reg_file->array[offset] = time;
+		reg, index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
+	assert(reg < shadow_reg_file->getRow());
+	assert(index < shadow_reg_file->getCol());
+	shadow_reg_file->setValue(time, reg, index);
+	
+	//MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
+	//	&(shadow_reg_file->array[offset]), time, reg, index, offset);
 }
 
 
@@ -938,12 +931,12 @@ void KremlinProfiler::handlePushCDep(Reg cond) {
 	}
 
 	Table* lTable = KremlinProfiler::getRegisterFileTable();
-	//assert(lTable->col >= indexSize);
-	//assert(control_dependence_table->col >= indexSize);
+	//assert(lTable->getCol() >= indexSize);
+	//assert(control_dependence_table->getCol() >= indexSize);
 
 	lTable->copyToDest(control_dependence_table, cdt_read_ptr, cond, 0, indexSize);
 	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
-	assert(cdt_read_ptr < control_dependence_table->row);
+	assert(cdt_read_ptr < control_dependence_table->getRow());
 	checkRegion();
 }
 
@@ -1032,7 +1025,7 @@ void KremlinProfiler::handlePrepRTable(UInt num_virt_regs, UInt nested_depth) {
     if (!enabled) return; 
 
     assert(waitingForRegisterTableSetup());
-    Table* table = Table::create(tableHeight, tableWidth);
+    Table* table = new Table(tableHeight, tableWidth);
     FunctionRegion* funcHead = getCurrentFunction();
 	assert(funcHead != NULL);
     assert(funcHead->table == NULL);
@@ -1098,7 +1091,7 @@ void KremlinProfiler::handleReturnConst() {
 		return;
 
 	Index index;
-    for (index = 0; index < caller->table->col; index++) {
+    for (index = 0; index < caller->table->getCol(); index++) {
 		Time cdt = getControlDependenceAtIndex(index);
 		caller->table->setValue(cdt, caller->getReturnRegister(), index);
     }

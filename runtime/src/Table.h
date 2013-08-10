@@ -3,44 +3,57 @@
 #include "debug.h"
 #include "ktypes.h"
 
+#include "MemMapAllocator.h"
+#include <cstdlib> // for malloc/calloc
 
 class Table {
-public:
+private:
 	int	row;
 	int col;
 	Time* array;
 
+	inline int getOffset(int row, int col);
+
+public:
+
+	Table(int row, int col) : row(row), col(col) {
+		// TRICKY: time array should be initialized with zero
+		this->array = (Time*) calloc(row * col, sizeof(Time)); // TODO: use custom mem allocator
+		MSG(3, "TableCreate: this = 0x%llx row = %d, col = %d\n", this, row, col);
+		MSG(3, "TableCreate: this->array = 0x%llx \n", this->array);
+	}
+
+	~Table() {
+		free(this->array);
+	}
+
 	inline int	getRow() { return this->row; }
 	inline int	getCol() { return this->col; }
+	inline Time* getTimes() { return this->array; }
 
-	static inline Table* create(int row, int col);
-	static inline void destroy(Table* table);
-
-	inline int getOffset(int row, int col);
 	inline Time* getElementAddr(int row, int col);
 	inline Time getValue(int row, int col);
 	inline void setValue(Time time, int row, int col);
-	inline void copyToDest(Table* destTable, int destReg, int srcReg, int start, int size);
+
+	/*!
+	 * Copy values of a register to another table
+	 *
+	 * @pre dest_table is non-NULL
+	 * @pre start is less than number of columns in both this table and the
+	 * destination table
+	 */
+	inline void copyToDest(Table* dest_table, Reg dest_reg, Reg src_reg, 
+							unsigned start, unsigned size);
+
+	static void* operator new(size_t size) {
+		return (Table*)MemPoolAllocSmall(sizeof(Table));
+	}
+
+	static void operator delete(void* ptr) {
+		MemPoolFreeSmall(ptr, sizeof(Table));
+	}
 };
 
-Table* Table::create(int row, int col) {
-	Table* ret = (Table*) malloc(sizeof(Table));
-	ret->row = row;
-	ret->col = col;
-	// should be initialized with zero
-	ret->array = (Time*) calloc(row * col, sizeof(Time));
-	MSG(3, "TableCreate: ret = 0x%llx row = %d, col = %d\n", ret, row, col);
-	MSG(3, "TableCreate: ret->array = 0x%llx \n", ret->array);
-	return ret;
-}
-
-void Table::destroy(Table* table) {
-	assert(table != NULL);
-	assert(table->array != NULL);
-
-	free(table->array);
-	free(table);
-}
 
 int Table::getOffset(int row, int col) {
 	assert(row < this->row);
@@ -58,6 +71,7 @@ Time* Table::getElementAddr(int row, int col) {
 
 
 Time Table::getValue(int row, int col) {
+	// TODO: validate input
 	MSG(3, "TableGetValue\n");
 	assert(this != NULL);
 	int offset = this->getOffset(row, col);
@@ -66,35 +80,28 @@ Time Table::getValue(int row, int col) {
 }
 
 void Table::setValue(Time time, int row, int col) {
+	// TODO: validate input
 	MSG(3, "TableSetValue\n");
 	assert(this != NULL);
 	int offset = this->getOffset(row, col);
 	this->array[offset] = time;
 }
 
-/*
- * Copy values of a register to another table
- */
-void Table::copyToDest(Table* destTable, int destReg, int srcReg, int start, int size) {
-	Table* srcTable = this;
-	MSG(3, "TableCopy: srcTable(%d from [%d,%d]) destTable(%d from [%d,%d]) start = %d, size = %d\n", 
-		srcReg, srcTable->row, srcTable->col, destReg, destTable->row, destTable->col, 
+void Table::copyToDest(Table* dest_table, Reg dest_reg, Reg src_reg, 
+						unsigned start, unsigned size) {
+	Table* src_table = this;
+	assert(dest_table != NULL);
+	assert(start < dest_table->getCol());
+	assert(start < this->getCol());
+
+	MSG(3, "TableCopy: src_table(%d from [%d,%d]) dest_table(%d from [%d,%d]) start = %d, size = %d\n", 
+		src_reg, src_table->getRow(), src_table->getCol(), dest_reg, dest_table->getRow(), dest_table->getCol(), 
 		start, size);
-	assert(destTable != NULL);
-	assert(srcTable != NULL);
-	int indexDest = destTable->getOffset(destReg, start);
-	int indexSrc = srcTable->getOffset(srcReg, start);
 
-	if (size == 0)
-		return;
-	assert(size >= 0);
-	assert(start < destTable->col);
-	assert(start < srcTable->col);
-	assert(indexSrc < srcTable->row * srcTable->col);
-	assert(indexDest < destTable->row * destTable->col);
+	if (size == 0) return;
 
-	Time* srcAddr = (Time*)&(srcTable->array[indexSrc]);
-	Time* destAddr = (Time*)&(destTable->array[indexDest]);
+	Time* srcAddr = src_table->getElementAddr(src_reg, start);
+	Time* destAddr = dest_table->getElementAddr(dest_reg, start);
 	memcpy(destAddr, srcAddr, size * sizeof(Time));
 }
 
