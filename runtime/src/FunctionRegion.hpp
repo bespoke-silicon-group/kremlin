@@ -2,6 +2,7 @@
 #define FUNCTION_REGION_HPP
 
 #include "MemMapAllocator.h"
+#include "Table.h" // for delete of table in destructor
 
 class FunctionRegion {
 private:
@@ -24,6 +25,12 @@ public:
 		this->return_register = FunctionRegion::DUMMY_RETURN_REG;
 		this->error_checking_code = FunctionRegion::ERROR_CHECK_CODE;
 		this->call_site_id = callsite_id;
+	}
+
+	~FunctionRegion() {
+		assert(this->table != NULL);
+		delete this->table;
+		this->table = NULL;
 	}
 
 	Reg getCallSiteID() { return this->call_site_id; }

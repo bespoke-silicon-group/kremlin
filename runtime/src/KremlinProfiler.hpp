@@ -88,6 +88,22 @@ private:
 	template <bool store_const>
 	void timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg);
 
+	/*!
+	 * Pushes new function region  onto function call stack.
+	 *
+	 * @post Function call stack will not be empty.
+	 */
+	void addFunctionToStack(CID cid);
+
+	/*!
+	 * Pops function region from callstack
+	 * @pre Callstack is not empty.
+	 * @pre All function regions have had their tables setup.
+	 */
+	void callstackPop();
+
+
+
 public:
 	KremlinProfiler(Level min, Level max) {
 		this->enabled = false;
@@ -183,18 +199,6 @@ public:
 	}
 
 	bool callstackIsEmpty() { return callstack.empty(); }
-
-	/**
-	 * Pushes new context onto function context stack.
-	 */
-	void addFunctionToStack(CID cid);
-
-	/*!
-	 * Pops function region from callstack
-	 * @pre Callstack is not empty.
-	 * @pre All function regions have had their tables setup.
-	 */
-	void callstackPop();
 
 	FunctionRegion* getCurrentFunction();
 	FunctionRegion* getCallingFunction();

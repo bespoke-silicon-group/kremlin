@@ -13,6 +13,27 @@
 #define MALLOC_COST         100
 #define FREE_COST           10
 
+void KremlinProfiler::addFunctionToStack(CID callsite_id) {
+	FunctionRegion* func = new FunctionRegion(callsite_id);
+	callstack.push_back(func);
+
+	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", func, cid);
+	assert(!callstackIsEmpty());
+}
+
+void KremlinProfiler::callstackPop() {
+	assert(!callstackIsEmpty());
+	assert(!waitingForRegisterTableSetup());
+
+	FunctionRegion* func = callstack.back();
+	MSG(3, "callstackPop at 0x%x CID 0x%x\n", func, func->getCallSiteID());
+
+	callstack.pop_back();
+	delete func;
+}
+
+/* BEGIN UNAUDITED CODE */
+
 void KremlinProfiler::checkTimestamp(int index, ProgramRegion* region, Timestamp value) {
 #ifndef NDEBUG
 	if (value > getCurrentTime() - region->start) {
@@ -37,27 +58,6 @@ static void checkRegion() {
 	if (bug > 0)
 		assert(0);
 #endif
-}
-
-void KremlinProfiler::addFunctionToStack(CID cid) {
-	FunctionRegion* fc = new FunctionRegion(cid);
-	callstack.push_back(fc);
-
-	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", fc, cid);
-}
-
-void KremlinProfiler::callstackPop() {
-	assert(!callstackIsEmpty());
-	assert(!waitingForRegisterTableSetup());
-
-	FunctionRegion* fc = callstack.back();
-	MSG(3, "callstackPop at 0x%x CID 0x%x\n", fc, fc->getCallSiteID());
-
-	callstack.pop_back();
-
-	if (fc->table != NULL) delete fc->table;
-
-	delete fc;
 }
 
 
