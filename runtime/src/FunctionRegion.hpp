@@ -1,6 +1,8 @@
 #ifndef FUNCTION_REGION_HPP
 #define FUNCTION_REGION_HPP
 
+#include "MemMapAllocator.h"
+
 class FunctionRegion {
 private:
 	static const int DUMMY_RETURN_REG = -1;
@@ -17,11 +19,11 @@ public:
 		this->return_register = r; 
 	}
 
-	void init(CID cid) { 
+	FunctionRegion(CID callsite_id) { 
 		this->table = NULL;
 		this->return_register = FunctionRegion::DUMMY_RETURN_REG;
 		this->error_checking_code = FunctionRegion::ERROR_CHECK_CODE;
-		this->call_site_id = cid;
+		this->call_site_id = callsite_id;
 	}
 
 	Reg getCallSiteID() { return this->call_site_id; }
@@ -32,6 +34,13 @@ public:
 		assert(error_checking_code == FunctionRegion::ERROR_CHECK_CODE);
 	}
 
+	static void* operator new(size_t size) {
+		return (FunctionRegion*)MemPoolAllocSmall(sizeof(FunctionRegion));
+	}
+
+	static void operator delete(void* ptr) {
+		MemPoolFreeSmall(ptr, sizeof(FunctionRegion));
+	}
 };
 
 #endif // FUNCTION_REGION_HPP

@@ -40,10 +40,7 @@ static void checkRegion() {
 }
 
 void KremlinProfiler::addFunctionToStack(CID cid) {
-	FunctionRegion* fc = (FunctionRegion*) MemPoolAllocSmall(sizeof(FunctionRegion));
-	assert(fc);
-
-	fc->init(cid);
+	FunctionRegion* fc = new FunctionRegion(cid);
 	callstack.push_back(fc);
 
 	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", fc, cid);
@@ -63,10 +60,9 @@ void KremlinProfiler::callstackPop() {
 
 	callstack.pop_back();
 
-
 	if (fc->table != NULL) Table::destroy(fc->table);
 
-	MemPoolFreeSmall(fc, sizeof(FunctionRegion));
+	delete fc;
 }
 
 
