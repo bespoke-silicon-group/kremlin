@@ -75,7 +75,6 @@ Time Table::getValue(int row, int col) {
 	assert(row < this->row);
 	assert(col < this->col);
 	MSG(3, "TableGetValue\n");
-	assert(this != NULL);
 	int offset = this->getOffset(row, col);
 	Time ret = this->array[offset];
 	return ret;
@@ -85,7 +84,6 @@ void Table::setValue(Time time, int row, int col) {
 	assert(row < this->row);
 	assert(col < this->col);
 	MSG(3, "TableSetValue\n");
-	assert(this != NULL);
 	int offset = this->getOffset(row, col);
 	this->array[offset] = time;
 }
