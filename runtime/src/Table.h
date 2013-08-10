@@ -30,7 +30,6 @@ public:
 
 	inline int	getRow() { return this->row; }
 	inline int	getCol() { return this->col; }
-	inline Time* getTimes() { return this->array; }
 
 	inline Time* getElementAddr(int row, int col);
 	inline Time getValue(int row, int col);
