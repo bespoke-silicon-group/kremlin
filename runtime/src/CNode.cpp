@@ -16,25 +16,13 @@ void CNode::operator delete(void* ptr) {
 	MemPoolFreeSmall(ptr, sizeof(CNode));
 }
 
-// TODO: use initializer list
-CNode::CNode(SID static_id, CID callsite_id, RegionType type) {
-	this->parent = NULL;
+CNode::CNode(SID static_id, CID callsite_id, RegionType type) : parent(NULL),
+	type(NORMAL), rType(type), sid(static_id), cid(callsite_id), recursion(NULL),
+	numInstance(0), isDoall(1), code(0xDEADBEEF), curr_stat_index(-1) {
+
 	new(&this->children) std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
-	this->type = NORMAL;
-	this->rType = type;
 	this->id = CNode::allocId();
-	this->sid = static_id;
-	this->cid = callsite_id;
-	this->recursion = NULL;
-	this->numInstance = 0;
-	this->isDoall = 1;
-
-	// debug info
-	this->code = 0xDEADBEEF;
-
-	// stat
 	new(&this->stats) std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
-	this->curr_stat_index = -1;
 }
 
 CNode::~CNode() {
