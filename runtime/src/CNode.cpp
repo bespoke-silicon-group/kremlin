@@ -89,17 +89,17 @@ void CNode::updateCurrentCStat(RegionStats *new_stats) {
 	stat->num_instances++;
 	
 	double new_self_par = (double)new_stats->work / (double)new_stats->spWork;
-	if (stat->minSP > new_self_par) stat->minSP = new_self_par;
-	if (stat->maxSP < new_self_par) stat->maxSP = new_self_par;
-	stat->totalWork += new_stats->work;
-	stat->tpWork += new_stats->cp;
-	stat->spWork += new_stats->spWork;
+	if (stat->min_self_par > new_self_par) stat->min_self_par = new_self_par;
+	if (stat->max_self_par < new_self_par) stat->max_self_par = new_self_par;
+	stat->total_work += new_stats->work;
+	stat->total_par_per_work += new_stats->cp; // XXX: this seems wrong!
+	stat->self_par_per_work += new_stats->spWork;
 
-	stat->totalIterCount += new_stats->childCnt;
-	if (stat->minIterCount > new_stats->childCnt) 
-		stat->minIterCount = new_stats->childCnt;
-	if (stat->maxIterCount < new_stats->childCnt) 
-		stat->maxIterCount = new_stats->childCnt;
+	stat->num_dynamic_child_regions += new_stats->childCnt;
+	if (stat->min_dynamic_child_regions > new_stats->childCnt) 
+		stat->min_dynamic_child_regions = new_stats->childCnt;
+	if (stat->max_dynamic_child_regions < new_stats->childCnt) 
+		stat->max_dynamic_child_regions = new_stats->childCnt;
 #ifdef EXTRA_STATS
 	stat->readCnt += new_stats->readCnt;
 	stat->writeCnt += new_stats->writeCnt;

@@ -336,8 +336,8 @@ static void writeNodeStats(FILE* fp, CNode* node) {
  * order:
  *
  * - 64bit work
- * - 64bit tpWork (work after total-parallelism is applied)
- * - 64bit spWork (work after self-parallelism is applied)
+ * - 64bit total_par_per_work (work after total-parallelism is applied)
+ * - 64bit self_par_per_work (work after self-parallelism is applied)
  * - 64bit minimum SP
  * - 64bit maximum SP
  * - 64bit total iteration count
@@ -356,21 +356,21 @@ static void emitStat(FILE *fp, CStat *stat) {
 	assert(stat != NULL);
 
 	MSG(DEBUG_CREGION, "\tstat: sWork = %d, pWork = %d, nInstance = %d\n", 
-		stat->totalWork, stat->spWork, stat->num_instances);
+		stat->total_work, stat->self_par_per_work, stat->num_instances);
 		
 	fwrite(&stat->num_instances, sizeof(Int64), 1, fp);
-	fwrite(&stat->totalWork, sizeof(Int64), 1, fp);
-	fwrite(&stat->tpWork, sizeof(Int64), 1, fp);
-	fwrite(&stat->spWork, sizeof(Int64), 1, fp);
+	fwrite(&stat->total_work, sizeof(Int64), 1, fp);
+	fwrite(&stat->total_par_per_work, sizeof(Int64), 1, fp);
+	fwrite(&stat->self_par_per_work, sizeof(Int64), 1, fp);
 
-	UInt64 minSPInt = (UInt64)(stat->minSP * 100.0);
-	UInt64 maxSPInt = (UInt64)(stat->maxSP * 100.0);
+	UInt64 minSPInt = (UInt64)(stat->min_self_par * 100.0);
+	UInt64 maxSPInt = (UInt64)(stat->max_self_par * 100.0);
 	fwrite(&minSPInt, sizeof(Int64), 1, fp);
 	fwrite(&maxSPInt, sizeof(Int64), 1, fp);
 
-	fwrite(&stat->totalIterCount, sizeof(Int64), 1, fp);
-	fwrite(&stat->minIterCount, sizeof(Int64), 1, fp);
-	fwrite(&stat->maxIterCount, sizeof(Int64), 1, fp);
+	fwrite(&stat->num_dynamic_child_regions, sizeof(Int64), 1, fp);
+	fwrite(&stat->min_dynamic_child_regions, sizeof(Int64), 1, fp);
+	fwrite(&stat->max_dynamic_child_regions, sizeof(Int64), 1, fp);
 }
 
 /*!
