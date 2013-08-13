@@ -17,11 +17,11 @@ void CNode::operator delete(void* ptr) {
 }
 
 CNode::CNode(SID static_id, CID callsite_id, RegionType type) : parent(NULL),
-	type(NORMAL), rType(type), sid(static_id), cid(callsite_id), recursion(NULL),
-	numInstance(0), isDoall(1), code(0xDEADBEEF), curr_stat_index(-1) {
+	node_type(NORMAL), region_type(type), static_id(static_id), 
+	id(CNode::allocId()), callsite_id(callsite_id), recursion(NULL),
+	num_instances(0), is_doall(1), curr_stat_index(-1) {
 
 	new(&this->children) std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
-	this->id = CNode::allocId();
 	new(&this->stats) std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
 }
 
@@ -30,94 +30,84 @@ CNode::~CNode() {
 	this->stats.~vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
 }
 
-// returns child with specified static and callsite IDs or NULL if no child
-// matches
-CNode* CNode::getChild(UInt64 sid, UInt64 callSite) {
-	//fprintf(stderr, "looking for sid : 0x%llx, callSite: 0x%llx\n", sid, callSite);
+CNode* CNode::getChild(UInt64 static_id, UInt64 callsite_id) {
 	for (unsigned i = 0; i < this->children.size(); ++i) {
 		CNode* child = this->children[i];
-		//fprintf(stderr, "\tcandidate sid : 0x%llx, callSite: 0x%llx\n", child->sid, child->cid);
-		if ( child->sid == sid
-			&& (child->rType != RegionFunc || child->cid == callSite)
+		if ( child->static_id == static_id
+			&& (child->getRegionType() != RegionFunc || child->callsite_id == callsite_id)
 		   ) {
 			return child;
 		}
 	}
 
-	//fprintf(stderr, "\tnot found, creating one..\n");
 	return NULL;
 }
 
-// adds a node to list of children
-void CNode::addChild(CNode* child) {
+void CNode::addChild(CNode *child) {
+	assert(child != NULL);
+	// TODO: add pre-condition to make sure child isn't already in list?
 	this->children.push_back(child);
 	child->parent = this;
+	assert(!children.empty());
+	assert(child->parent == this);
 }
 
-void CNode::updateStats(RegionField* info) {
-	assert(info != NULL);
-	MSG(DEBUG_CREGION, "CRegionUpdate: cid(0x%lx), work(0x%lx), cp(%lx), spWork(%lx)\n", 
-			info->callSite, info->work, info->cp, info->spWork);
-	MSG(DEBUG_CREGION, "current region: id(0x%lx), sid(0x%lx), cid(0x%lx)\n", 
-			this->id, this->sid, this->cid);
+void CNode::addStats(RegionStats *new_stats) {
+	assert(new_stats != NULL);
 
-	//assert(this->cid == info->callSite);
-	assert(this->numInstance >= 0);
+	MSG(DEBUG_CREGION, "CRegionUpdate: callsite_id(0x%lx), work(0x%lx), cp(%lx), spWork(%lx)\n", 
+			new_stats->callSite, new_stats->work, new_stats->cp, new_stats->spWork);
+	MSG(DEBUG_CREGION, "current region: id(0x%lx), static_id(0x%lx), callsite_id(0x%lx)\n", 
+			this->id, this->static_id, this->callsite_id);
 
-	// handle P bit for DOALL identification
-	if (info->isDoall == 0)
-		this->isDoall = 0;
+	// @TRICKY: if new stats aren't doall, then this node isn't doall
+	// (converse isn't true)
+	if (new_stats->is_doall == 0) { this->is_doall = 0; }
 
-	this->numInstance++;
-	this->updateCurrentCStat(info);
+	this->num_instances++;
+	this->updateCurrentCStat(new_stats);
+	assert(this->num_instances > 0);
 }
 
-void CNode::updateCurrentCStat(RegionField* info) {
-	assert(this->curr_stat_index != -1);
-	assert(info != NULL);
+/*!
+ * Update the current CStat with a new set of stats.
+ *
+ * @param new_stats The new set of stats to use when updating.
+ * @pre new_stats is non-NULL
+ * @pre The current stat index is non-negative.
+ * @pre There is at least one CStat associated with this node.
+ * @post There is at least one instance of the current CStat.
+ */
+void CNode::updateCurrentCStat(RegionStats *new_stats) {
+	assert(new_stats != NULL);
+	assert(this->curr_stat_index >= 0);
+	assert(!this->stats.empty());
 
-	CStat* stat = this->stats[this->curr_stat_index];
+	MSG(DEBUG_CREGION, "CStatUpdate: work = %d, spWork = %d\n", new_stats->work, new_stats->spWork);
 
-	MSG(DEBUG_CREGION, "CStatUpdate: work = %d, spWork = %d\n", info->work, info->spWork);
+	CStat *stat = this->stats[this->curr_stat_index];
+	stat->num_instances++;
 	
-	double sp = (double)info->work / (double)info->spWork;
-	stat->numInstance++;
-	if (stat->minSP > sp) stat->minSP = sp;
-	if (stat->maxSP < sp) stat->maxSP = sp;
-	stat->totalWork += info->work;
-	stat->tpWork += info->cp;
-	stat->spWork += info->spWork;
+	double new_self_par = (double)new_stats->work / (double)new_stats->spWork;
+	if (stat->minSP > new_self_par) stat->minSP = new_self_par;
+	if (stat->maxSP < new_self_par) stat->maxSP = new_self_par;
+	stat->totalWork += new_stats->work;
+	stat->tpWork += new_stats->cp;
+	stat->spWork += new_stats->spWork;
 
-	stat->totalIterCount += info->childCnt;
-	if (stat->minIterCount > info->childCnt) 
-		stat->minIterCount = info->childCnt;
-	if (stat->maxIterCount < info->childCnt) 
-		stat->maxIterCount = info->childCnt;
-
-
+	stat->totalIterCount += new_stats->childCnt;
+	if (stat->minIterCount > new_stats->childCnt) 
+		stat->minIterCount = new_stats->childCnt;
+	if (stat->maxIterCount < new_stats->childCnt) 
+		stat->maxIterCount = new_stats->childCnt;
 #ifdef EXTRA_STATS
-	stat->readCnt += info->readCnt;
-	stat->writeCnt += info->writeCnt;
-	stat->loadCnt += info->loadCnt;
-	stat->storeCnt += info->storeCnt;
+	stat->readCnt += new_stats->readCnt;
+	stat->writeCnt += new_stats->writeCnt;
+	stat->loadCnt += new_stats->loadCnt;
+	stat->storeCnt += new_stats->storeCnt;
 #endif
-}
 
-// XXX: unused?
-// side effect: oldRegion's parent is set to NULL
-void CNode::replaceChild(CNode* old_child, CNode* new_child) {
-	old_child->parent = NULL;
-
-	for (unsigned i = 0; i < this->children.size(); ++i) {
-		CNode* child = this->children[i];
-		if (child == old_child) {
-			this->children[i] = new_child;
-			return;
-		}
-	}
-
-	assert(0);
-	return;
+	assert(stat->num_instances > 0);
 }
 
 const char* CNode::toString() {
@@ -127,41 +117,42 @@ const char* CNode::toString() {
 	UInt64 parentId = (this->parent == NULL) ? 0 : this->parent->id;
 	UInt64 childId = (this->children.empty()) ? 0 : this->children[0]->id;
 	std::stringstream ss;
-	ss << "id: " << this->id << "type: " << _strType[this->type] << ", parent: " << parentId << ", firstChild: " << childId << ", sid: " << this->sid;
+	ss << "id: " << this->id << "node_type: " << _strType[this->node_type] 
+		<< ", parent: " << parentId << ", firstChild: " << childId 
+		<< ", static_id: " << this->static_id;
 	return ss.str().c_str();
 }
 
-void CNode::statForward() {
+void CNode::moveToNextCStat() {
+	assert(!this->stats.empty() || this->curr_stat_index == -1);
 	int stat_index = ++(this->curr_stat_index);
 
 	MSG(DEBUG_CREGION, "CStatForward id %d to page %d\n", this->id, stat_index);
 
-	// FIXME: it appears as though if and else-if can be combined
-	if (this->stats.size() == 0) {
-		assert(stat_index == 0); // FIXME: is this correct assumption?
-		CStat* new_stat = new CStat(); // FIXME: memory leak
+	if (stat_index >= this->stats.size()) {
+		CStat *new_stat = new CStat(); // FIXME: memory leak
 		this->stats.push_back(new_stat);
 	}
 
-	else if (stat_index >= this->stats.size()) {
-		CStat* new_stat = new CStat(); // FIXME: memory leak
-		this->stats.push_back(new_stat);
-	}
+	assert(this->curr_stat_index >= 0);
 }
 
-void CNode::statBackward() {
-	assert(this->curr_stat_index != -1);
+void CNode::moveToPrevCStat() {
+	assert(this->curr_stat_index >= 0);
 	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", this->id, this->curr_stat_index);
 	--(this->curr_stat_index);
 }
 
-CNode* CNode::findAncestorBySid() {
-	MSG(DEBUG_CREGION, "findAncestor: sid: 0x%llx....", this->sid);
-	SID sid = this->sid;
-	CNode* ancestor = this->parent;
+CNode* CNode::getAncestorWithSameStaticID() {
+	assert(this->parent != NULL);
+
+	MSG(DEBUG_CREGION, "findAncestor: static_id: 0x%llx....", this->static_id);
+
+	CNode *ancestor = this->parent;
 	
 	while (ancestor != NULL) {
-		if (ancestor->sid == sid) {
+		if (ancestor->static_id == this->static_id) {
+			assert(ancestor->parent != NULL);
 			return ancestor;
 		}
 
@@ -172,59 +163,23 @@ CNode* CNode::findAncestorBySid() {
 
 
 void CNode::handleRecursion() {
-	// detect a recursion with a new node
-	// - find an ancestor where ancestor.sid == node.sid
-	// - case a) no ancestor found - no recursion
-	// - case b) recursion to the root node: self recursion
-	//			 transform node to RNode
-	// - case c) recursion to a non-root node: a new tree needed
-	//	       - create a CTree from a subtree starting from the ancestor
-	//         - set current tree and node appropriately
+	/*
+	 * We will detect recursion by looking for an ancestor with the same
+	 * static ID. If no such ancestor exists, the current node isn't a
+	 * recursive call. If we find such an ancestor, we: change the ancestor's
+	 * node_type to R_INIT, set the this node's node_type to R_SINK, and set this 
+	 * node's recursion field to point to the ancestral node.
+	 */
 
-	CNode* ancestor = findAncestorBySid();
+	CNode* ancestor = getAncestorWithSameStaticID();
 
 	if (ancestor == NULL) {
 		return;
-#if 0
-	} else if (ancestor == this->root) {
-		convertToSelfRNode();
-		return;
-#endif
-
-	} else {
-		assert(ancestor->parent != NULL);
-#if 0 // XXX: don't use the following code!
-		CTree* rTree = CTree::createFromSubTree(ancestor, this);
-		CNode* rNode = CNode::createExtRNode(ancestor->sid, ancestor->cid, rTree);
-		ancestor->parent->replaceChild(ancestor, rNode);
-#endif
-		ancestor->type = R_INIT;
-		this->type = R_SINK;
+	}
+	else {
+		ancestor->node_type = R_INIT;
+		this->node_type = R_SINK;
 		this->recursion = ancestor;
 		return;
 	}
 }
-
-// No idea what this stuff was supposed to do (-sat)
-#if 0
-CNode* CNode::createExtRNode(SID sid, CID cid, CTree* childTree) {
-	CNode* ret = new CNode(sid, cid);
-	ret->type = EXT_R;
-	ret->tree = childTree;
-	childTree->parent = ret;
-	return ret;
-}; 
-
-void CNode::convertToSelfRNode(CTree* tree) {
-	this->tree = tree;
-	this->type = SELF_R;
-}
-
-bool CNode::isRNode() { return (this->tree != NULL); }
-
-bool CNode::isSelfRNode(CTree* tree) {
-	if (!this->isRNode()) return FALSE;
-	return (this->tree == tree);
-}
-#endif
-

@@ -385,29 +385,29 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 }
 
 /**
- * Creates RegionField and fills it based on inputs.
+ * Creates RegionStats and fills it based on inputs.
  */
-static RegionField fillRegionField(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 isDoall, ProgramRegion* region_info) {
-	RegionField field;
+static RegionStats fillRegionStats(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 is_doall, ProgramRegion* region_info) {
+	RegionStats stats;
 
-    field.work = work;
-    field.cp = cp;
-	field.callSite = callSiteId;
-	field.spWork = spWork;
-	field.isDoall = isDoall; 
-	field.childCnt = region_info->childCount;
+    stats.work = work;
+    stats.cp = cp;
+	stats.callSite = callSiteId;
+	stats.spWork = spWork;
+	stats.is_doall = is_doall; 
+	stats.childCnt = region_info->childCount;
 
 #ifdef EXTRA_STATS
-    field.loadCnt = region_info->loadCnt;
-    field.storeCnt = region_info->storeCnt;
-    field.readCnt = region_info->readCnt;
-    field.writeCnt = region_info->writeCnt;
-    field.readLineCnt = region_info->readLineCnt;
-    field.writeLineCnt = region_info->writeLineCnt;
-    assert(work >= field.readCnt && work >= field.writeCnt);
+    stats.loadCnt = region_info->loadCnt;
+    stats.storeCnt = region_info->storeCnt;
+    stats.readCnt = region_info->readCnt;
+    stats.writeCnt = region_info->writeCnt;
+    stats.readLineCnt = region_info->readLineCnt;
+    stats.writeLineCnt = region_info->writeLineCnt;
+    assert(work >= stats.readCnt && work >= stats.writeCnt);
 #endif
 
-	return field;
+	return stats;
 }
 
 /**
@@ -445,10 +445,10 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
 	assert(region->regionId == regionId);
     UInt64 cp = region->cp;
 #define DOALL_THRESHOLD	5
-	UInt64 isDoall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
+	UInt64 is_doall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
 	if (regionType != RegionLoop)
-		isDoall = 0;
-	//fprintf(stderr, "isDoall = %d\n", isDoall);
+		is_doall = 0;
+	//fprintf(stderr, "is_doall = %d\n", is_doall);
 
 #ifdef KREMLIN_DEBUG
 	if (work < cp) {
@@ -505,9 +505,9 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
 	if (spWork > work) { spWork = work; }
 
 	CID cid = getCurrentFunction()->getCallSiteID();
-    RegionField field = fillRegionField(work, cp, cid, 
-						spWork, isDoall, region);
-	CRegionExit(&field);
+    RegionStats stats = fillRegionStats(work, cp, cid, 
+						spWork, is_doall, region);
+	CRegionExit(&stats);
         
     if (regionType == RegionFunc) { 
 		handleFunctionExit(); 
@@ -547,10 +547,10 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 
 		UInt64 cp = region->cp;
 #define DOALL_THRESHOLD	5
-		UInt64 isDoall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
+		UInt64 is_doall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
 		if (region->regionType != RegionLoop)
-			isDoall = 0;
-		//fprintf(stderr, "isDoall = %d\n", isDoall);
+			is_doall = 0;
+		//fprintf(stderr, "is_doall = %d\n", is_doall);
 
 #ifdef KREMLIN_DEBUG
 		if (work < cp) {
@@ -608,9 +608,9 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 		if (spWork > work) { spWork = work; }
 
 		CID cid = getCurrentFunction()->getCallSiteID();
-		RegionField field = fillRegionField(work, cp, cid, 
-							spWork, isDoall, region);
-		CRegionExit(&field);
+		RegionStats stats = fillRegionStats(work, cp, cid, 
+							spWork, is_doall, region);
+		CRegionExit(&stats);
 			
 		if (region->regionType == RegionFunc) { 
 			handleFunctionExit(); 

@@ -99,8 +99,8 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 	}
 #endif
 	
-	MSG(DEBUG_CREGION, "CRegionEnter: sid: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
-		parent->sid, region_static_id, region_callsite_id);
+	MSG(DEBUG_CREGION, "CRegionEnter: static_id: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
+		parent->static_id, region_static_id, region_callsite_id);
 
 	child = parent->getChild(region_static_id, region_callsite_id);
 
@@ -114,17 +114,17 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 			child->handleRecursion();
 	} 
 
-	child->statForward();
+	child->moveToNextCStat();
 
 	// set position, push the current region to the current tree
-	switch (child->type) {
+	switch (child->node_type) {
 		case R_INIT:
 			curr_region_node = child;
 			break;
 		case R_SINK:
 			assert(child->recursion != NULL);
 			curr_region_node = child->recursion;
-			child->recursion->statForward();
+			child->recursion->moveToNextCStat();
 			break;
 		case NORMAL:
 			curr_region_node = child;
@@ -139,7 +139,7 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 	assert(c_region_stack.size() == prev_stack_size+1);
 }
 
-void CRegionExit(RegionField* region_stats) {
+void CRegionExit(RegionStats *region_stats) {
 	assert(region_stats != NULL);
 	assert(!c_region_stack.empty());
 	assert(region_tree_root != NULL);
@@ -162,25 +162,25 @@ void CRegionExit(RegionField* region_stats) {
 	}
 #endif
 
-	curr_region_node->updateStats(region_stats);
+	curr_region_node->addStats(region_stats);
 
 	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", curr_region_node->id, 
 		curr_region_node->curr_stat_index);
-	curr_region_node->statBackward();
+	curr_region_node->moveToPrevCStat();
 
 	CNode* exited_region = popFromRegionStack();
-	if (curr_region_node->type == R_INIT) {
+	if (curr_region_node->node_type == R_INIT) {
 		curr_region_node = exited_region->parent;
 	}
 	else {
 		curr_region_node = curr_region_node->parent;
 	}
 
-	if (exited_region->type == R_SINK) {
-		exited_region->updateStats(region_stats);
+	if (exited_region->node_type == R_SINK) {
+		exited_region->addStats(region_stats);
 		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", exited_region->id, 
 			exited_region->curr_stat_index);
-		exited_region->statBackward();
+		exited_region->moveToPrevCStat();
 	} 
 	printCurrRegionNode();
 	MSG(DEBUG_CREGION, "CRegionLeave: End \n"); 
@@ -283,7 +283,7 @@ static bool isEmittable(Level level) {
  * 1. 64bit ID
  * 2. 64bit SID
  * 3. 64bit CID
- * 4. 64bit type
+ * 4. 64bit node_type
  * 5. 64bit recurse id
  * 6. 64bit # of instances
  * 7. 64bit DOALL flag
@@ -301,21 +301,21 @@ static void writeNodeStats(FILE* fp, CNode* node) {
 	assert(fp != NULL);
 	assert(node != NULL);
 
-	MSG(DEBUG_CREGION, "Node id: %d, sid: %llx type: %d numInstance: %d nChildren: %d DOALL: %d\n", 
-		node->id, node->sid, node->type, node->numInstance, node->children.size(), node->isDoall);
+	MSG(DEBUG_CREGION, "Node id: %d, static_id: %llx node_type: %d num_instances: %d nChildren: %d DOALL: %d\n", 
+		node->id, node->static_id, node->node_type, node->num_instances, node->children.size(), node->is_doall);
 
 	fwrite(&node->id, sizeof(Int64), 1, fp);
-	fwrite(&node->sid, sizeof(Int64), 1, fp);
-	fwrite(&node->cid, sizeof(Int64), 1, fp);
+	fwrite(&node->static_id, sizeof(Int64), 1, fp);
+	fwrite(&node->callsite_id, sizeof(Int64), 1, fp);
 
-	assert(node->type >=0 && node->type <= 2);
-	UInt64 nodeType = node->type;
+	assert(node->node_type >=0 && node->node_type <= 2);
+	UInt64 nodeType = node->node_type;
 	fwrite(&nodeType, sizeof(Int64), 1, fp);
 	
 	UInt64 target_id = (node->recursion == NULL) ? 0 : node->recursion->id;
 	fwrite(&target_id, sizeof(Int64), 1, fp);
-	fwrite(&node->numInstance, sizeof(Int64), 1, fp);
-	fwrite(&node->isDoall, sizeof(Int64), 1, fp);
+	fwrite(&node->num_instances, sizeof(Int64), 1, fp);
+	fwrite(&node->is_doall, sizeof(Int64), 1, fp);
 	UInt64 num_children = node->children.size();
 	fwrite(&num_children, sizeof(Int64), 1, fp);
 
@@ -356,9 +356,9 @@ static void emitStat(FILE *fp, CStat *stat) {
 	assert(stat != NULL);
 
 	MSG(DEBUG_CREGION, "\tstat: sWork = %d, pWork = %d, nInstance = %d\n", 
-		stat->totalWork, stat->spWork, stat->numInstance);
+		stat->totalWork, stat->spWork, stat->num_instances);
 		
-	fwrite(&stat->numInstance, sizeof(Int64), 1, fp);
+	fwrite(&stat->num_instances, sizeof(Int64), 1, fp);
 	fwrite(&stat->totalWork, sizeof(Int64), 1, fp);
 	fwrite(&stat->tpWork, sizeof(Int64), 1, fp);
 	fwrite(&stat->spWork, sizeof(Int64), 1, fp);

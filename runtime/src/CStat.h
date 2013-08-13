@@ -21,11 +21,11 @@ public:
 	UInt64 minIterCount;
 	UInt64 maxIterCount;
 
-	UInt64 numInstance;
+	UInt64 num_instances;
 
 	CStat() : totalWork(0), minSP(-1), maxSP(0), spWork(0), tpWork(0), readCnt(0),
 				writeCnt(0), loadCnt(0), storeCnt(0), totalIterCount(0),
-				minIterCount(-1), maxIterCount(0), numInstance(0) {}
+				minIterCount(-1), maxIterCount(0), num_instances(0) {}
 	~CStat() {}
 
 	static void* operator new(size_t size);

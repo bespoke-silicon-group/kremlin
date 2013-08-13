@@ -3,13 +3,13 @@
 
 #include "ktypes.h"
 
-class RegionField {
+class RegionStats {
 public:
 	UInt64 work;
 	UInt64 cp;
 	UInt64 callSite;
 	UInt64 spWork;
-	UInt64 isDoall;
+	UInt64 is_doall;
 	UInt64 childCnt;
 #ifdef EXTRA_STATS
 	UInt64 readCnt;
@@ -80,6 +80,6 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
  * @pre The current region is not the tree root.
  * @post The region stack's size will have decreased by one.
  */
-void CRegionExit(RegionField* info);
+void CRegionExit(RegionStats *info);
 
 #endif
