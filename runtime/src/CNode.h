@@ -46,16 +46,18 @@ public:
 	CNode(SID static_id, CID callsite_id, RegionType type);
 	~CNode();
 
-	CNode* findChild(UInt64 sid, UInt64 callSite);
+	CNode* getChild(UInt64 sid, UInt64 callSite);
+	void   addChild(CNode* child); 
+
 	void   CNodeAttach(CStat* region);
 	void   statForward();
 	void   statBackward();
-	void   linkChild(CNode* child); 
-	void   update(RegionField* info);
+	void   updateStats(RegionField* info);
 	void   replaceChild(CNode* old_child, CNode* new_child);
 	const char*  toString(); // make static to handle null case?
 
 	unsigned getStatSize() { return stats.size(); }
+	unsigned getNumChildren() { return children.size(); }
 
 	/*!
 	 * Returns an ancestor with the same static region ID. If no such ancestor

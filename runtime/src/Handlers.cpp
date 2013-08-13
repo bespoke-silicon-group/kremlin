@@ -1127,7 +1127,7 @@ void KremlinProfiler::init() {
 
 	initFunctionArgQueue();
 	initControlDependences();
-	CRegionInit();
+	initRegionTree();
 
 	initShadowMemory(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
 	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
@@ -1159,7 +1159,8 @@ void KremlinProfiler::deinit() {
 		getMaxActiveLevel());	
 
 	disable();
-	CRegionDeinit(KConfigGetOutFileName());
+	printProfiledData(KConfigGetOutFileName());
+	deinitRegionTree();
 	deinitShadowMemory();
 	deinitFunctionArgQueue();
 	deinitControlDependences();

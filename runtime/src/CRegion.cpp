@@ -16,8 +16,8 @@ static std::stack<CNode*> c_region_stack;
 static void pushOnRegionStack(CNode* node);
 static CNode* popFromRegionStack();
 
-static void emit(const char* file);
-static void emitRegion(FILE* fp, CNode* node, UInt level);
+static void writeProgramStats(const char* filename);
+static void writeRegionStats(FILE* fp, CNode* node, UInt level);
 
 /******************************** 
  * CPosition Management 
@@ -25,7 +25,14 @@ static void emitRegion(FILE* fp, CNode* node, UInt level);
 static CNode* region_tree_root; // TODO: make member var of profiler?
 static CNode* curr_region_node; // TODO: make mem var of profiler?
 
-static const char* currPosStr() {
+/*!
+ *
+ * Returns a string representing the ID of the curent region node.
+ *
+ * @return String of the form "<ID>" where ID is the ID of the region that is
+ * currently active (or 0 if no region is active).
+ */
+static const char* getCurrentRegionIDString() {
 	CNode* node = curr_region_node;
 	UInt64 nodeId = (node == NULL) ? 0 : node->id;
 	std::stringstream ss;
@@ -33,8 +40,11 @@ static const char* currPosStr() {
 	return ss.str().c_str();
 }
 
-static void printPosition() {
-	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), 
+/*!
+ * Prints the node that is currently active.
+ */
+static void printCurrRegionNode() {
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", getCurrentRegionIDString(), 
 			curr_region_node->toString());
 }
 
@@ -43,21 +53,36 @@ static void printPosition() {
  * Public Functions
  *********************************/
 
-void CRegionInit() {
+void initRegionTree() {
+	assert(region_tree_root == NULL);
 	// create dummy root node
 	region_tree_root = new CNode(0, 0, RegionFunc); // XXX: mem leak
 	curr_region_node = region_tree_root;
-	assert(root != NULL);
+	assert(region_tree_root != NULL);
+	assert(region_tree_root == curr_region_node);
 }
 
-void CRegionDeinit(const char* file) {
-	assert(popFromRegionStack() == NULL);
-	emit(file);
+void printProfiledData(const char* filename) {
+	assert(filename != NULL);
+	assert(region_tree_root != NULL);
+	assert(!c_region_stack.empty());
+	writeProgramStats(filename);
 }
 
-void CRegionEnter(SID sid, CID cid, RegionType type) {
-	if (KConfigGetCRegionSupport() == FALSE)
-		return;
+void deinitRegionTree() {
+	assert(region_tree_root != NULL);
+	assert(curr_region_node == region_tree_root);
+	delete region_tree_root;
+	curr_region_node = region_tree_root = NULL;
+}
+
+void CRegionEnter(SID region_static_id, CID region_callsite_id, 
+					RegionType region_type) {
+	assert(region_tree_root != NULL);
+	assert(curr_region_node != NULL);
+	unsigned prev_stack_size = c_region_stack.size();
+
+	if (KConfigGetCRegionSupport() == FALSE) return; // TODO: this shouldn't be an option
 
 	CNode* parent = curr_region_node;
 	CNode* child = NULL;
@@ -65,126 +90,137 @@ void CRegionEnter(SID sid, CID cid, RegionType type) {
 	// corner case: no graph exists 
 #if 0
 	if (parent == NULL) {
-		child = new CNode(sid, cid); // XXX: wrong
+		child = new CNode(region_static_id, region_callsite_id); // XXX: wrong
 		curr_region_node = child;
 		pushOnRegionStack(child);
-		MSG(0, "CRegionEnter: sid: root -> 0x%llx, callSite: 0x%llx\n", 
-			sid, cid);
+		MSG(0, "CRegionEnter: region_static_id: root -> 0x%llx, callSite: 0x%llx\n", 
+			region_static_id, region_callsite_id);
 		return;
 	}
 #endif
 	
-	assert(parent != NULL);
 	MSG(DEBUG_CREGION, "CRegionEnter: sid: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
-		parent->sid, sid, cid);
+		parent->sid, region_static_id, region_callsite_id);
 
-	// make sure a child node exist
-	child = parent->findChild(sid, cid);
+	child = parent->getChild(region_static_id, region_callsite_id);
+
+	// If no child was found with this static and callsite ID, we'll create a
+	// new CNode for this child.
 	if (child == NULL) {
-		// case 3) step a - new node required
-		child = new CNode(sid, cid, type); // XXX: mem leak
-		parent->linkChild(child);
+		// TODO: make body of this if statement a separate function
+		child = new CNode(region_static_id, region_callsite_id, region_type); // XXX: mem leak
+		parent->addChild(child);
 		if (KConfigGetRSummarySupport())
 			child->handleRecursion();
 	} 
 
 	child->statForward();
 
-	assert(child != NULL);
 	// set position, push the current region to the current tree
 	switch (child->type) {
-	case R_INIT:
-		curr_region_node = child;
-		break;
-	case R_SINK:
-		assert(child->recursion != NULL);
-		curr_region_node = child->recursion;
-		child->recursion->statForward();
-		break;
-	case NORMAL:
-		curr_region_node = child;
-		break;
+		case R_INIT:
+			curr_region_node = child;
+			break;
+		case R_SINK:
+			assert(child->recursion != NULL);
+			curr_region_node = child->recursion;
+			child->recursion->statForward();
+			break;
+		case NORMAL:
+			curr_region_node = child;
+			break;
 	}
 	pushOnRegionStack(child);
-	printPosition();
+	printCurrRegionNode();
 
 	MSG(DEBUG_CREGION, "CRegionEnter: End\n"); 
+	assert(!c_region_stack.empty());
+	assert(child->curr_stat_index >= 0);
+	assert(c_region_stack.size() == prev_stack_size+1);
 }
 
-// at the end of a region execution,
-// pass the region exec info.
-// update the passed info and 
-// set current pointer to one level higher
-void CRegionExit(RegionField* info) {
-	if (KConfigGetCRegionSupport() == FALSE)
-		return;
+void CRegionExit(RegionField* region_stats) {
+	assert(region_stats != NULL);
+	assert(!c_region_stack.empty());
+	assert(region_tree_root != NULL);
+	assert(curr_region_node != NULL);
+	assert(curr_region_node->curr_stat_index >= 0);
+	assert(curr_region_node != region_tree_root);
+	assert(curr_region_node->parent != NULL); // redundant with curr != root?
+	unsigned prev_stack_size = c_region_stack.size();
 
+	if (KConfigGetCRegionSupport() == FALSE) return; // TODO: this shouldn't be an option
 	MSG(DEBUG_CREGION, "CRegionLeave: Begin\n"); 
-	// don't update if we didn't give it any info
-	// this happens when we are out of range for logging
-	CNode* current = curr_region_node;
-	CNode* popped = popFromRegionStack();
-	assert(popped != NULL);
-	assert(current != NULL);
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), curr_region_node->toString());
 
-	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), current->toString());
 #if 0
-	if (info != NULL) {
-		assert(current != NULL);
-		current->update(info);
+	// don't update stats if we didn't give it any region_stats
+	// this happens when we are out of range for logging
+	if (region_stats != NULL) {
+		assert(curr_region_node != NULL);
+		curr_region_node->update(region_stats);
 	}
 #endif
 
-	assert(info != NULL);
-	current->update(info);
+	curr_region_node->updateStats(region_stats);
 
-	assert(current->curr_stat_index != -1);
-	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", current->id, 
-		current->curr_stat_index);
-	current->statBackward();
-	assert(current->parent != NULL);
+	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", curr_region_node->id, 
+		curr_region_node->curr_stat_index);
+	curr_region_node->statBackward();
 
-	if (current->type == R_INIT) {
-		curr_region_node = popped->parent;
-
-	} else {
-		curr_region_node = current->parent;
+	CNode* exited_region = popFromRegionStack();
+	if (curr_region_node->type == R_INIT) {
+		curr_region_node = exited_region->parent;
+	}
+	else {
+		curr_region_node = curr_region_node->parent;
 	}
 
-	if (popped->type == R_SINK) {
-		popped->update(info);
-		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", popped->id, 
-			popped->curr_stat_index);
-		popped->statBackward();
+	if (exited_region->type == R_SINK) {
+		exited_region->updateStats(region_stats);
+		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", exited_region->id, 
+			exited_region->curr_stat_index);
+		exited_region->statBackward();
 	} 
-	printPosition();
+	printCurrRegionNode();
 	MSG(DEBUG_CREGION, "CRegionLeave: End \n"); 
+	assert(c_region_stack.size() == prev_stack_size-1);
 }
 
-/**
- * pushOnRegionStack / popFromRegionStack
- *
- */
 
+
+/*!
+ * Pushes a node onto the region stack.
+ *
+ * @param node The node to add to the region stack.
+ * @pre The specified node is non-NULL
+ * @post The region stack will not be empty.
+ */
 void pushOnRegionStack(CNode* node) {
-	MSG(DEBUG_CREGION, "addOnRegionStack: ");
+	assert(node != NULL);
+	MSG(DEBUG_CREGION, "pushOnRegionStack: ");
+	MSG(DEBUG_CREGION, "%s\n", node->toString());
 
 	c_region_stack.push(node);
-
-	MSG(DEBUG_CREGION, "%s\n", node->toString());
+	assert(!c_region_stack.empty());
 }
 
+/*!
+ * Pops a node from the region stack.
+ *
+ * @return The node that was at the top of the region stack.
+ * @pre The region stack is not empty.
+ * @post The returned node will be non-NULL.
+ */
 CNode* popFromRegionStack() {
+	assert(!c_region_stack.empty());
 	MSG(DEBUG_CREGION, "popFromRegionStack: ");
-
-	if (c_region_stack.empty()) {
-		return NULL;
-	}
 
 	CNode* ret = c_region_stack.top();
 	c_region_stack.pop();
 	MSG(DEBUG_CREGION, "%s\n", ret->toString());
 
+	assert(ret != NULL);
 	return ret;
 }
 
@@ -199,16 +235,30 @@ static int numEntries = 0;
 static int numEntriesLeaf = 0;
 static int numCreated = 0;
 
-static void emit(const char* file) {
-	FILE* fp = fopen(file, "w");
+/*!
+ * Writes statistics for all nodes in the region tree to a specified file.
+ *
+ * @param filename The location we will write the stats too.
+ * @pre filename is non-NULL
+ * @pre The region tree has been initialized (i.e. is non-NULL)
+ * @pre There is exactly one child of the root region (i.e. main)
+ */
+static void writeProgramStats(const char* filename) {
+	assert(filename != NULL);
+	assert(region_tree_root != NULL);
+	assert(region_tree_root->getNumChildren() == 1);
+
+	FILE* fp = fopen(filename, "w");
 	if(fp == NULL) {
 		fprintf(stderr,"[kremlin] ERROR: couldn't open binary output file\n");
+		// TODO: throw exception rather than dying... so we can possibly reask
+		// for the correct filename
 		exit(1);
 	}
-	emitRegion(fp, region_tree_root->children[0], 0);
+	writeRegionStats(fp, region_tree_root->children[0], 0);
 	fclose(fp);
 	fprintf(stderr, "[kremlin] Created File %s : %d Regions Emitted (all %d leaves %d)\n", 
-		file, numCreated, numEntries, numEntriesLeaf);
+		filename, numCreated, numEntries, numEntriesLeaf);
 
 	// TODO: make DOT printing a command line option
 #if 0
@@ -224,25 +274,36 @@ static bool isEmittable(Level level) {
 	return level >= KConfigGetMinLevel() && level < KConfigGetMaxLevel();
 }
 
-/**
- * emitNode - emit a node specific info
+/*!
+ * Writes profiling stats associated with a given node to a file.
  *
- * - 64bit ID
- * - 64bit SID
- * - 64bit CID
- * - 64bit type
- * - 64bit recurse id
- * - 64bit # of instances
- * - 64bit DOALL flag
- * - 64bit child count (C)
- * - C * 64bit ID for children
+ * @remark The output for the node will contain 8C + 40 bytes, in the
+ * following format:
  *
- * Total (40 + C * 8) bytes
+ * 1. 64bit ID
+ * 2. 64bit SID
+ * 3. 64bit CID
+ * 4. 64bit type
+ * 5. 64bit recurse id
+ * 6. 64bit # of instances
+ * 7. 64bit DOALL flag
+ * 8. 64bit child count (C)
+ * 9. C * 64bit ID for children
+ *
+ * @remark The data will be written in binary format.
+ *
+ * @param fp File pointer for file we want to write data to.
+ * @param node The node whose stats will be written.
+ * @pre fp is non-NULL
+ * @pre node is non-NULL
  */
-static void emitNode(FILE* fp, CNode* node) {
-	numCreated++;
+static void writeNodeStats(FILE* fp, CNode* node) {
+	assert(fp != NULL);
+	assert(node != NULL);
+
 	MSG(DEBUG_CREGION, "Node id: %d, sid: %llx type: %d numInstance: %d nChildren: %d DOALL: %d\n", 
 		node->id, node->sid, node->type, node->numInstance, node->children.size(), node->isDoall);
+
 	fwrite(&node->id, sizeof(Int64), 1, fp);
 	fwrite(&node->sid, sizeof(Int64), 1, fp);
 	fwrite(&node->cid, sizeof(Int64), 1, fp);
@@ -251,34 +312,49 @@ static void emitNode(FILE* fp, CNode* node) {
 	UInt64 nodeType = node->type;
 	fwrite(&nodeType, sizeof(Int64), 1, fp);
 	
-	UInt64 targetId = (node->recursion == NULL) ? 0 : node->recursion->id;
-	fwrite(&targetId, sizeof(Int64), 1, fp);
+	UInt64 target_id = (node->recursion == NULL) ? 0 : node->recursion->id;
+	fwrite(&target_id, sizeof(Int64), 1, fp);
 	fwrite(&node->numInstance, sizeof(Int64), 1, fp);
 	fwrite(&node->isDoall, sizeof(Int64), 1, fp);
-	UInt64 numChildren = node->children.size();
-	fwrite(&numChildren, sizeof(Int64), 1, fp);
+	UInt64 num_children = node->children.size();
+	fwrite(&num_children, sizeof(Int64), 1, fp);
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
-	for (int i = node->children.size()-1; i >= 0; --i) {
+	for (unsigned i = num_children-1; i >= 0; --i) {
 		CNode* child = node->children[i];
-		assert(child != NULL);
 		fwrite(&child->id, sizeof(Int64), 1, fp);    
 	}
+
+	numCreated++;
 }
 
-/**
- * emitStat - emit a level of stat
+/*!
+ * Write statistics in a given CStat to a specified file.
+ *
+ * @remark A total of 64 bytes will be written to the file, in the following
+ * order:
  *
  * - 64bit work
  * - 64bit tpWork (work after total-parallelism is applied)
  * - 64bit spWork (work after self-parallelism is applied)
- * - 2 * 64bit min / max SP
- * - 3 * 64bit total / min / max iteration count
+ * - 64bit minimum SP
+ * - 64bit maximum SP
+ * - 64bit total iteration count
+ * - 64bit min iteration count
+ * - 64bit max iteration count
  *
- * Total 64 bytes
+ * @remark The data will be written in binary format.
+ *
+ * @param fp File pointer for file we want to write data to.
+ * @param node The CStat whose contents will be written.
+ * @pre fp is non-NULL
+ * @pre stat is non-NULL
  */
-static void emitStat(FILE* fp, CStat* stat) {
+static void emitStat(FILE *fp, CStat *stat) {
+	assert(fp != NULL);
+	assert(stat != NULL);
+
 	MSG(DEBUG_CREGION, "\tstat: sWork = %d, pWork = %d, nInstance = %d\n", 
 		stat->totalWork, stat->spWork, stat->numInstance);
 		
@@ -295,32 +371,40 @@ static void emitStat(FILE* fp, CStat* stat) {
 	fwrite(&stat->totalIterCount, sizeof(Int64), 1, fp);
 	fwrite(&stat->minIterCount, sizeof(Int64), 1, fp);
 	fwrite(&stat->maxIterCount, sizeof(Int64), 1, fp);
-
 }
 
-/**
- * emitRegion - emit a region tree
+/*!
+ * Write stats for a region--including all children--as long as the region is
+ * within the range of depths we are profiling.
  *
- * for each region, here is the summarized binary format.
- *  - Node Info (emitNode)
+ * For each region, the output format is:
+ *  - Node Info (writeNodeStats)
  *  - N (64bit), which is # of stats
  *  - N * Stat Info (emitStat)
+ *
+ * @remark The data will be written in binary format.
  * 
+ * @param fp File pointer for file we want to write data to.
+ * @param node The node whose stats will be written.
+ * @param level The depth in the region tree of the node.
+ * @pre fp is non-NULL
+ * @pre node is non-NULL
+ * @pre There is at least one CStat associated with the node.
  */
-static void emitRegion(FILE* fp, CNode* node, UInt level) {
+static void writeRegionStats(FILE *fp, CNode *node, UInt level) {
     assert(fp != NULL);
     assert(node != NULL);
+	assert(node->getStatSize() > 0);
 
 	UInt64 stat_size = node->getStatSize();
 	MSG(DEBUG_CREGION, "Emitting Node %d with %d stats\n", node->id, stat_size);
-    assert(!node->stats.empty());
 	
 	if (isEmittable(level)) {
 		numEntries++;
 		if(node->children.empty())  
 			numEntriesLeaf++; 
 
-		emitNode(fp, node);
+		writeNodeStats(fp, node);
 
 		fwrite(&stat_size, sizeof(Int64), 1, fp);
 		// FIXME: run through stats in reverse?
@@ -334,10 +418,11 @@ static void emitRegion(FILE* fp, CNode* node, UInt level) {
 	// the behavior when we had a C linked-list for children
 	for (int i = node->children.size()-1; i >= 0; --i) {
 		CNode* child = node->children[i];
-		emitRegion(fp, child, level+1);
+		writeRegionStats(fp, child, level+1);
 	}
 }
 
+#if 0
 void emitDOT(FILE* fp, CNode* node) {
 	fprintf(stderr,"DOT: visiting %llu\n",node->id);
 
@@ -349,5 +434,6 @@ void emitDOT(FILE* fp, CNode* node) {
 		emitDOT(fp, child);
 	}
 }
+#endif
 
 

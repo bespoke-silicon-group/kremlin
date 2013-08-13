@@ -16,6 +16,7 @@ void CNode::operator delete(void* ptr) {
 	MemPoolFreeSmall(ptr, sizeof(CNode));
 }
 
+// TODO: use initializer list
 CNode::CNode(SID static_id, CID callsite_id, RegionType type) {
 	this->parent = NULL;
 	new(&this->children) std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
@@ -41,7 +42,9 @@ CNode::~CNode() {
 	this->stats.~vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
 }
 
-CNode* CNode::findChild(UInt64 sid, UInt64 callSite) {
+// returns child with specified static and callsite IDs or NULL if no child
+// matches
+CNode* CNode::getChild(UInt64 sid, UInt64 callSite) {
 	//fprintf(stderr, "looking for sid : 0x%llx, callSite: 0x%llx\n", sid, callSite);
 	for (unsigned i = 0; i < this->children.size(); ++i) {
 		CNode* child = this->children[i];
@@ -57,12 +60,13 @@ CNode* CNode::findChild(UInt64 sid, UInt64 callSite) {
 	return NULL;
 }
 
-void CNode::linkChild(CNode* child) {
+// adds a node to list of children
+void CNode::addChild(CNode* child) {
 	this->children.push_back(child);
 	child->parent = this;
 }
 
-void CNode::update(RegionField* info) {
+void CNode::updateStats(RegionField* info) {
 	assert(info != NULL);
 	MSG(DEBUG_CREGION, "CRegionUpdate: cid(0x%lx), work(0x%lx), cp(%lx), spWork(%lx)\n", 
 			info->callSite, info->work, info->cp, info->spWork);
