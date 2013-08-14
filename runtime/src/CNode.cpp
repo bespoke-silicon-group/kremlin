@@ -9,7 +9,7 @@ static UInt64 lastId = 0; // FIXME: change to member variable?
 UInt64 CNode::allocId() { return ++lastId; }
 
 void* CNode::operator new(size_t size) {
-	return (CNode*)MemPoolAllocSmall(sizeof(CNode));
+	return MemPoolAllocSmall(sizeof(CNode));
 }
 
 void CNode::operator delete(void* ptr) {
@@ -26,8 +26,18 @@ CNode::CNode(SID static_id, CID callsite_id, RegionType type) : parent(NULL),
 }
 
 CNode::~CNode() {
+	for(unsigned i = 0; i < children.size(); ++i) {
+		delete children[i];
+	}
+	for(unsigned i = 0; i < stats.size(); ++i) {
+		delete stats[i];
+	}
+	children.clear();
+	stats.clear();
+	/*
 	this->children.~vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
 	this->stats.~vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
+	*/
 }
 
 CNode* CNode::getChild(UInt64 static_id, UInt64 callsite_id) {
