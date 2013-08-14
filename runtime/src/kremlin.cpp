@@ -424,6 +424,7 @@ void _KInit() {
 void _KDeinit() { 
 	profiler->deinit();
 	delete profiler;
+	profiler = NULL;
 }
 
 /**************************************************************************
