@@ -95,6 +95,13 @@ static void setCompression() {
 }
 
 
+void* TimeTable::operator new(size_t size) {
+	return MemPoolAllocSmall(sizeof(TimeTable));
+}
+
+void TimeTable::operator delete(void* ptr) {
+	MemPoolFreeSmall(ptr, sizeof(TimeTable));
+}
 
 /*
  * TimeTable: simple array of Time with TIMETABLE_SIZE elements
@@ -110,27 +117,24 @@ int TimeTable::GetIndex(Addr addr, TableType type) {
 	return ret;
 }
 
-TimeTable* TimeTable::Create(TimeTable::TableType size_type) {
-	assert(size_type == TimeTable::TYPE_32BIT || size_type == TimeTable::TYPE_64BIT);
-	int size = TimeTable::GetEntrySize(size_type);
-	TimeTable* ret = (TimeTable*)MemPoolAllocSmall(sizeof(TimeTable));
-	ret->array = (Time*)MemPoolAlloc();
-	memset(ret->array, 0, sizeof(Time) * size);
+TimeTable::TimeTable(TimeTable::TableType size_type) : type(size_type) {
+	this->array = (Time*)MemPoolAlloc();
+	unsigned size = TimeTable::GetEntrySize(size_type);
+	memset(this->array, 0, sizeof(Time) * size);
 
-	ret->type = size_type;
-	ret->size = sizeof(Time) * TIMETABLE_SIZE / 2;
+	this->size = sizeof(Time) * TIMETABLE_SIZE / 2; // XXX: hardwired for 64?
 
-	eventTimeTableAlloc(size_type, ret->size);
-	return ret;
+	eventTimeTableAlloc(size_type, this->size);
+	assert(this->array != NULL);
 }
 
 
-void TimeTable::Destroy(TimeTable* table, UInt8 isCompressed) {
-	eventTimeTableFree(table->type, table->size);
-	int sizeType = table->type;
-	assert(sizeType == TimeTable::TYPE_32BIT || sizeType == TimeTable::TYPE_64BIT);
-	MemPoolFree(table->array);
-	MemPoolFreeSmall(table, sizeof(TimeTable));
+// XXX: this used to have an "isCompressed" arg that wasn't used
+TimeTable::~TimeTable() {
+	eventTimeTableFree(this->type, this->size);
+
+	MemPoolFree(this->array);
+	this->array = NULL;
 }
 
 TimeTable* TimeTable::Create32BitClone(TimeTable* table) {
@@ -187,7 +191,7 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver,
 	// no timeTable exists so create it
 	if (table == NULL) {
 		eventTimeTableNewAlloc(level, type);
-		table = TimeTable::Create(type);
+		table = new TimeTable(type);
 
 		this->setTimeTableAtLevel(level, table); 
 		assert(table->type == type);
@@ -199,7 +203,8 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver,
 			TimeTable* old = table;
 			table = TimeTable::Create32BitClone(table);
 			eventTimeTableConvertTo32();
-			TimeTable::Destroy(old, this->isCompressed);
+			delete old;
+			old = NULL;
 		}
 
 		if (stored_ver == curr_ver) {
@@ -232,8 +237,8 @@ void LevelTable::cleanTimeTablesFromLevel(Index start_level) {
 	for(i = start_level; i < LevelTable::MAX_LEVEL; ++i) {
 		TimeTable* time = this->tArray[i];
 		if (time != NULL) {
-			//fprintf(stderr, "(%d)\t", i);
-			TimeTable::Destroy(time, this->isCompressed);
+			delete time;
+			time = NULL;
 			this->tArray[i] = NULL;
 		}
 	}
@@ -277,8 +282,8 @@ void LevelTable::gcLevel(Version* versions, int size) {
 		Version ver = this->vArray[i];
 		if (ver < versions[i]) {
 			// out of date
-			//fprintf(stderr, "(%d, %d %d)\t", i, ver, versions[i]);
-			TimeTable::Destroy(time,this->isCompressed);
+			delete time;
+			time = NULL;
 			this->tArray[i] = NULL;
 		}
 	}

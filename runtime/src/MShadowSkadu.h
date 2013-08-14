@@ -15,6 +15,15 @@ public:
 	UInt32 size;	// can be very small when compressed
 	Time*  array;	// actual Timestamp data
 
+	/*
+	 * Constructor to create Timetable of the given type.
+	 *
+	 * @param size_type Type of the table (64-bit or 32-bit)
+	 * @post TimeTable array will be non-NULL.
+	 */
+	TimeTable(TableType size_type);
+	~TimeTable();
+
 	/*! \brief Zero out all time table entries. */
 	void clean() {
 		int size = TimeTable::GetEntrySize(type);
@@ -33,8 +42,6 @@ public:
 
 	void setTimeAtAddr(Addr addr, Time time, TableType type);
 
-	static TimeTable* Create(TableType size_type);
-	static void Destroy(TimeTable* table, UInt8 isCompressed);
 	static TimeTable* Create32BitClone(TimeTable* table);
 
 	static int GetEntrySize(TableType type) {
@@ -44,6 +51,9 @@ public:
 	}
 
 	static int GetIndex(Addr addr, TableType type);
+
+	static void* operator new(size_t size);
+	static void operator delete(void* ptr);
 };
 
 
