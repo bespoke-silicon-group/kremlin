@@ -4,12 +4,15 @@
 #include "ktypes.h"
 #include "MShadow.h"
 
+/*!
+ * A simple array of Time with TIMETABLE_SIZE elements
+ */ 
 class TimeTable {
 public:
 	enum TableType { TYPE_64BIT, TYPE_32BIT };
 
 	static const unsigned TIMETABLE_MASK = 0x3ff;
-	static const int TIMETABLE_SIZE = TIMETABLE_MASK+1;
+	static const unsigned TIMETABLE_SIZE = TIMETABLE_MASK+1;
 
 	TableType type;
 	UInt32 size;	// can be very small when compressed
@@ -26,7 +29,7 @@ public:
 
 	/*! \brief Zero out all time table entries. */
 	void clean() {
-		int size = TimeTable::GetEntrySize(type);
+		unsigned size = TimeTable::GetEntrySize(type);
 		memset(array, 0, sizeof(Time) * size);
 	}
 
@@ -45,8 +48,8 @@ public:
 	static TimeTable* Create32BitClone(TimeTable* table);
 	TimeTable* create32BitClone();
 
-	static int GetEntrySize(TableType type) {
-		int size = TimeTable::TIMETABLE_SIZE;
+	static unsigned GetEntrySize(TableType type) {
+		unsigned size = TimeTable::TIMETABLE_SIZE;
 		if (type == TYPE_64BIT) size >>= 1;
 		return size;
 	}

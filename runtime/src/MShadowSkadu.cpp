@@ -640,7 +640,7 @@ void MShadowSkadu::init() {
 
 	cache->init(cacheSizeMB, KConfigGetCompression(), this);
 
-	int size = TimeTable::GetEntrySize(TimeTable::TYPE_64BIT);
+	unsigned size = TimeTable::GetEntrySize(TimeTable::TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
 	
 	initGarbageCollector(KConfigGetGCPeriod());
