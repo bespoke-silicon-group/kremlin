@@ -321,7 +321,7 @@ static void writeNodeStats(FILE* fp, CNode* node) {
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
-	for (unsigned i = num_children-1; i >= 0; --i) {
+	for (int i = num_children-1; i >= 0; --i) {
 		CNode* child = node->children[i];
 		fwrite(&child->id, sizeof(Int64), 1, fp);    
 	}
