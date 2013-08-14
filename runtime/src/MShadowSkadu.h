@@ -35,7 +35,7 @@ public:
 	 * \remark Not affected by access width
 	 */
 	Time getTimeAtAddr(Addr addr) {
-		int index = TimeTable::GetIndex(addr, type);
+		unsigned index = this->getIndex(addr);
 		Time ret = array[index];
 		return ret;
 	}
@@ -51,7 +51,7 @@ public:
 		return size;
 	}
 
-	static int GetIndex(Addr addr, TableType type);
+	unsigned getIndex(Addr addr);
 
 	static void* operator new(size_t size);
 	static void operator delete(void* ptr);

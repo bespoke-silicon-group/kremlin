@@ -108,11 +108,11 @@ void TimeTable::operator delete(void* ptr) {
  *
  */ 
 
-int TimeTable::GetIndex(Addr addr, TableType type) {
+unsigned TimeTable::getIndex(Addr addr) {
 	const int WORD_SHIFT = 2;
 	int ret = ((UInt64)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
 	assert(ret < TimeTable::TIMETABLE_SIZE);
-	if (type == TYPE_64BIT) ret >>= 1;
+	if (this->type == TYPE_64BIT) ret >>= 1;
 
 	return ret;
 }
@@ -151,7 +151,7 @@ TimeTable* TimeTable::create32BitClone() {
 
 
 void TimeTable::setTimeAtAddr(Addr addr, Time time, TimeTable::TableType type) {
-	int index = TimeTable::GetIndex(addr, this->type);
+	unsigned index = this->getIndex(addr);
 
 	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &array[index], index);
 	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", this, &array[0]);
