@@ -103,17 +103,16 @@ void TimeTable::operator delete(void* ptr) {
 	MemPoolFreeSmall(ptr, sizeof(TimeTable));
 }
 
-/*
- * TimeTable: simple array of Time with TIMETABLE_SIZE elements
- *
- */ 
 
 unsigned TimeTable::getIndex(Addr addr) {
+	assert(addr != NULL);
+
 	const int WORD_SHIFT = 2;
 	int ret = ((UInt64)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
-	assert(ret < TimeTable::TIMETABLE_SIZE);
 	if (this->type == TYPE_64BIT) ret >>= 1;
 
+	assert((this->type == TYPE_64BIT && ret < TimeTable::TIMETABLE_SIZE/2) 
+			|| ret < TimeTable::TIMETABLE_SIZE);
 	return ret;
 }
 
@@ -149,15 +148,21 @@ TimeTable* TimeTable::create32BitClone() {
 	return ret;
 }
 
+void TimeTable::setTimeAtAddr(Addr addr, 
+								Time time, 
+								TimeTable::TableType access_type) {
+	assert(addr != NULL);
 
-void TimeTable::setTimeAtAddr(Addr addr, Time time, TimeTable::TableType type) {
 	unsigned index = this->getIndex(addr);
 
-	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", &array[index], index);
-	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", this, &array[0]);
+	MSG(3, "TimeTableSet to addr 0x%llx with index %d\n", 
+			&array[index], index);
+	MSG(3, "\t table addr = 0x%llx, array addr = 0x%llx\n", 
+			this, &array[0]);
 
 	array[index] = time;
-	if (this->type == TimeTable::TYPE_32BIT && type == TimeTable::TYPE_64BIT) {
+	if (this->type == TimeTable::TYPE_32BIT 
+		&& access_type == TimeTable::TYPE_64BIT) {
 		array[index+1] = time;
 	}
 }
@@ -273,7 +278,6 @@ void MShadowSkadu::runGarbageCollector(Version* versions, int size) {
 }
 
 void LevelTable::gcLevel(Version* versions, int size) {
-	//fprintf(stderr, "%d: \t", size);
 	int i;
 	for (i=0; i<size; i++) {
 		TimeTable* time = this->tArray[i];
