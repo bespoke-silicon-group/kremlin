@@ -137,13 +137,14 @@ TimeTable::~TimeTable() {
 	this->array = NULL;
 }
 
-TimeTable* TimeTable::Create32BitClone(TimeTable* table) {
-	assert(table->type == TimeTable::TYPE_64BIT);
-	TimeTable* ret = TimeTable::Create(TimeTable::TYPE_32BIT);
-	int i;
-	for (i=0; i<TIMETABLE_SIZE/2; i++) {
-		ret->array[i*2] = ret->array[i];
-		ret->array[i*2 + 1] = ret->array[i];
+// TODO: Replace with a function that modifies this TimeTable rather than
+// creating a new one
+TimeTable* TimeTable::create32BitClone() {
+	assert(this->type == TimeTable::TYPE_64BIT);
+	TimeTable* ret = new TimeTable(TimeTable::TYPE_32BIT);
+	for (unsigned i = 0; i < TIMETABLE_SIZE/2; ++i) {
+		ret->array[i*2] = this->array[i];
+		ret->array[i*2 + 1] = this->array[i];
 	}
 	return ret;
 }
@@ -201,7 +202,7 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver,
 		// convert the table if needed
 		if (type == TimeTable::TYPE_32BIT && table->type == TimeTable::TYPE_64BIT) {
 			TimeTable* old = table;
-			table = TimeTable::Create32BitClone(table);
+			table = table->create32BitClone();
 			eventTimeTableConvertTo32();
 			delete old;
 			old = NULL;
