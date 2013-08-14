@@ -92,7 +92,11 @@ class ProgramRegion {
 		initTimeArray();
 	}
 
-	static void deinitProgramRegions() { program_regions.clear(); }
+	static void deinitProgramRegions() { 
+		for (unsigned i = 0; i < program_regions.size(); ++i)
+			delete program_regions[i];
+		program_regions.clear();
+	}
 
 	static void initVersionArray() {
 		vArray = new Version[arraySize];

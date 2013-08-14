@@ -240,4 +240,5 @@ int main(int argc, char* argv[]) {
 	}
 #endif
 	__main(num_args+1, start);
+	delete[] real_args; // don't understand how real_args is being used (-sat)
 }
