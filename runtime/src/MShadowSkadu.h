@@ -32,7 +32,7 @@ public:
 	 * @brief Zero out all time table entries.
 	 */
 	void clean() {
-		unsigned size = TimeTable::GetEntrySize(type);
+		unsigned size = TimeTable::GetNumEntries(type);
 		memset(array, 0, sizeof(Time) * size);
 	}
 
@@ -77,7 +77,7 @@ public:
 	 * @param type The type of the TimeTable.
 	 * @return The number of entries in the timestamp array.
 	 */
-	static unsigned GetEntrySize(TableType type) {
+	static unsigned GetNumEntries(TableType type) {
 		unsigned size = TimeTable::TIMETABLE_SIZE;
 		if (type == TYPE_64BIT) size >>= 1;
 		return size;

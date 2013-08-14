@@ -118,7 +118,7 @@ unsigned TimeTable::getIndex(Addr addr) {
 
 TimeTable::TimeTable(TimeTable::TableType size_type) : type(size_type) {
 	this->array = (Time*)MemPoolAlloc();
-	unsigned size = TimeTable::GetEntrySize(size_type);
+	unsigned size = TimeTable::GetNumEntries(size_type);
 	memset(this->array, 0, sizeof(Time) * size);
 
 	this->size = sizeof(Time) * TIMETABLE_SIZE / 2; // XXX: hardwired for 64?
@@ -644,7 +644,7 @@ void MShadowSkadu::init() {
 
 	cache->init(cacheSizeMB, KConfigGetCompression(), this);
 
-	unsigned size = TimeTable::GetEntrySize(TimeTable::TYPE_64BIT);
+	unsigned size = TimeTable::GetNumEntries(TimeTable::TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
 	
 	initGarbageCollector(KConfigGetGCPeriod());
