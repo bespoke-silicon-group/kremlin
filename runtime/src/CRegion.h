@@ -3,8 +3,7 @@
 
 #include "ktypes.h"
 
-class RegionStats {
-public:
+struct RegionStats {
 	UInt64 work;
 	UInt64 cp;
 	UInt64 callSite;
