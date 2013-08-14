@@ -45,7 +45,6 @@ public:
 
 	void setTimeAtAddr(Addr addr, Time time, TableType type);
 
-	static TimeTable* Create32BitClone(TimeTable* table);
 	TimeTable* create32BitClone();
 
 	static unsigned GetEntrySize(TableType type) {
