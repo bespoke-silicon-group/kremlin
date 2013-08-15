@@ -76,8 +76,8 @@ void deinitRegionTree() {
 	curr_region_node = region_tree_root = NULL;
 }
 
-void CRegionEnter(SID region_static_id, CID region_callsite_id, 
-					RegionType region_type) {
+void openRegionContext(SID region_static_id, CID region_callsite_id, 
+						RegionType region_type) {
 	assert(region_tree_root != NULL);
 	assert(curr_region_node != NULL);
 	unsigned prev_stack_size = c_region_stack.size();
@@ -93,13 +93,13 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 		child = new ProfileNode(region_static_id, region_callsite_id); // XXX: wrong
 		curr_region_node = child;
 		pushOnRegionStack(child);
-		MSG(0, "CRegionEnter: region_static_id: root -> 0x%llx, callSite: 0x%llx\n", 
+		MSG(0, "openRegionContext: region_static_id: root -> 0x%llx, callSite: 0x%llx\n", 
 			region_static_id, region_callsite_id);
 		return;
 	}
 #endif
 	
-	MSG(DEBUG_CREGION, "CRegionEnter: static_id: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
+	MSG(DEBUG_CREGION, "openRegionContext: static_id: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
 		parent->static_id, region_static_id, region_callsite_id);
 
 	child = parent->getChild(region_static_id, region_callsite_id);
@@ -133,13 +133,13 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 	pushOnRegionStack(child);
 	printCurrRegionNode();
 
-	MSG(DEBUG_CREGION, "CRegionEnter: End\n"); 
+	MSG(DEBUG_CREGION, "openRegionContext: End\n"); 
 	assert(!c_region_stack.empty());
 	assert(child->curr_stat_index >= 0);
 	assert(c_region_stack.size() == prev_stack_size+1);
 }
 
-void CRegionExit(RegionStats *region_stats) {
+void closeRegionContext(RegionStats *region_stats) {
 	assert(region_stats != NULL);
 	assert(!c_region_stack.empty());
 	assert(region_tree_root != NULL);

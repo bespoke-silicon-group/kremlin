@@ -64,8 +64,8 @@ void printProfiledData(const char* filename);
  * @post The newly entered region's stat index will be non-negative.
  * @post The region stack's size will have increased by one.
  */
-void CRegionEnter(SID region_static_id, CID region_callsite_id, 
-					RegionType region_type);
+void openRegionContext(SID region_static_id, CID region_callsite_id, 
+						RegionType region_type);
 
 /*!
  * Updates region tree based on exiting the current region.
@@ -79,6 +79,6 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
  * @pre The current region is not the tree root.
  * @post The region stack's size will have decreased by one.
  */
-void CRegionExit(RegionStats *info);
+void closeRegionContext(RegionStats *info);
 
 #endif

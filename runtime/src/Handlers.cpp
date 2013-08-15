@@ -374,7 +374,7 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 
     FunctionRegion* funcHead = getCurrentFunction();
 	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->getCallSiteID();
-	CRegionEnter(regionId, callSiteId, regionType);
+	openRegionContext(regionId, callSiteId, regionType);
 
 	if (shouldInstrumentCurrLevel()) {
     	//RegionPushCDep(region, 0);
@@ -507,7 +507,7 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
 	CID cid = getCurrentFunction()->getCallSiteID();
     RegionStats stats = fillRegionStats(work, cp, cid, 
 						spWork, is_doall, region);
-	CRegionExit(&stats);
+	closeRegionContext(&stats);
         
     if (regionType == RegionFunc) { 
 		handleFunctionExit(); 
@@ -610,7 +610,7 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 		CID cid = getCurrentFunction()->getCallSiteID();
 		RegionStats stats = fillRegionStats(work, cp, cid, 
 							spWork, is_doall, region);
-		CRegionExit(&stats);
+		closeRegionContext(&stats);
 			
 		if (region->regionType == RegionFunc) { 
 			handleFunctionExit(); 
