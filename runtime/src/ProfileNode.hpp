@@ -13,7 +13,7 @@
 // R_SINK - recursion sink node that connects to a R_INIT
 enum ProfileNodeType {NORMAL, R_INIT, R_SINK};
 
-class CStat;
+class ProfileNodeStats;
 
 /*!
  * @brief A class to represent a profiled program region.
@@ -40,7 +40,7 @@ public:
 							or NULL if this is not a recursive region. */
 
 	// statistics for node
-	std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> > stats;
+	std::vector<ProfileNodeStats*, MPoolLib::PoolAllocator<ProfileNodeStats*> > stats;
 	int curr_stat_index;
 
 	// management of tree
@@ -86,21 +86,21 @@ public:
 	void addChild(ProfileNode *child); 
 
 	/*
-	 * Move on to the next CStat for this node. If the stat index for this
-	 * node was already at the end of the list of this node's CStats, a new
-	 * CStat will be created and appended to the end of the list.
+	 * Move on to the next ProfileNodeStats for this node. If the stat index for this
+	 * node was already at the end of the list of this node's ProfileNodeStatss, a new
+	 * ProfileNodeStats will be created and appended to the end of the list.
 	 *
-	 * @pre There will be either no CStats or the curr_stat_index will be -1
+	 * @pre There will be either no ProfileNodeStatss or the curr_stat_index will be -1
 	 * @post The current stat index will be non-negative.
 	 */
-	void moveToNextCStat();
+	void moveToNextStats();
 
 	/*
-	 * Move on to the previous CStat for this node.
+	 * Move on to the previous ProfileNodeStats for this node.
 	 *
 	 * @pre The current stat index should be non-negative.
 	 */
-	void moveToPrevCStat();
+	void moveToPrevStats();
 
 	/*!
 	 * Adds a new set of stats to this node.
@@ -133,7 +133,7 @@ public:
 	static void operator delete(void* ptr);
 	
 private:
-	void updateCurrentCStat(RegionStats *info);
+	void updateCurrentStats(RegionStats *info);
 	static UInt64 allocId();
 };
 

@@ -9,7 +9,7 @@
 
 #include "CRegion.h"
 #include "ProfileNode.hpp"
-#include "CStat.h"
+#include "ProfileNodeStats.hpp"
 
 static std::stack<ProfileNode*> c_region_stack;
 
@@ -114,7 +114,7 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 			child->handleRecursion();
 	} 
 
-	child->moveToNextCStat();
+	child->moveToNextStats();
 
 	// set position, push the current region to the current tree
 	switch (child->node_type) {
@@ -124,7 +124,7 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 		case R_SINK:
 			assert(child->recursion != NULL);
 			curr_region_node = child->recursion;
-			child->recursion->moveToNextCStat();
+			child->recursion->moveToNextStats();
 			break;
 		case NORMAL:
 			curr_region_node = child;
@@ -166,7 +166,7 @@ void CRegionExit(RegionStats *region_stats) {
 
 	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", curr_region_node->id, 
 		curr_region_node->curr_stat_index);
-	curr_region_node->moveToPrevCStat();
+	curr_region_node->moveToPrevStats();
 
 	ProfileNode* exited_region = popFromRegionStack();
 	if (curr_region_node->node_type == R_INIT) {
@@ -180,7 +180,7 @@ void CRegionExit(RegionStats *region_stats) {
 		exited_region->addStats(region_stats);
 		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", exited_region->id, 
 			exited_region->curr_stat_index);
-		exited_region->moveToPrevCStat();
+		exited_region->moveToPrevStats();
 	} 
 	printCurrRegionNode();
 	MSG(DEBUG_CREGION, "CRegionLeave: End \n"); 
@@ -330,7 +330,7 @@ static void writeNodeStats(FILE* fp, ProfileNode* node) {
 }
 
 /*!
- * Write statistics in a given CStat to a specified file.
+ * Write statistics in a given ProfileNodeStats to a specified file.
  *
  * @remark A total of 64 bytes will be written to the file, in the following
  * order:
@@ -347,11 +347,11 @@ static void writeNodeStats(FILE* fp, ProfileNode* node) {
  * @remark The data will be written in binary format.
  *
  * @param fp File pointer for file we want to write data to.
- * @param node The CStat whose contents will be written.
+ * @param node The ProfileNodeStats whose contents will be written.
  * @pre fp is non-NULL
  * @pre stat is non-NULL
  */
-static void emitStat(FILE *fp, CStat *stat) {
+static void emitStat(FILE *fp, ProfileNodeStats *stat) {
 	assert(fp != NULL);
 	assert(stat != NULL);
 
@@ -389,7 +389,7 @@ static void emitStat(FILE *fp, CStat *stat) {
  * @param level The depth in the region tree of the node.
  * @pre fp is non-NULL
  * @pre node is non-NULL
- * @pre There is at least one CStat associated with the node.
+ * @pre There is at least one ProfileNodeStats associated with the node.
  */
 static void writeRegionStats(FILE *fp, ProfileNode *node, UInt level) {
     assert(fp != NULL);
@@ -409,7 +409,7 @@ static void writeRegionStats(FILE *fp, ProfileNode *node, UInt level) {
 		fwrite(&stat_size, sizeof(Int64), 1, fp);
 		// FIXME: run through stats in reverse?
 		for (unsigned i = 0; i < stat_size; ++i) {
-			CStat* s = node->stats[i];
+			ProfileNodeStats *s = node->stats[i];
 			emitStat(fp, s);	
 		}
 	}

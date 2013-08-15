@@ -1,12 +1,12 @@
-#ifndef _CSTAT_H_
-#define _CSTAT_H_
+#ifndef _PROFILENODESTATS_HPP_
+#define _PROFILENODESTATS_HPP_
 
 #include "ktypes.h"
 
 /*!
  * @brief Statistics for a profiled region.
  */
-class CStat {
+class ProfileNodeStats {
 public:
 	UInt64 total_work; //!< Total amount of work across all instances.
 	double min_self_par; //!< Minimum self-parallelism in any instance.
@@ -28,17 +28,17 @@ public:
 
 	UInt64 num_instances; //!< Total number of instances.
 
-	CStat() : total_work(0), min_self_par(-1), max_self_par(0),
+	ProfileNodeStats() : total_work(0), min_self_par(-1), max_self_par(0),
 				self_par_per_work(0), total_par_per_work(0), 
 #ifdef EXTRA_STATS
 				readCnt(0), writeCnt(0), loadCnt(0), storeCnt(0), 
 #endif
 				num_dynamic_child_regions(0), min_dynamic_child_regions(-1),
 				max_dynamic_child_regions(0), num_instances(0) {}
-	~CStat() {}
+	~ProfileNodeStats() {}
 
 	static void* operator new(size_t size);
-	static void operator delete(void* ptr);
+	static void operator delete(void *ptr);
 };
 
-#endif
+#endif // _PROFILENODESTATS_HPP_

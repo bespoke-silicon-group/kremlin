@@ -1,7 +1,7 @@
 #include <sstream>
 
 #include "ProfileNode.hpp"
-#include "CStat.h"
+#include "ProfileNodeStats.hpp"
 #include "MemMapAllocator.h"
 #include "debug.h"
 
@@ -22,7 +22,7 @@ ProfileNode::ProfileNode(SID static_id, CID callsite_id, RegionType type) : pare
 	num_instances(0), is_doall(1), curr_stat_index(-1) {
 
 	new(&this->children) std::vector<ProfileNode*, MPoolLib::PoolAllocator<ProfileNode*> >();
-	new(&this->stats) std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
+	new(&this->stats) std::vector<ProfileNodeStats*, MPoolLib::PoolAllocator<ProfileNodeStats*> >();
 }
 
 ProfileNode::~ProfileNode() {
@@ -36,7 +36,7 @@ ProfileNode::~ProfileNode() {
 	stats.clear();
 	/*
 	this->children.~vector<ProfileNode*, MPoolLib::PoolAllocator<ProfileNode*> >();
-	this->stats.~vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
+	this->stats.~vector<ProfileNodeStats*, MPoolLib::PoolAllocator<ProfileNodeStats*> >();
 	*/
 }
 
@@ -75,27 +75,27 @@ void ProfileNode::addStats(RegionStats *new_stats) {
 	if (new_stats->is_doall == 0) { this->is_doall = 0; }
 
 	this->num_instances++;
-	this->updateCurrentCStat(new_stats);
+	this->updateCurrentStats(new_stats);
 	assert(this->num_instances > 0);
 }
 
 /*!
- * Update the current CStat with a new set of stats.
+ * Update the current ProfileNodeStats with a new set of stats.
  *
  * @param new_stats The new set of stats to use when updating.
  * @pre new_stats is non-NULL
  * @pre The current stat index is non-negative.
- * @pre There is at least one CStat associated with this node.
- * @post There is at least one instance of the current CStat.
+ * @pre There is at least one ProfileNodeStats associated with this node.
+ * @post There is at least one instance of the current ProfileNodeStats.
  */
-void ProfileNode::updateCurrentCStat(RegionStats *new_stats) {
+void ProfileNode::updateCurrentStats(RegionStats *new_stats) {
 	assert(new_stats != NULL);
 	assert(this->curr_stat_index >= 0);
 	assert(!this->stats.empty());
 
-	MSG(DEBUG_CREGION, "CStatUpdate: work = %d, spWork = %d\n", new_stats->work, new_stats->spWork);
+	MSG(DEBUG_CREGION, "ProfileNodeStatsUpdate: work = %d, spWork = %d\n", new_stats->work, new_stats->spWork);
 
-	CStat *stat = this->stats[this->curr_stat_index];
+	ProfileNodeStats *stat = this->stats[this->curr_stat_index];
 	stat->num_instances++;
 	
 	double new_self_par = (double)new_stats->work / (double)new_stats->spWork;
@@ -133,23 +133,23 @@ const char* ProfileNode::toString() {
 	return ss.str().c_str();
 }
 
-void ProfileNode::moveToNextCStat() {
+void ProfileNode::moveToNextStats() {
 	assert(!this->stats.empty() || this->curr_stat_index == -1);
 	int stat_index = ++(this->curr_stat_index);
 
-	MSG(DEBUG_CREGION, "CStatForward id %d to page %d\n", this->id, stat_index);
+	MSG(DEBUG_CREGION, "ProfileNodeStatsForward id %d to page %d\n", this->id, stat_index);
 
 	if (stat_index >= this->stats.size()) {
-		CStat *new_stat = new CStat(); // FIXME: memory leak
+		ProfileNodeStats *new_stat = new ProfileNodeStats(); // FIXME: memory leak
 		this->stats.push_back(new_stat);
 	}
 
 	assert(this->curr_stat_index >= 0);
 }
 
-void ProfileNode::moveToPrevCStat() {
+void ProfileNode::moveToPrevStats() {
 	assert(this->curr_stat_index >= 0);
-	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", this->id, this->curr_stat_index);
+	MSG(DEBUG_CREGION, "ProfileNodeStatsBackward id %d from page %d\n", this->id, this->curr_stat_index);
 	--(this->curr_stat_index);
 }
 
