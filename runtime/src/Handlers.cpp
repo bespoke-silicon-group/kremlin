@@ -17,7 +17,7 @@ void KremlinProfiler::addFunctionToStack(CID callsite_id) {
 	FunctionRegion* func = new FunctionRegion(callsite_id);
 	callstack.push_back(func);
 
-	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", func, cid);
+	MSG(3, "addFunctionToStack at 0x%x CID 0x%x\n", func, callsite_id);
 	assert(!callstackIsEmpty());
 }
 
@@ -492,7 +492,7 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
     }
 
 	if (level < getMaxLevel() && sp < 0.999) {
-		fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
+		fprintf(stderr, "sp = %.2f sid=%llu work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
 			region->childrenWork, region->childrenCP, region->cp);
 		assert(0);
 	}
@@ -595,7 +595,7 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 		}
 
 		if (level < getMaxLevel() && sp < 0.999) {
-			fprintf(stderr, "sp = %.2f sid=%u work=%llu childrenWork = %llu childrenCP=%lld cp=%lld\n", sp, sid, work,
+			fprintf(stderr, "sp = %.2f sid=%llu work=%llu childrenWork=%llu childrenCP=%lld cp=%lld\n", sp, sid, work,
 				region->childrenWork, region->childrenCP, region->cp);
 			assert(0);
 		}

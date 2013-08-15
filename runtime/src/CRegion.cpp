@@ -151,7 +151,7 @@ void CRegionExit(RegionStats *region_stats) {
 
 	if (KConfigGetCRegionSupport() == FALSE) return; // TODO: this shouldn't be an option
 	MSG(DEBUG_CREGION, "CRegionLeave: Begin\n"); 
-	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", currPosStr(), curr_region_node->toString());
+	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", getCurrentRegionIDString(), curr_region_node->toString());
 
 #if 0
 	// don't update stats if we didn't give it any region_stats
