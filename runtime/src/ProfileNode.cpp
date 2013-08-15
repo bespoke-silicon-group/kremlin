@@ -1,31 +1,31 @@
 #include <sstream>
 
-#include "CNode.h"
+#include "ProfileNode.hpp"
 #include "CStat.h"
 #include "MemMapAllocator.h"
 #include "debug.h"
 
 static UInt64 lastId = 0; // FIXME: change to member variable?
-UInt64 CNode::allocId() { return ++lastId; }
+UInt64 ProfileNode::allocId() { return ++lastId; }
 
-void* CNode::operator new(size_t size) {
-	return MemPoolAllocSmall(sizeof(CNode));
+void* ProfileNode::operator new(size_t size) {
+	return MemPoolAllocSmall(sizeof(ProfileNode));
 }
 
-void CNode::operator delete(void* ptr) {
-	MemPoolFreeSmall(ptr, sizeof(CNode));
+void ProfileNode::operator delete(void* ptr) {
+	MemPoolFreeSmall(ptr, sizeof(ProfileNode));
 }
 
-CNode::CNode(SID static_id, CID callsite_id, RegionType type) : parent(NULL),
+ProfileNode::ProfileNode(SID static_id, CID callsite_id, RegionType type) : parent(NULL),
 	node_type(NORMAL), region_type(type), static_id(static_id), 
-	id(CNode::allocId()), callsite_id(callsite_id), recursion(NULL),
+	id(ProfileNode::allocId()), callsite_id(callsite_id), recursion(NULL),
 	num_instances(0), is_doall(1), curr_stat_index(-1) {
 
-	new(&this->children) std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
+	new(&this->children) std::vector<ProfileNode*, MPoolLib::PoolAllocator<ProfileNode*> >();
 	new(&this->stats) std::vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
 }
 
-CNode::~CNode() {
+ProfileNode::~ProfileNode() {
 	for(unsigned i = 0; i < children.size(); ++i) {
 		delete children[i];
 	}
@@ -35,14 +35,14 @@ CNode::~CNode() {
 	children.clear();
 	stats.clear();
 	/*
-	this->children.~vector<CNode*, MPoolLib::PoolAllocator<CNode*> >();
+	this->children.~vector<ProfileNode*, MPoolLib::PoolAllocator<ProfileNode*> >();
 	this->stats.~vector<CStat*, MPoolLib::PoolAllocator<CStat*> >();
 	*/
 }
 
-CNode* CNode::getChild(UInt64 static_id, UInt64 callsite_id) {
+ProfileNode* ProfileNode::getChild(UInt64 static_id, UInt64 callsite_id) {
 	for (unsigned i = 0; i < this->children.size(); ++i) {
-		CNode* child = this->children[i];
+		ProfileNode* child = this->children[i];
 		if ( child->static_id == static_id
 			&& (child->getRegionType() != RegionFunc || child->callsite_id == callsite_id)
 		   ) {
@@ -53,7 +53,7 @@ CNode* CNode::getChild(UInt64 static_id, UInt64 callsite_id) {
 	return NULL;
 }
 
-void CNode::addChild(CNode *child) {
+void ProfileNode::addChild(ProfileNode *child) {
 	assert(child != NULL);
 	// TODO: add pre-condition to make sure child isn't already in list?
 	this->children.push_back(child);
@@ -62,7 +62,7 @@ void CNode::addChild(CNode *child) {
 	assert(child->parent == this);
 }
 
-void CNode::addStats(RegionStats *new_stats) {
+void ProfileNode::addStats(RegionStats *new_stats) {
 	assert(new_stats != NULL);
 
 	MSG(DEBUG_CREGION, "CRegionUpdate: callsite_id(0x%lx), work(0x%lx), cp(%lx), spWork(%lx)\n", 
@@ -88,7 +88,7 @@ void CNode::addStats(RegionStats *new_stats) {
  * @pre There is at least one CStat associated with this node.
  * @post There is at least one instance of the current CStat.
  */
-void CNode::updateCurrentCStat(RegionStats *new_stats) {
+void ProfileNode::updateCurrentCStat(RegionStats *new_stats) {
 	assert(new_stats != NULL);
 	assert(this->curr_stat_index >= 0);
 	assert(!this->stats.empty());
@@ -120,7 +120,7 @@ void CNode::updateCurrentCStat(RegionStats *new_stats) {
 	assert(stat->num_instances > 0);
 }
 
-const char* CNode::toString() {
+const char* ProfileNode::toString() {
 	char _buf[256]; // FIXME: C++ string?
 	const char* _strType[] = {"NORM", "RINIT", "RSINK"};
 
@@ -133,7 +133,7 @@ const char* CNode::toString() {
 	return ss.str().c_str();
 }
 
-void CNode::moveToNextCStat() {
+void ProfileNode::moveToNextCStat() {
 	assert(!this->stats.empty() || this->curr_stat_index == -1);
 	int stat_index = ++(this->curr_stat_index);
 
@@ -147,18 +147,18 @@ void CNode::moveToNextCStat() {
 	assert(this->curr_stat_index >= 0);
 }
 
-void CNode::moveToPrevCStat() {
+void ProfileNode::moveToPrevCStat() {
 	assert(this->curr_stat_index >= 0);
 	MSG(DEBUG_CREGION, "CStatBackward id %d from page %d\n", this->id, this->curr_stat_index);
 	--(this->curr_stat_index);
 }
 
-CNode* CNode::getAncestorWithSameStaticID() {
+ProfileNode* ProfileNode::getAncestorWithSameStaticID() {
 	assert(this->parent != NULL);
 
 	MSG(DEBUG_CREGION, "findAncestor: static_id: 0x%llx....", this->static_id);
 
-	CNode *ancestor = this->parent;
+	ProfileNode *ancestor = this->parent;
 	
 	while (ancestor != NULL) {
 		if (ancestor->static_id == this->static_id) {
@@ -172,7 +172,7 @@ CNode* CNode::getAncestorWithSameStaticID() {
 }
 
 
-void CNode::handleRecursion() {
+void ProfileNode::handleRecursion() {
 	/*
 	 * We will detect recursion by looking for an ancestor with the same
 	 * static ID. If no such ancestor exists, the current node isn't a
@@ -181,7 +181,7 @@ void CNode::handleRecursion() {
 	 * node's recursion field to point to the ancestral node.
 	 */
 
-	CNode* ancestor = getAncestorWithSameStaticID();
+	ProfileNode *ancestor = getAncestorWithSameStaticID();
 
 	if (ancestor == NULL) {
 		return;

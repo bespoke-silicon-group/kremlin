@@ -1,32 +1,30 @@
-#ifndef _CNODE_H_
-#define _CNODE_H_
+#ifndef _PROFILENODE_HPP_
+#define _PROFILENODE_HPP_
 
 #include <vector>
 #include "PoolAllocator.hpp"
 #include "CRegion.h"
-//#include "CStat.h"
 
 #define DEBUG_CREGION	3
 
-// CNode types:
+// ProfileNode types:
 // NORMAL - summarizing non-recursive region
 // R_INIT - recursion init node
 // R_SINK - recursion sink node that connects to a R_INIT
-enum _cnode_type {NORMAL, R_INIT, R_SINK};
-typedef enum _cnode_type CNodeType;
+enum ProfileNodeType {NORMAL, R_INIT, R_SINK};
 
 class CStat;
 
 /*!
  * @brief A class to represent a profiled program region.
  */
-class CNode {
+class ProfileNode {
 private:
 	const RegionType region_type; /*!< The type of the region associated
 										with this node. */
 
 public:
-	const UInt64 id; /*!< A unique identifier amongst all CNodes. */
+	const UInt64 id; /*!< A unique identifier amongst all ProfileNodes. */
 	const UInt64 static_id; /*!< The static ID of the region associated with 
 									this node. */
 	const UInt64 callsite_id; /*!< The callsite ID of the region associated with 
@@ -37,8 +35,8 @@ public:
 	UInt64 is_doall; /*!< Indicates whether the region associated with this
 							node is a DOALL region (i.e. completely parallel) */
 
-	CNodeType node_type; /*!< The type of node. */
-	CNode *recursion; /*!< Points to node which this is a recursive instance of
+	ProfileNodeType node_type; /*!< The type of node. */
+	ProfileNode *recursion; /*!< Points to node which this is a recursive instance of
 							or NULL if this is not a recursive region. */
 
 	// statistics for node
@@ -46,11 +44,11 @@ public:
 	int curr_stat_index;
 
 	// management of tree
-	CNode *parent; /*!< The parent node of this node. */
-	std::vector<CNode*, MPoolLib::PoolAllocator<CNode*> > children;
+	ProfileNode *parent; /*!< The parent node of this node. */
+	std::vector<ProfileNode*, MPoolLib::PoolAllocator<ProfileNode*> > children;
 
-	CNode(SID static_id, CID callsite_id, RegionType type);
-	~CNode();
+	ProfileNode(SID static_id, CID callsite_id, RegionType type);
+	~ProfileNode();
 
 	const RegionType getRegionType() { return region_type; }
 	unsigned getStatSize() { return stats.size(); }
@@ -74,7 +72,7 @@ public:
 	 * @return Pointer to the child node with the given static and callsite ID;
 	 * NULL if no children match.
 	 */
-	CNode* getChild(UInt64 static_id, UInt64 callsite_id);
+	ProfileNode* getChild(UInt64 static_id, UInt64 callsite_id);
 
 	/*!
 	 * Adds a region to this node's list of children. The child's parent will be
@@ -85,7 +83,7 @@ public:
 	 * @post The child's parent will be this node.
 	 * @post There will be at least one child.
 	 */
-	void addChild(CNode *child); 
+	void addChild(ProfileNode *child); 
 
 	/*
 	 * Move on to the next CStat for this node. If the stat index for this
@@ -122,7 +120,7 @@ public:
 	 * @pre This node has a parent (i.e. isn't a root node).
 	 * @post The returned node isn't the root.
 	 */
-	CNode* getAncestorWithSameStaticID();
+	ProfileNode* getAncestorWithSameStaticID();
 
 	/*!
 	 * Checks if this node is a recursive instance of an already existing node.
@@ -139,4 +137,4 @@ private:
 	static UInt64 allocId();
 };
 
-#endif
+#endif // _PROFILENODE_HPP_

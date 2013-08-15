@@ -8,22 +8,22 @@
 #include "MemMapAllocator.h"
 
 #include "CRegion.h"
-#include "CNode.h"
+#include "ProfileNode.hpp"
 #include "CStat.h"
 
-static std::stack<CNode*> c_region_stack;
+static std::stack<ProfileNode*> c_region_stack;
 
-static void pushOnRegionStack(CNode* node);
-static CNode* popFromRegionStack();
+static void pushOnRegionStack(ProfileNode* node);
+static ProfileNode* popFromRegionStack();
 
 static void writeProgramStats(const char* filename);
-static void writeRegionStats(FILE* fp, CNode* node, UInt level);
+static void writeRegionStats(FILE* fp, ProfileNode* node, UInt level);
 
 /******************************** 
  * CPosition Management 
  *********************************/
-static CNode* region_tree_root; // TODO: make member var of profiler?
-static CNode* curr_region_node; // TODO: make mem var of profiler?
+static ProfileNode* region_tree_root; // TODO: make member var of profiler?
+static ProfileNode* curr_region_node; // TODO: make mem var of profiler?
 
 /*!
  *
@@ -33,7 +33,7 @@ static CNode* curr_region_node; // TODO: make mem var of profiler?
  * currently active (or 0 if no region is active).
  */
 static const char* getCurrentRegionIDString() {
-	CNode* node = curr_region_node;
+	ProfileNode* node = curr_region_node;
 	UInt64 nodeId = (node == NULL) ? 0 : node->id;
 	std::stringstream ss;
 	ss << "<" << nodeId << ">";
@@ -56,7 +56,7 @@ static void printCurrRegionNode() {
 void initRegionTree() {
 	assert(region_tree_root == NULL);
 	// create dummy root node
-	region_tree_root = new CNode(0, 0, RegionFunc); // XXX: mem leak
+	region_tree_root = new ProfileNode(0, 0, RegionFunc); // XXX: mem leak
 	curr_region_node = region_tree_root;
 	assert(region_tree_root != NULL);
 	assert(region_tree_root == curr_region_node);
@@ -84,13 +84,13 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 
 	if (KConfigGetCRegionSupport() == FALSE) return; // TODO: this shouldn't be an option
 
-	CNode* parent = curr_region_node;
-	CNode* child = NULL;
+	ProfileNode* parent = curr_region_node;
+	ProfileNode* child = NULL;
 
 	// corner case: no graph exists 
 #if 0
 	if (parent == NULL) {
-		child = new CNode(region_static_id, region_callsite_id); // XXX: wrong
+		child = new ProfileNode(region_static_id, region_callsite_id); // XXX: wrong
 		curr_region_node = child;
 		pushOnRegionStack(child);
 		MSG(0, "CRegionEnter: region_static_id: root -> 0x%llx, callSite: 0x%llx\n", 
@@ -105,10 +105,10 @@ void CRegionEnter(SID region_static_id, CID region_callsite_id,
 	child = parent->getChild(region_static_id, region_callsite_id);
 
 	// If no child was found with this static and callsite ID, we'll create a
-	// new CNode for this child.
+	// new ProfileNode for this child.
 	if (child == NULL) {
 		// TODO: make body of this if statement a separate function
-		child = new CNode(region_static_id, region_callsite_id, region_type); // XXX: mem leak
+		child = new ProfileNode(region_static_id, region_callsite_id, region_type); // XXX: mem leak
 		parent->addChild(child);
 		if (KConfigGetRSummarySupport())
 			child->handleRecursion();
@@ -168,7 +168,7 @@ void CRegionExit(RegionStats *region_stats) {
 		curr_region_node->curr_stat_index);
 	curr_region_node->moveToPrevCStat();
 
-	CNode* exited_region = popFromRegionStack();
+	ProfileNode* exited_region = popFromRegionStack();
 	if (curr_region_node->node_type == R_INIT) {
 		curr_region_node = exited_region->parent;
 	}
@@ -196,7 +196,7 @@ void CRegionExit(RegionStats *region_stats) {
  * @pre The specified node is non-NULL
  * @post The region stack will not be empty.
  */
-void pushOnRegionStack(CNode* node) {
+void pushOnRegionStack(ProfileNode* node) {
 	assert(node != NULL);
 	MSG(DEBUG_CREGION, "pushOnRegionStack: ");
 	MSG(DEBUG_CREGION, "%s\n", node->toString());
@@ -212,11 +212,11 @@ void pushOnRegionStack(CNode* node) {
  * @pre The region stack is not empty.
  * @post The returned node will be non-NULL.
  */
-CNode* popFromRegionStack() {
+ProfileNode* popFromRegionStack() {
 	assert(!c_region_stack.empty());
 	MSG(DEBUG_CREGION, "popFromRegionStack: ");
 
-	CNode* ret = c_region_stack.top();
+	ProfileNode* ret = c_region_stack.top();
 	c_region_stack.pop();
 	MSG(DEBUG_CREGION, "%s\n", ret->toString());
 
@@ -297,7 +297,7 @@ static bool isEmittable(Level level) {
  * @pre fp is non-NULL
  * @pre node is non-NULL
  */
-static void writeNodeStats(FILE* fp, CNode* node) {
+static void writeNodeStats(FILE* fp, ProfileNode* node) {
 	assert(fp != NULL);
 	assert(node != NULL);
 
@@ -322,7 +322,7 @@ static void writeNodeStats(FILE* fp, CNode* node) {
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
 	for (int i = num_children-1; i >= 0; --i) {
-		CNode* child = node->children[i];
+		ProfileNode* child = node->children[i];
 		fwrite(&child->id, sizeof(Int64), 1, fp);    
 	}
 
@@ -391,7 +391,7 @@ static void emitStat(FILE *fp, CStat *stat) {
  * @pre node is non-NULL
  * @pre There is at least one CStat associated with the node.
  */
-static void writeRegionStats(FILE *fp, CNode *node, UInt level) {
+static void writeRegionStats(FILE *fp, ProfileNode *node, UInt level) {
     assert(fp != NULL);
     assert(node != NULL);
 	assert(node->getStatSize() > 0);
@@ -417,19 +417,19 @@ static void writeRegionStats(FILE *fp, CNode *node, UInt level) {
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
 	for (int i = node->children.size()-1; i >= 0; --i) {
-		CNode* child = node->children[i];
+		ProfileNode* child = node->children[i];
 		writeRegionStats(fp, child, level+1);
 	}
 }
 
 #if 0
-void emitDOT(FILE* fp, CNode* node) {
+void emitDOT(FILE* fp, ProfileNode* node) {
 	fprintf(stderr,"DOT: visiting %llu\n",node->id);
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
 	for (int i = node->children.size()-1; i >= 0; --i) {
-		CNode* child = node->children[i];
+		ProfileNode* child = node->children[i];
 		fprintf(fp, "\t%llx -> %llx;\n", node->id, child->id);
 		emitDOT(fp, child);
 	}

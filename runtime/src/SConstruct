@@ -1,6 +1,6 @@
 env = Environment(CCFLAGS = '-O3')
 files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
-    'CNode.cpp', 'CRegion.cpp', 'CStat.cpp', 
+    'ProfileNode.cpp', 'CRegion.cpp', 'CStat.cpp', 
 	'MShadowBase.cpp', 'MShadowSkadu.cpp', 'MShadowSTV.cpp', 
 	'compression.cpp', 'config.cpp', 'minilzo.cpp', 'mpool.cpp',
     'MShadowStat.cpp', 'MShadowDummy.cpp', 'MShadowCache.cpp',
