@@ -102,8 +102,6 @@ void TimeTable::operator delete(void* ptr) {
 
 
 unsigned TimeTable::getIndex(Addr addr) {
-	assert(addr != NULL);
-
 	const int WORD_SHIFT = 2;
 	int ret = ((UInt64)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
 	if (this->type == TYPE_64BIT) ret >>= 1;
@@ -171,39 +169,41 @@ LevelTable* LevelTable::Alloc() {
 }
 
 Time LevelTable::getTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver) {
-	TimeTable* table = this->getTimeTableAtLevel(level);
-	Version stored_ver = this->vArray[level];
+	assert(level < LevelTable::MAX_LEVEL);
 
-	Time ret = 0ULL;
-	if (table == NULL) {
-		ret = 0ULL;
+	TimeTable *table = this->getTimeTableAtLevel(level);
+	Version stored_ver = this->versions[level];
 
-	} else if (stored_ver == curr_ver) {
+	Time ret = 0;
+	if (table != NULL && stored_ver == curr_ver) {
 		ret = table->getTimeAtAddr(addr);
-		MSG(0, "\t\tlv %d: \tversion = [%d, %d] value = %d\n", level, stored_ver, curr_ver, ret);
+		MSG(0, "\t\tlv %d: \tversion = [%d, %d] value = %d\n", 
+			level, stored_ver, curr_ver, ret);
 	} 
 
 	return ret;
 }
 
-void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver, Time value, TimeTable::TableType type) {
-	TimeTable* table = this->getTimeTableAtLevel(level);
+void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr, 
+										Version curr_ver, Time value, 
+										TimeTable::TableType type) {
+	assert(level < LevelTable::MAX_LEVEL);
+
+	TimeTable *table = this->getTimeTableAtLevel(level);
 	Version stored_ver = this->getVersionAtLevel(level);
 	eventLevelWrite(level);
 
 	// no timeTable exists so create it
 	if (table == NULL) {
-		eventTimeTableNewAlloc(level, type);
 		table = new TimeTable(type);
-
-		this->setTimeTableAtLevel(level, table); 
-		assert(table->type == type);
 		table->setTimeAtAddr(addr, value, type);
-
+		this->setTimeTableAtLevel(level, table); 
+		eventTimeTableNewAlloc(level, type);
 	} else {
 		// convert the table if needed
+		// XXX: what about if table is 32-bit but type is 64-bit?
 		if (type == TimeTable::TYPE_32BIT && table->type == TimeTable::TYPE_64BIT) {
-			TimeTable* old = table;
+			TimeTable *old = table;
 			table = table->create32BitClone();
 			eventTimeTableConvertTo32();
 			delete old;
@@ -213,7 +213,6 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver,
 		if (stored_ver == curr_ver) {
 			assert(table != NULL);
 			table->setTimeAtAddr(addr, value, type);
-
 		} else {
 			// exists but version is old so clean it and reuse
 			table->clean();
@@ -224,25 +223,27 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver,
 }
 
 
-int LevelTable::findLowestInvalidIndex(Version* vArray) {
-	int lowestInvalidIndex = 0;
-	while(lowestInvalidIndex < LevelTable::MAX_LEVEL 
-		&& this->tArray[lowestInvalidIndex] != NULL 
-		&& this->vArray[lowestInvalidIndex] >= vArray[lowestInvalidIndex]) {
-		++lowestInvalidIndex;
+unsigned LevelTable::findLowestInvalidIndex(Version *curr_versions) {
+	assert(curr_versions != NULL);
+
+	unsigned lowest_valid = 0;
+	while(lowest_valid < LevelTable::MAX_LEVEL 
+		&& this->time_tables[lowest_valid] != NULL 
+		&& this->versions[lowest_valid] >= curr_versions[lowest_valid]) {
+		++lowest_valid;
 	}
 
-	return lowestInvalidIndex;
+	assert(lowest_valid < LevelTable::MAX_LEVEL); // TODO: should be exception
+	return lowest_valid;
 }
 
 void LevelTable::cleanTimeTablesFromLevel(Index start_level) {
-	Index i;
-	for(i = start_level; i < LevelTable::MAX_LEVEL; ++i) {
-		TimeTable* time = this->tArray[i];
-		if (time != NULL) {
-			delete time;
-			time = NULL;
-			this->tArray[i] = NULL;
+	for(unsigned i = start_level; i < LevelTable::MAX_LEVEL; ++i) {
+		TimeTable *t = this->time_tables[i];
+		if (t != NULL) {
+			delete t;
+			t = NULL;
+			this->time_tables[i] = NULL;
 		}
 	}
 }
@@ -258,7 +259,7 @@ void MShadowSkadu::initGarbageCollector(int period) {
 	if (period == 0) next_gc_time = 0xFFFFFFFFFFFFFFFF;
 }
 
-void MShadowSkadu::runGarbageCollector(Version* versions, int size) {
+void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 	eventGC();
 	for (unsigned i = 0; i < SparseTable::NUM_ENTRIES; ++i) {
 		SegTable* table = sparse_table->entry[i].segTable;	
@@ -268,33 +269,38 @@ void MShadowSkadu::runGarbageCollector(Version* versions, int size) {
 		for (unsigned j = 0; j < SegTable::SEGTABLE_SIZE; ++j) {
 			LevelTable* lTable = table->entry[j];
 			if (lTable != NULL) {
-				lTable->gcLevel(versions, size);
+				lTable->collectGarbageWithinBounds(curr_versions, size);
 			}
 		}
 	}
 }
 
-void LevelTable::gcLevel(Version* versions, int size) {
-	int i;
-	for (i=0; i<size; i++) {
-		TimeTable* time = this->tArray[i];
-		if (time == NULL)
+void LevelTable::collectGarbageWithinBounds(Version *curr_versions, 
+											unsigned end_index) {
+	assert(curr_versions != NULL);
+	assert(end_index < LevelTable::MAX_LEVEL);
+
+	for (unsigned i = 0; i < end_index; ++i) {
+		TimeTable *table = this->time_tables[i];
+		if (table == NULL)
 			continue;
 
-		Version ver = this->vArray[i];
-		if (ver < versions[i]) {
+		Version ver = this->versions[i];
+		if (ver < curr_versions[i]) {
 			// out of date
-			delete time;
-			time = NULL;
-			this->tArray[i] = NULL;
+			delete table;
+			table = NULL;
+			this->time_tables[i] = NULL;
 		}
 	}
 
-	this->cleanTimeTablesFromLevel(size);
+	this->cleanTimeTablesFromLevel(end_index);
 }
 
-void LevelTable::gcLevelUnknownSize(Version* versions) {
-	int lii = this->findLowestInvalidIndex(versions);
+void LevelTable::collectGarbageUnbounded(Version *curr_versions) {
+	assert(curr_versions != NULL);
+
+	int lii = this->findLowestInvalidIndex(curr_versions);
 	this->cleanTimeTablesFromLevel(lii);
 }
 
@@ -304,7 +310,7 @@ UInt64 LevelTable::compress() {
 
 	MSG(4,"[LevelTable] compressing LevelTable (%p)\n",l_table);
 
-	TimeTable* tt1 = this->tArray[0];
+	TimeTable* tt1 = this->time_tables[0];
 
 	if (tt1 == NULL) {
 		this->isCompressed = 1;
@@ -320,8 +326,8 @@ UInt64 LevelTable::compress() {
 
 	for(unsigned i = LevelTable::MAX_LEVEL-1; i >=1; --i) {
 		// step 1: create/fill in time difference table
-		TimeTable* tt2 = this->tArray[i];
-		TimeTable* ttPrev = this->tArray[i-1];
+		TimeTable* tt2 = this->time_tables[i];
+		TimeTable* ttPrev = this->time_tables[i-1];
 		if(tt2 == NULL)
 			continue;
 
@@ -374,7 +380,7 @@ UInt64 LevelTable::decompress() {
 	lzo_uint uncompLen = srcLen;
 
 	// for now, we'll always diff based on level 0
-	TimeTable* tt1 = this->tArray[0];
+	TimeTable* tt1 = this->time_tables[0];
 	if (tt1 == NULL) {
 		this->isCompressed = 0;
 		return 0;
@@ -394,8 +400,8 @@ UInt64 LevelTable::decompress() {
 	Time *diffBuffer = (Time*)MemPoolAlloc();
 
 	for(unsigned i = 1; i < LevelTable::MAX_LEVEL; ++i) {
-		TimeTable* tt2 = this->tArray[i];
-		TimeTable* ttPrev = this->tArray[i-1];
+		TimeTable* tt2 = this->time_tables[i];
+		TimeTable* ttPrev = this->time_tables[i-1];
 		if(tt2 == NULL) 
 			break;
 
@@ -456,7 +462,7 @@ void LevelTable::restoreDiff(Time *array) {
 unsigned LevelTable::getDepth() {
 	// TODO: assert for NULL TimeTable* precondition
 	for (unsigned i = 0; i < LevelTable::MAX_LEVEL; ++i) {
-		TimeTable* t = this->tArray[i];
+		TimeTable* t = this->time_tables[i];
 		if (t == NULL)
 			return i;
 	}
@@ -486,7 +492,7 @@ LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	}
 	
 	if(useCompression() && lTable->isCompressed) {
-		lTable->gcLevelUnknownSize(vArray);
+		lTable->collectGarbageUnbounded(vArray);
 		int gain = compression_buffer->decompress(lTable);
 		eventCompression(gain);
 	}

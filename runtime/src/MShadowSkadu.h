@@ -42,10 +42,8 @@ public:
 	 *
 	 * @param addr The address whose timestamp to return.
 	 * @return The timestamp of the specified address.
-	 * @pre addr is non-NULL
 	 */
 	Time getTimeAtAddr(Addr addr) {
-		assert(addr != NULL);
 		unsigned index = this->getIndex(addr);
 		Time ret = array[index];
 		return ret;
@@ -88,7 +86,6 @@ public:
 	 *
 	 * @param addr The address for which to get the index.
 	 * @return The index of the timetable array associated with the addr/type.
-	 * @pre addr is non-NULL
 	 * @post The index returned is less than TIMETABLE_SIZE (for 32-bit) or
 	 * TIMETABLE_SIZE/2 (for 64-bit)
 	 */
@@ -101,35 +98,143 @@ public:
 
 //TODO: need to support dynamically growing / shrinking without MAX_LEVEL
 class LevelTable {
-public:
+private:
 	static const unsigned MAX_LEVEL = 64;
+	Version	versions[LevelTable::MAX_LEVEL];	//!< version for each level
+	TimeTable* time_tables[LevelTable::MAX_LEVEL];	//!< TimeTable for each level
 
-	UInt32		code;
-	UInt8		isCompressed; 		// 0 = uncompressed, 1 = compressed
-	Version		vArray[LevelTable::MAX_LEVEL];	// version for each level
-	TimeTable* 	tArray[LevelTable::MAX_LEVEL];	// TimeTable for each level
+public:
+	UInt32 code;
+	UInt8 isCompressed; 		// 0 = uncompressed, 1 = compressed
 
 	static LevelTable* Alloc();
 
-	Version getVersionAtLevel(Index level) { return vArray[level]; }
+	/*!
+	 * Returns version at specified level.
+	 *
+	 * @param level The level at which to get the version.
+	 * @pre level < MAX_LEVEL
+	 */
+	Version getVersionAtLevel(Index level) {
+		assert(level < LevelTable::MAX_LEVEL);
+		return versions[level];
+	}
+
+	/*!
+	 * Sets version at specified level to a given value.
+	 *
+	 * @param level The level at which to get the version.
+	 * @param ver The version we will set it to.
+	 * @pre level < MAX_LEVEL
+	 */
 	void setVersionAtLevel(Index level, Version ver) {
-		vArray[level] = ver;
+		assert(level < LevelTable::MAX_LEVEL);
+		versions[level] = ver;
 	}
 
+	/*!
+	 * Returns pointer to TimeTable at specified level.
+	 * @remark The returned pointer may be NULL.
+	 *
+	 * @param level The level at which to get the TimeTable.
+	 * @pre level < MAX_LEVEL
+	 */
 	TimeTable* getTimeTableAtLevel(Index level) {
-		return tArray[level];
-	}
-	void setTimeTableAtLevel(Index level, TimeTable* table) {
-		tArray[level] = table;
+		assert(level < LevelTable::MAX_LEVEL);
+		TimeTable* t = time_tables[level];
+		return t;
 	}
 
+	/*!
+	 * Sets TimeTable at specified level to a given value.
+	 *
+	 * @param level The level at which to get the version.
+	 * @param table New value for TimeTable* at level.
+	 * @pre level < MAX_LEVEL
+	 * @pre table is non-NULL
+	 */
+	void setTimeTableAtLevel(Index level, TimeTable *table) {
+		assert(level < LevelTable::MAX_LEVEL);
+		assert(table != NULL);
+		time_tables[level] = table;
+	}
+
+	/*!
+	 * Returns timestamp associated with a given address and level. The
+	 * returned timestamp will be 0 either if there is no entry for the given
+	 * address and level or if the existing entry is out of date (i.e. the
+	 * stored version number differs from the given version number).
+	 *
+	 * @param level The level at which to get the TimeTable.
+	 * @param addr The address in shadow memory whose timestamp we want.
+	 * @param curr_ver The current version value.
+	 * @pre level < MAX_LEVEL
+	 */
 	Time getTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver);
-	void setTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver, Time value, TimeTable::TableType type);
 
-	int findLowestInvalidIndex(Version* vArray);
+	/*!
+	 * Sets timestamp associated with a given address and level to a specified
+	 * value.
+	 *
+	 * @param level The level at which to get the TimeTable.
+	 * @param addr The address in shadow memory whose timestamp we want.
+	 * @param curr_ver The current version value.
+	 * @param value The new time to set it to.
+	 * @param type The type of access (32 or 64-bit)
+	 * @pre level < MAX_LEVEL
+	 */
+	void setTimeForAddrAtLevel(Index level, Addr addr, 
+								Version curr_ver, Time value, 
+								TimeTable::TableType type);
+
+	/*!
+	 * @brief Returns the shallowest depth at which the level table is invalid.
+	 *
+	 * A given depth is invalid if any of these conditions are met:
+	 * 1. The depth exceeds the MAX_LEVEL for the LevelTable.
+	 * 2. The timestamp* at that depth is NULL.
+	 * 3. The stored version (versions) at that depth is less than the version at
+	 * that depth in the version array parameter.
+	 *
+	 * @param curr_versions Array of versions with which to compare.
+	 * @pre curr_versions is non-NULL.
+	 */
+	unsigned findLowestInvalidIndex(Version *curr_versions);
+
+	/*!
+	 * @brief Removed all TimeTables from the given depth down to MAX_LEVEL.
+	 *
+	 * @param start_level The level to start the cleaning.
+	 */
 	void cleanTimeTablesFromLevel(Index start_level);
-	void gcLevel(Version* versions, int size);
-	void gcLevelUnknownSize(Version* versions);
+
+	/*!
+	 * @brief Performs garbage collection on the TimeTables in this level table
+	 * up to the specified depth. All times below that depth will be cleared.
+	 *
+	 * When a level is garbage collected, the corresponding TimeTable is
+	 * deleted and the pointer to it set to NULL. Garbage collection occurs
+	 * in a level whenever the stored version for that level is less than the
+	 * current version for that level.
+	 *
+	 * @param curr_versions The array of current versions.
+	 * @param end_index The maximum level to garbage collect for.
+	 * @pre curr_versions is non-NULL.
+	 * @pre end_index < MAX_LEVEL
+	 */
+	void collectGarbageWithinBounds(Version *curr_versions, unsigned end_index);
+
+	/*!
+	 * @brief Removes all "garbage" TimeTables in this LevelTable.
+	 *
+	 * A TimeTable is considered garbage if its associated depth has an
+	 * outdated version, i.e. the stored version is less than the
+	 * corresponding version in the current version array.
+	 *
+	 * @param curr_versions The array of current version numbers.
+	 * @pre curr_versions is non-NULL.
+	 */
+	void collectGarbageUnbounded(Version *curr_versions);
 
 	/*! @brief Compress the level table.
 	 *
@@ -223,7 +328,7 @@ private:
 	int gc_period;
 
 	void initGarbageCollector(int period);
-	void runGarbageCollector(Version* versions, int size);
+	void runGarbageCollector(Version *curr_versions, int size);
 
 	CacheInterface *cache;
 	CBuffer* compression_buffer;
