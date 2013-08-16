@@ -131,12 +131,40 @@ public:
 	void gcLevel(Version* versions, int size);
 	void gcLevelUnknownSize(Version* versions);
 
+	/*! @brief Compress the level table.
+	 *
+	 * @remark It is assumed you already garbage collected the table, otherwise
+	 * you are going to be compressing out of data data.
+	 * @return The number of bytes saved by compression.
+	 * @pre This LevelTable is not compressed.
+	 * @post isCompressed is 1.
+	 * @invariant code is 0xDEADBEEF
+	 */
 	UInt64 compress();
+
+	/*! @brief Decompress the level table.
+	 *
+	 * @return The number of bytes lost by decompression.
+	 * @pre This LevelTable is compressed.
+	 * @invariant code is 0xDEADBEEF
+	 */
 	UInt64 decompress();
 
 private:
-	void makeDiff(Time* array);
-	void restoreDiff(Time* array);
+	/*! @brief Modify array so elements are difference between that element 
+	 * and the previous element.
+	 *
+	 * @param[in,out] array The array to convert
+	 * @pre array is non-NULL.
+	 */
+	void makeDiff(Time *array);
+
+	/*! @brief Perform inverse operation of makeDiff
+	 *
+	 * @param[in,out] array The array to convert.
+	 * @pre array is non-NULL.
+	 */
+	void restoreDiff(Time *array);
 };
 
 

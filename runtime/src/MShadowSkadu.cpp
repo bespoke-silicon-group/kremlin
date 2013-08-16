@@ -16,26 +16,23 @@
 
 #include <vector>
 
-/*
- * SparseTable: sparse table that tracks 4GB memory chunks being used
+/*!
+ * @brief A sparse table that tracks 4GB memory chunks being used.
  *
  * Since 64bit address is very sparsely used in a program,
  * we use a sparse table to reduce the memory requirement of the table.
  * Although the walk-through of a table might be pricey,
  * the use of cache will make the frequency of walk-through very low.
  */
-
 class SparseTableElement {
 public:
 	UInt32 	addrHigh;	// upper 32bit in 64bit addr
 	SegTable* segTable;
 };
 
-/*
- * SparseTable: introduced to support 64-bit address space
- *
+/*!
+ * @brief A class to efficiently support 64-bit address space
  */
-
 class SparseTable {
 public:
 	static const unsigned int NUM_ENTRIES = 32;
@@ -301,20 +298,11 @@ void LevelTable::gcLevelUnknownSize(Version* versions) {
 	this->cleanTimeTablesFromLevel(lii);
 }
 
-/*! \brief Compress the level table.
- *
- * \return The number of bytes saved by compression.
- * \remark It is assumed you already garbage collected the table, otherwise
- * you are going to be compressing out of data data.
- */
 UInt64 LevelTable::compress() {
-	//fprintf(stderr,"[LevelTable] compressing LevelTable (%p)\n",l_table);
-	if (this->code != 0xDEADBEEF) {
-		fprintf(stderr, "LevelTable addr = 0x%p\n", this);
-		assert(0);
-	}
 	assert(this->code == 0xDEADBEEF);
 	assert(this->isCompressed == 0);
+
+	MSG(4,"[LevelTable] compressing LevelTable (%p)\n",l_table);
 
 	TimeTable* tt1 = this->tArray[0];
 
@@ -322,7 +310,6 @@ UInt64 LevelTable::compress() {
 		this->isCompressed = 1;
 		return 0;
 	}
-
 
 	UInt64 compressionSavings = 0;
 	lzo_uint srcLen = sizeof(Time)*TimeTable::TIMETABLE_SIZE/2; // XXX assumes 8 bytes
@@ -371,19 +358,13 @@ UInt64 LevelTable::compress() {
 	MemPoolFree(diffBuffer);
 
 	this->isCompressed = 1;
+
+	assert(this->isCompressed == 1);
+	assert(this->code == 0xDEADBEEF);
 	return compressionSavings;
 }
 
-/*! \brief Decompress the level table.
- *
- * \return The number of bytes lost by decompression.
- */
 UInt64 LevelTable::decompress() {
-
-	if (this->code != 0xDEADBEEF) {
-		fprintf(stderr, "LevelTable addr = 0x%p\n", this);
-		assert(0);
-	}
 	assert(this->code == 0xDEADBEEF);
 	assert(this->isCompressed == 1);
 
@@ -433,11 +414,9 @@ UInt64 LevelTable::decompress() {
 		tt2->array = (Time*)MemPoolAlloc();
 		tt2->size = srcLen;
 
-		int j;
-		for(j = 0; j < TimeTable::TIMETABLE_SIZE/2; ++j) {
+		for(unsigned j = 0; j < TimeTable::TIMETABLE_SIZE/2; ++j) {
 			assert(diffBuffer[j] >= 0);
 			tt2->array[j] = ttPrev->array[j] - diffBuffer[j];
-
 		}
 	#if 0
 		if (memcmp(tt2->array, this->tArrayBackup[i], uncompLen) != 0) {
@@ -451,31 +430,25 @@ UInt64 LevelTable::decompress() {
 
 	MemPoolFree(diffBuffer);
 	this->isCompressed = 0;
+
+	assert(this->code == 0xDEADBEEF);
+	assert(this->isCompressed == 0);
 	return decompressionCost;
 }
 
-/*! \brief Modify array so elements are difference between that element and
- * the previous element.
- *
- * \param[in,out] array The array to convert
- */
-void LevelTable::makeDiff(Time* array) {
-	int size = TimeTable::TIMETABLE_SIZE / 2;
+void LevelTable::makeDiff(Time *array) {
+	assert(array != NULL);
+	unsigned size = TimeTable::TIMETABLE_SIZE / 2;
 
-	for (int i=size-1; i>=1; --i) {
+	for (unsigned i = size-1; i >= 1; --i) {
 		array[i] = array[i] - array[i-1];
 	}
 }
 
-/*! \brief Perform inverse operation of makeDiff
- *
- * \param[in,out] array The array to convert
- */
-void LevelTable::restoreDiff(Time* array) {
-	int size = TimeTable::TIMETABLE_SIZE / 2;
-	int i;
-
-	for (i=1; i<size; i++) {
+void LevelTable::restoreDiff(Time *array) {
+	assert(array != NULL);
+	unsigned size = TimeTable::TIMETABLE_SIZE / 2;
+	for (unsigned i = 1; i < size; ++i) {
 		array[i] += array[i-1];
 	}
 }

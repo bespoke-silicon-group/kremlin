@@ -26,7 +26,6 @@ static ProfileNode* region_tree_root; // TODO: make member var of profiler?
 static ProfileNode* curr_region_node; // TODO: make mem var of profiler?
 
 /*!
- *
  * Returns a string representing the ID of the curent region node.
  *
  * @return String of the form "<ID>" where ID is the ID of the region that is
