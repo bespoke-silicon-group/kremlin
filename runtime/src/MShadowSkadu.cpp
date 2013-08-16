@@ -29,7 +29,7 @@
 class SparseTableElement {
 public:
 	UInt32 	addrHigh;	// upper 32bit in 64bit addr
-	SegTable* segTable;
+	MemorySegment* segTable;
 };
 
 /*!
@@ -72,7 +72,7 @@ public:
 
 		SparseTableElement* ret = &entry[writePtr];
 		ret->addrHigh = highAddr;
-		ret->segTable = new SegTable();
+		ret->segTable = new MemorySegment();
 		eventSegTableAlloc();
 		writePtr++;
 		return ret;
@@ -281,11 +281,11 @@ void MShadowSkadu::initGarbageCollector(int period) {
 void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 	eventGC();
 	for (unsigned i = 0; i < SparseTable::NUM_ENTRIES; ++i) {
-		SegTable* table = sparse_table->entry[i].segTable;	
+		MemorySegment* table = sparse_table->entry[i].segTable;	
 		if (table == NULL)
 			continue;
 		
-		for (unsigned j = 0; j < SegTable::getNumLevelTables(); ++j) {
+		for (unsigned j = 0; j < MemorySegment::getNumLevelTables(); ++j) {
 			LevelTable* lTable = table->getLevelTableAtIndex(j);
 			if (lTable != NULL) {
 				lTable->collectGarbageWithinBounds(curr_versions, size);
@@ -496,9 +496,9 @@ unsigned LevelTable::getDepth() {
 
 LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	SparseTableElement* sEntry = sparse_table->getElement(addr);
-	SegTable* segTable = sEntry->segTable;
+	MemorySegment* segTable = sEntry->segTable;
 	assert(segTable != NULL);
-	unsigned segIndex = SegTable::GetIndex(addr);
+	unsigned segIndex = MemorySegment::GetIndex(addr);
 	LevelTable* lTable = segTable->getLevelTableAtIndex(segIndex);
 	if (lTable == NULL) {
 		lTable = new LevelTable();
@@ -545,20 +545,20 @@ static inline int hasVersionError(Version* vArray, int size) {
 	return 0;
 }
 
-void* SegTable::operator new(size_t size) {
-	return MemPoolAllocSmall(sizeof(SegTable));
+void* MemorySegment::operator new(size_t size) {
+	return MemPoolAllocSmall(sizeof(MemorySegment));
 }
-void SegTable::operator delete(void* ptr) {
-	MemPoolFreeSmall(ptr, sizeof(SegTable));
+void MemorySegment::operator delete(void* ptr) {
+	MemPoolFreeSmall(ptr, sizeof(MemorySegment));
 }
 
-SegTable::SegTable() {
+MemorySegment::MemorySegment() {
 	memset(this->level_tables, 0, 
-			SegTable::SEGTABLE_SIZE * sizeof(LevelTable*));
+			MemorySegment::NUM_ENTRIES * sizeof(LevelTable*));
 }
 
-SegTable::~SegTable() {
-	for (unsigned i = 0; i < SegTable::SEGTABLE_SIZE; ++i) {
+MemorySegment::~MemorySegment() {
+	for (unsigned i = 0; i < MemorySegment::NUM_ENTRIES; ++i) {
 		LevelTable *l = level_tables[i];
 		if (l != NULL) {
 			delete l;

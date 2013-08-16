@@ -292,58 +292,58 @@ private:
 };
 
 
-/*
+/*!
  * Manages 4GB of consecutive memory space.
  */
-class SegTable {
+class MemorySegment {
 private:
-	static const unsigned SEGTABLE_MASK = 0xfffff;
-	static const unsigned SEGTABLE_SHIFT = 12;
-	static const unsigned SEGTABLE_SIZE = SEGTABLE_MASK+1;
+	static const unsigned SEGMENT_MASK = 0xfffff;
+	static const unsigned SEGMENT_SHIFT = 12;
+	static const unsigned NUM_ENTRIES = SEGMENT_MASK+1;
 
-	LevelTable* level_tables[SEGTABLE_SIZE]; //!< The LevelTables associated 
-												// with this SegTable
+	LevelTable* level_tables[NUM_ENTRIES]; //!< The LevelTables associated 
+												// with this MemorySegment
 
 public:
 	/*!
 	 * Default constructor. Sets all LevelTable* in level_tables to NULL.
 	 */
-	SegTable();
+	MemorySegment();
 
 	/*!
 	 * Destructor. Deletes any valid (i.e non-NULL) LevelTables pointed to by
-	 * this SegTable.
+	 * this MemorySegment.
 	 */
-	~SegTable();
+	~MemorySegment();
 
 	/*!
-	 * Return the LevelTable* at the specified index in this SegTable.
+	 * Return the LevelTable* at the specified index in this MemorySegment.
 	 *
 	 * @param index The index of the LevelTable* to return.
-	 * @pre index < SEGTABLE_SIZE
+	 * @pre index < NUM_ENTRIES
 	 */
 	LevelTable* getLevelTableAtIndex(unsigned index) { 
-		assert(index < SEGTABLE_SIZE);
+		assert(index < NUM_ENTRIES);
 		return level_tables[index];
 	}
 
 	/*!
-	 * Sets the LevelTable* at the specified index in this SegTable.
+	 * Sets the LevelTable* at the specified index in this MemorySegment.
 	 *
 	 * @param table The LevelTable* to which we will set it.
 	 * @param index The index of the LevelTable* to set.
 	 * @pre table is non-NULL.
-	 * @pre index < SEGTABLE_SIZE
+	 * @pre index < NUM_ENTRIES
 	 */
 	LevelTable* setLevelTableAtIndex(LevelTable *table, unsigned index) { 
 		assert(table != NULL);
-		assert(index < SEGTABLE_SIZE);
+		assert(index < NUM_ENTRIES);
 		level_tables[index] = table;
 	}
 
-	static unsigned getNumLevelTables() { return SEGTABLE_SIZE; }
+	static unsigned getNumLevelTables() { return NUM_ENTRIES; }
 	static unsigned GetIndex(Addr addr) {
-		return ((UInt64)addr >> SEGTABLE_SHIFT) & SEGTABLE_MASK;
+		return ((UInt64)addr >> SEGMENT_SHIFT) & SEGMENT_MASK;
 	}
 
 	static void* operator new(size_t size);

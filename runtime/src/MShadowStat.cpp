@@ -45,7 +45,7 @@ void printCacheStat() {
 void printMemReqStat() {
 	//fprintf(stderr, "Overall allocated = %d, converted = %d, realloc = %d\n", 
 	//	totalAlloc, totalConvert, totalRealloc);
-	double segSize = getSizeMB(_stat.segTable.nActiveMax, sizeof(SegTable));
+	double segSize = getSizeMB(_stat.segTable.nActiveMax, sizeof(MemorySegment));
 	double lTableSize = getSizeMB(_stat.lTable.nActiveMax, sizeof(LevelTable));
 
 	UInt64 nTable0 = _stat.tTable[0].nActiveMax;
@@ -71,7 +71,7 @@ void printMemReqStat() {
 	//fprintf(stderr, "%ld, %ld, %ld\n", _stat.timeTableOverhead, sizeUncompressed, _stat.timeTableOverhead - sizeUncompressed);
 
 	fprintf(stderr, "\nRequired Memory Analysis\n");
-	fprintf(stderr, "\tShadowMemory (SegTable / LevTable/ TTable / TTableCompressed) = %.2f / %.2f/ %.2f / %.2f \n",
+	fprintf(stderr, "\tShadowMemory (MemorySegment / LevTable/ TTable / TTableCompressed) = %.2f / %.2f/ %.2f / %.2f \n",
 		segSize, lTableSize, tTableSize, tTableSizeWithCompression);
 	fprintf(stderr, "\tReqMemSize (Total / Cache / Uncompressed Shadow / Compressed Shadow) = %.2f / %.2f / %.2f / %.2f\n",
 		totalSize, cacheSize, segSize + tTableSize, segSize + tTableSizeWithCompression);  
@@ -84,7 +84,7 @@ void printMemReqStat() {
 
 static void printMemStatAllocation() {
 	fprintf(stderr, "\nShadow Memory Allocation Stats\n");
-	fprintf(stderr, "\tnSegTable: Alloc / Active / ActiveMax = %llu / %llu / %llu\n",
+	fprintf(stderr, "\tnMemorySegment: Alloc / Active / ActiveMax = %llu / %llu / %llu\n",
 		 _stat.segTable.nAlloc, _stat.segTable.nActive, _stat.segTable.nActiveMax);
 
 	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %llu / %llu / %llu / %llu\n",
@@ -110,10 +110,10 @@ void printLevelStat() {
 		totalRealloc += _stat.nTimeTableRealloc[i];
 
 		int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TimeTable::TIMETABLE_SIZE / 2);
-		double sizeSegTable = getSizeMB(_stat.nSegTableNewAlloc[i], sizeof(SegTable));
+		double sizeMemorySegment = getSizeMB(_stat.nSegTableNewAlloc[i], sizeof(MemorySegment));
 		double sizeTimeTable = getSizeMB(_stat.nTimeTableNewAlloc[i], sizeTable64);
 		double sizeVersionTable = getSizeMB(_stat.nTimeTableConvert[i], sizeof(TimeTable));
-		double sizeLevel = sizeSegTable + sizeTimeTable + sizeVersionTable;
+		double sizeLevel = sizeMemorySegment + sizeTimeTable + sizeVersionTable;
 		double reallocPercent = (double)_stat.nTimeTableRealloc[i] * 100.0 / (double)_stat.nEvict[i];
 
 		if (i < 2)
