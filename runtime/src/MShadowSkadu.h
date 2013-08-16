@@ -293,22 +293,56 @@ private:
 
 
 /*
- * SegTable: Covers a 4GB space 
+ * Manages 4GB of consecutive memory space.
  */
 class SegTable {
 private:
 	static const unsigned SEGTABLE_MASK = 0xfffff;
 	static const unsigned SEGTABLE_SHIFT = 12;
-
-public:
 	static const unsigned SEGTABLE_SIZE = SEGTABLE_MASK+1;
 
-	LevelTable* entry[SEGTABLE_SIZE];
+	LevelTable* level_tables[SEGTABLE_SIZE]; //!< The LevelTables associated 
+												// with this SegTable
 
+public:
+	/*!
+	 * Default constructor. Sets all LevelTable* in level_tables to NULL.
+	 */
 	SegTable();
+
+	/*!
+	 * Destructor. Deletes any valid (i.e non-NULL) LevelTables pointed to by
+	 * this SegTable.
+	 */
 	~SegTable();
 
-	static int GetIndex(Addr addr) {
+	/*!
+	 * Return the LevelTable* at the specified index in this SegTable.
+	 *
+	 * @param index The index of the LevelTable* to return.
+	 * @pre index < SEGTABLE_SIZE
+	 */
+	LevelTable* getLevelTableAtIndex(unsigned index) { 
+		assert(index < SEGTABLE_SIZE);
+		return level_tables[index];
+	}
+
+	/*!
+	 * Sets the LevelTable* at the specified index in this SegTable.
+	 *
+	 * @param table The LevelTable* to which we will set it.
+	 * @param index The index of the LevelTable* to set.
+	 * @pre table is non-NULL.
+	 * @pre index < SEGTABLE_SIZE
+	 */
+	LevelTable* setLevelTableAtIndex(LevelTable *table, unsigned index) { 
+		assert(table != NULL);
+		assert(index < SEGTABLE_SIZE);
+		level_tables[index] = table;
+	}
+
+	static unsigned getNumLevelTables() { return SEGTABLE_SIZE; }
+	static unsigned GetIndex(Addr addr) {
 		return ((UInt64)addr >> SEGTABLE_SHIFT) & SEGTABLE_MASK;
 	}
 

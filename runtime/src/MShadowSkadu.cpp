@@ -285,8 +285,8 @@ void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 		if (table == NULL)
 			continue;
 		
-		for (unsigned j = 0; j < SegTable::SEGTABLE_SIZE; ++j) {
-			LevelTable* lTable = table->entry[j];
+		for (unsigned j = 0; j < SegTable::getNumLevelTables(); ++j) {
+			LevelTable* lTable = table->getLevelTableAtIndex(j);
 			if (lTable != NULL) {
 				lTable->collectGarbageWithinBounds(curr_versions, size);
 			}
@@ -498,15 +498,15 @@ LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	SparseTableElement* sEntry = sparse_table->getElement(addr);
 	SegTable* segTable = sEntry->segTable;
 	assert(segTable != NULL);
-	int segIndex = SegTable::GetIndex(addr);
-	LevelTable* lTable = segTable->entry[segIndex];
+	unsigned segIndex = SegTable::GetIndex(addr);
+	LevelTable* lTable = segTable->getLevelTableAtIndex(segIndex);
 	if (lTable == NULL) {
 		lTable = new LevelTable();
 		if (useCompression()) {
 			int compressGain = compression_buffer->add(lTable);
 			eventCompression(compressGain);
 		}
-		segTable->entry[segIndex] = lTable;
+		segTable->setLevelTableAtIndex(lTable, segIndex);
 		eventLevelTableAlloc();
 	}
 	
@@ -553,19 +553,19 @@ void SegTable::operator delete(void* ptr) {
 }
 
 SegTable::SegTable() {
-	memset(this->entry, 0, SegTable::SEGTABLE_SIZE * sizeof(LevelTable*));
+	memset(this->level_tables, 0, 
+			SegTable::SEGTABLE_SIZE * sizeof(LevelTable*));
 }
 
 SegTable::~SegTable() {
 	for (unsigned i = 0; i < SegTable::SEGTABLE_SIZE; ++i) {
-		LevelTable *l = entry[i];
+		LevelTable *l = level_tables[i];
 		if (l != NULL) {
 			delete l;
 			l = NULL;
 		}
 	}
 }
-
 
 /*
  * Fetch / Evict from TVCache to TVStorage
