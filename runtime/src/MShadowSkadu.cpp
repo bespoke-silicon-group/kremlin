@@ -14,6 +14,8 @@
 #include "MShadowCache.h"
 #include "MShadowNullCache.h"
 
+#include <string.h> // for memset
+
 #include <vector>
 
 /*!
@@ -48,7 +50,8 @@ public:
 	void deinit() {
 		for (int i = 0; i < writePtr; i++) {
 			SparseTableElement* e = &entry[i];
-			SegTable::Free(e->segTable);		
+			delete e->segTable;		
+			e->segTable = NULL;
 			eventSegTableFree();
 		}
 	}
@@ -69,7 +72,7 @@ public:
 
 		SparseTableElement* ret = &entry[writePtr];
 		ret->addrHigh = highAddr;
-		ret->segTable = SegTable::Alloc();
+		ret->segTable = new SegTable();
 		eventSegTableAlloc();
 		writePtr++;
 		return ret;
@@ -498,7 +501,7 @@ LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	int segIndex = SegTable::GetIndex(addr);
 	LevelTable* lTable = segTable->entry[segIndex];
 	if (lTable == NULL) {
-		lTable = new LevelTable(); // TODO: fix memory leak
+		lTable = new LevelTable();
 		if (useCompression()) {
 			int compressGain = compression_buffer->add(lTable);
 			eventCompression(compressGain);
@@ -542,13 +545,25 @@ static inline int hasVersionError(Version* vArray, int size) {
 	return 0;
 }
 
-SegTable* SegTable::Alloc() {
-	SegTable* ret = (SegTable*)MemPoolCallocSmall(1,sizeof(SegTable));
-	return ret;	
+void* SegTable::operator new(size_t size) {
+	return MemPoolAllocSmall(sizeof(SegTable));
+}
+void SegTable::operator delete(void* ptr) {
+	MemPoolFreeSmall(ptr, sizeof(SegTable));
 }
 
-void SegTable::Free(SegTable* table) {
-	MemPoolFreeSmall(table, sizeof(SegTable));
+SegTable::SegTable() {
+	memset(this->entry, 0, SegTable::SEGTABLE_SIZE * sizeof(LevelTable*));
+}
+
+SegTable::~SegTable() {
+	for (unsigned i = 0; i < SegTable::SEGTABLE_SIZE; ++i) {
+		LevelTable *l = entry[i];
+		if (l != NULL) {
+			delete l;
+			l = NULL;
+		}
+	}
 }
 
 

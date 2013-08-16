@@ -305,12 +305,15 @@ public:
 
 	LevelTable* entry[SEGTABLE_SIZE];
 
-	static SegTable* Alloc();
-	static void Free(SegTable* table);
+	SegTable();
+	~SegTable();
 
 	static int GetIndex(Addr addr) {
 		return ((UInt64)addr >> SEGTABLE_SHIFT) & SEGTABLE_MASK;
 	}
+
+	static void* operator new(size_t size);
+	static void operator delete(void* ptr);
 };
 
 class MShadowSkadu;
