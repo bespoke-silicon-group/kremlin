@@ -165,6 +165,14 @@ private:
 	 * @pre array is non-NULL.
 	 */
 	void restoreDiff(Time *array);
+
+	/*! @brief Get the depth of this level table (i.e. how many valid
+	 * TimeTables it has)
+	 *
+	 * @return Number of entries in specified level table.
+	 * @pre At least one TimeTable* in this level table is NULL.
+	 */
+	unsigned getDepth();
 };
 
 

@@ -18,7 +18,8 @@ static UInt64 totalEvict;
 static HEAP_ALLOC(wrkmem, LZO1X_1_MEM_COMPRESS);
 
 
-UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, lzo_uintp comp_size) {
+UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, 
+					lzo_uintp comp_size) {
 	assert(decomp_data != NULL);
 	assert(decomp_size > 0);
 	assert(comp_size != NULL);
@@ -40,7 +41,8 @@ UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, lzo_uintp comp_siz
 	return comp_data;
 }
 
-void decompressData(UInt8* decomp_data, UInt8* comp_data, lzo_uint comp_size, lzo_uintp decomp_size) {
+void decompressData(UInt8* decomp_data, UInt8* comp_data, 
+					lzo_uint comp_size, lzo_uintp decomp_size) {
 	assert(comp_data != NULL);
 	assert(decomp_data != NULL);
 	assert(comp_size > 0);
@@ -58,42 +60,13 @@ void decompressData(UInt8* decomp_data, UInt8* comp_data, lzo_uint comp_size, lz
 	assert(comp_data == NULL);
 }
 
-/*! \brief Unknown.
- *
- * \param a The column???
- * \param b The row???
- * \return Offset in table given row and column.
+/*
+ * BEGIN ACTIVE SET MAINTENANCE CODE.
  */
-static inline int getByteOffset(int a, int b) {
-	int size = TimeTable::TIMETABLE_SIZE / 2;
-	return b * size + a;
-}
 
-
-// TODO: make this a member function of Level Table
-/*! @brief Get the number of entries in Level table.
- *
- * @param l_table The table to get number of entries from.
- * @return Number of entries in specified level table.
- * @pre l_table is non-NULL.
- * @pre At least one TimeTable* in l_table is NULL.
+/*!
+ * An entry in the active set of uncompressed level tables.
  */
-int getTimeTableSize(LevelTable* l_table) {
-	assert(l_table != NULL);
-	// TODO: assert for NULL TimeTable* precondition
-	for (unsigned i = 0; i < LevelTable::MAX_LEVEL; ++i) {
-		TimeTable* table = l_table->tArray[i];
-		if (table == NULL)
-			return i;
-	}
-	assert(0);
-	return -1;
-}
-
-
-
-
-
 class ActiveSetEntry {
 public:
 	UInt16 r_bit;
@@ -109,8 +82,10 @@ public:
 	}
 };
 
+typedef std::map<LevelTable*, ActiveSetEntry*>::iterator active_set_iterator;
+
 static std::map<LevelTable*, ActiveSetEntry*> active_set;
-static std::map<LevelTable*, ActiveSetEntry*>::iterator active_set_clock_hand;
+static active_set_iterator active_set_clock_hand;
 
 /*! \brief Move "clockhand" to next entry in active set */
 static inline void advanceClockHand() {
@@ -122,7 +97,7 @@ static inline void advanceClockHand() {
 /*! \brief Prints all entries in the active set.  */
 static inline void printActiveSet() {
 	unsigned i = 0;
-	for(std::map<LevelTable*, ActiveSetEntry*>::iterator it = active_set.begin(); 
+	for(active_set_iterator it = active_set.begin(); 
 			it != active_set.end(); ++it, ++i) {
 		if (it == active_set_clock_hand) MSG(3,"*");
 		MSG(3,"%u: key = %p, r_bit = %hu\n", i, it->first, it->second->r_bit);
@@ -157,7 +132,7 @@ void CBuffer::deinit() {
  * \remark This simply returns an entry that should be removed. It does not
  * actually remove the entry.
  */
-std::map<LevelTable*, ActiveSetEntry*>::iterator getVictim() {
+active_set_iterator getVictim() {
 	// set active_set_clock_hand to entry that will be removed
 	while(active_set_clock_hand->second->r_bit == 1) {
 		active_set_clock_hand->second->r_bit = 0;
@@ -171,7 +146,7 @@ std::map<LevelTable*, ActiveSetEntry*>::iterator getVictim() {
 	assert(active_set_clock_hand->first->code == 0xDEADBEEF);
 	assert(active_set_clock_hand->second->code == 0xDEADBEEF);
 
-	std::map<LevelTable*, ActiveSetEntry*>::iterator ret = active_set_clock_hand;
+	active_set_iterator ret = active_set_clock_hand;
 	advanceClockHand();
 	return ret;
 }
@@ -191,7 +166,7 @@ void CBuffer::addToBuffer(LevelTable *l_table) {
 }
 
 int CBuffer::evictFromBuffer() {
-	std::map<LevelTable*, ActiveSetEntry*>::iterator victim = getVictim();
+	active_set_iterator victim = getVictim();
 	assert(victim->second->code == 0xDEADBEEF);
 	LevelTable* lTable = victim->first;
 	int bytes_gained = lTable->compress();
@@ -230,7 +205,7 @@ void CBuffer::touch(LevelTable *table) {
 	assert(table != NULL);
 	if (KConfigGetCompression() == 0) return;
 
-	std::map<LevelTable*, ActiveSetEntry*>::iterator it = active_set.find(table);
+	active_set_iterator it = active_set.find(table);
 	if (it == active_set.end()) {
 		fprintf(stderr, "[1] as not found for lTable 0x%p\n", table);
 	}

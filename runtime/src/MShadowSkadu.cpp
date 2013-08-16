@@ -453,6 +453,18 @@ void LevelTable::restoreDiff(Time *array) {
 	}
 }
 
+unsigned LevelTable::getDepth() {
+	// TODO: assert for NULL TimeTable* precondition
+	for (unsigned i = 0; i < LevelTable::MAX_LEVEL; ++i) {
+		TimeTable* t = this->tArray[i];
+		if (t == NULL)
+			return i;
+	}
+	assert(0);
+	return -1;
+}
+
+
 /*
  * LevelTable operations
  */
