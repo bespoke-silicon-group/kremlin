@@ -110,6 +110,14 @@ public:
 	static LevelTable* Alloc();
 
 	/*!
+	 * Default, no-argument constructor. Sets all versions to 0 and all
+	 * time_tables to NULL.
+	 */
+	LevelTable();
+
+	~LevelTable();
+
+	/*!
 	 * Returns version at specified level.
 	 *
 	 * @param level The level at which to get the version.
@@ -254,6 +262,9 @@ public:
 	 * @invariant code is 0xDEADBEEF
 	 */
 	UInt64 decompress();
+
+	static void* operator new(size_t size);
+	static void operator delete(void* ptr);
 
 private:
 	/*! @brief Modify array so elements are difference between that element 

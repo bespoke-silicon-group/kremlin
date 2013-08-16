@@ -162,10 +162,26 @@ void TimeTable::setTimeAtAddr(Addr addr,
 	}
 }
 
-LevelTable* LevelTable::Alloc() {
-	LevelTable* ret = (LevelTable*)MemPoolCallocSmall(1, sizeof(LevelTable));
-	ret->code = 0xDEADBEEF;
-	return ret;
+void* LevelTable::operator new(size_t size) {
+	return MemPoolAllocSmall(sizeof(LevelTable));
+}
+void LevelTable::operator delete(void* ptr) {
+	MemPoolFreeSmall(ptr, sizeof(LevelTable));
+}
+
+LevelTable::LevelTable() : code(0xDEADBEEF) {
+	memset(this->versions, 0, LevelTable::MAX_LEVEL * sizeof(Version));
+	memset(this->time_tables, 0, LevelTable::MAX_LEVEL * sizeof(TimeTable*));
+}
+
+LevelTable::~LevelTable() {
+	for (unsigned i = 0; i < LevelTable::MAX_LEVEL; ++i) {
+		TimeTable *t = time_tables[i];
+		if (t != NULL) {
+			delete t;
+			t = NULL;
+		}
+	}
 }
 
 Time LevelTable::getTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver) {
@@ -482,7 +498,7 @@ LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	int segIndex = SegTable::GetIndex(addr);
 	LevelTable* lTable = segTable->entry[segIndex];
 	if (lTable == NULL) {
-		lTable = LevelTable::Alloc();
+		lTable = new LevelTable(); // TODO: fix memory leak
 		if (useCompression()) {
 			int compressGain = compression_buffer->add(lTable);
 			eventCompression(compressGain);
