@@ -77,20 +77,6 @@ public:
 	
 };
 
-/*
- * Compression Configuration
- * instead of calling KConfigGetCompression repeatedly, 
- * store the result and reuse.
- */
-static int _useCompression = 0;
-static inline int useCompression() {
-	return _useCompression;
-}
-
-static void setCompression() {
-	_useCompression = KConfigGetCompression();
-}
-
 void MShadowSkadu::initGarbageCollector(unsigned period) {
 	MSG(3, "set garbage collection period to %u\n", period);
 	next_gc_time = period;
@@ -203,7 +189,7 @@ void MShadowSkadu::evict(Time* tArray, Addr addr, int size, Version* vArray, Tim
 	check(addr, tArray, size, 3);
 }
 
-void MShadowSkadu::fetch(Addr addr, Index size, Version* vArray, Time* destAddr, TimeTable::TableType type) {
+void MShadowSkadu::fetch(Addr addr, Index size, Version *vArray, Time* destAddr, TimeTable::TableType type) {
 	MSG(0, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
 	//MSG(3, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
 	LevelTable* lTable = this->getLevelTable(addr, vArray);
@@ -251,7 +237,6 @@ void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UIn
 }
 
 void MShadowSkadu::init() {
-	
 	int cacheSizeMB = KConfigGetSkaduCacheSize();
 	MSG(1,"MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
@@ -273,7 +258,7 @@ void MShadowSkadu::init() {
 
 	compression_buffer = new CBuffer();
 	compression_buffer->init(KConfigGetCBufferSize());
-	setCompression();
+	compression_enabled = KConfigGetCompression();
 }
 
 

@@ -14,7 +14,7 @@ class CBuffer;
 
 class MShadowSkadu : public MShadow {
 private:
-	SparseTable* sparse_table; 
+	SparseTable *sparse_table; 
 
 	UInt64 next_gc_time;
 	unsigned garbage_collection_period;
@@ -22,8 +22,14 @@ private:
 	void initGarbageCollector(unsigned period);
 	void runGarbageCollector(Version *curr_versions, int size);
 
-	CacheInterface *cache;
-	CBuffer* compression_buffer;
+	CacheInterface *cache; //!< The cache associated with shadow mem
+
+	bool compression_enabled; //!< Indicates whether we should use compression
+	CBuffer *compression_buffer;
+
+	bool useCompression() {
+		return compression_enabled;
+	}
 
 public:
 	void init();
