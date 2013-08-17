@@ -325,14 +325,14 @@ void LevelTable::collectGarbageUnbounded(Version *curr_versions) {
 
 UInt64 LevelTable::compress() {
 	assert(this->code == 0xDEADBEEF);
-	assert(this->isCompressed == 0);
+	assert(!isCompressed());
 
 	MSG(4,"[LevelTable] compressing LevelTable (%p)\n",l_table);
 
 	TimeTable* tt1 = this->time_tables[0];
 
 	if (tt1 == NULL) {
-		this->isCompressed = 1;
+		this->compressed = true;
 		return 0;
 	}
 
@@ -382,16 +382,16 @@ UInt64 LevelTable::compress() {
 	MemPoolFree(level0Array);  // XXX: comment this out if using tArrayBackup
 	MemPoolFree(diffBuffer);
 
-	this->isCompressed = 1;
+	this->compressed = true;
 
-	assert(this->isCompressed == 1);
+	assert(isCompressed());
 	assert(this->code == 0xDEADBEEF);
 	return compressionSavings;
 }
 
 UInt64 LevelTable::decompress() {
 	assert(this->code == 0xDEADBEEF);
-	assert(this->isCompressed == 1);
+	assert(isCompressed());
 
 	//fprintf(stderr,"[LevelTable] decompressing LevelTable (%p)\n",this);
 	UInt64 decompressionCost = 0;
@@ -401,7 +401,7 @@ UInt64 LevelTable::decompress() {
 	// for now, we'll always diff based on level 0
 	TimeTable* tt1 = this->time_tables[0];
 	if (tt1 == NULL) {
-		this->isCompressed = 0;
+		this->compressed = false;
 		return 0;
 	}
 	int compressedSize = tt1->size;
@@ -454,10 +454,10 @@ UInt64 LevelTable::decompress() {
 	}
 
 	MemPoolFree(diffBuffer);
-	this->isCompressed = 0;
+	this->compressed = false;
 
 	assert(this->code == 0xDEADBEEF);
-	assert(this->isCompressed == 0);
+	assert(!isCompressed());
 	return decompressionCost;
 }
 
@@ -510,7 +510,7 @@ LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 		eventLevelTableAlloc();
 	}
 	
-	if(useCompression() && lTable->isCompressed) {
+	if(useCompression() && lTable->isCompressed()) {
 		lTable->collectGarbageUnbounded(vArray);
 		int gain = compression_buffer->decompress(lTable);
 		eventCompression(gain);

@@ -102,11 +102,10 @@ private:
 	static const unsigned MAX_LEVEL = 64;
 	Version	versions[LevelTable::MAX_LEVEL];	//!< version for each level
 	TimeTable* time_tables[LevelTable::MAX_LEVEL];	//!< TimeTable for each level
+	bool compressed; //!< Indicates if this table has compressed TimeTables
+	UInt32 code; // TODO: this should be debug-only or just go away
 
 public:
-	UInt32 code;
-	UInt8 isCompressed; 		// 0 = uncompressed, 1 = compressed
-
 	/*!
 	 * Default, no-argument constructor. Sets all versions to 0 and all
 	 * time_tables to NULL.
@@ -114,6 +113,8 @@ public:
 	LevelTable();
 
 	~LevelTable();
+
+	bool isCompressed() { return this->compressed; }
 
 	/*!
 	 * Returns version at specified level.
@@ -248,7 +249,7 @@ public:
 	 * you are going to be compressing out of data data.
 	 * @return The number of bytes saved by compression.
 	 * @pre This LevelTable is not compressed.
-	 * @post isCompressed is 1.
+	 * @post compressed is 1.
 	 * @invariant code is 0xDEADBEEF
 	 */
 	UInt64 compress();
