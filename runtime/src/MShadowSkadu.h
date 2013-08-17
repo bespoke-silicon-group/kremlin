@@ -35,14 +35,32 @@ public:
 	void init();
 	void deinit();
 
-	Time* get(Addr addr, Index size, Version* versions, UInt32 width);
-	void set(Addr addr, Index size, Version* versions, Time* times, UInt32 width);
+	/*!
+	 * @pre curr_versions is non-NULL.
+	 */
+	Time* get(Addr addr, Index size, Version *curr_versions, UInt32 width);
 
-	void fetch(Addr addr, Index size, Version* vArray, Time* destAddr, TimeTable::TableType type);
-	void evict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type);
+	void set(Addr addr, Index size, Version *curr_versions, 
+				Time *timestamps, UInt32 width);
 
-	LevelTable* getLevelTable(Addr addr, Version* vArray);
 	CBuffer* getCompressionBuffer() { return compression_buffer; }
+
+	/*!
+	 * @pre curr_versions and timestamps are non-NULL.
+	 */
+	void fetch(Addr addr, Index size, Version *curr_versions, 
+				Time *timestamps, TimeTable::TableType type);
+
+	/*!
+	 * @pre new_timestamps and curr_versions are non-NULL.
+	 */
+	void evict(Time *new_timestamps, Addr addr, Index size, 
+				Version *curr_versions, TimeTable::TableType type);
+
+	/*!
+	 * @pre curr_versions is non-NULL.
+	 */
+	LevelTable* getLevelTable(Addr addr, Version *curr_versions);
 };
 
 #endif

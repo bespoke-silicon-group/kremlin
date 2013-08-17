@@ -100,7 +100,9 @@ void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 	}
 }
 
-LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
+LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version *curr_versions) {
+	assert(curr_versions != NULL);
+
 	SparseTableElement* sEntry = sparse_table->getElement(addr);
 	MemorySegment* segTable = sEntry->segTable;
 	assert(segTable != NULL);
@@ -117,7 +119,7 @@ LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	}
 	
 	if(useCompression() && lTable->isCompressed()) {
-		lTable->collectGarbageUnbounded(vArray);
+		lTable->collectGarbageUnbounded(curr_versions);
 		int gain = compression_buffer->decompress(lTable);
 		eventCompression(gain);
 	}
@@ -163,65 +165,71 @@ MemorySegment::~MemorySegment() {
 	}
 }
 
-void MShadowSkadu::evict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type) {
-	if (addr == NULL)
-		return;
+void MShadowSkadu::evict(Time *new_timestamps, Addr addr, Index size, Version *curr_versions, TimeTable::TableType type) {
+	assert(new_timestamps != NULL);
+	assert(curr_versions != NULL);
 
-
-	MSG(0, "\tTVCacheEvict 0x%llx, size=%d, effectiveSize=%d \n", addr, size, size);
+	MSG(0, "\tmshadow evict 0x%llx, size=%u, effectiveSize=%u \n", addr, size, size);
 		
-	LevelTable* lTable = this->getLevelTable(addr,vArray);
-	for (int i=0; i<size; i++) {
+	LevelTable* lTable = this->getLevelTable(addr,curr_versions);
+	for (unsigned i = 0; i < size; ++i) {
 		eventEvict(i);
-		if (tArray[i] == 0ULL) {
-			break;
-		}
-		lTable->setTimeForAddrAtLevel(i, addr, vArray[i], tArray[i], type);
-		MSG(0, "\t\toffset=%d, version=%d, value=%d\n", i, vArray[i], tArray[i]);
+		if (new_timestamps[i] == 0ULL) { break; }
+		lTable->setTimeForAddrAtLevel(i, addr, curr_versions[i], 
+										new_timestamps[i], type);
+		MSG(0, "\t\toffset=%u, version=%llu, value=%llu\n", 
+			i, curr_versions[i], new_timestamps[i]);
 	}
 	eventCacheEvict(size, size);
 
-	//MSG(3, "\tTVCacheEvict lTable=%llx, 0x%llx, size=%d, effectiveSize=%d \n", lTable, addr, size, startInvalid);
 	if (useCompression())
 		compression_buffer->touch(lTable);
 	
-	
-	check(addr, tArray, size, 3);
+	check(addr, new_timestamps, size, 3);
 }
 
-void MShadowSkadu::fetch(Addr addr, Index size, Version *vArray, Time* destAddr, TimeTable::TableType type) {
-	MSG(0, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
-	//MSG(3, "\tTVCacheFetch 0x%llx, size %d \n", addr, size);
-	LevelTable* lTable = this->getLevelTable(addr, vArray);
+void MShadowSkadu::fetch(Addr addr, Index size, Version *curr_versions, 
+							Time *timestamps, TimeTable::TableType type) {
+	assert(curr_versions != NULL);
+	assert(timestamps != NULL);
 
-	int i;
-	for (i=0; i<size; i++) {
-		destAddr[i] = lTable->getTimeForAddrAtLevel(i, addr, vArray[i]);
+	MSG(3, "\tmshadow fetch 0x%llx, size %u\n", addr, size);
+	LevelTable* lTable = this->getLevelTable(addr, curr_versions);
+
+	for (Index i = 0; i < size; ++i) {
+		timestamps[i] = lTable->getTimeForAddrAtLevel(i, addr, 
+															curr_versions[i]);
 	}
 
 	if (useCompression())
 		compression_buffer->touch(lTable);
 }
 
-Time* MShadowSkadu::get(Addr addr, Index size, Version* vArray, UInt32 width) {
+Time* MShadowSkadu::get(Addr addr, Index size, Version *curr_versions, 
+						UInt32 width) {
+	assert(curr_versions != NULL);
+
 	if (size < 1) return NULL;
 
-	//TimeTable::TableType type = (width > 4) ? TimeTable::TYPE_64BIT: TimeTable::TYPE_32BIT;
-	TimeTable::TableType type = TimeTable::TYPE_64BIT; 
+	TimeTable::TableType type = TimeTable::TYPE_64BIT; // FIXME: assumes 64 bit
 
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
-	MSG(0, "MShadowGet 0x%llx, size %d \n", tAddr, size);
+	MSG(0, "mshadow get 0x%llx, size %u \n", tAddr, size);
 	eventRead();
-	return cache->get(tAddr, size, vArray, type);
+
+	return cache->get(tAddr, size, curr_versions, type);
 }
 
-void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
-	MSG(0, "MShadowSet 0x%llx, size %d [", addr, size);
-	if (size < 1)
-		return;
+void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions, 
+						Time *timestamps, UInt32 width) {
+	assert(curr_versions != NULL);
+	assert(timestamps != NULL);
+	
+	MSG(0, "mshadow set 0x%llx, size %u [", addr, size);
+	if (size < 1) return;
 
 	if (getActiveTimeTableSize() >= next_gc_time) {
-		runGarbageCollector(vArray, size);
+		runGarbageCollector(curr_versions, size);
 		//next_gc_time = stat.nTimeTableActive + garbage_collection_period;
 		next_gc_time += garbage_collection_period;
 	}
@@ -233,7 +241,7 @@ void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UIn
 	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
 	MSG(0, "]\n");
 	eventWrite();
-	cache->set(tAddr, size, vArray, tArray, type);
+	cache->set(tAddr, size, curr_versions, timestamps, type);
 }
 
 void MShadowSkadu::init() {
