@@ -107,8 +107,6 @@ public:
 	UInt32 code;
 	UInt8 isCompressed; 		// 0 = uncompressed, 1 = compressed
 
-	static LevelTable* Alloc();
-
 	/*!
 	 * Default, no-argument constructor. Sets all versions to 0 and all
 	 * time_tables to NULL.
@@ -373,9 +371,9 @@ private:
 	SparseTable* sparse_table; 
 
 	UInt64 next_gc_time;
-	int gc_period;
+	unsigned garbage_collection_period;
 
-	void initGarbageCollector(int period);
+	void initGarbageCollector(unsigned period);
 	void runGarbageCollector(Version *curr_versions, int size);
 
 	CacheInterface *cache;

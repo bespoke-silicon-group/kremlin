@@ -271,10 +271,10 @@ void LevelTable::cleanTimeTablesFromLevel(Index start_level) {
 /*
  * Garbage collection related logic
  */
-void MShadowSkadu::initGarbageCollector(int period) {
-	fprintf(stderr, "[kremlin] set GC period to %d\n", period);
+void MShadowSkadu::initGarbageCollector(unsigned period) {
+	MSG(3, "set garbage collection period to %u\n", period);
 	next_gc_time = period;
-	gc_period = period;
+	garbage_collection_period = period;
 	if (period == 0) next_gc_time = 0xFFFFFFFFFFFFFFFF;
 }
 
@@ -635,8 +635,8 @@ void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UIn
 
 	if (getActiveTimeTableSize() >= next_gc_time) {
 		runGarbageCollector(vArray, size);
-		//next_gc_time = stat.nTimeTableActive + gc_period;
-		next_gc_time += gc_period;
+		//next_gc_time = stat.nTimeTableActive + garbage_collection_period;
+		next_gc_time += garbage_collection_period;
 	}
 
 	//TimeTable::TableType type = (width > 4) ? TimeTable::TYPE_64BIT: TimeTable::TYPE_32BIT;
