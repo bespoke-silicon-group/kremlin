@@ -1,6 +1,7 @@
 #include <cassert>
+#include <string.h> // for memset
+#include <vector>
 
-#include "kremlin.h"
 #include "config.h"
 #include "debug.h"
 #include "MemMapAllocator.h"
@@ -13,10 +14,6 @@
 
 #include "MShadowCache.h"
 #include "MShadowNullCache.h"
-
-#include <string.h> // for memset
-
-#include <vector>
 
 /*!
  * @brief A sparse table that tracks 4GB memory chunks being used.
@@ -94,9 +91,6 @@ static void setCompression() {
 	_useCompression = KConfigGetCompression();
 }
 
-/*
- * Garbage collection related logic
- */
 void MShadowSkadu::initGarbageCollector(unsigned period) {
 	MSG(3, "set garbage collection period to %u\n", period);
 	next_gc_time = period;
@@ -119,10 +113,6 @@ void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 		}
 	}
 }
-
-/*
- * LevelTable operations
- */
 
 LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version* vArray) {
 	SparseTableElement* sEntry = sparse_table->getElement(addr);
@@ -164,20 +154,10 @@ static void check(Addr addr, Time* src, int size, int site) {
 #endif
 }
 
-static inline int hasVersionError(Version* vArray, int size) {
-#ifndef NDEBUG
-	int i;
-	for (i=1; i<size; i++) {
-		if (vArray[i-1] > vArray[i])
-			return 1;
-	}
-#endif
-	return 0;
-}
-
 void* MemorySegment::operator new(size_t size) {
 	return MemPoolAllocSmall(sizeof(MemorySegment));
 }
+
 void MemorySegment::operator delete(void* ptr) {
 	MemPoolFreeSmall(ptr, sizeof(MemorySegment));
 }
@@ -196,10 +176,6 @@ MemorySegment::~MemorySegment() {
 		}
 	}
 }
-
-/*
- * Fetch / Evict from TVCache to TVStorage
- */
 
 void MShadowSkadu::evict(Time* tArray, Addr addr, int size, Version* vArray, TimeTable::TableType type) {
 	if (addr == NULL)
@@ -241,11 +217,6 @@ void MShadowSkadu::fetch(Addr addr, Index size, Version* vArray, Time* destAddr,
 		compression_buffer->touch(lTable);
 }
 
-
-/*
- * Entry point functions from Kremlin
- */
-
 Time* MShadowSkadu::get(Addr addr, Index size, Version* vArray, UInt32 width) {
 	if (size < 1) return NULL;
 
@@ -278,10 +249,6 @@ void MShadowSkadu::set(Addr addr, Index size, Version* vArray, Time* tArray, UIn
 	eventWrite();
 	cache->set(tAddr, size, vArray, tArray, type);
 }
-
-/*
- * Init / Deinit
- */
 
 void MShadowSkadu::init() {
 	
