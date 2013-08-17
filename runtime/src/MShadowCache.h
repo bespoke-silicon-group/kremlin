@@ -1,8 +1,8 @@
 #ifndef MSHADOW_SKADUCACHE_H
 #define MSHADOW_SKADUCACHE_H
 
-#include "kremlin.h"
-#include "MShadowSkadu.h"
+#include "ktypes.h"
+#include "CacheInterface.hpp"
 
 class TagVectorCache;
 

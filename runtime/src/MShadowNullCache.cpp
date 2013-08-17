@@ -1,3 +1,5 @@
+#include "LevelTable.hpp"
+#include "MShadowSkadu.h"
 #include "MShadowNullCache.h"
 #include "compression.h"
 

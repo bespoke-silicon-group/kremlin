@@ -3,6 +3,7 @@
 #include "kremlin.h"
 #include "compression.h"
 #include "MShadowSkadu.h"
+#include "LevelTable.hpp"
 #include "config.h"
 #include "minilzo.h"
 #include "debug.h"

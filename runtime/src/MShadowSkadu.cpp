@@ -7,6 +7,8 @@
 #include "MemMapAllocator.h"
 
 #include "Table.h"
+#include "LevelTable.hpp"
+#include "MemorySegment.hpp"
 #include "MShadowSkadu.h"
 #include "MShadowStat.h"
 #include "compression.h"

@@ -1,6 +1,8 @@
 #include "kremlin.h"
 #include "config.h"
 
+#include "MemorySegment.hpp"
+#include "LevelTable.hpp"
 #include "MShadowStat.h"
 #include "MShadowSkadu.h"
 

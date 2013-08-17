@@ -1,8 +1,8 @@
 #ifndef MSHADOW_NULLCACHE_H
 #define MSHADOW_NULLCACHE_H
 
-#include "kremlin.h"
-#include "MShadowSkadu.h"
+#include "ktypes.h"
+#include "CacheInterface.hpp"
 
 /*
  * Actual load / store handlers without TVCache
