@@ -338,7 +338,15 @@ void _KTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 s
 void _KTimestamp6(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32 src6_reg, UInt32 src6_offset) {
 	profiler->handleTimestamp6(dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg, src3_offset, src4_reg, src4_offset, src5_reg, src5_offset, src6_reg, src6_offset);
 }
-
+void _KTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, 
+					UInt32 src2_reg, UInt32 src2_offset, 
+					UInt32 src3_reg, UInt32 src3_offset, 
+					UInt32 src4_reg, UInt32 src4_offset, 
+					UInt32 src5_reg, UInt32 src5_offset, 
+					UInt32 src6_reg, UInt32 src6_offset, 
+					UInt32 src7_reg, UInt32 src7_offset) {
+	profiler->handleTimestamp7(dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg, src3_offset, src4_reg, src4_offset, src5_reg, src5_offset, src6_reg, src6_offset, src7_reg, src7_offset);
+}
 
 
 void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs, ...) {
