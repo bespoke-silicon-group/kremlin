@@ -141,7 +141,7 @@ UInt64 LevelTable::compress() {
 	assert(this->code == 0xDEADBEEF);
 	assert(!isCompressed());
 
-	MSG(4,"[LevelTable] compressing LevelTable (%p)\n",l_table);
+	MSG(4,"compressing LevelTable (addr: 0x%p)\n", this);
 
 	TimeTable* tt1 = this->time_tables[0];
 
