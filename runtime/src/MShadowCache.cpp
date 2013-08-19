@@ -24,14 +24,14 @@ void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
 	if (size_in_mb == 0) {
 		fprintf(stderr, "MShadowCacheInit: Bypass Cache\n"); 
 	} else {
-		tag_vector_cache->configure(size_in_mb, KConfigGetIndexSize());
+		tag_vector_cache->configure(size_in_mb, kremlin_config.getNumProfiledLevels());
 	}
 	this->use_compression = compress;
 	this->mem_shadow = mshadow;
 }
 
 void SkaduCache::deinit() {
-	if (KConfigUseSkaduCache() == TRUE) {
+	if (kremlin_config.getShadowMemCacheSizeInMB() > 0) {
 		// XXX: not sure of logic behind the next two lines (-sat)
 		MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(TagVectorCacheLine) * tag_vector_cache->getLineCount());
 		delete tag_vector_cache->valueTable;

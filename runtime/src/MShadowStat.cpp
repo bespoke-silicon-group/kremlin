@@ -16,7 +16,7 @@ L1Stat _cacheStat;
  */
 static int cacheMB;
 double getCacheSize(int level) {
-	int cacheSize = KConfigGetSkaduCacheSize();
+	int cacheSize = kremlin_config.getShadowMemCacheSizeInMB();
 	return (double)(cacheSize* 4.0 + level * cacheSize * 2);
 }
 
@@ -65,8 +65,8 @@ void printMemReqStat() {
 	double totalSize = segSize + lTableSize + tTableSize + cacheSize;
 	double totalSizeComp = segSize + lTableSize + cacheSize + tTableSizeWithCompression;
 	
-	UInt64 compressedNoBuffer = _stat.timeTableOverheadMax - KConfigGetCBufferSize() * sizeTable64;
-	UInt64 noCompressedNoBuffer = sizeUncompressed - KConfigGetCBufferSize() * sizeTable64;
+	UInt64 compressedNoBuffer = _stat.timeTableOverheadMax - kremlin_config.getNumCompressionBufferEntries() * sizeTable64;
+	UInt64 noCompressedNoBuffer = sizeUncompressed - kremlin_config.getNumCompressionBufferEntries() * sizeTable64;
 	double compressionRatio = (double)noCompressedNoBuffer / compressedNoBuffer;
 
 	//minTotal += getCacheSize(2);

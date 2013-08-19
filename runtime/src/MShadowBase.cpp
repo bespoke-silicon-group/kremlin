@@ -90,7 +90,7 @@ static void printMemStat() {
 	double versionTableSize = timeTableSize;
 
 	int i;
-	for (i=0; i < KConfigGetIndexSize(); i++) {
+	for (i=0; i < kremlin_config.getNumProfiledLevels(); i++) {
 		fprintf(stderr, "Level [%2d] req Read / Write = %lld, %lld\n",
 			i, stat.reqRead[i-1], stat.reqWrite[i-1]);
 	}
@@ -167,7 +167,7 @@ static SegTable* SegTableAlloc() {
 
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		ret->entry[i].depth = KConfigGetIndexSize();
+		ret->entry[i].depth = kremlin_config.getNumProfiledLevels();
 	}
 
 	stat.nSegTableAllocated++;

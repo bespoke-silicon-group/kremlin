@@ -70,7 +70,7 @@ FunctionRegion* KremlinProfiler::getCallingFunction() {
 }
 
 void KremlinProfiler::initShadowMemory() {
-	switch(KConfigGetShadowType()) {
+	switch(kremlin_config.getShadowMemType()) {
 		case ShadowMemoryBase:
 			shadow_mem = new MShadowBase();
 			break;
@@ -418,7 +418,7 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
  *****************************/
 
 void _KInit() { 
-	profiler = new KremlinProfiler(KConfigGetMinLevel(), KConfigGetMaxLevel());
+	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), kremlin_config.getMaxProfiledLevel());
 	profiler->init();
 }
 void _KDeinit() { 

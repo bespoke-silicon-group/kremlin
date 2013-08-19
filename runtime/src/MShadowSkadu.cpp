@@ -245,28 +245,28 @@ void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions,
 }
 
 void MShadowSkadu::init() {
-	int cacheSizeMB = KConfigGetSkaduCacheSize();
+	int cacheSizeMB = kremlin_config.getShadowMemCacheSizeInMB();
 	MSG(1,"MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
 
-	if (KConfigUseSkaduCache() == TRUE) 
+	if (cacheSizeMB > 0) 
 		cache = new SkaduCache();
 	else
 		cache = new NullCache();
 
-	cache->init(cacheSizeMB, KConfigGetCompression(), this);
+	cache->init(cacheSizeMB, kremlin_config.compressShadowMem(), this);
 
 	unsigned size = TimeTable::GetNumEntries(TimeTable::TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
 	
-	initGarbageCollector(KConfigGetGCPeriod());
+	initGarbageCollector(kremlin_config.getShadowMemGarbageCollectionPeriod());
  
 	sparse_table = new SparseTable();
 	sparse_table->init();
 
 	compression_buffer = new CBuffer();
-	compression_buffer->init(KConfigGetCBufferSize());
-	compression_enabled = KConfigGetCompression();
+	compression_buffer->init(kremlin_config.getNumCompressionBufferEntries());
+	compression_enabled = kremlin_config.compressShadowMem();
 }
 
 

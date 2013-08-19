@@ -172,7 +172,7 @@ static SegTable* SegTableAlloc() {
 
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		ret->entry[i].depth = KConfigGetIndexSize();
+		ret->entry[i].depth = kremlin_config.getNumProfiledLevels();
 	}
 
 	stat.nSegTableAllocated++;

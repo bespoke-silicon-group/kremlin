@@ -78,13 +78,6 @@ private:
 	 */
 	void initRegionControlDependences(Index index);
 
-	enum ShadowMemoryType {
-		ShadowMemoryBase = 0,
-		ShadowMemorySTV = 1,
-		ShadowMemorySkadu = 2,
-		ShadowMemoryDummy = 3
-	};
-
 	Table *shadow_reg_file;
 	MShadow *shadow_mem;
 
@@ -214,11 +207,7 @@ public:
 	 * level.
 	 */
 	void updateCurrNumInstrumentedLevels() {
-		if (!KConfigLimitLevel()) {
-			curr_num_instrumented_levels = curr_level + 1;
-		}
-
-		else if (curr_level < min_level) {
+		if (curr_level < min_level) {
 			curr_num_instrumented_levels = 0;
 		}
 

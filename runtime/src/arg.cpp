@@ -12,6 +12,8 @@
 
 #include "debug.h"
 
+KremlinConfiguration kremlin_config;
+
 std::string __kremlin_output_filename;
 int __kremlin_level_to_log = -1;
 
@@ -51,13 +53,13 @@ void createOutputFilename() {
 	
 	// TODO: update to use to_string for C++11
 	std::stringstream ss;
-	ss << KConfigGetMinLevel();
+	ss << kremlin_config.getMinProfiledLevel();
 	__kremlin_output_filename += ss.str();
 	ss.flush();
 
-	if(KConfigGetMaxLevel() != (KConfigGetMinLevel())) {
+	if(kremlin_config.getMaxProfiledLevel() != (kremlin_config.getMinProfiledLevel())) {
 		__kremlin_output_filename += "_";
-		ss << KConfigGetMaxLevel();
+		ss << kremlin_config.getMaxProfiledLevel();
 		__kremlin_output_filename += ss.str();
 		ss.flush();
 	}
@@ -73,16 +75,6 @@ void parseKremlinOptions(int argc, char* argv[], int& num_args, char**& real_arg
 	for(i = 1; i < argc; ++i) {
 		fprintf(stderr,"checking %s\n",argv[i]);
 		char *str_start;
-
-		str_start = strstr(argv[i],"kremlin-debug");
-
-		if(str_start) {
-			KConfigSetDebug(true);
-			KConfigSetDebugLevel(parseOptionInt(argv[i]));
-			__kremlin_debug= 1;
-			__kremlin_debug_level = parseOptionInt(argv[i]);
-			continue;
-		}
 
 #ifdef KREMLIN_DEBUG
 		str_start = strstr(argv[i],"kremlin-idbg");
@@ -108,76 +100,87 @@ void parseKremlinOptions(int argc, char* argv[], int& num_args, char**& real_arg
 		// and cause weird errors. This was exactly what happened for the
 		// streamcluster benchmark in rodinia since one of its inputs had the
 		// word "output" in it (which was previously a kremlin option). 
-		str_start = strstr(argv[i],"disable-rsummary");
+		str_start = strstr(argv[i],"kremlin-disable-rsummary");
 		if(str_start) {
-			KConfigDisableRSummary();
+			kremlin_config.disableRecursiveRegionSummarization();
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-output");
 		if(str_start) {
-			KConfigSetOutFileName(parseOptionStr(argv[i]));
+			kremlin_config.setProfileOutputFilename(parseOptionStr(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-log-output");
 		if(str_start) {
-			KConfigSetLogOutFileName(parseOptionStr(argv[i]));
+			kremlin_config.setDebugOutputFilename(parseOptionStr(argv[i]));
 			continue;
 		}
 
 
-		str_start = strstr(argv[i],"disable-cregion");
+		str_start = strstr(argv[i],"--kremlin-shadow-mem-type");
 		if(str_start) {
-			KConfigDisableCRegion();
+			int type = parseOptionInt(argv[i]);
+			assert(type >= 0 && type < 4);
+			switch(type) {
+				case 0: { 
+					kremlin_config.setShadowMemType(ShadowMemoryBase); 
+					break;
+				}
+				case 1: { 
+					kremlin_config.setShadowMemType(ShadowMemorySTV);
+					break;
+				}
+				case 2: { 
+					kremlin_config.setShadowMemType(ShadowMemorySkadu);
+					break;
+				}
+				case 3: { 
+					kremlin_config.setShadowMemType(ShadowMemoryDummy);
+					break;
+				}
+				default: { 
+					assert(0);
+				}
+			}
 			continue;
 		}
 
-
-
-		str_start = strstr(argv[i],"mshadow-type");
+		str_start = strstr(argv[i],"kremlin-shadow-mem-gc-period");
 		if(str_start) {
-			KConfigSetShadowType(parseOptionInt(argv[i]));
+			kremlin_config.setShadowMemGarbageCollectionPeriod(parseOptionInt(argv[i]));
 			continue;
 		}
 
-		str_start = strstr(argv[i],"gc-period");
+		str_start = strstr(argv[i],"kremlin-compress-shadow-mem");
 		if(str_start) {
-			KConfigSetGCPeriod(parseOptionInt(argv[i]));
+			kremlin_config.enableShadowMemCompression();
 			continue;
 		}
 
-		str_start = strstr(argv[i],"compression");
+		str_start = strstr(argv[i],"kremlin-cbuffer-size");
 		if(str_start) {
-			KConfigSetCompression(parseOptionInt(argv[i]));
-			continue;
-		}
-		str_start = strstr(argv[i],"compress");
-		if(str_start) {
-			KConfigSetCompression(parseOptionInt(argv[i]));
-			continue;
-		}
-		str_start = strstr(argv[i],"cbuffer-size");
-		if(str_start) {
-			KConfigSetCBufferSize(parseOptionInt(argv[i]));
+			kremlin_config.setNumCompressionBufferEntries(
+							parseOptionInt(argv[i]));
 			continue;
 		}
 
-		str_start = strstr(argv[i],"cache-size");
+		str_start = strstr(argv[i],"kremlin-shadow-mem-cache-size");
 		if(str_start) {
-			KConfigSetSkaduCacheSize(parseOptionInt(argv[i]));
+			kremlin_config.setShadowMemCacheSizeInMB(parseOptionInt(argv[i]));
 			continue;
 		}
 
-		str_start = strstr(argv[i],"min-level");
+		str_start = strstr(argv[i],"kremlin-min-level");
 		if(str_start) {
-			KConfigSetMinLevel(parseOptionInt(argv[i]));
+			kremlin_config.setMinProfiledLevel(parseOptionInt(argv[i]));
 			continue;
 		}
 
-		str_start = strstr(argv[i],"max-level");
+		str_start = strstr(argv[i],"kremlin-max-level");
 		if(str_start) {
-			KConfigSetMaxLevel(parseOptionInt(argv[i])+1);
+			kremlin_config.setMaxProfiledLevel(parseOptionInt(argv[i])+1);
 			continue;
 		}
 		else {
@@ -206,7 +209,6 @@ int main(int argc, char* argv[]) {
 	int num_args = 0;;
 	char** real_args;
 
-	KConfigInit();
 	__kremlin_idbg = 0;
 
 	__kremlin_output_filename = "kremlin.bin";
@@ -221,14 +223,14 @@ int main(int argc, char* argv[]) {
 	}
 
 	if(__kremlin_level_to_log == -1) {
-    	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", KConfigGetMinLevel(), KConfigGetMaxLevel());
+    	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", kremlin_config.getMinProfiledLevel(), kremlin_config.getMaxProfiledLevel());
 	}
 	else {
     	fprintf(stderr, "[kremlin] logging only level %d\n", __kremlin_level_to_log);
 	}
 
-	fprintf(stderr,"[kremlin] writing profiling data to: %s\n", KConfigGetOutFileName());
-	fprintf(stderr,"[kremlin] writing log to: %s\n", KConfigGetLogOutFileName());
+	fprintf(stderr,"[kremlin] writing profiling data to: %s\n", kremlin_config.getProfileOutputFilename());
+	fprintf(stderr,"[kremlin] writing log to: %s\n", kremlin_config.getDebugOutputFilename());
 
 	int i;
 	char** start = &argv[argc - num_args-1];

@@ -107,7 +107,7 @@ static inline void printActiveSet() {
 
 void CBuffer::init(unsigned size) {
 	assert(size > 0);
-	if (KConfigGetCompression() == 0) return;
+	if (!kremlin_config.compressShadowMem()) return;
 
 	MSG(2,"Initializing compression buffer to size %d\n",size);
 	
@@ -190,7 +190,7 @@ int CBuffer::add(LevelTable *table) {
 	assert(table != NULL);
 	assert(table->code == 0xDEADBEEF);
 
-	if (KConfigGetCompression() == 0) return 0;
+	if (!kremlin_config.compressShadowMem()) return 0;
 
 	int bytes_gained = 0;
 	// XXX: is next line really >=. Why not just >? (-sat)
@@ -204,7 +204,7 @@ int CBuffer::add(LevelTable *table) {
 
 void CBuffer::touch(LevelTable *table) {
 	assert(table != NULL);
-	if (KConfigGetCompression() == 0) return;
+	if (!kremlin_config.compressShadowMem()) return;
 
 	active_set_iterator it = active_set.find(table);
 	if (it == active_set.end()) {

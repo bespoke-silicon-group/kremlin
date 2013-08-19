@@ -1121,15 +1121,12 @@ void KremlinProfiler::init() {
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
         getMinLevel(), getMaxLevel(), getArraySize());
     MSG(0, "kremlinInit running....");
-	if (KConfigGetDebug()) { 
-		fprintf(stderr,"[kremlin] debugging enabled at level %d\n", KConfigGetDebugLevel()); 
-	}
 
 	initFunctionArgQueue();
 	initControlDependences();
 	initRegionTree();
 
-	initShadowMemory(/*KConfigGetSkaduCacheSize()*/); // XXX: what was this arg for?
+	initShadowMemory();
 	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
    	enable();
 }
@@ -1159,7 +1156,7 @@ void KremlinProfiler::deinit() {
 		getMaxActiveLevel());	
 
 	disable();
-	printProfiledData(KConfigGetOutFileName());
+	printProfiledData(kremlin_config.getProfileOutputFilename());
 	deinitRegionTree();
 	deinitShadowMemory();
 	deinitFunctionArgQueue();

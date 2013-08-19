@@ -25,9 +25,9 @@ static int tabLevel = 0;
 static FILE* stream;
 
 void DebugInit() {
-	stream = fopen(KConfigGetLogOutFileName(), "w");
+	stream = fopen(kremlin_config.getDebugOutputFilename(), "w");
 	if (stream == NULL) {
-		fprintf(stderr,"ERROR: could not open file for writing: %s\n",KConfigGetLogOutFileName());
+		fprintf(stderr,"ERROR: could not open file for writing: %s\n",kremlin_config.getDebugOutputFilename());
 		exit(1);
 	}
 }

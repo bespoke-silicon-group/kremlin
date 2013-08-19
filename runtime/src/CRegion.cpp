@@ -81,8 +81,6 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 	assert(curr_region_node != NULL);
 	unsigned prev_stack_size = c_region_stack.size();
 
-	if (KConfigGetCRegionSupport() == FALSE) return; // TODO: this shouldn't be an option
-
 	ProfileNode* parent = curr_region_node;
 	ProfileNode* child = NULL;
 
@@ -109,7 +107,7 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 		// TODO: make body of this if statement a separate function
 		child = new ProfileNode(region_static_id, region_callsite_id, region_type); // XXX: mem leak
 		parent->addChild(child);
-		if (KConfigGetRSummarySupport())
+		if (kremlin_config.summarizeRecursiveRegions())
 			child->handleRecursion();
 	} 
 
@@ -148,7 +146,6 @@ void closeRegionContext(RegionStats *region_stats) {
 	assert(curr_region_node->parent != NULL); // redundant with curr != root?
 	unsigned prev_stack_size = c_region_stack.size();
 
-	if (KConfigGetCRegionSupport() == FALSE) return; // TODO: this shouldn't be an option
 	MSG(DEBUG_CREGION, "CRegionLeave: Begin\n"); 
 	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", getCurrentRegionIDString(), curr_region_node->toString());
 
@@ -270,7 +267,7 @@ static void writeProgramStats(const char* filename) {
 }
 
 static bool isEmittable(Level level) {
-	return level >= KConfigGetMinLevel() && level < KConfigGetMaxLevel();
+	return level >= kremlin_config.getMinProfiledLevel() && level < kremlin_config.getMaxProfiledLevel();
 }
 
 /*!

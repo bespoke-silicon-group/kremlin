@@ -42,7 +42,7 @@ void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
 	valueTable = new Table(new_line_count * 2, this->depth);  // 32bit granularity
 
 	MSG(TV_CACHE_DEBUG_LVL, "MShadowCacheInit: value Table created row %d col %d\n", 
-		new_line_count, KConfigGetIndexSize());
+		new_line_count, kremlin_config.getNumProfiledLevels());
 }
 
 int TagVectorCache::getLineIndex(Addr addr) {
