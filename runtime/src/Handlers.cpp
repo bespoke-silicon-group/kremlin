@@ -7,6 +7,8 @@
 #include "MShadow.h"
 #include "Table.h"
 
+Table *KremlinProfiler::shadow_reg_file = NULL;
+
 void KremlinProfiler::addFunctionToStack(CID callsite_id) {
 	FunctionRegion* func = new FunctionRegion(callsite_id);
 	callstack.push_back(func);
@@ -168,7 +170,7 @@ static inline void printStoreConstDebugInfo(Addr addr, Time* times, Index depth)
 template <unsigned num_data_deps, unsigned cond, bool load_inst>
 Time KremlinProfiler::calcNewDestTime(Time curr_dest_time, UInt32 src_reg, UInt32 src_offset, Index i) {
 	if (num_data_deps > cond) {
-		Time src_time = KremlinProfiler::getRegisterTimeAtIndex(src_reg, i);
+		Time src_time = getRegisterTimeAtIndex(src_reg, i);
 		if (!load_inst) src_time += src_offset;
 		return MAX(curr_dest_time, src_time);
 	}
@@ -229,7 +231,7 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
 
 		if (load_inst) dest_time += LOAD_COST;
 
-		KremlinProfiler::setRegisterTimeAtIndex(dest_time, dest_reg, index);
+		setRegisterTimeAtIndex(dest_time, dest_reg, index);
 
 		if (update_cp) {
         	region->updateCriticalPathLength(dest_time);
@@ -312,7 +314,7 @@ void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_si
 		Time control_dep_time = getControlDependenceAtIndex(index);
         Time dest_time = control_dep_time + STORE_COST;
 		if (!store_const) {
-			Time src_time = KremlinProfiler::getRegisterTimeAtIndex(src_reg, index);
+			Time src_time = getRegisterTimeAtIndex(src_reg, index);
         	dest_time = MAX(control_dep_time,src_time) + STORE_COST;
 		}
 		dest_addr_times[index] = dest_time;
@@ -363,7 +365,7 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 
     } else {
 		if (shouldInstrumentCurrLevel())
-			KremlinProfiler::zeroRegistersAtIndex(getCurrentLevelIndex());
+			zeroRegistersAtIndex(getCurrentLevelIndex());
 	}
 
     FunctionRegion* funcHead = getCurrentFunction();
@@ -418,7 +420,7 @@ void KremlinProfiler::handleFunctionExit() {
 
 	FunctionRegion* funcHead = getCurrentFunction();
 	assert(funcHead != NULL);
-	KremlinProfiler::setRegisterFileTable(funcHead->table); 
+	setRegisterFileTable(funcHead->table); 
 }
 
 void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
@@ -937,7 +939,7 @@ void KremlinProfiler::handlePushCDep(Reg cond) {
 		assert(0);	
 	}
 
-	Table* lTable = KremlinProfiler::getRegisterFileTable();
+	Table* lTable = getRegisterFileTable();
 	//assert(lTable->getCol() >= indexSize);
 	//assert(control_dependence_table->getCol() >= indexSize);
 
@@ -1037,7 +1039,7 @@ void KremlinProfiler::handlePrepRTable(UInt num_virt_regs, UInt nested_depth) {
 	assert(funcHead != NULL);
     funcHead->table = table;
 
-    KremlinProfiler::setRegisterFileTable(funcHead->table);
+    setRegisterFileTable(funcHead->table);
     finishRegisterTableSetup();
 }
 

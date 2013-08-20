@@ -81,7 +81,7 @@ private:
 	 */
 	void initRegionControlDependences(Index index);
 
-	Table *shadow_reg_file;
+	static Table *shadow_reg_file;
 	MShadow *shadow_mem;
 
 	void updateCurrLevelInstrumentableStatus() {
@@ -151,7 +151,6 @@ public:
 		this->control_dependence_table = NULL;
 		this->cdt_read_ptr = 0;
 		this->cdt_current_base = NULL;
-		this->shadow_reg_file = NULL;
 		this->shadow_mem = NULL;
 	}
 
