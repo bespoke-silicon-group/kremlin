@@ -7,12 +7,6 @@
 #include "MShadow.h"
 #include "Table.h"
 
-// TODO: make these static const members of profiler
-#define LOAD_COST           4
-#define STORE_COST          1
-#define MALLOC_COST         100
-#define FREE_COST           10
-
 void KremlinProfiler::addFunctionToStack(CID callsite_id) {
 	FunctionRegion* func = new FunctionRegion(callsite_id);
 	callstack.push_back(func);

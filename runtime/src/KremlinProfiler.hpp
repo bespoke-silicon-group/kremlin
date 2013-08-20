@@ -16,6 +16,9 @@ class Table;
 
 class KremlinProfiler {
 private:
+	static const unsigned LOAD_COST = 4;
+	static const unsigned STORE_COST = 1;
+
 	bool enabled; // true if profiling is on (i.e. enabled), false otherwise
 	bool initialized; // true iff init was called without corresponding deinit
 
