@@ -44,6 +44,8 @@ public:
 
 	~KremlinConfiguration() {}
 
+	void print();
+
 	/* Getters for all private member variables. */
 	Level getMinProfiledLevel() { return min_profiled_level; }
 	Level getMaxProfiledLevel() { return max_profiled_level; }

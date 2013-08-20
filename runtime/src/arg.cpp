@@ -188,10 +188,7 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr,"[kremlin] Interactive debugging mode enabled.\n");
 	}
 
-	fprintf(stderr, "[kremlin] min level = %d, max level = %d\n", kremlin_config.getMinProfiledLevel(), kremlin_config.getMaxProfiledLevel());
-
-	fprintf(stderr,"[kremlin] writing profiling data to: %s\n", kremlin_config.getProfileOutputFilename());
-	fprintf(stderr,"[kremlin] writing log to: %s\n", kremlin_config.getDebugOutputFilename());
+	kremlin_config.print();
 
 	char** start = &argv[argc - num_args-1];
 	start[0] = strdup(argv[0]);

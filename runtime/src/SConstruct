@@ -2,7 +2,7 @@ env = Environment(CCFLAGS = '-O3')
 files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
     'ProfileNode.cpp', 'CRegion.cpp', 'ProfileNodeStats.cpp', 
 	'MShadowBase.cpp', 'MShadowSkadu.cpp', 'MShadowSTV.cpp', 
-	'compression.cpp', 'minilzo.cpp', 'mpool.cpp',
+	'compression.cpp', 'config.cpp', 'minilzo.cpp', 'mpool.cpp',
     'MShadowStat.cpp', 'MShadowDummy.cpp', 'MShadowCache.cpp',
 	'MShadowNullCache.cpp', 'TagVectorCache.cpp', 'TagVectorCacheLine.cpp',
 	'Handlers.cpp','TimeTable.cpp', 'LevelTable.cpp'
