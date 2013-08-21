@@ -232,7 +232,7 @@ void iDebugHandler(UInt kremFunc) {
 
 
 #ifdef KREMLIN_DEBUG
-void MSG(int level, char* format, ...) {
+void MSG(int level, const char* format, ...) {
     if (!__kremlin_debug || level > __kremlin_debug_level) {
         return;
     }
