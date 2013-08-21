@@ -57,15 +57,15 @@ int main(int argc, char* argv[]) {
 	char** start = &argv[argc - num_args-1];
 	start[0] = strdup(argv[0]);
 
-	for (unsigned i = 0; i <= num_args; ++i) {
-		fprintf(stderr,"program arg %u: %s\n", i, start[i]);
+	for (unsigned i = 0; i < num_args; ++i) {
+		fprintf(stderr,"program arg %u: %s\n", i, real_args[i]);
 	}
 
 	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), 
 					kremlin_config.getMaxProfiledLevel());
 	profiler->init();
 
-	__main(num_args+1, start);
+	__main(num_args+1, real_args);
 	delete[] real_args; // don't understand how real_args is being used (-sat)
 
 	profiler->deinit();

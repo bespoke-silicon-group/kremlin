@@ -54,6 +54,7 @@ static void getCustomOutputFilename(KremlinConfiguration &config, std::string& f
 
 void parseKremlinOptions(KremlinConfiguration &config, int argc, char* argv[], unsigned& num_args, char**& real_args) {
 	std::vector<char*> true_args;
+	true_args.push_back(strdup(argv[0])); // program name is always a program arg
 
 	for(unsigned i = 1; i < argc; ++i) {
 		MSG(0,"parsing arg: %s\n",argv[i]);
