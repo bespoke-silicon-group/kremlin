@@ -246,12 +246,9 @@ void KremlinProfiler::handleVarArgDeps(UInt32 dest_reg, UInt32 src_reg,
 	UInt32 src_regs[5];
 	UInt32 src_offsets[5];
 
-	//UInt32 src0_reg, src1_reg, src2_reg, src3_reg, src4_reg;
-	//UInt32 src0_offset, src1_offset, src2_offset, src3_offset, src4_offset;
-
 	if (phi_inst || load_inst) {
+		memset(&src_regs, 0, sizeof(UInt32)*5); // can be eliminated if add num_srcs > 0 pre-condition
 		memset(&src_offsets, 0, sizeof(UInt32)*5);
-		//src0_offset =  src1_offset = src2_offset =  src3_offset = src4_offset = 0;
 	}
 
 	unsigned arg_idx;
@@ -841,7 +838,12 @@ void KremlinProfiler::handlePhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, va_
 
     if (!enabled) return;
 
-	handleVarArgDeps<false, false, true, false>(dest_reg, src_reg, NULL, 0, num_ctrls, args);
+	if (num_ctrls > 0) {
+		handleVarArgDeps<false, false, true, false>(dest_reg, src_reg, NULL, 0, num_ctrls, args);
+	}
+	else {
+		timestampUpdater<true, true, 1, false>(dest_reg, src_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 0);
+	}
 }
 
 void KremlinProfiler::handlePhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {

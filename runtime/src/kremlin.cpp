@@ -459,6 +459,7 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
  *  number of incoming dependences.
  ******************************************************************/
 
+// TODO: shouldn't call KPhi if num_ctrls is 0 (instrumentation issue)
 void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
 	va_list args;
 	va_start(args, num_ctrls);
