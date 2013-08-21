@@ -1,11 +1,8 @@
-#ifndef _ARG_H
-#define _ARG_H
+#ifndef _KREMLIN_ARGPARSE_HPP_
+#define _KREMLIN_ARGPARSE_HPP_
 
-#include "ktypes.h"
+class KremlinConfiguration;
 
-Level getMinReportLevel(void);
-Level getMaxReportLevel(void);
-Level getLevelDepth(void);
-Level getMaxProfileLevel(void);
+void parseKremlinOptions(KremlinConfiguration &config, int argc, char* argv[], unsigned& num_args, char**& real_args);
 
-#endif
+#endif // _KREMLIN_ARGPARSE_HPP_

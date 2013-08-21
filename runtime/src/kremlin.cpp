@@ -29,9 +29,37 @@
 
 #include <vector>
 #include <iostream>
+#include <signal.h> // for catching CTRL-V during debug
 
 
 static KremlinProfiler *profiler;
+KremlinConfiguration kremlin_config;
+
+extern "C" int __main(int argc, char** argv);
+
+int main(int argc, char* argv[]) {
+	unsigned num_args = 0;
+	char** real_args;
+
+	__kremlin_idbg = 0;
+
+	parseKremlinOptions(kremlin_config, argc, argv, num_args, real_args);
+
+	if(__kremlin_idbg == 0) {
+		(void)signal(SIGINT,dbg_int);
+	}
+	else {
+		fprintf(stderr,"[kremlin] Interactive debugging mode enabled.\n");
+	}
+
+	kremlin_config.print();
+
+	char** start = &argv[argc - num_args-1];
+	start[0] = strdup(argv[0]);
+
+	__main(num_args+1, start);
+	delete[] real_args; // don't understand how real_args is being used (-sat)
+}
 
 // XXX: hacky... badness!
 Level getMaxActiveLevel() {

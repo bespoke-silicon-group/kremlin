@@ -3,20 +3,12 @@
 #include <string>
 #include <sstream>
 
-// C headers
-#include <signal.h> // for catching CTRL-V during debug
-
-#include "kremlin.h"
 #include "arg.h"
 #include "config.h"
 
 #include "debug.h"
 
-KremlinConfiguration kremlin_config;
-
-extern "C" int __main(int argc, char** argv);
-
-int parseOptionInt(char* option_str) {
+static int parseOptionInt(char* option_str) {
 	char *dbg_level_str = strtok(option_str,"= ");
 	dbg_level_str = strtok(NULL,"= ");
 
@@ -28,7 +20,7 @@ int parseOptionInt(char* option_str) {
 	}
 }
 
-char* parseOptionStr(char* option_str) {
+static char* parseOptionStr(char* option_str) {
 	char *dbg_level_str = strtok(option_str,"= ");
 	dbg_level_str = strtok(NULL,"= ");
 
@@ -41,18 +33,18 @@ char* parseOptionStr(char* option_str) {
 }
 
 
-void getCustomOutputFilename(std::string& filename) {
+static void getCustomOutputFilename(KremlinConfiguration &config, std::string& filename) {
 	filename = "kremlin-L";
 	
 	// TODO: update to use to_string for C++11
 	std::stringstream ss;
-	ss << kremlin_config.getMinProfiledLevel();
+	ss << config.getMinProfiledLevel();
 	filename += ss.str();
 	ss.flush();
 
-	if(kremlin_config.getMaxProfiledLevel() != (kremlin_config.getMinProfiledLevel())) {
+	if(config.getMaxProfiledLevel() != (config.getMinProfiledLevel())) {
 		filename += "_";
-		ss << kremlin_config.getMaxProfiledLevel();
+		ss << config.getMaxProfiledLevel();
 		filename += ss.str();
 		ss.flush();
 	}
@@ -60,7 +52,7 @@ void getCustomOutputFilename(std::string& filename) {
 	filename += ".bin";
 }
 
-void parseKremlinOptions(int argc, char* argv[], unsigned& num_args, char**& real_args) {
+void parseKremlinOptions(KremlinConfiguration &config, int argc, char* argv[], unsigned& num_args, char**& real_args) {
 	std::vector<char*> true_args;
 
 	for(unsigned i = 1; i < argc; ++i) {
@@ -79,19 +71,19 @@ void parseKremlinOptions(int argc, char* argv[], unsigned& num_args, char**& rea
 
 		str_start = strstr(argv[i],"kremlin-disable-rsummary");
 		if(str_start) {
-			kremlin_config.disableRecursiveRegionSummarization();
+			config.disableRecursiveRegionSummarization();
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-output");
 		if(str_start) {
-			kremlin_config.setProfileOutputFilename(parseOptionStr(argv[i]));
+			config.setProfileOutputFilename(parseOptionStr(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-log-output");
 		if(str_start) {
-			kremlin_config.setDebugOutputFilename(parseOptionStr(argv[i]));
+			config.setDebugOutputFilename(parseOptionStr(argv[i]));
 			continue;
 		}
 
@@ -102,19 +94,19 @@ void parseKremlinOptions(int argc, char* argv[], unsigned& num_args, char**& rea
 			assert(type >= 0 && type < 4);
 			switch(type) {
 				case 0: { 
-					kremlin_config.setShadowMemType(ShadowMemoryBase); 
+					config.setShadowMemType(ShadowMemoryBase); 
 					break;
 				}
 				case 1: { 
-					kremlin_config.setShadowMemType(ShadowMemorySTV);
+					config.setShadowMemType(ShadowMemorySTV);
 					break;
 				}
 				case 2: { 
-					kremlin_config.setShadowMemType(ShadowMemorySkadu);
+					config.setShadowMemType(ShadowMemorySkadu);
 					break;
 				}
 				case 3: { 
-					kremlin_config.setShadowMemType(ShadowMemoryDummy);
+					config.setShadowMemType(ShadowMemoryDummy);
 					break;
 				}
 				default: { 
@@ -126,38 +118,38 @@ void parseKremlinOptions(int argc, char* argv[], unsigned& num_args, char**& rea
 
 		str_start = strstr(argv[i],"kremlin-shadow-mem-gc-period");
 		if(str_start) {
-			kremlin_config.setShadowMemGarbageCollectionPeriod(parseOptionInt(argv[i]));
+			config.setShadowMemGarbageCollectionPeriod(parseOptionInt(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-compress-shadow-mem");
 		if(str_start) {
-			kremlin_config.enableShadowMemCompression();
+			config.enableShadowMemCompression();
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-cbuffer-size");
 		if(str_start) {
-			kremlin_config.setNumCompressionBufferEntries(
+			config.setNumCompressionBufferEntries(
 							parseOptionInt(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-shadow-mem-cache-size");
 		if(str_start) {
-			kremlin_config.setShadowMemCacheSizeInMB(parseOptionInt(argv[i]));
+			config.setShadowMemCacheSizeInMB(parseOptionInt(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-min-level");
 		if(str_start) {
-			kremlin_config.setMinProfiledLevel(parseOptionInt(argv[i]));
+			config.setMinProfiledLevel(parseOptionInt(argv[i]));
 			continue;
 		}
 
 		str_start = strstr(argv[i],"kremlin-max-level");
 		if(str_start) {
-			kremlin_config.setMaxProfiledLevel(parseOptionInt(argv[i])+1);
+			config.setMaxProfiledLevel(parseOptionInt(argv[i])+1);
 			continue;
 		}
 		else {
@@ -172,32 +164,3 @@ void parseKremlinOptions(int argc, char* argv[], unsigned& num_args, char**& rea
 	num_args = true_args.size();
 }
 
-// look for any kremlin specific inputs to the program
-int main(int argc, char* argv[]) {
-	unsigned num_args = 0;
-	char** real_args;
-
-	__kremlin_idbg = 0;
-
-	parseKremlinOptions(argc,argv,num_args,real_args);
-
-	if(__kremlin_idbg == 0) {
-		(void)signal(SIGINT,dbg_int);
-	}
-	else {
-		fprintf(stderr,"[kremlin] Interactive debugging mode enabled.\n");
-	}
-
-	kremlin_config.print();
-
-	char** start = &argv[argc - num_args-1];
-	start[0] = strdup(argv[0]);
-
-#if 0
-	for (unsigned i=0; i<=num_args; i++) {
-		fprintf(stderr, "arg %d: %s\n", i, start[i]);
-	}
-#endif
-	__main(num_args+1, start);
-	delete[] real_args; // don't understand how real_args is being used (-sat)
-}
