@@ -19,7 +19,7 @@ def get_subdir_sconscripts(path):
 	scons_files = ['{0}/SConscript'.format(sd) for sd in subdirs]
 	return scons_files
 
-env = Environment(CC = 'kremlin-gcc', ENV = {'PATH' : os.environ['PATH']})
+env = Environment(CC = 'kremlin-gcc', CXX = 'kremlin-g++', ENV = {'PATH' : os.environ['PATH']})
 
 def get_srcs():
 	srcs = Glob('*.c')
