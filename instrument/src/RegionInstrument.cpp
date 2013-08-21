@@ -889,8 +889,10 @@ namespace {
 					|| func.isVarArg() // currently don't handle vararg functions
 					|| (noRecursiveFuncs && isRecursive(&func)) // make sure we don't try a recursive func if we say not to
 					//or if the functions are the C++ startup and cleanup functions, then skip them too
-					|| func.getName() == CPP_ENTRY_FUNC 
-					|| isCppExitFunc(&func)
+					|| (func.hasSection() && 
+						func.getSection().compare(".text.startup") == 0)
+					|| (func.hasSection() && 
+						func.getSection().compare(".text.exit") == 0)
 				  )
 				{
 					continue;

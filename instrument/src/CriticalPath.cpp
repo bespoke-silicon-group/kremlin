@@ -111,6 +111,13 @@ struct CriticalPath : public ModulePass
                 LOG_WARN() << "Not instrumenting var arg function: " << func.getName() << "\n";
                 continue;
             }
+			else if (func.hasSection()
+						&& (func.getSection().compare(".text.startup") == 0
+							|| func.getSection().compare(".text.exit") == 0)
+					) {
+                LOG_WARN() << "Not instrumenting startup function: " << func.getName() << "\n";
+				continue;
+			}
 
 // Mac OS X doesn't support clock_gettime. The usage of clock_gettime here
 // (timing stats for pass) isn't necessary so for now we'll just not do the
