@@ -1124,7 +1124,6 @@ void KremlinProfiler::init() {
 
 	initShadowMemory();
 	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
-   	enable();
 }
 
 /*

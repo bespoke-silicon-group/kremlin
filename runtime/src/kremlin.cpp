@@ -37,6 +37,13 @@ KremlinConfiguration kremlin_config;
 
 extern "C" int __main(int argc, char** argv);
 
+static void initProfiler() {
+	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), 
+					kremlin_config.getMaxProfiledLevel());
+	profiler->init();
+}
+
+
 /*!
  * @brief The starting point for Kremlin's profiling.
  *
@@ -72,9 +79,8 @@ int main(int argc, char* argv[]) {
 		MSG(0,"program arg %u: %s\n", i, program_args[i]);
 	}
 
-	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), 
-					kremlin_config.getMaxProfiledLevel());
-	profiler->init();
+	if (profiler == NULL) initProfiler();
+	profiler->enable();
 
 	__main(program_args.size(), &program_args[0]);
 
@@ -330,6 +336,16 @@ void _KTurnOff() {
  *****************************************************************/
 
 void _KEnterRegion(SID regionId, RegionType regionType) {
+	// @TRICKY: In C++ some instrumented object constructors may be called
+	// before main. We need to make sure that profiler is not NULL whenever we
+	// have an API call. Luckily, we are guaranteed that KEnterRegion will be
+	// the kremlin first function called in a constructor. We'll take
+	// advantage of that invariant and initialize the profiler here if we find 
+	// that it hasn't been initialized yet.
+	// Note that initProfiler doesn't enable profiling so we won't actual
+	// profile any of the code in the pre-main constructors (just like we
+	// won't profile any code in post-main destructors)
+	if (profiler == NULL) initProfiler();
 	profiler->handleRegionEntry(regionId, regionType);
 }
 
@@ -475,19 +491,9 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
  * Kremlin Init / Deinit
  *****************************/
 
-void _KInit() { 
-#if 0
-	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), kremlin_config.getMaxProfiledLevel());
-	profiler->init();
-#endif
-}
-void _KDeinit() { 
-#if 0
-	profiler->deinit();
-	delete profiler;
-	profiler = NULL;
-#endif
-}
+// TODO: these functions no longer have a use. Remove them from API.
+void _KInit() {}
+void _KDeinit() {}
 
 /**************************************************************************
  * Start of Non-Essential APIs
