@@ -61,8 +61,16 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr,"program arg %u: %s\n", i, start[i]);
 	}
 
+	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), 
+					kremlin_config.getMaxProfiledLevel());
+	profiler->init();
+
 	__main(num_args+1, start);
 	delete[] real_args; // don't understand how real_args is being used (-sat)
+
+	profiler->deinit();
+	delete profiler;
+	profiler = NULL;
 }
 
 // XXX: hacky... badness!
@@ -458,13 +466,17 @@ void _KPhiAddCond(Reg dest_reg, Reg src_reg) {
  *****************************/
 
 void _KInit() { 
+#if 0
 	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), kremlin_config.getMaxProfiledLevel());
 	profiler->init();
+#endif
 }
 void _KDeinit() { 
+#if 0
 	profiler->deinit();
 	delete profiler;
 	profiler = NULL;
+#endif
 }
 
 /**************************************************************************
