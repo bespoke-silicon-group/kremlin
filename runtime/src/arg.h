@@ -1,8 +1,12 @@
 #ifndef _KREMLIN_ARGPARSE_HPP_
 #define _KREMLIN_ARGPARSE_HPP_
 
+#include <vector>
+
 class KremlinConfiguration;
 
-void parseKremlinOptions(KremlinConfiguration &config, int argc, char* argv[], unsigned& num_args, char**& real_args);
+void parseKremlinOptions(KremlinConfiguration &config, 
+							int argc, char* argv[], 
+							std::vector<char*> &program_args);
 
 #endif // _KREMLIN_ARGPARSE_HPP_

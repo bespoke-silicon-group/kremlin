@@ -38,12 +38,10 @@ KremlinConfiguration kremlin_config;
 extern "C" int __main(int argc, char** argv);
 
 int main(int argc, char* argv[]) {
-	unsigned num_args = 0;
-	char** real_args;
-
 	__kremlin_idbg = 0;
 
-	parseKremlinOptions(kremlin_config, argc, argv, num_args, real_args);
+	std::vector<char*> program_args;
+	parseKremlinOptions(kremlin_config, argc, argv, program_args);
 
 	if(__kremlin_idbg == 0) {
 		(void)signal(SIGINT,dbg_int);
@@ -54,19 +52,15 @@ int main(int argc, char* argv[]) {
 
 	kremlin_config.print();
 
-	char** start = &argv[argc - num_args-1];
-	start[0] = strdup(argv[0]);
-
-	for (unsigned i = 0; i < num_args; ++i) {
-		fprintf(stderr,"program arg %u: %s\n", i, real_args[i]);
+	for (unsigned i = 0; i < program_args.size(); ++i) {
+		fprintf(stderr,"program arg %u: %s\n", i, program_args[i]);
 	}
 
 	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), 
 					kremlin_config.getMaxProfiledLevel());
 	profiler->init();
 
-	__main(num_args+1, real_args);
-	delete[] real_args; // don't understand how real_args is being used (-sat)
+	__main(program_args.size(), &program_args[0]);
 
 	profiler->deinit();
 	delete profiler;
