@@ -37,6 +37,22 @@ KremlinConfiguration kremlin_config;
 
 extern "C" int __main(int argc, char** argv);
 
+/*!
+ * @brief The starting point for Kremlin's profiling.
+ *
+ * This function performs the following actions:
+ * 1) Search for any kremlin specific parameters and use those to modify our 
+ * KremlinConfiguration, keeping a list of the "true" (i.e. non-kremlin)
+ * arguments during this search.
+ * 2) Initialize the KremlinProfiler.
+ * 3) Call the program's original main function with only the true args.
+ * 4) Deinitialize the KremlinProfiler.
+ * 
+ * @param argc The number of arguments (both kremlin and program specific)
+ * @param argv Array of strings for each argument (again, both kremlin and
+ * program specific).
+ * @return 0 on success, non-0 otherwise.
+ */
 int main(int argc, char* argv[]) {
 	__kremlin_idbg = 0;
 
