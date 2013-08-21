@@ -56,7 +56,7 @@ void parseKremlinOptions(KremlinConfiguration &config, int argc, char* argv[], u
 	std::vector<char*> true_args;
 
 	for(unsigned i = 1; i < argc; ++i) {
-		fprintf(stderr,"checking %s\n",argv[i]);
+		MSG(0,"parsing arg: %s\n",argv[i]);
 		char *str_start;
 
 #ifdef KREMLIN_DEBUG
