@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
 	kremlin_config.print();
 
 	for (unsigned i = 0; i < program_args.size(); ++i) {
-		fprintf(stderr,"program arg %u: %s\n", i, program_args[i]);
+		MSG(0,"program arg %u: %s\n", i, program_args[i]);
 	}
 
 	profiler = new KremlinProfiler(kremlin_config.getMinProfiledLevel(), 
