@@ -1,3 +1,4 @@
+#include <cstddef> // for size_t and
 #include "ProfileNodeStats.hpp"
 #include "MemMapAllocator.h"
 

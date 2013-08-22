@@ -1,6 +1,9 @@
 #ifndef _TIMETABLE_HPP_
 #define _TIMETABLE_HPP_
 
+#include <cstddef> // for size_t
+#include <cstring>
+
 /*!
  * A simple array of Time with TIMETABLE_SIZE elements
  */ 
