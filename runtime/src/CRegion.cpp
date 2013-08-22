@@ -134,6 +134,7 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 	assert(!c_region_stack.empty());
 	assert(child->curr_stat_index >= 0);
 	assert(c_region_stack.size() == prev_stack_size+1);
+	assert(child->node_type != R_SINK);
 }
 
 void closeRegionContext(RegionStats *region_stats) {
@@ -146,7 +147,7 @@ void closeRegionContext(RegionStats *region_stats) {
 	assert(curr_region_node->parent != NULL); // redundant with curr != root?
 	unsigned prev_stack_size = c_region_stack.size();
 
-	MSG(DEBUG_CREGION, "CRegionLeave: Begin\n"); 
+	MSG(DEBUG_CREGION, "closeRegionContext: Begin\n"); 
 	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", getCurrentRegionIDString(), curr_region_node->toString());
 
 #if 0
@@ -160,10 +161,16 @@ void closeRegionContext(RegionStats *region_stats) {
 
 	curr_region_node->addStats(region_stats);
 
-	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", curr_region_node->id, 
+	MSG(DEBUG_CREGION, "Updating Current Node - ID: %llu, Stat Index: %d\n", curr_region_node->id, 
 		curr_region_node->curr_stat_index);
 	curr_region_node->moveToPrevStats();
 
+	// By construction, curr_region_node will never be an R_SINK: it will
+	// always move to the associated R_INIT. Also, a node will only be an
+	// R_INIT if it has a corresponding R_SINK. Therefore, if the current node
+	// is an R_INIT, then we don't want to go to the parent node of the
+	// current node, we want the parent node of the region that is at the top
+	// of the region stack (i.e. the parent of the R_SINK node).
 	ProfileNode* exited_region = popFromRegionStack();
 	if (curr_region_node->node_type == R_INIT) {
 		curr_region_node = exited_region->parent;
@@ -174,12 +181,12 @@ void closeRegionContext(RegionStats *region_stats) {
 
 	if (exited_region->node_type == R_SINK) {
 		exited_region->addStats(region_stats);
-		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", exited_region->id, 
+		MSG(DEBUG_CREGION, "Updating R_SINK Node - ID: %llu, Stat Index: %d\n", exited_region->id, 
 			exited_region->curr_stat_index);
 		exited_region->moveToPrevStats();
 	} 
 	printCurrRegionNode();
-	MSG(DEBUG_CREGION, "CRegionLeave: End \n"); 
+	MSG(DEBUG_CREGION, "closeRegionContext: End \n"); 
 	assert(c_region_stack.size() == prev_stack_size-1);
 }
 
