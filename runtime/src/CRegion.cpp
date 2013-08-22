@@ -54,8 +54,7 @@ static void printCurrRegionNode() {
 
 void initRegionTree() {
 	assert(region_tree_root == NULL);
-	// create dummy root node
-	region_tree_root = new ProfileNode(0, 0, RegionFunc); // XXX: mem leak
+	region_tree_root = new ProfileNode(0, 0, RegionFunc);
 	curr_region_node = region_tree_root;
 	assert(region_tree_root != NULL);
 	assert(region_tree_root == curr_region_node);
