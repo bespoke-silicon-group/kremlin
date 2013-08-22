@@ -22,7 +22,7 @@ static const int SKADU_CACHE_DEBUG_LVL = 0;
 void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
 	tag_vector_cache = new TagVectorCache();
 	if (size_in_mb == 0) {
-		fprintf(stderr, "MShadowCacheInit: Bypass Cache\n"); 
+		MSG(0, "MShadowCache: Bypassing Cache\n"); 
 	} else {
 		tag_vector_cache->configure(size_in_mb, kremlin_config.getNumProfiledLevels());
 	}
@@ -104,7 +104,7 @@ void SkaduCache::resize(int newSize, Version* vArray) {
 	int newDepth = oldDepth + 10;
 
 	MSG(SKADU_CACHE_DEBUG_LVL, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
-	fprintf(stderr, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
+	MSG(SKADU_CACHE_DEBUG_LVL, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
 	tag_vector_cache->configure(size, newDepth);
 }
 

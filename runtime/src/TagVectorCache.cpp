@@ -35,7 +35,7 @@ void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
 	this->line_shift = getFirstOnePosition(new_line_count);
 	this->depth = new_depth;
 
-	fprintf(stderr, "MShadowCacheInit: size: %d MB, lineNum %d, lineShift %d, depth %d\n", 
+	MSG(0, "TagVectorCache: size: %d MB, lineNum %d, lineShift %d, depth %d\n", 
 		new_size_in_mb, new_line_count, this->line_shift, this->depth);
 
 	tagTable = (TagVectorCacheLine*)MemPoolCallocSmall(new_line_count, sizeof(TagVectorCacheLine)); // 64bit granularity

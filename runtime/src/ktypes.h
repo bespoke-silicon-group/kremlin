@@ -10,9 +10,6 @@
 #include <stdint.h>
 
 
-#define TRUE 1
-#define FALSE 0
-
 typedef uint16_t 	       	UInt16;
 typedef uint32_t 	       	UInt32;
 typedef int32_t         	Int32;

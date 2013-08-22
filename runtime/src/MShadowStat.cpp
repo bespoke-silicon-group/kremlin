@@ -1,3 +1,4 @@
+#include "debug.h"
 #include "kremlin.h"
 #include "config.h"
 
@@ -25,22 +26,22 @@ static double getSizeMB(UInt64 nUnit, UInt64 size) {
 }
 
 void printCacheStat() {
-	fprintf(stderr, "\nShadow Memory Cache Stat\n");	
-	fprintf(stderr, "\tread  all / hit / evict = %llu / %llu / %llu\n", 
+	MSG(0, "\nShadow Memory Cache Stat\n");	
+	MSG(0, "\tread  all / hit / evict = %llu / %llu / %llu\n", 
 		_cacheStat.nRead, _cacheStat.nReadHit, _cacheStat.nReadEvict);
-	fprintf(stderr, "\twrite all / hit / evict = %llu / %llu / %llu\n", 
+	MSG(0, "\twrite all / hit / evict = %llu / %llu / %llu\n", 
 		_cacheStat.nWrite, _cacheStat.nWriteHit, _cacheStat.nWriteEvict);
 	double hitRead = _cacheStat.nReadHit * 100.0 / _cacheStat.nRead;
 	double hitWrite = _cacheStat.nWriteHit * 100.0 / _cacheStat.nWrite;
 	double hit = (_cacheStat.nReadHit + _cacheStat.nWriteHit) * 100.0 / (_cacheStat.nRead + _cacheStat.nWrite);
-	fprintf(stderr, "\tCache hit (read / write / overall) = %.2f / %.2f / %.2f\n", 
+	MSG(0, "\tCache hit (read / write / overall) = %.2f / %.2f / %.2f\n", 
 		hitRead, hitWrite, hit);
-	fprintf(stderr, "\tEvict (total / levelAvg / levelEffective) = %llu / %.2f / %.2f\n\n", 
+	MSG(0, "\tEvict (total / levelAvg / levelEffective) = %llu / %.2f / %.2f\n\n", 
 		_cacheStat.nCacheEvict, 
 		(double)_cacheStat.nCacheEvictLevelTotal / _cacheStat.nCacheEvict, 
 		(double)_cacheStat.nCacheEvictLevelEffective / _cacheStat.nCacheEvict);
 
-	fprintf(stderr, "\tnGC = %llu\n", _stat.nGC);
+	MSG(0, "\tnGC = %llu\n", _stat.nGC);
 }
 
 
@@ -72,26 +73,26 @@ void printMemReqStat() {
 	//minTotal += getCacheSize(2);
 	//fprintf(stderr, "%ld, %ld, %ld\n", _stat.timeTableOverhead, sizeUncompressed, _stat.timeTableOverhead - sizeUncompressed);
 
-	fprintf(stderr, "\nRequired Memory Analysis\n");
-	fprintf(stderr, "\tShadowMemory (MemorySegment / LevTable/ TTable / TTableCompressed) = %.2f / %.2f/ %.2f / %.2f \n",
+	MSG(0, "\nRequired Memory Analysis\n");
+	MSG(0, "\tShadowMemory (MemorySegment / LevTable/ TTable / TTableCompressed) = %.2f / %.2f/ %.2f / %.2f \n",
 		segSize, lTableSize, tTableSize, tTableSizeWithCompression);
-	fprintf(stderr, "\tReqMemSize (Total / Cache / Uncompressed Shadow / Compressed Shadow) = %.2f / %.2f / %.2f / %.2f\n",
+	MSG(0, "\tReqMemSize (Total / Cache / Uncompressed Shadow / Compressed Shadow) = %.2f / %.2f / %.2f / %.2f\n",
 		totalSize, cacheSize, segSize + tTableSize, segSize + tTableSizeWithCompression);  
-	fprintf(stderr, "\tTagTable (Uncompressed / Compressed / Ratio / Comp Ratio) = %.2f / %.2f / %.2f / %.2f\n",
+	MSG(0, "\tTagTable (Uncompressed / Compressed / Ratio / Comp Ratio) = %.2f / %.2f / %.2f / %.2f\n",
 		tTableSize, tTableSizeWithCompression, tTableSize / tTableSizeWithCompression, compressionRatio);
-	fprintf(stderr, "\tTotal (Uncompressed / Compressed / Ratio) = %.2f / %.2f / %.2f\n",
+	MSG(0, "\tTotal (Uncompressed / Compressed / Ratio) = %.2f / %.2f / %.2f\n",
 		totalSize, totalSizeComp, totalSize / totalSizeComp);
 }
 
 
 static void printMemStatAllocation() {
-	fprintf(stderr, "\nShadow Memory Allocation Stats\n");
-	fprintf(stderr, "\tnMemorySegment: Alloc / Active / ActiveMax = %llu / %llu / %llu\n",
+	MSG(0, "\nShadow Memory Allocation Stats\n");
+	MSG(0, "\tnMemorySegment: Alloc / Active / ActiveMax = %llu / %llu / %llu\n",
 		 _stat.segTable.nAlloc, _stat.segTable.nActive, _stat.segTable.nActiveMax);
 
-	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %llu / %llu / %llu / %llu\n",
+	MSG(0, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %llu / %llu / %llu / %llu\n",
 		 0, _stat.tTable[0].nAlloc, _stat.tTable[0].nDealloc, _stat.tTable[0].nConvertOut, _stat.tTable[0].nActiveMax);
-	fprintf(stderr, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %llu / %llu / %llu / %llu\n",
+	MSG(0, "\tnTimeTable(type %d): Alloc / Freed / ActiveMax = %llu / %llu / %llu / %llu\n",
 		 1, _stat.tTable[1].nAlloc, _stat.tTable[1].nDealloc, _stat.tTable[1].nConvertIn, _stat.tTable[1].nActiveMax);
 }
 
@@ -103,7 +104,7 @@ void printLevelStat() {
 	int totalRealloc = 0;
 	double minTotal = 0;
 
-	fprintf(stderr, "\nLevel Specific Statistics\n");
+	MSG(0, "\nLevel Specific Statistics\n");
 
 #if 0
 	for (i=0; i<=getMaxActiveLevel(); i++) {
@@ -132,7 +133,7 @@ void printLevelStat() {
 
 void MShadowStatPrint() {
 	printMemStatAllocation();
-	printLevelStat();
+	//printLevelStat();
 	printCacheStat();
 	printMemReqStat();
 }

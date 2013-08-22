@@ -1,21 +1,15 @@
 /**
- * @file MemMapMemMapAllocator.c
+ * @file MemMapMemMapAllocator.cpp
  * @brief Defines a pool of memory backed by mmap.
  */
 
-// TODO: replace usage of fprintf with MSG
-
-#include "kremlin.h"
-#include "MemMapAllocator.h"
-
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 #include <sys/mman.h>
 
+#include "debug.h"
+#include "MemMapAllocator.h"
 #include "mpool.h"
-
-#define TRUE 1
-#define FALSE 0
 
 #ifdef MAP_ANON
 #   define MEM_MAP_POOL_ANON MAP_ANON
@@ -121,8 +115,8 @@ static void FillFreeList() {
 		current += chunkSize;
 		cnt++;
 	}
-	fprintf(stderr, "Allocated %u chunks starting at 0x%p\n", cnt, data);
-	fprintf(stderr, "last = 0x%p\n", current - chunkSize);
+	MSG(1, "Allocated %u chunks starting at 0x%p\n", cnt, data);
+	MSG(1, "last = 0x%p\n", current - chunkSize);
 }
 
 
