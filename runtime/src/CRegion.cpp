@@ -81,24 +81,11 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 	unsigned prev_stack_size = c_region_stack.size();
 
 	ProfileNode* parent = curr_region_node;
-	ProfileNode* child = NULL;
 
-	// corner case: no graph exists 
-#if 0
-	if (parent == NULL) {
-		child = new ProfileNode(region_static_id, region_callsite_id); // XXX: wrong
-		curr_region_node = child;
-		pushOnRegionStack(child);
-		MSG(0, "openRegionContext: region_static_id: root -> 0x%llx, callSite: 0x%llx\n", 
-			region_static_id, region_callsite_id);
-		return;
-	}
-#endif
-	
 	MSG(DEBUG_CREGION, "openRegionContext: static_id: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
 		parent->static_id, region_static_id, region_callsite_id);
 
-	child = parent->getChild(region_static_id, region_callsite_id);
+	ProfileNode* child = parent->getChild(region_static_id, region_callsite_id);
 
 	// If no child was found with this static and callsite ID, we'll create a
 	// new ProfileNode for this child.
