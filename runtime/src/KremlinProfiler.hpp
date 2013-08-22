@@ -84,6 +84,30 @@ private:
 	static Table *shadow_reg_file;
 	MShadow *shadow_mem;
 
+	/*!
+	 * @brief Returns number of shadow registers in the current function.
+	 *
+	 * @return Current number of shadow registers.
+	 */
+	unsigned getCurrNumShadowRegisters();
+
+	/*!
+	 * @brief Returns "depth" of shadow register file in current function.
+	 *
+	 * @return Number of levels in the current shadow register file.
+	 */
+	unsigned getShadowRegisterFileDepth();
+
+	/*!
+	 * @brief Sets to zero the timestamp in all registers at the given index 
+	 * (i.e. depth).
+	 *
+	 * @param index The level at which to set all register timestamps to 0.
+	 * @pre shadow_reg_file is non-NULL
+	 * @pre index is not larger than the shadow register's depth
+	 */
+	void zeroRegistersAtIndex(Index index);
+
 	void updateCurrLevelInstrumentableStatus() {
 		if (curr_level >= min_level && curr_level <= max_level)
 			instrument_curr_level = true;
@@ -91,16 +115,78 @@ private:
 			instrument_curr_level = false;
 	}
 
-	template <unsigned num_data_deps, unsigned cond, bool load_inst>
-	Time calcNewDestTime(Time curr_dest_time, UInt32 src_reg, UInt32 src_offset, Index i);
+	/*!
+	 * Calculates the maximum of the specified current time and the value
+	 * stored in a specified shadow register at a given depth plus an
+	 * additional offset. The additional offset is optional, being used only
+	 * when specified by the template parameter.
+	 *
+	 * @tparam num_data_deps The number of data dependencies.
+	 * @tparam data_dep The index of the current data dependency.
+	 * @tparam ignore_offset Should we add the offset to the data dependence
+	 * time?
+	 * @param curr_time The current time.
+	 * @param reg The shadow register number.
+	 * @param offset The additional time added to value stored in reg.
+	 * @param l The level (depth) of the shadow register.
+	 * @return The calculated maximum (see description).
+	 * @pre shadow_reg_file is non-NULL.
+	 * @pre reg is less than the current number of shadow registers.
+	 * @pre l is less than the shadow register's depth.
+	 */
+	template <unsigned num_data_deps, unsigned data_dep, bool ignore_offset>
+	Time calcMaxTime(Time curr_time, UInt32 reg, UInt32 offset, Level l);
 
-	template <bool use_cdep, bool update_cp, unsigned num_data_deps, bool load_inst>
+	/*!
+	 * @brief Updates the timestamp of the destination register based on a
+	 * number of data and/or control dependences.
+	 *
+	 * Up to five shadow register files can be specified as data dependences
+	 * when calculating the updated timestamp. Each of these shadow registers
+	 * can also have an associated offset, which will be added to their
+	 * current timestamp when calculating the destination's timestamp. A
+	 * template parameter specifies whether we should use the most recent
+	 * control dependence and whether this timestamp update should trigger an
+	 * update of the critical path.
+	 *
+	 * @tparam use_ctrl_dependence Whether the current control dependence
+	 * should be used when calculating the new timestamp.
+	 * @tparam update_cp Whether we should update the critical path based on
+	 * the calculated timestamp.
+	 * @tparam num_data_deps The number of data dependencies specified as
+	 * inputs that are to be used.
+	 * @tparam use_shadow_mem_dependence Whether we should include shadow
+	 * memory in the timestamp calculation.
+	 *
+	 * @param dest_reg The shadow register that will be updated.
+	 * @param src0_reg, src1_reg, src2_reg, src3_reg, src4_reg The shadow
+	 * registers that will be used as dependences.
+	 * @param src0_offset, src1_offset, src2_offset, src3_offset, src4_offset
+	 * The additional offsets added to the timestamps in the source shadow
+	 * registers.
+	 * @param addr The address of the shadow memory dependence.
+	 * @param mem_access_size The memory access size.
+	 *
+	 * @pre shadow_reg_file is non-NULL.
+	 * @pre shadow_mem is non-NULL.
+	 * @pre dest_reg is less than the current number of shadow registers.
+	 * @pre Any used src_reg is less than the current number of shadow registers.
+	 * @pre Any unused src_reg and offset will be 0.
+	 * @pre If not using shadow mem, addr should be NULL and mem_access_size
+	 * should be 0.
+	 * @pre If we're using shadow mem, the memory access size is between 1 and
+	 * 8.
+	 */
+	template <bool use_ctrl_dependence, 
+				bool update_cp, 
+				unsigned num_data_deps, 
+				bool use_shadow_mem_dependence>
 	void timestampUpdater(UInt32 dest_reg, 
-							UInt32 src0_reg, UInt32 src0_offset,
-							UInt32 src1_reg, UInt32 src1_offset,
-							UInt32 src2_reg, UInt32 src2_offset,
-							UInt32 src3_reg, UInt32 src3_offset,
-							UInt32 src4_reg, UInt32 src4_offset,
+							UInt32 src0_reg=0, UInt32 src0_offset=0,
+							UInt32 src1_reg=0, UInt32 src1_offset=0,
+							UInt32 src2_reg=0, UInt32 src2_offset=0,
+							UInt32 src3_reg=0, UInt32 src3_offset=0,
+							UInt32 src4_reg=0, UInt32 src4_offset=0,
 							Addr src_addr=NULL,
 							UInt32 mem_access_size=0);
 
@@ -160,9 +246,31 @@ public:
 	void deinit();
 	void cleanup();
 
+	/*!
+	 * @brief Gets the timestamp in the specified register at the given index
+	 * (i.e. depth).
+	 *
+	 * @param reg The shadow register number.
+	 * @param index The depth at which to get the timestamp.
+	 * @return The value in the specified shadow register.
+	 * @pre shadow_reg_file is non-NULL
+	 * @pre reg is less than the current number of shadow registers.
+	 * @pre index is not larger than the shadow register's depth
+	 */
 	Time getRegisterTimeAtIndex(Reg reg, Index index);
+
+	/*!
+	 * @brief Sets the timestamp in the specified register at the given index
+	 * (i.e. depth) to a given value.
+	 *
+	 * @param time The time value to which to set the register value.
+	 * @param reg The shadow register number.
+	 * @param index The depth at which to get the timestamp.
+	 * @pre shadow_reg_file is non-NULL
+	 * @pre reg is less than the current number of shadow registers.
+	 * @pre index is not larger than the shadow register's depth
+	 */
 	void setRegisterTimeAtIndex(Time time, Reg reg, Index index);
-	void zeroRegistersAtIndex(Index index);
 
 	// TODO: is the following function necessary?
 	bool waitingForRegisterTableSetup() {return this->waiting_for_register_table_init; }

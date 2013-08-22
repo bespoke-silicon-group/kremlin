@@ -60,6 +60,152 @@ void KremlinProfiler::initRegionControlDependences(Index index) {
 	assert(control_dependence_table->getValue(cdt_read_ptr, index) == 0);
 }
 
+/*****************************************************************
+ * Shadow register file functions.
+ *****************************************************************/
+
+unsigned KremlinProfiler::getCurrNumShadowRegisters() {
+	return shadow_reg_file->getRow();
+}
+
+unsigned KremlinProfiler::getShadowRegisterFileDepth() {
+	return shadow_reg_file->getCol();
+}
+
+void KremlinProfiler::zeroRegistersAtIndex(Index index) {
+	assert(index < getShadowRegisterFileDepth());
+	assert(shadow_reg_file != NULL);
+
+	MSG(3, "zeroRegistersAtIndex col [%d] in table [%d, %d]\n",
+		index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
+	for (Reg i = 0; i < getCurrNumShadowRegisters(); ++i) {
+		setRegisterTimeAtIndex(0ULL, i, index);
+	}
+}
+
+Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
+	assert(shadow_reg_file != NULL);
+	assert(reg < getCurrNumShadowRegisters());	
+	assert(index < getShadowRegisterFileDepth());
+
+	MSG(3, "RShadowGet [%u, %u] in table [%u, %u]\n",
+		reg, index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
+
+	Time ret = shadow_reg_file->getValue(reg, index);
+	return ret;
+}
+
+void KremlinProfiler::setRegisterTimeAtIndex(Time time, Reg reg, Index index) {
+	assert(shadow_reg_file != NULL);
+	assert(reg < getCurrNumShadowRegisters());	
+	assert(index < getShadowRegisterFileDepth());
+
+	MSG(3, "RShadowSet [%d, %d] in table [%d, %d]\n",
+		reg, index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
+
+	shadow_reg_file->setValue(time, reg, index);
+}
+
+/*****************************************************************
+ * Timestamp update functions.
+ *****************************************************************/
+
+template <unsigned num_data_deps, unsigned data_dep, bool ignore_offset>
+Time KremlinProfiler::calcMaxTime(Time curr_time, UInt32 reg, UInt32 offset, Level l) {
+	assert(shadow_reg_file != NULL);
+	assert(reg < getCurrNumShadowRegisters());	
+	assert(l < getShadowRegisterFileDepth());
+
+	if (num_data_deps > data_dep) {
+		Time dep_time = getRegisterTimeAtIndex(reg, l);
+		if (!ignore_offset) dep_time += offset;
+		return MAX(curr_time, dep_time);
+	}
+	else
+		return curr_time;
+}
+
+// TODO: once C++11 is widespread, give use_shadow_mem_dependence 
+// a default value of false
+template <bool use_ctrl_dependence, bool update_cp, unsigned num_data_deps, bool use_shadow_mem_dependence>
+void KremlinProfiler::timestampUpdater(UInt32 dest_reg, 
+										UInt32 src0_reg, UInt32 src0_offset,
+										UInt32 src1_reg, UInt32 src1_offset,
+										UInt32 src2_reg, UInt32 src2_offset,
+										UInt32 src3_reg, UInt32 src3_offset,
+										UInt32 src4_reg, UInt32 src4_offset,
+										Addr src_addr,
+										UInt32 mem_access_size
+										) {
+
+	assert(shadow_reg_file != NULL);
+	assert(shadow_mem != NULL);
+	assert(dest_reg < getCurrNumShadowRegisters());	
+	// pre-condition: if used, src reg should be less than depth
+	assert(num_data_deps < 1 || src0_reg < getCurrNumShadowRegisters());
+	assert(num_data_deps < 2 || src1_reg < getCurrNumShadowRegisters());
+	assert(num_data_deps < 3 || src2_reg < getCurrNumShadowRegisters());
+	assert(num_data_deps < 4 || src3_reg < getCurrNumShadowRegisters());
+	assert(num_data_deps < 5 || src4_reg < getCurrNumShadowRegisters());
+	// pre-condition: if unused, src reg and offset should be 0
+	assert(num_data_deps > 0 || (src0_reg == 0 && src0_offset == 0));
+	assert(num_data_deps > 1 || (src1_reg == 0 && src1_offset == 0));
+	assert(num_data_deps > 2 || (src2_reg == 0 && src2_offset == 0));
+	assert(num_data_deps > 3 || (src3_reg == 0 && src3_offset == 0));
+	assert(num_data_deps > 4 || (src4_reg == 0 && src4_offset == 0));
+	assert(use_shadow_mem_dependence || (addr == NULL && mem_access_size == 0));
+	assert(!use_shadow_mem_dependence 
+			|| (mem_access_size > 0 && mem_access_size <= 8));
+
+	Time* src_addr_times = NULL;
+	Index end_index = getCurrNumInstrumentedLevels();
+
+	if (use_shadow_mem_dependence) {
+		Index region_depth = getCurrNumInstrumentedLevels();
+		Level min_level = getLevelForIndex(0); // XXX: this doesn't seem right (-sat)
+		src_addr_times = getShadowMemory()->get(src_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
+
+#ifdef KREMLIN_DEBUG
+		printLoadDebugInfo(src_addr, dest_reg, src_addr_times, end_index);
+#endif
+	}
+
+    for (Index index = 0; index < end_index; ++index) {
+		Level i = getLevelForIndex(index);
+		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
+
+		Time dest_time = 0;
+		
+		if (use_ctrl_dependence) {
+			Time cdep_time = dest_time = getControlDependenceAtIndex(index);
+			assert(cdep_time <= getCurrentTime() - region->start);
+		}
+
+		if (use_shadow_mem_dependence) {
+			// XXX: Why check timestamp here? Looks like this only occurs in KLoad
+			// insts. If this is necessary, we might need to add checkTimestamp to
+			// each src time (below).
+			checkTimestamp(index, region, src_addr_times[index]);
+			dest_time = MAX(dest_time, src_addr_times[index]);
+		}
+
+		const bool ignore_offset = use_shadow_mem_dependence;
+		dest_time = calcMaxTime<num_data_deps, 0, ignore_offset>(dest_time, src0_reg, src0_offset, index);
+		dest_time = calcMaxTime<num_data_deps, 1, ignore_offset>(dest_time, src1_reg, src1_offset, index);
+		dest_time = calcMaxTime<num_data_deps, 2, ignore_offset>(dest_time, src2_reg, src2_offset, index);
+		dest_time = calcMaxTime<num_data_deps, 3, ignore_offset>(dest_time, src3_reg, src3_offset, index);
+		dest_time = calcMaxTime<num_data_deps, 4, ignore_offset>(dest_time, src4_reg, src4_offset, index);
+
+		if (use_shadow_mem_dependence) dest_time += LOAD_COST;
+
+		setRegisterTimeAtIndex(dest_time, dest_reg, index);
+
+		if (update_cp) {
+        	region->updateCriticalPathLength(dest_time);
+		}
+    }
+}
+
 /* BEGIN UNAUDITED CODE */
 
 void KremlinProfiler::checkTimestamp(int index, ProgramRegion* region, Timestamp value) {
@@ -102,43 +248,6 @@ void ProgramRegion::updateCriticalPathLength(Timestamp value) {
 #endif
 }
 
-/*
- * Register Shadow Memory 
- */
-
-void KremlinProfiler::zeroRegistersAtIndex(Index index) {
-	if (index >= shadow_reg_file->getCol())
-		return;
-
-	MSG(3, "zeroRegistersAtIndex col [%d] in table [%d, %d]\n",
-		index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
-	Reg i;
-	assert(shadow_reg_file != NULL);
-	for (i=0; i<shadow_reg_file->getRow(); i++) {
-		setRegisterTimeAtIndex(0ULL, i, index);
-	}
-}
-
-Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
-	MSG(3, "RShadowGet [%d, %d] in table [%d, %d]\n",
-		reg, index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
-	assert(reg < shadow_reg_file->getRow());	
-	assert(index < shadow_reg_file->getCol());
-	Time ret = shadow_reg_file->getValue(reg, index);
-	return ret;
-}
-
-void KremlinProfiler::setRegisterTimeAtIndex(Time time, Reg reg, Index index) {
-	MSG(3, "RShadowSet [%d, %d] in table [%d, %d]\n",
-		reg, index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
-	assert(reg < shadow_reg_file->getRow());
-	assert(index < shadow_reg_file->getCol());
-	shadow_reg_file->setValue(time, reg, index);
-	
-	//MSG(3, "RShadowSet: dest = 0x%x value = %d reg = %d index = %d offset = %d\n", 
-	//	&(shadow_reg_file->array[offset]), time, reg, index, offset);
-}
-
 
 // BEGIN: move to iteractive debugger file
 static inline void printTArray(Time* times, Index depth) {
@@ -166,78 +275,6 @@ static inline void printStoreConstDebugInfo(Addr addr, Time* times, Index depth)
 	MSG(0," }\n");
 }
 // END: move to iteractive debugger file
-
-template <unsigned num_data_deps, unsigned cond, bool load_inst>
-Time KremlinProfiler::calcNewDestTime(Time curr_dest_time, UInt32 src_reg, UInt32 src_offset, Index i) {
-	if (num_data_deps > cond) {
-		Time src_time = getRegisterTimeAtIndex(src_reg, i);
-		if (!load_inst) src_time += src_offset;
-		return MAX(curr_dest_time, src_time);
-	}
-	else
-		return curr_dest_time;
-}
-
-// TODO: once C++11 is widespread, give load_inst a default value of false
-template <bool use_cdep, bool update_cp, unsigned num_data_deps, bool load_inst>
-void KremlinProfiler::timestampUpdater(UInt32 dest_reg, 
-										UInt32 src0_reg, UInt32 src0_offset,
-										UInt32 src1_reg, UInt32 src1_offset,
-										UInt32 src2_reg, UInt32 src2_offset,
-										UInt32 src3_reg, UInt32 src3_offset,
-										UInt32 src4_reg, UInt32 src4_offset,
-										Addr src_addr,
-										UInt32 mem_access_size
-										) {
-
-	Time* src_addr_times = NULL;
-	Index end_index = getCurrNumInstrumentedLevels();
-
-	if (load_inst) {
-		assert(mem_access_size <= 8);
-		Index region_depth = getCurrNumInstrumentedLevels();
-		Level min_level = getLevelForIndex(0); // XXX: this doesn't seem right (-sat)
-		src_addr_times = getShadowMemory()->get(src_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
-
-#ifdef KREMLIN_DEBUG
-		printLoadDebugInfo(src_addr, dest_reg, src_addr_times, end_index);
-#endif
-	}
-
-    for (Index index = 0; index < end_index; ++index) {
-		Level i = getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
-
-		Time dest_time = 0;
-		
-		if (use_cdep) {
-			Time cdep_time = dest_time = getControlDependenceAtIndex(index);
-			assert(cdep_time <= getCurrentTime() - region->start);
-		}
-
-		if (load_inst) {
-			// XXX: Why check timestamp here? Looks like this only occurs in KLoad
-			// insts. If this is necessary, we might need to add checkTimestamp to
-			// each src time (below).
-			checkTimestamp(index, region, src_addr_times[index]);
-			dest_time = MAX(dest_time, src_addr_times[index]);
-		}
-
-		dest_time = calcNewDestTime<num_data_deps, 0, load_inst>(dest_time, src0_reg, src0_offset, index);
-		dest_time = calcNewDestTime<num_data_deps, 1, load_inst>(dest_time, src1_reg, src1_offset, index);
-		dest_time = calcNewDestTime<num_data_deps, 2, load_inst>(dest_time, src2_reg, src2_offset, index);
-		dest_time = calcNewDestTime<num_data_deps, 3, load_inst>(dest_time, src3_reg, src3_offset, index);
-		dest_time = calcNewDestTime<num_data_deps, 4, load_inst>(dest_time, src4_reg, src4_offset, index);
-
-		if (load_inst) dest_time += LOAD_COST;
-
-		setRegisterTimeAtIndex(dest_time, dest_reg, index);
-
-		if (update_cp) {
-        	region->updateCriticalPathLength(dest_time);
-		}
-    }
-}
 
 template <bool use_cdep, bool update_cp, bool phi_inst, bool load_inst>
 void KremlinProfiler::handleVarArgDeps(UInt32 dest_reg, UInt32 src_reg, 
@@ -621,7 +658,7 @@ void KremlinProfiler::handleAssignConst(UInt dest_reg) {
 
     if (!enabled) return;
 
-	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	timestampUpdater<true, true, 0, false>(dest_reg);
 }
 
 // This function is mainly to help identify induction variables in the source
@@ -632,7 +669,7 @@ void KremlinProfiler::handleInduction(UInt dest_reg) {
 
     if (!enabled) return;
 
-	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	timestampUpdater<true, true, 0, false>(dest_reg);
 }
 
 void KremlinProfiler::handleReduction(UInt op_cost, Reg dest_reg) {
@@ -659,7 +696,7 @@ void KremlinProfiler::handleTimestamp0(UInt32 dest_reg) {
 	idbgAction(KREM_TS,"## _KTimestamp0(dest_reg=%u)\n",dest_reg);
     if (!enabled) return;
 
-	timestampUpdater<true, true, 0, false>(dest_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	timestampUpdater<true, true, 0, false>(dest_reg);
 }
 
 void KremlinProfiler::handleTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
@@ -668,7 +705,7 @@ void KremlinProfiler::handleTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 s
 
     if (!enabled) return;
 
-	timestampUpdater<true, true, 1, false>(dest_reg, src_reg, src_offset, 0, 0, 0, 0, 0, 0, 0, 0);
+	timestampUpdater<true, true, 1, false>(dest_reg, src_reg, src_offset);
 }
 
 void KremlinProfiler::handleTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset) {
@@ -678,7 +715,7 @@ void KremlinProfiler::handleTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 
     if (!enabled) return;
 
 	timestampUpdater<true, true, 2, false>(dest_reg, src1_reg, src1_offset, 
-									src2_reg, src2_offset, 0, 0, 0, 0, 0, 0);
+									src2_reg, src2_offset);
 }
 
 void KremlinProfiler::handleTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset) {
@@ -692,7 +729,7 @@ void KremlinProfiler::handleTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 
 
 	timestampUpdater<true, true, 3, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
-										src3_reg, src3_offset, 0, 0, 0, 0);
+										src3_reg, src3_offset);
 }
 
 void KremlinProfiler::handleTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset) {
@@ -708,7 +745,7 @@ void KremlinProfiler::handleTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 
 	timestampUpdater<true, true, 4, false>(dest_reg, src1_reg, src1_offset, 
 										src2_reg, src2_offset, 
 										src3_reg, src3_offset, 
-										src4_reg, src4_offset, 0, 0);
+										src4_reg, src4_offset);
 }
 
 void KremlinProfiler::handleTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
@@ -749,7 +786,7 @@ src6_reg, UInt32 src6_offset) {
 										src4_reg, src4_offset, 
 										src5_reg, src5_offset);
 	timestampUpdater<false, true, 2, false>(dest_reg, dest_reg, 0, 
-										src6_reg, src6_offset, 0, 0, 0, 0, 0, 0);
+										src6_reg, src6_offset);
 }
 
 void KremlinProfiler::handleTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
@@ -773,7 +810,7 @@ src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
 										src5_reg, src5_offset);
 	timestampUpdater<false, true, 3, false>(dest_reg, dest_reg, 0, 
 										src6_reg, src6_offset, 
-										src7_reg, src7_offset, 0, 0, 0, 0);
+										src7_reg, src7_offset);
 }
 
 void KremlinProfiler::handleLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs, va_list args) {
@@ -842,7 +879,7 @@ void KremlinProfiler::handlePhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, va_
 		handleVarArgDeps<false, false, true, false>(dest_reg, src_reg, NULL, 0, num_ctrls, args);
 	}
 	else {
-		timestampUpdater<true, true, 1, false>(dest_reg, src_reg, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 0);
+		timestampUpdater<true, true, 1, false>(dest_reg, src_reg);
 	}
 }
 
@@ -853,7 +890,7 @@ void KremlinProfiler::handlePhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg) {
     if (!enabled) return;
 
 	timestampUpdater<false, false, 2, false>(dest_reg, src_reg, 0, 
-										ctrl_reg, 0, 0, 0, 0, 0, 0, 0);
+										ctrl_reg, 0);
 }
 
 void KremlinProfiler::handlePhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg) {
@@ -864,7 +901,7 @@ void KremlinProfiler::handlePhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Re
 
 	timestampUpdater<false, false, 3, false>(dest_reg, src_reg, 0, 
 										ctrl1_reg, 0, 
-										ctrl2_reg, 0, 0, 0, 0, 0);
+										ctrl2_reg, 0);
 }
 
 void KremlinProfiler::handlePhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg) {
@@ -876,7 +913,7 @@ void KremlinProfiler::handlePhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Re
 	timestampUpdater<false, false, 4, false>(dest_reg, src_reg, 0, 
 										ctrl1_reg, 0, 
 										ctrl2_reg, 0, 
-										ctrl3_reg, 0, 0, 0);
+										ctrl3_reg, 0);
 }
 
 void KremlinProfiler::handlePhi4To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg, Reg ctrl4_reg) {
@@ -917,7 +954,7 @@ void KremlinProfiler::handlePhiAddCond(Reg dest_reg, Reg src_reg) {
     if (!enabled) return;
 
 	timestampUpdater<false, true, 2, false>(dest_reg, dest_reg, 0, 
-										src_reg, 0, 0, 0, 0, 0, 0, 0);
+										src_reg, 0);
 }
 
 void KremlinProfiler::handlePushCDep(Reg cond) {
