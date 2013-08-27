@@ -63,6 +63,8 @@ void printProfiledData(const char* filename);
  * @post The region stack will not be empty.
  * @post The newly entered region's stat index will be non-negative.
  * @post The region stack's size will have increased by one.
+ * @invariant curr_region_node will never be an R_SINK node after this
+ * function exits.
  */
 void openRegionContext(SID region_static_id, CID region_callsite_id, 
 						RegionType region_type);

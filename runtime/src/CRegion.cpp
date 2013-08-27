@@ -54,8 +54,7 @@ static void printCurrRegionNode() {
 
 void initRegionTree() {
 	assert(region_tree_root == NULL);
-	// create dummy root node
-	region_tree_root = new ProfileNode(0, 0, RegionFunc); // XXX: mem leak
+	region_tree_root = new ProfileNode(0, 0, RegionFunc);
 	curr_region_node = region_tree_root;
 	assert(region_tree_root != NULL);
 	assert(region_tree_root == curr_region_node);
@@ -82,24 +81,11 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 	unsigned prev_stack_size = c_region_stack.size();
 
 	ProfileNode* parent = curr_region_node;
-	ProfileNode* child = NULL;
 
-	// corner case: no graph exists 
-#if 0
-	if (parent == NULL) {
-		child = new ProfileNode(region_static_id, region_callsite_id); // XXX: wrong
-		curr_region_node = child;
-		pushOnRegionStack(child);
-		MSG(0, "openRegionContext: region_static_id: root -> 0x%llx, callSite: 0x%llx\n", 
-			region_static_id, region_callsite_id);
-		return;
-	}
-#endif
-	
 	MSG(DEBUG_CREGION, "openRegionContext: static_id: 0x%llx -> 0x%llx, callSite: 0x%llx\n", 
 		parent->static_id, region_static_id, region_callsite_id);
 
-	child = parent->getChild(region_static_id, region_callsite_id);
+	ProfileNode* child = parent->getChild(region_static_id, region_callsite_id);
 
 	// If no child was found with this static and callsite ID, we'll create a
 	// new ProfileNode for this child.
@@ -134,6 +120,7 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 	assert(!c_region_stack.empty());
 	assert(child->curr_stat_index >= 0);
 	assert(c_region_stack.size() == prev_stack_size+1);
+	assert(child->node_type != R_SINK);
 }
 
 void closeRegionContext(RegionStats *region_stats) {
@@ -146,7 +133,7 @@ void closeRegionContext(RegionStats *region_stats) {
 	assert(curr_region_node->parent != NULL); // redundant with curr != root?
 	unsigned prev_stack_size = c_region_stack.size();
 
-	MSG(DEBUG_CREGION, "CRegionLeave: Begin\n"); 
+	MSG(DEBUG_CREGION, "closeRegionContext: Begin\n"); 
 	MSG(DEBUG_CREGION, "Curr %s Node: %s\n", getCurrentRegionIDString(), curr_region_node->toString());
 
 #if 0
@@ -160,10 +147,16 @@ void closeRegionContext(RegionStats *region_stats) {
 
 	curr_region_node->addStats(region_stats);
 
-	MSG(DEBUG_CREGION, "Update Node 0 - ID: %d Page: %d\n", curr_region_node->id, 
+	MSG(DEBUG_CREGION, "Updating Current Node - ID: %llu, Stat Index: %d\n", curr_region_node->id, 
 		curr_region_node->curr_stat_index);
 	curr_region_node->moveToPrevStats();
 
+	// By construction, curr_region_node will never be an R_SINK: it will
+	// always move to the associated R_INIT. Also, a node will only be an
+	// R_INIT if it has a corresponding R_SINK. Therefore, if the current node
+	// is an R_INIT, then we don't want to go to the parent node of the
+	// current node, we want the parent node of the region that is at the top
+	// of the region stack (i.e. the parent of the R_SINK node).
 	ProfileNode* exited_region = popFromRegionStack();
 	if (curr_region_node->node_type == R_INIT) {
 		curr_region_node = exited_region->parent;
@@ -174,12 +167,12 @@ void closeRegionContext(RegionStats *region_stats) {
 
 	if (exited_region->node_type == R_SINK) {
 		exited_region->addStats(region_stats);
-		MSG(DEBUG_CREGION, "Update Node 1 - ID: %d Page: %d\n", exited_region->id, 
+		MSG(DEBUG_CREGION, "Updating R_SINK Node - ID: %llu, Stat Index: %d\n", exited_region->id, 
 			exited_region->curr_stat_index);
 		exited_region->moveToPrevStats();
 	} 
 	printCurrRegionNode();
-	MSG(DEBUG_CREGION, "CRegionLeave: End \n"); 
+	MSG(DEBUG_CREGION, "closeRegionContext: End \n"); 
 	assert(c_region_stack.size() == prev_stack_size-1);
 }
 
