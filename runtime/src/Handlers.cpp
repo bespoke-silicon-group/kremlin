@@ -206,6 +206,88 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
     }
 }
 
+template <bool use_ctrl_dependence, 
+			bool update_cp, 
+			bool use_src_reg,
+			bool use_offsets,
+			bool use_shadow_mem_dependence>
+void KremlinProfiler::handleVariableNumArgs(UInt32 dest_reg, UInt32 src_reg, 
+											Addr mem_dependency_addr, 
+											UInt32 mem_access_size,
+											unsigned num_var_args,
+											va_list arg_list) {
+	assert(dest_reg < getCurrNumShadowRegisters());	
+	assert(use_src_reg || src_reg == 0);
+	assert(use_shadow_mem_dependence || (addr == NULL && mem_access_size == 0));
+	assert(!use_shadow_mem_dependence 
+			|| (mem_access_size > 0 && mem_access_size <= 8));
+
+	UInt32 src_regs[5];
+	UInt32 src_offsets[5];
+
+	if (use_src_reg && num_var_args == 0) {
+		memset(&src_regs, 0, 5*sizeof(UInt32));
+	}
+
+	if (!use_offsets) {
+		memset(&src_offsets, 0, 5*sizeof(UInt32));
+	}
+
+	unsigned arg_idx;
+	for(arg_idx = 0; arg_idx < num_var_args; ++arg_idx) {
+		unsigned index = arg_idx % 5;
+		src_regs[index] = va_arg(arg_list,UInt32);
+		assert(src_regs[index] < getCurrNumShadowRegisters());	
+		if (use_offsets) {
+			src_offsets[index] = va_arg(arg_list,UInt32);
+		}
+
+		if (index == 0) {
+			// TRICKY: once we start another round, we initialize all srcs
+			// and src offsets to the first one (src0) to ensure that we
+			// have a valid call to timestamp updater.
+			// If we knew there were at least 5 sources, this would be
+			// unnecessary (because it doesn't hurt to do use the same
+			// source multiple times when calculating the timestamp.)
+			src_regs[4] = src_regs[3] = src_regs[2] 
+				= src_regs[1] = src_regs[0];
+
+			if (use_offsets) {
+				src_offsets[4] = src_offsets[3] = src_offsets[2] 
+					= src_offsets[1] = src_offsets[0];
+			}
+		}
+		else if (index == 4) {
+			timestampUpdater<use_ctrl_dependence, update_cp, 5, 
+								use_shadow_mem_dependence>
+							(dest_reg,
+								src_regs[0], src_offsets[0], 
+								src_regs[1], src_offsets[1], 
+								src_regs[2], src_offsets[2], 
+								src_regs[3], src_offsets[3], 
+								src_regs[4], src_offsets[4],
+								mem_dependency_addr, mem_access_size);
+		}
+	}
+
+	if (use_src_reg) {
+		src_regs[arg_idx % 5] = src_reg;
+	}
+
+	// finish up any leftover args (beyond the last set of 5)
+	if (arg_idx % 5 != 0 || use_src_reg) {
+		timestampUpdater<use_ctrl_dependence, update_cp, 5, 
+							use_shadow_mem_dependence>
+						(dest_reg, 
+							src_regs[0], src_offsets[0], 
+							src_regs[1], src_offsets[1], 
+							src_regs[2], src_offsets[2], 
+							src_regs[3], src_offsets[3], 
+							src_regs[4], src_offsets[4],
+							mem_dependency_addr, mem_access_size);
+	}
+}
+
 /* BEGIN UNAUDITED CODE */
 
 void KremlinProfiler::checkTimestamp(int index, ProgramRegion* region, Timestamp value) {
@@ -275,64 +357,6 @@ static inline void printStoreConstDebugInfo(Addr addr, Time* times, Index depth)
 	MSG(0," }\n");
 }
 // END: move to iteractive debugger file
-
-template <bool use_cdep, bool update_cp, bool phi_inst, bool load_inst>
-void KremlinProfiler::handleVarArgDeps(UInt32 dest_reg, UInt32 src_reg, 
-										Addr load_addr, UInt32 mem_access_size,
-										unsigned num_srcs, va_list args) {
-	UInt32 src_regs[5];
-	UInt32 src_offsets[5];
-
-	if (phi_inst || load_inst) {
-		memset(&src_regs, 0, sizeof(UInt32)*5); // can be eliminated if add num_srcs > 0 pre-condition
-		memset(&src_offsets, 0, sizeof(UInt32)*5);
-	}
-
-	unsigned arg_idx;
-	for(arg_idx = 0; arg_idx < num_srcs; ++arg_idx) {
-		unsigned place = arg_idx % 5;
-		src_regs[place] = va_arg(args,UInt32);
-		if (!phi_inst && !load_inst) {
-			src_offsets[place] = va_arg(args,UInt32);
-		}
-
-		if (place == 0) {
-			// TRICKY: once we start another round, we initialize all srcs
-			// and src offsets to the first one (src0) to ensure that we
-			// have a valid call to timestamp updater.
-			// If we knew there were at least 5 sources, this would be
-			// unnecessary (because it doesn't hurt to do use the same
-			// source multiple times when calculating the timestamp.)
-			src_regs[4] = src_regs[3] = src_regs[2] = src_regs[1] = src_regs[0];
-
-			if (!phi_inst && !load_inst) {
-				src_offsets[4] = src_offsets[3] = src_offsets[2] = src_offsets[1] = src_offsets[0];
-			}
-		}
-		else if (place == 4) {
-			timestampUpdater<true, true, 5, load_inst>(dest_reg, src_regs[0], src_offsets[0], 
-														src_regs[1], src_offsets[1], 
-														src_regs[2], src_offsets[2], 
-														src_regs[3], src_offsets[3], 
-														src_regs[4], src_offsets[4],
-														load_addr, mem_access_size);
-		}
-	}
-
-	if (phi_inst) {
-		src_regs[arg_idx % 5] = src_reg;
-	}
-
-	// finish up any leftover args (beyond the last set of 5)
-	if (arg_idx % 5 != 0 || phi_inst) {
-		timestampUpdater<true, true, 5, load_inst>(dest_reg, src_regs[0], src_offsets[0], 
-													src_regs[1], src_offsets[1], 
-													src_regs[2], src_offsets[2], 
-													src_regs[3], src_offsets[3], 
-													src_regs[4], src_offsets[4],
-													load_addr, mem_access_size);
-	}
-}
 
 template <bool store_const>
 void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg) {
@@ -687,7 +711,8 @@ void KremlinProfiler::handleTimestamp(UInt32 dest_reg, UInt32 num_srcs, va_list 
 
     if (!enabled) return;
 
-	handleVarArgDeps<true, true, false, false>(dest_reg, 0, NULL, 0, num_srcs, args);
+	handleVariableNumArgs<true, true, false, true, false>
+						(dest_reg, 0, NULL, 0, num_srcs, args);
 }
 
 // XXX: not 100% sure this is the correct functionality
@@ -819,7 +844,8 @@ void KremlinProfiler::handleLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_
 
     if (!enabled) return;
 
-	handleVarArgDeps<true, true, false, true>(dest_reg, 0, src_addr, mem_access_size, num_srcs, args);
+	handleVariableNumArgs<true, true, false, false, true>
+						(dest_reg, 0, src_addr, mem_access_size, num_srcs, args);
 }
 
 void KremlinProfiler::handleLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
@@ -876,7 +902,8 @@ void KremlinProfiler::handlePhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, va_
     if (!enabled) return;
 
 	if (num_ctrls > 0) {
-		handleVarArgDeps<false, false, true, false>(dest_reg, src_reg, NULL, 0, num_ctrls, args);
+		handleVariableNumArgs<false, false, true, false, false>
+							(dest_reg, src_reg, NULL, 0, num_ctrls, args);
 	}
 	else {
 		timestampUpdater<true, true, 1, false>(dest_reg, src_reg);

@@ -190,10 +190,55 @@ private:
 							Addr src_addr=NULL,
 							UInt32 mem_access_size=0);
 
-	template <bool use_cdep, bool update_cp, bool phi_inst, bool load_inst>
-	void handleVarArgDeps(UInt32 dest_reg, UInt32 src_reg, 
-							Addr load_addr, UInt32 mem_access_size,
-							unsigned num_srcs, va_list args);
+	/*
+	 * @brief Handles timestamp update when we have an unspecified number of
+	 * data dependencies.
+	 *
+	 * A wrapper for timestampUpdater that reads a vararg list of data
+	 * dependencies (and optional offsets). Bundles of five data dependencies
+	 * are sent to timestampUpdater.
+	 *
+	 * @tparam use_ctrl_dependence Whether the current control dependence
+	 * should be used when calculating the new timestamp.
+	 * @tparam update_cp Whether we should update the critical path based on
+	 * the calculated timestamp.
+	 * @tparam use_src_reg Should we use src_reg as an additional data
+	 * dependency?
+	 * @tparam use_offsets Whether we should expect offsets to be part of the
+	 * vararg list and should therefore include them when calculating
+	 * timestamps.
+	 * @tparam use_shadow_mem_dependence Whether we should include shadow
+	 * memory in the timestamp calculation.
+	 *
+	 * @param dest_reg The shadow register that will be updated.
+	 * @param src_reg Shadow register to be used as an additional dependency
+	 * (assuming use_src_reg is true).
+	 * @param mem_dependency addr The memory address used for data dependency
+	 * when use_shadow_mem_dependence is specified.
+	 * @param mem_access_size The memory access size; used only when
+	 * use_shadow_mem_dependence is set.
+	 * @param num_var_args The number of shadow registers (and possibly 
+	 * offsets) to read from the vararg list.
+	 * @param arg_list The vararg list from which to read.
+	 *
+	 * @pre dest_reg is less than the current number of shadow registers.
+	 * @pre If use_src_reg is false, src_reg should be 0.
+	 * @pre All shadow registers specified in the vararg list are less 
+	 * than the current number of shadow registers.
+	 * @pre Any unused src_reg and offset will be 0.
+	 * @pre If not using shadow mem, addr should be NULL and mem_access_size
+	 * should be 0.
+	 * @pre If we're using shadow mem, the memory access size is between 1 and
+	 * 8.
+	 */
+	template <bool use_ctrl_dependence, 
+				bool update_cp, 
+				bool use_src_reg,
+				bool use_offsets,
+				bool use_shadow_mem_dependence>
+	void handleVariableNumArgs(UInt32 dest_reg, UInt32 src_reg, 
+							Addr mem_dependency_addr, UInt32 mem_access_size,
+							unsigned num_var_args, va_list arg_list);
 
 	template <bool store_const>
 	void timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg);
