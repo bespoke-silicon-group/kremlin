@@ -290,8 +290,9 @@ static void writeNodeStats(FILE* fp, ProfileNode* node) {
 	assert(fp != NULL);
 	assert(node != NULL);
 
-	MSG(DEBUG_CREGION, "Node id: %d, static_id: %llx node_type: %d num_instances: %d nChildren: %d DOALL: %d\n", 
-		node->id, node->static_id, node->node_type, node->num_instances, node->children.size(), node->is_doall);
+	MSG(DEBUG_CREGION, "dyn_id: %llx, static_id: %llx callsite_id: %llx, node_type: %d, num_instances: %llu nChildren: %u DOALL: %llu\n", 
+		node->id, node->static_id, node->callsite_id, node->node_type, 
+		node->num_instances, node->children.size(), node->is_doall);
 
 	fwrite(&node->id, sizeof(Int64), 1, fp);
 	fwrite(&node->static_id, sizeof(Int64), 1, fp);

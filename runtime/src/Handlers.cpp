@@ -165,9 +165,9 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
 		Level min_level = getLevelForIndex(0); // XXX: this doesn't seem right (-sat)
 		src_addr_times = getShadowMemory()->get(src_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
 
-#ifdef KREMLIN_DEBUG
-		printLoadDebugInfo(src_addr, dest_reg, src_addr_times, end_index);
-#endif
+//#ifdef KREMLIN_DEBUG
+//		printLoadDebugInfo(src_addr, dest_reg, src_addr_times, end_index);
+//#endif
 	}
 
     for (Index index = 0; index < end_index; ++index) {
@@ -1026,7 +1026,7 @@ void KremlinProfiler::handlePopCDep() {
 }
 
 void KremlinProfiler::handlePrepCall(CID callSiteId, UInt64 calledRegionId) {
-    MSG(1, "KPrepCall\n");
+	MSG(3, "KPrepCall(callSiteId=%llx, calledRegionId=%llx)\n", callSiteId, calledRegionId);
 	idbgAction(KREM_PREP_CALL, "## _KPrepCall(callSiteId=%llu,calledRegionId=%llu)\n",callSiteId,calledRegionId);
     if (!enabled) return; 
 
