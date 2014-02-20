@@ -3,10 +3,14 @@ package kremlin;
 import java.io.*;
 import java.util.*;
 
+/*
+ * A class to track all the static regions of the program.
+ */
 public class SRegionManager {
 	Map<Long, SRegion> sMap;
 	Map<Long, CallSite> callSiteMap;
 	boolean isNeo = false;
+
 	public SRegionManager(File file, boolean newVersion) {
 		this.isNeo = newVersion;
 		sMap = new HashMap<Long, SRegion>();
@@ -17,10 +21,17 @@ public class SRegionManager {
 		parseSRegionFile(file);
 	}
 	
+	/*
+	 * Returns set of sregions to which we have mappings.
+	 */
 	public Set<SRegion> getSRegionSet() {
 		return new HashSet<SRegion>(sMap.values());
 	}
 	
+	/*
+	 * Returns set of sregions to which we have mappings and which are of the
+	 * specified type of region.
+	 */
 	public Set<SRegion> getSRegionSet(RegionType type) {
 		Set<SRegion> ret = new HashSet<SRegion>();
 		for (SRegion each : sMap.values()) {
@@ -30,6 +41,9 @@ public class SRegionManager {
 		return ret;
 	}
 	
+	/*
+	 * Given a static ID, returns the associated SRegion object.
+	 */
 	public SRegion getSRegion(long id) {		
 		if (!sMap.containsKey(id)) {
 			System.out.println("invalid sid: " + id);
@@ -39,6 +53,9 @@ public class SRegionManager {
 		return sMap.get(id);
 	}
 	
+	/*
+	 * Given a static ID, returns the associated CallSite object.
+	 */
 	CallSite getCallSite(long id) {
 		if (callSiteMap.containsKey(id) == false) {
 			System.err.printf("callsite %d not found\n", id);
@@ -47,7 +64,12 @@ public class SRegionManager {
 		return callSiteMap.get(id);
 	}
 	
-	//void parseSRegionFile(String file) {
+	/*
+	 * Parses static region file (usually sregions.txt) to create a mapping of
+	 * static IDs to SRegion objects.
+	 * If the region is a CALLSITE then it is put into a mapping of static IDs
+	 * to CallSite objects instead of the aforementioned mapping.
+	 */
 	void parseSRegionFile(File file) {
 		try {
 			BufferedReader input =  new BufferedReader(new FileReader(file));
@@ -72,6 +94,7 @@ public class SRegionManager {
 			assert(false);
 		}
 	}
+
 	/*
 	SRegion createSRegion(String line) {
 		StringTokenizer tokenizer = new StringTokenizer(line);
@@ -100,6 +123,9 @@ public class SRegionManager {
 	}*/
 	
 	
+	/*
+	 * Prints out all the SRegions.
+	 */
 	public void dump() {
 		for (SRegion each : this.sMap.values()) {
 			System.out.println(each);

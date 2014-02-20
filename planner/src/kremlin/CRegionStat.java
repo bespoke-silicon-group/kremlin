@@ -1,8 +1,10 @@
 package kremlin;
 
-/**
- * TraceStat: corresponds to CStat in CRegion.c file
- *
+/*
+ * A class to represent the statistics associated with a CRegion.
+ * These statistics are written to our profiler and read in by the
+ * TraceReader.
+ * It is meant to be immutable so it only contains getters.
  */
 public class CRegionStat {
 	long work;
@@ -27,45 +29,16 @@ public class CRegionStat {
 		this.rWeight = 0.0;
 	}
 	
-	public long getTotalWork() {
-		return this.work;
-	}
-	
-	public long getAvgWork() {
-		return getTotalWork() / this.nInstance;
-	}
-	
-	public double getSelfP() {
-		return this.work / (double)this.spWork;
-	}
-	
-	public double getMinSelfP() {
-		return this.minSP;		
-	}
-	
-	public double getMaxSelfP() {
-		return this.maxSP;		
-	}
-	
-	public long getMinIter() {
-		return minIter;
-	}
-	
-	public long getMaxIter() {
-		return maxIter;
-	}
-	
-	public double getAvgIter() {
-		return totalIter / this.nInstance;
-	}
-	
-	public void setRecursionWeight(double weight) {
-		this.rWeight = weight;
-	}
-	
-	public double getRecursionWeight() {
-		return this.rWeight;
-	}
+	public long getTotalWork() { return this.work; }
+	public long getAvgWork() { return getTotalWork() / this.nInstance; }
+	public double getSelfP() { return this.work / (double)this.spWork; }
+	public double getMinSelfP() { return this.minSP;		}
+	public double getMaxSelfP() { return this.maxSP;		}
+	public long getMinIter() { return minIter; }
+	public long getMaxIter() { return maxIter; }
+	public double getAvgIter() { return totalIter / this.nInstance; }
+	public void setRecursionWeight(double weight) { this.rWeight = weight; }
+	public double getRecursionWeight() { return this.rWeight; }
 	
 	public String toString() {
 		String ret = String.format("selfP = %.2f, iter = %.2f, avg work = %d, count = %d",  

@@ -1,5 +1,3 @@
-
-
 import java.io.File;
 import java.util.*;
 
@@ -17,8 +15,6 @@ public class KremlinOMP {
 		String baseDir = ".";		
 		int numCore = 32;
 		
-		
-		
 		numCore = KremlinConfig.getCoreCount();
 		baseDir = KremlinConfig.getPath();
 					
@@ -34,8 +30,6 @@ public class KremlinOMP {
 		Set<CRegion> excludeSet = getNonLoopSet(cManager);
 		Target target = new Target(numCore, KremlinConfig.getOverhead());
 		NoNestPlanner planner = new NoNestPlanner(cManager, target);
-		//BWPlannerWorst planner = new BWPlannerWorst(cManager, target);
-		//BWPlannerBest planner = new BWPlannerBest(cManager, target);
 		Plan plan = planner.plan(excludeSet);		
 		PlanPrinter.print(cManager, plan, KremlinConfig.getThresholdReduction());		
 	}	

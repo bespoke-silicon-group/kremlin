@@ -2,6 +2,10 @@ package kremlin;
 
 import java.util.*;
 
+/*
+ * Class that represents a "CRegion" (i.e. compressed region) from kremlin's
+ * profiling stage.
+ */
 public abstract class CRegion implements Comparable {
 	CRecursiveType type;	
 	long id;
@@ -43,35 +47,24 @@ public abstract class CRegion implements Comparable {
 			assert(false);
 		}
 	}
-	public CallSite getCallsite() {
-		return this.callSite;
-	}
-	
-	public CRecursiveType getRecursiveType() {
-		return this.type;
-	}
-	
-	public long getId() {
-		return this.id;
-	}
-	
-	public CRecursiveType getRegionType() {
-		return this.type;
-	}
-	
-	public SRegion getParentSRegion() {
-		return this.parentSRegion;
-	}	
-	
-	void setParent(CRegion parent) {
-		this.parent = parent;
-		parent.addChild(this);
-	}
-	
-	void addChild(CRegion child) {
-		this.children.add(child);		
-	}
-		
+
+	/* Getter methods. */
+	public CallSite getCallsite() { return this.callSite; }
+	public CRecursiveType getRecursiveType() { return this.type; }
+	public long getId() { return this.id; }
+	public CRecursiveType getRegionType() { return this.type; }
+	public SRegion getParentSRegion() { return this.parentSRegion; }	
+	public SRegion getSRegion() { return this.region; }
+	public long getInstanceCount() { return this.numInstance; }
+	public Set<CRegion> getChildrenSet() { return this.children; }
+	public CRegion getParent() { return this.parent; }
+	public boolean getParallelBit() { return this.pbit; }
+	public boolean isLeaf() { return children.size() == 0; }
+
+	/*
+	 * "Exclusive work" is amount of work done in this CRegion but not in a
+	 * child CRegion.
+	 */
 	public long getExclusiveWork() {
 		long ret = this.getTotalWork();
 		for (CRegion each : this.children) {
@@ -79,47 +72,7 @@ public abstract class CRegion implements Comparable {
 		}
 		return ret;
 	}	
-	
-	public SRegion getSRegion() {
-		return this.region;
-	}
-	
-	public long getInstanceCount() {
-		return this.numInstance;
-	}
-		
-	public Set<CRegion> getChildrenSet() {
-		return this.children;
-	}
-	
-	public CRegion getParent() {
-		return this.parent;
-	}
-	
-	public boolean getParallelBit() {
-		return this.pbit;
-	}
-	
-	public boolean isLeaf() {
-		return children.size() == 0;
-	}
-	
-	
-	abstract public double getSelfP();	
-	abstract public double getMinSelfP();	
-	abstract public double getMaxSelfP();
-	abstract public long   getTotalWork(); 
-	abstract public long   getAvgWork();
-	abstract public CRegionStat getRegionStat();
-	
-	@Override
-	public int compareTo(Object arg) {
-		CRegion target = (CRegion)arg;
-		//double diff = this.getSelfSpeedup() - target.getSelfSpeedup();
-		double diff = 0.1;
-		return (diff > 0.0) ? -1 : 1; 
-	}
-	
+
 	public PType getParallelismType() {
 		RegionType type = getSRegion().getType(); 
 		if (getChildrenSet().size() == 0)
@@ -134,6 +87,38 @@ public abstract class CRegion implements Comparable {
 		return PType.TLP;
 	}
 	
+	
+	/*
+	 * These are abstract getters because the way we calculate these values
+	 * will depend on what type of region it is.
+	 */
+	abstract public double getSelfP();	
+	abstract public double getMinSelfP();	
+	abstract public double getMaxSelfP();
+	abstract public long   getTotalWork(); 
+	abstract public long   getAvgWork();
+	abstract public CRegionStat getRegionStat();
+	public abstract String getStatString();
+
+	/* Setter methods. */
+	void setParent(CRegion parent) {
+		this.parent = parent;
+		parent.addChild(this);
+	}
+	
+	void addChild(CRegion child) {
+		this.children.add(child);		
+	}
+	
+	
+	@Override
+	public int compareTo(Object arg) {
+		CRegion target = (CRegion)arg;
+		//double diff = this.getSelfSpeedup() - target.getSelfSpeedup();
+		double diff = 0.1;
+		return (diff > 0.0) ? -1 : 1; 
+	}
+	
 	public String toString() {
 		String ret = String.format("[%d] %s work = %d, sp = %.2f, children = %d", 
 				this.id, this.region, this.getAvgWork(), this.getSelfP(), this.children.size());
@@ -142,19 +127,4 @@ public abstract class CRegion implements Comparable {
 		}		
 		return ret;
 	}
-	
-	public abstract String getStatString();
-	
-	
-	// graveyard
-	
-	//public double getCoverage() {
-	//	return this.workCoverage;		
-	//}
-	
-	//public double getAvgCP() {
-	//	return this.avgCP;
-	//}
-	
-
 }

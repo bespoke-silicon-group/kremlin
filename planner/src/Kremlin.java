@@ -2,7 +2,6 @@ import kremlin.KremlinConfig;
 import joptsimple.*;
 import planner.*;
 
-
 public class Kremlin {
 	static OptionParser configureParser() {
 		OptionParser parser = new OptionParser();

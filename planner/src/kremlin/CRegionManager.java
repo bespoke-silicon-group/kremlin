@@ -4,6 +4,10 @@ import java.io.*;
 import java.util.*;
 
 
+/*
+ * A class to track all the CRegions (i.e. compressed regions) that were
+ * created during kremlin profiling.
+ */
 public class CRegionManager {
 	SRegionManager sManager;	
 	CRegion root;
@@ -23,21 +27,20 @@ public class CRegionManager {
 	void readBinaryFile(String file) {
 		Map<Long, Set<Long>> childrenMap = new HashMap<Long, Set<Long>>();
 		Map<Long, CRegion> regionMap = new HashMap<Long, CRegion>();
+
 		TraceReader reader = new TraceReader(file);
 		Map<CRegion, Long> recursionTarget = new HashMap<CRegion, Long>();
 		
 				
-		// log parent, children relationship
+		// Fill in mapping of unique ids to unique id of child regions.
 		for (TraceEntry entry : reader.getTraceList()) {			
 			childrenMap.put(entry.uid, entry.childrenSet);			
 		}
 		
-		// identify CRegionR nodes
+		// Identify recursive CRegions (i.e. CRegionR), setting decendent of
+		// all R_INIT nodes to be of type "3" (XXX: what is 3?)
 		for (TraceEntry entry : reader.getTraceList()) {
-			//System.err.printf("testing node with id %d with type %d\n", entry.uid, entry.type);
 			if (entry.type == 1) {	
-				//System.err.printf("\tdetected a RInit node with id %d\n", entry.uid);
-				// if a node is RInit type, set its descendant nodes to type 3
 				List<Long> list = new ArrayList<Long>();
 				list.add(entry.uid);
 				
@@ -50,25 +53,29 @@ public class CRegionManager {
 					
 					Set<Long> children = childrenMap.get(current.uid);
 					list.addAll(children);					
-				}				
+				}
 			}
 		}
 		
+		// Create CRegions, adding them to map of IDs to CRegion objects.
 		for (TraceEntry entry: reader.getTraceList()) {
 			SRegion sregion = sManager.getSRegion(entry.sid);			
 			CallSite callSite = null;
-			if (entry.callSiteValue != 0)
-				callSite = sManager.getCallSite(entry.callSiteValue);
+			if (entry.callsiteID != 0)
+				callSite = sManager.getCallSite(entry.callsiteID);
 			
 			
 			CRegion region = CRegion.create(sregion, callSite, entry);
 			regionMap.put(entry.uid, region);
+
+			// if this links back to a recursive region, add it to the mapping
+			// that tracks these "recursive targets"
 			if (entry.recursionTarget > 0) {
 				recursionTarget.put(region, entry.recursionTarget);
-			}			
-		}		
+			}
+		}
 		
-		// connect parent with children
+		// Set the parent in all CRegions.
 		for (long uid : regionMap.keySet()) {
 			CRegion region = regionMap.get(uid);			
 			assert(region != null);
@@ -78,10 +85,10 @@ public class CRegionManager {
 				CRegion childRegion = regionMap.get(child);
 				childRegion.setParent(region);
 				//region.addChild(toAdd);
-				
 			}
 		}
 		
+		// Sets recursive target for all CRegions that have one.
 		for (CRegion each : recursionTarget.keySet()) {
 			//System.err.printf("rec target node id = %d\n", each.id);
 			CRegionR region = (CRegionR)each;
@@ -90,9 +97,10 @@ public class CRegionManager {
 			region.setRecursionTarget(target);
 		}
 		
+		// Create mappings from SRegion objects to associated CRegion objects.
+		// We'll also find and mark the root CRegion.
 		for (CRegion region : regionMap.values()) {
 			if (region.getParent() == null) {
-				//System.out.println("no parent: " + region);
 				//assert(this.root == null);
 				this.root = region;
 			}			
@@ -107,10 +115,14 @@ public class CRegionManager {
 		calculateRecursiveWeight(new HashSet(regionMap.values()));
 	}
 	
+	/*
+	 * Calculate the "recursive weight" for each CRegion in the given set.
+	 */
 	private void calculateRecursiveWeight(Set<CRegion> set) {		
 		//Set<CRegion> sinkSet = new HashSet<CRegion>();
 		Map<CRegion, Set<CRegion>> map = new HashMap<CRegion, Set<CRegion>>();		
 		
+		// Step 1: Add map entries for all R_INIT nodes
 		for (CRegion each : set) {			
 			if (each.getRegionType() == CRecursiveType.REC_INIT) {				
 				map.put(each,  new HashSet<CRegion>());		
@@ -120,6 +132,8 @@ public class CRegionManager {
 			}
 		}
 		
+		// Step 2: Create mapping between R_INIT CRegion and all its associated
+		// R_SINK CRegions
 		for (CRegion each : set) {
 			if (each.getRegionType() == CRecursiveType.REC_SINK) {
 				CRegion target = ((CRegionR)each).getRecursionTarget();
@@ -129,56 +143,63 @@ public class CRegionManager {
 			}
 		}
 		
+		// Step 3: Set the recursive weight for all R_INIT CRegions.
 		for (CRegion each : map.keySet()) {
 			setRecursionWeight((CRegionR)each, map.get(each));
 		}
 	}
 	
 	void setRecursionWeight(CRegionR init, Set<CRegion> sinks) {
-		
 		int maxSize = 0;
+
+		// Step 1: Find the maximum number of stats in any one R_SINK region
 		for (CRegion each : sinks) {
 			CRegionR current = (CRegionR)each;
 			if (current.getStatSize() > maxSize)
 				maxSize = current.getStatSize();
 		}
 		//System.err.printf("init = %d, sinks size = %d maxSize = %d\n", init.id, sinks.size(), maxSize);
+
 		for (int depth=0; depth<maxSize; depth++) {
 			Map<CRegion, Long> map = new HashMap<CRegion, Long>();
-			for (CRegion each : sinks) {
-				CRegionR source = (CRegionR) each;
-				if (source.getStatSize() <= depth)
+
+			// For all CRegions that are descendents of init's parent but are
+			// ancestors of a sink, fill in the mapping from that CRegion to
+			// the total work (XXX: this is SERIOUSLY confusing business...)
+			for (CRegion s : sinks) {
+				CRegionR sink = (CRegionR) s;
+				if (sink.getStatSize() <= depth)
 					continue;
 				
-				CRegion target = source.getParent();			
+				CRegion target = sink.getParent();			
 				
 				while (target != init.getParent()) {
 					if (!map.containsKey(target)) {
 						map.put(target, (long)0);					
 					}
 					long prev = map.get(target);
-					long updated = prev + source.getStat(depth).getTotalWork();
+					long updated = prev + sink.getStat(depth).getTotalWork();
 					map.put(target, updated);
 					//System.err.printf("updating value to %d at %d\n", updated, target.id);
 					target = target.getParent();
 				}
 			}			
 			
-			// weight = rWork(init) / rWork(node)
+			// For all the CRegions in our mapping, set the recusive weight at
+			// the current depth.
+			// This recursive weight is the ratio of init's total work to the
+			// region's total work.
 			long totalWork = map.get(init);
 			for (CRegion each : map.keySet()) {
 				long work = map.get(each);
 				double weight = work / (double)totalWork;
 				//System.err.printf("Setting weight of node %d at depth %d to %.2f\n", each.id, depth, weight);
 				((CRegionR)each).getStat(depth).setRecursionWeight(weight);
-				
 			}
 		}		
 	}
 	
-	public CRegion getRoot() {
-		return this.root;
-	}	
+	public CRegion getRoot() { return this.root; }	
 	
 	public Set<CRegion> getLeafSet() {
 		Set<CRegion> ret = new HashSet<CRegion>();		
@@ -208,156 +229,6 @@ public class CRegionManager {
 		}
 		return ret;
 	}
-	
-	
-
-	
-	List<Long> cloneContext(List<Long> in) {
-		List<Long> ret = new ArrayList<Long>(in);
-		return ret;		
-	}
-	/*
-	void buildURegionSet() {
-		System.out.println("Total URegion Size = " + uManager.getURegionSet().size());
-		int cnt = 0;
-		List<URegion> workList = new ArrayList<URegion>();
-		Set<URegion> retired = new HashSet<URegion>();
-		workList.add(uManager.getRoot());		
-		
-		List<Long> context = new ArrayList<Long>();
-		context.add(uManager.getRoot().callSite);
-		
-		while(!workList.isEmpty()) {
-			URegion current = workList.remove(0);
-			cnt++;
-			
-			if (cnt % 10000 == 0) {
-				System.out.println("~");
-			}
-			context.add(current.callSite);
-			
-			SRegion sregion = current.getSRegion();
-			Set<URegionSet> set = null;
-			
-			if (map.containsKey(sregion))
-				set = map.get(current.getSRegion());
-			else {
-				set = new HashSet<URegionSet>();
-				map.put(sregion, set);
-			}
-			
-			boolean found = false;
-			for (URegionSet candidate : set) {
-				if (isContextSame(context, candidate.context)) {
-					candidate.add(current);
-					found = true;
-				}
-			}
-			// new entry
-			if (!found) {
-				System.out.println(context);
-				URegionSet toAdd = new URegionSet(current.getSRegion(), cloneContext(context));
-				toAdd.add(current);
-				set.add(toAdd);
-			}
-			
-			context.remove(context.size()-1);
-			
-			for (URegion child : current.getChildrenSet())
-				workList.add(child);			
-		}		
-	}*/
-	/*
-	void buildURegionSet() {
-		System.out.println("Total URegion Size = " + uManager.getURegionSet().size());
-		int cnt = 0;
-		for (URegion each : uManager.getURegionSet()) {			
-			cnt++;
-			if (cnt % 10000 == 0) {
-				System.out.print("~");
-			}
-				
-			SRegion sregion = each.getSRegion();
-			Set<URegionSet> set = null;
-			
-			if (map.containsKey(sregion))
-				set = map.get(each.getSRegion());
-			else {
-				set = new HashSet<URegionSet>();
-				map.put(sregion, set);
-			}
-			
-			List<Long> context = each.getCallStack();
-			
-			boolean found = false;
-			for (URegionSet candidate : set) {
-				if (isContextSame(context, candidate.context)) {
-					candidate.add(each);
-					found = true;
-				}
-			}
-			// new entry
-			if (!found) {
-				URegionSet toAdd = new URegionSet(each.getSRegion(), context);
-				toAdd.add(each);
-				set.add(toAdd);
-			}
-		}
-	}*/
-	/*
-	void buildURegionSet() {
-		System.out.println("Total URegion Size = " + uManager.getURegionSet().size());
-		int cnt = 0;
-		
-		for (SRegion sregion : uManager.getSRegionManager().getSRegionSet()) {
-			Set<URegionSet> set = null;			
-			set = new HashSet<URegionSet>();
-			map.put(sregion, set);
-			
-			for (URegion uregion : uManager.getDEntrySet(sregion)) {
-				cnt++;
-				if (cnt % 10000 == 0) {
-					System.out.print("~");
-				}
-				List<Long> context = uregion.getCallStack();
-				boolean found = false;
-				for (URegionSet candidate : set) {
-					if (isContextSame(context, candidate.context)) {
-						candidate.add(uregion);
-						found = true;
-					}
-				}
-				if (!found) {
-					URegionSet toAdd = new URegionSet(sregion, context);
-					toAdd.add(uregion);
-					set.add(toAdd);
-				}
-			}
-		}
-	}*/
-	
-	boolean isContextSame(List<Long> src, List<Long> target) {
-		if (src.size() != target.size())
-			return false;
-		
-		for (int i=0; i<src.size(); i++) {
-			if (src.get(i) != target.get(i))
-				return false;
-		}
-		return true;
-	}
-	/*
-	public void dump() {
-		CRegionPrinter printer = new CRegionPrinter(this);
-		for (SRegion each : cRegionMap.keySet()) {
-			//System.out.println(each);
-			Set<CRegion> set = cRegionMap.get(each);
-			for (CRegion cregion : set) {
-				//System.out.println("\t" + cregion);
-				System.out.println(printer.getString(cregion) + "\n");
-			}
-		}
-	}*/
 	
 	public void printStatistics() {
 		int cntTotal = 0;
@@ -389,18 +260,5 @@ public class CRegionManager {
 	
 	public double getTimeReduction(CRegion region) {
 		return getCoverage(region) * (1.0 - 1.0 / region.getSelfP());
-	}
-	
-	
-	
-	public static void main(String args[]) {
-		System.out.println("CRegionManager");
-		//String dir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/CINT2000/175.vpr/src";
-		String dir = "g:\\work\\ktest\\recursion";
-		//String dir = "/h/g3/dhjeon/trunk/parasites/pyrprof/test/loop";
-		String sFile = String.format("%s/sregions.txt", dir);
-		String bFile = String.format("%s/kremlin.bin", dir);
-		SRegionManager sManager = new SRegionManager(new File(sFile), true);
-		CRegionManager cManager = new CRegionManager(sManager, bFile);
 	}
 }

@@ -1,5 +1,8 @@
 package kremlin;
 
+/*
+ * class that represents a static program region.
+ */
 public class SRegion implements Comparable {	
 	long id;
 	//boolean isFunction;

@@ -4,6 +4,10 @@ import java.util.List;
 
 import kremlin.*;
 
+/*
+ * Class to represent a recursive CRegion.
+ * It is meant to be immutable so it only contains getters.
+ */
 public class CRegionR extends CRegion {	
 	List<CRegionStat> stats;
 	double selfP;	
@@ -30,9 +34,7 @@ public class CRegionR extends CRegion {
 		return this.stats.get(index);
 	}
 	
-	public int getStatSize() {
-		return this.stats.size();
-	}
+	public int getStatSize() { return this.stats.size(); }
 	
 	double computeSelfP() {		
 		double saving = 0.0;
@@ -57,9 +59,7 @@ public class CRegionR extends CRegion {
 		this.recursionTarget = target;
 	}
 	
-	public CRegion getRecursionTarget() {		
-		return this.recursionTarget;
-	}
+	public CRegion getRecursionTarget() { return this.recursionTarget; }
 	
 	public double getSelfP() {
 		if (this.selfP < 1.0)
