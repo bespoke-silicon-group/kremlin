@@ -225,75 +225,71 @@ static	unsigned long	bits_to_size(const int bit_n)
 static	void	*alloc_pages(mpool_t *mp_p, const unsigned int page_n,
 			     int *error_p)
 {
-  void		*mem, *fill_mem;
-  unsigned long	size, fill;
-  int		state;
-  
-  /* are we over our max-pages? */
-  if (mp_p->mp_max_pages > 0 && mp_p->mp_page_c >= mp_p->mp_max_pages) {
-    SET_POINTER(error_p, MPOOL_ERROR_NO_PAGES);
-    return NULL;
-  }
-  
-  size = SIZE_OF_PAGES(mp_p, page_n);
-  
+	void		*mem, *fill_mem;
+	unsigned long	size, fill;
+	int		state;
+
+	/* are we over our max-pages? */
+	if (mp_p->mp_max_pages > 0 && mp_p->mp_page_c >= mp_p->mp_max_pages) {
+		SET_POINTER(error_p, MPOOL_ERROR_NO_PAGES);
+		return NULL;
+	}
+
+	size = SIZE_OF_PAGES(mp_p, page_n);
+
 #ifdef DEBUG_MPOOL
-  (void)printf("allocating %u pages or %lu bytes\n", page_n, size);
+	(void)printf("allocating %u pages or %lu bytes\n", page_n, size);
 #endif
-  
-  if (BIT_IS_SET(mp_p->mp_flags, MPOOL_FLAG_USE_SBRK)) {
-    mem = sbrk(size);
-    if (mem == (void *)-1) {
-      SET_POINTER(error_p, MPOOL_ERROR_NO_MEM);
-      return NULL;
-    }
-    fill = (unsigned long)mem % mp_p->mp_page_size;
-    
-    if (fill > 0) {
-      fill = mp_p->mp_page_size - fill;
-      fill_mem = sbrk(fill);
-      if (fill_mem == (void *)-1) {
-	SET_POINTER(error_p, MPOOL_ERROR_NO_MEM);
-	return NULL;
-      }
-      if ((char *)fill_mem != (char *)mem + size) {
-	SET_POINTER(error_p, MPOOL_ERROR_SBRK_CONTIG);
-	return NULL;
-      }
-      mem = (char *)mem + fill;
-    }
-  }
-  else {
-    state = MAP_PRIVATE;
-#ifdef MAP_FILE
-    state |= MAP_FILE;
-#endif
+
+	if (BIT_IS_SET(mp_p->mp_flags, MPOOL_FLAG_USE_SBRK)) {
+		mem = sbrk(size);
+		if (mem == (void *)-1) {
+			SET_POINTER(error_p, MPOOL_ERROR_NO_MEM);
+			return NULL;
+		}
+		fill = (unsigned long)mem % mp_p->mp_page_size;
+
+		if (fill > 0) {
+			fill = mp_p->mp_page_size - fill;
+			fill_mem = sbrk(fill);
+			if (fill_mem == (void *)-1) {
+				SET_POINTER(error_p, MPOOL_ERROR_NO_MEM);
+				return NULL;
+			}
+			if ((char *)fill_mem != (char *)mem + size) {
+				SET_POINTER(error_p, MPOOL_ERROR_SBRK_CONTIG);
+				return NULL;
+			}
+			mem = (char *)mem + fill;
+		}
+	}
+	else {
+		state = MAP_PRIVATE | MAP_ANONYMOUS;
 #ifdef MAP_VARIABLE
-    state |= MAP_VARIABLE;
+		state |= MAP_VARIABLE;
 #endif
-    
-    /* mmap from /dev/zero */
-    mem = mmap((caddr_t)mp_p->mp_addr, size, PROT_READ | PROT_WRITE, state,
-	       mp_p->mp_fd, mp_p->mp_top);
-    if (mem == (void *)MAP_FAILED) {
-      if (errno == ENOMEM) {
-	SET_POINTER(error_p, MPOOL_ERROR_NO_MEM);
-      }
-      else {
-	SET_POINTER(error_p, MPOOL_ERROR_MMAP);
-      }
-      return NULL;
-    }
-    mp_p->mp_top += size;
-    if (mp_p->mp_addr != NULL) {
-      mp_p->mp_addr = (char *)mp_p->mp_addr + size;
-    }
-  }
-  
-  mp_p->mp_page_c += page_n;
-  
-  SET_POINTER(error_p, MPOOL_ERROR_NONE);
-  return mem;
+
+		mem = mmap((caddr_t)mp_p->mp_addr, size, PROT_READ | PROT_WRITE, state,
+					-1, 0);
+		if (mem == (void *)MAP_FAILED) {
+			if (errno == ENOMEM) {
+				SET_POINTER(error_p, MPOOL_ERROR_NO_MEM);
+			}
+			else {
+				SET_POINTER(error_p, MPOOL_ERROR_MMAP);
+			}
+			return NULL;
+		}
+		mp_p->mp_top += size;
+		if (mp_p->mp_addr != NULL) {
+			mp_p->mp_addr = (char *)mp_p->mp_addr + size;
+		}
+	}
+
+	mp_p->mp_page_c += page_n;
+
+	SET_POINTER(error_p, MPOOL_ERROR_NONE);
+	return mem;
 }
 
 /*

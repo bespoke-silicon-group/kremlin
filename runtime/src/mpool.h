@@ -28,6 +28,11 @@
 
 extern "C" {
 
+/* MAC OS X doesn't have MAP_ANONYMOUS, it uses MAP_ANON instead */
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 /*
  * mpool flags to mpool_alloc or mpool_set_attr
  */

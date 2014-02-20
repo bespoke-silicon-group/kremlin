@@ -11,16 +11,6 @@
 #include "MemMapAllocator.h"
 #include "mpool.h"
 
-#ifdef MAP_ANON
-#   define MEM_MAP_POOL_ANON MAP_ANON
-#else
-#   ifdef MAP_ANONYMOUS
-#       define MEM_MAP_POOL_ANON MAP_ANONYMOUS
-#   else
-#       error MAP_ANON or MAP_ANONYMOUS are required for MemMapAllocator
-#   endif /* MAP_ANONYMOUS */
-#endif /* MAP_ANON */
-
 typedef struct _MChunk {
 	Addr addr;
 	struct _MChunk* next;
@@ -39,7 +29,7 @@ void MemPoolInit(int nMB, int sizeEach) {
 	int error;
 	poolSmall = mpool_open(0, 0, (void*)0x100000000000, &error);
 	if (error != 1) {
-		fprintf(stderr, "mpool_open error = %x\n", error); 
+		fprintf(stderr, "ERROR (mpool_open): %s\n", mpool_strerror(error)); 
 		assert(0);
 	}
 
@@ -86,22 +76,22 @@ void addMChunk(MChunk* toAdd) {
 
 static void FillFreeList() {
 	int protection = PROT_READ | PROT_WRITE;
-    int flags = MAP_PRIVATE | MEM_MAP_POOL_ANON;
-    int fileId = -1;
-    int offset = 0;
+    int flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
     // Allocate mmapped data.
 	unsigned char* data;
 // Mac OS X doesn't have mmap64... not sure if it's really needed
 #ifdef __MACH__
-    data = (unsigned char*)mmap(NULL, mmapSizeMB * 1024 * 1024, protection, flags, fileId, offset);
+    data = (unsigned char*)mmap(NULL, mmapSizeMB * 1024 * 1024, protection,
+								flags, -1, 0);
 #else
-    data = (unsigned char*)mmap64(NULL, mmapSizeMB * 1024 * 1024, protection, flags, fileId, offset);
+    data = (unsigned char*)mmap64(NULL, mmapSizeMB * 1024 * 1024, protection,
+								flags, -1, 0);
 #endif
 	
 	if (data == MAP_FAILED) {
-		fprintf(stderr, "mmap failed\n");
-
+		perror("mmap");
+		exit(1);
 	} else {
 		assert(freeList == NULL);
 	}
