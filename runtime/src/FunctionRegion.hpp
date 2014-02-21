@@ -33,7 +33,7 @@ public:
 		this->table = NULL;
 	}
 
-	Reg getCallSiteID() { return this->call_site_id; }
+	CID getCallSiteID() { return this->call_site_id; }
 	Reg getReturnRegister() { return this->return_register; }
 	Table* getTable() { return this->table; }
 
