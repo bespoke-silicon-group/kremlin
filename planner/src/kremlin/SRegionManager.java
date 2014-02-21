@@ -58,7 +58,7 @@ public class SRegionManager {
 	 */
 	CallSite getCallSite(long id) {
 		if (callSiteMap.containsKey(id) == false) {
-			System.err.printf("callsite %d not found\n", id);
+			System.err.printf("callsite %16x not found\n", id);
 		}
 		assert(callSiteMap.keySet().contains(id));
 		return callSiteMap.get(id);
