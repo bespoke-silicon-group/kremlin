@@ -30,10 +30,7 @@ public class SRegionReader {
 	}
 
 	private static SRegion createSRegionNew(String line) {
-		String splitted[] = line.split("\t");
-		//BigDecimal idBig = new BigDecimal(splitted[0].trim());
-		//byte[] bytes = hexStringToByteArray(splitted[0].trim());
-		//long id = Long.parseLong(splitted[0].trim(), 16);
+		String splitted[] = line.split("\\s+");
 		long id = hexStringToByteArray(splitted[0].trim());
 		
 		//long id = Long.parseLong(splitted[0].trim());
