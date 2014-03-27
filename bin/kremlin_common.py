@@ -147,7 +147,9 @@ def create_kremlin_mk(src_lang):
 					type=int, choices=[0,1,2,3], default=0,
                     help="Produce debug info in OS's native format."),
         GccOption(parser, "-ggdb", dest="debug_gdb", action="store_true",
-                    help="Produce debug info for gdb.")
+                    help="Produce debug info for gdb."),
+        GccOption(parser, "-gdwarf-2", dest="debug_dwarf2", action="store_true",
+                    help="Produce debug info for dwarf v2.")
     ]
 
     # These options should just be passed to Clang by adding them to CFLAGS
