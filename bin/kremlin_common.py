@@ -68,6 +68,11 @@ def create_kremlin_mk(src_lang):
 						help="Stop after the stage of compilation proper; \
 								do not assemble.")
 
+    # -framework is linker flag that has space...
+    # this requires special handling for now (TODO: make this less kludgey)
+    parser.add_argument("-framework", dest = "fwork", action="store",
+						help="Link with specified framework (Apply only).")
+
 
     # These options should just be passed to Clang by adding them to CFLAGS
     # (Note: this becomes CCFLAGS for scons environment)
@@ -222,6 +227,9 @@ def create_kremlin_mk(src_lang):
                                 for option in cflag_options]) + common_str)
         linkflags_str = smart_strip(" ".join([option.get_cflags_str(options) \
                                 for option in ldflag_options]) + common_str)
+        if options.fwork:
+            linkflags_str = linkflags_str + " -framework " + options.fwork
+
         write("env = Environment()")
         if len(ccflags_str) > 0:
             write("env.Append(CCFLAGS = \'" + ccflags_str + "\')")
