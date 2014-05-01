@@ -33,6 +33,7 @@ public abstract class CRegion implements Comparable {
 		this.id = entry.uid;
 		this.totalWork = entry.work;
 		this.numInstance = entry.cnt;
+		this.pbit = entry.pbit;
 		this.children = new HashSet<CRegion>();
 		
 		if (entry.type == 0)
