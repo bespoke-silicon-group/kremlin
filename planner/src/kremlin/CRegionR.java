@@ -10,7 +10,8 @@ import kremlin.*;
  */
 public class CRegionR extends CRegion {	
 	List<CRegionStat> stats;
-	double selfP;	
+	double selfP;
+	double totalP;
 	CRegion recursionTarget;
 	
 	CRegionR(SRegion sregion, CallSite callSite, TraceEntry entry) {
@@ -26,7 +27,7 @@ public class CRegionR extends CRegion {
 		this.numInstance = entry.cnt;	
 		this.totalWork = entry.work;		
 		this.selfP = 0.0;
-				 
+		this.totalP = 0.0;
 	}
 	
 	public CRegionStat getStat(int index) {
@@ -36,7 +37,7 @@ public class CRegionR extends CRegion {
 	
 	public int getStatSize() { return this.stats.size(); }
 	
-	double computeSelfP() {		
+	double computeSelfP() {	
 		double saving = 0.0;
 		//System.err.printf("[computeSelfP] Node = %d\n", this.id);
 		for (int i=this.getStatSize()-1; i>=0; i--) {
@@ -61,6 +62,9 @@ public class CRegionR extends CRegion {
 	
 	public CRegion getRecursionTarget() { return this.recursionTarget; }
 	
+	// XXX: FIXME!
+	public double getTotalParallelism() { return -1.0; }
+
 	public double getSelfP() {
 		if (this.selfP < 1.0)
 			this.selfP = this.computeSelfP();

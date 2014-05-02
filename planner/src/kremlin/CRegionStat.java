@@ -8,7 +8,7 @@ package kremlin;
  */
 public class CRegionStat {
 	long work;
-	long tpWork;
+	long tpWork; // this is equal to critical path length
 	long spWork;
 	long nInstance;	
 	long totalIter, minIter, maxIter;	
@@ -30,6 +30,7 @@ public class CRegionStat {
 	}
 	
 	public long getTotalWork() { return this.work; }
+	public long getCriticalPathLength() { return this.tpWork; }
 	public long getAvgWork() { return getTotalWork() / this.nInstance; }
 	public double getSelfP() { return this.work / (double)this.spWork; }
 	public double getMinSelfP() { return this.minSP;		}

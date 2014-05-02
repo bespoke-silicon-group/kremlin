@@ -96,6 +96,7 @@ public abstract class CRegion implements Comparable {
 	abstract public double getSelfP();	
 	abstract public double getMinSelfP();	
 	abstract public double getMaxSelfP();
+	abstract public double getTotalParallelism();	
 	abstract public long   getTotalWork(); 
 	abstract public long   getAvgWork();
 	abstract public CRegionStat getRegionStat();

@@ -138,9 +138,18 @@ public class KremlinPrinter {
 	 * Gets string with self-parallelism stats for the given CRegion.
 	 * This info will include average, min, and max SP.
 	 */
-	String getParallelismString(CRegion region) {
+	String getSelfParallelismString(CRegion region) {
 		String ret = String.format("SelfP=%.2f [%5.2f - %5.2f]",
 			region.getSelfP(), region.getMinSelfP(), region.getMaxSelfP());		
+		return ret;
+	}
+
+	/*
+	 * Gets string with total-parallelism stats for the given CRegion.
+	 */
+	String getTotalParallelismString(CRegion region) {
+		String ret = String.format("TotalP=%.2f",
+			region.getTotalParallelism());
 		return ret;
 	}
 	
@@ -181,7 +190,7 @@ public class KremlinPrinter {
 	public List<String> getVerboseStringList(CRegion region) {
 		List<String> ret = new ArrayList<String>();
 		ret.add(getSummaryString(region));
-		ret.add(String.format("%s, %s", getParallelismString(region), getIterString(region))); 
+		ret.add(String.format("%s, %s, %s", getTotalParallelismString(region), getSelfParallelismString(region), getIterString(region))); 
 		ret.add(getRelationString(region));
 		return ret;		
 	}

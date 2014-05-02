@@ -18,6 +18,10 @@ public class CRegionN extends CRegion {
 	public double getMinSelfP() { return stat.getMinSelfP(); }
 	public double getMaxSelfP() { return stat.getMaxSelfP(); }
 
+	public double getTotalParallelism() {
+		return (double)stat.getTotalWork() / (double)stat.getCriticalPathLength();
+	}
+
 	@Override
 	public long getTotalWork() { return stat.getTotalWork(); }
 

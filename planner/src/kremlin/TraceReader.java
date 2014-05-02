@@ -45,7 +45,7 @@ public class TraceReader {
 				
 				long nStats = Long.reverseBytes(input.readLong());
 				//System.out.printf("\nid: %d sid: %x cid: %x type: %d rtarget: %d instance: %d pbit %d nChildren: %d nStats: %d\n",
-				//		uid, sid, callsiteID, type, recurse, cnt, pbit, nChildren, nStats);
+						//uid, sid, callsiteID, type, recurse, cnt, pbit, nChildren, nStats);
 				
 				// Create a CRegionStat for each stat and add that to the list
 				// of stats for the current TraceEntry.
