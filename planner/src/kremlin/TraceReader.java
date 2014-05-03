@@ -51,9 +51,9 @@ public class TraceReader {
 				// of stats for the current TraceEntry.
 				for (int i=0; i<nStats; i++) {
 					long nInstance = Long.reverseBytes(input.readLong());
-					long work = Long.reverseBytes(input.readLong());				
+					long work = Long.reverseBytes(input.readLong());
 					long tpWork = Long.reverseBytes(input.readLong());
-					long spWork = Long.reverseBytes(input.readLong());				
+					long spWork = Long.reverseBytes(input.readLong());
 					double minSP = (Long.reverseBytes(input.readLong())) / 100.0;
 					double maxSP = (Long.reverseBytes(input.readLong())) / 100.0;
 					long totalIter = Long.reverseBytes(input.readLong());				
@@ -61,7 +61,7 @@ public class TraceReader {
 					long maxIter = Long.reverseBytes(input.readLong());
 					CRegionStat toAdd = new CRegionStat(nInstance, work, tpWork, spWork, minSP, maxSP, totalIter, minIter, maxIter);
 					entry.addStat(toAdd);
-					//System.out.printf("\t%d %d %d %d %.2f %.2f %d %d %d\n", nInstance, work, tpWork, spWork, minSP, maxSP, totalIter, minIter, maxIter);
+					//System.out.printf("\tinstances: %d, work: %d, cp = %d, spWork = %d, minSP = %.2f, maxSP =  %.2f, totalIter = %d, %d, %d\n", nInstance, work, tpWork, spWork, minSP, maxSP, totalIter, minIter, maxIter);
 				}
 				
 				//System.out.printf("[%d %d %d] instance = %d\n", totalChildCnt, minChildCnt, maxChildCnt, cnt);
