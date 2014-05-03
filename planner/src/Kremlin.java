@@ -10,6 +10,7 @@ public class Kremlin {
 		parser.accepts("min-time-reduction").withOptionalArg().describedAs("float").defaultsTo("0.0");
 		parser.accepts("planner").withOptionalArg().defaultsTo("gpu");
 		parser.accepts("overhead").withOptionalArg().defaultsTo("0");
+		parser.accepts("sregion").withOptionalArg().defaultsTo("0");
 		//OptionSet options = parser.parse("--cores=3");
 		parser.accepts("region-count");
 		parser.accepts("verbose");
@@ -39,6 +40,10 @@ public class Kremlin {
 		switch(type) {
 		case Profiler:			 
 			KremlinProfiler.run();
+			break;
+
+		case Query:			 
+			KremlinQuery.run();
 			break;
 
 		case GPU:			 

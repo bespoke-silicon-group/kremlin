@@ -3,6 +3,7 @@ package planner;
 import java.util.*;
 
 public enum PlannerType {
+	Query,
 	Profiler,
 	Cilk,
 	GPU,
