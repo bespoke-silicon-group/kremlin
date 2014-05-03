@@ -412,7 +412,7 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 
 	MSG(0, "\n");
 	MSG(0, "[+++] region [type %u, level %d, sid 0x%llx] start: %llu\n",
-        region->regionType, regionType, level, region->regionId, getCurrentTime());
+        region->regionType, level, region->regionId, getCurrentTime());
     incIndentTab(); // only affects debug printing
 
 	// func region allocates a new RShadow Table.

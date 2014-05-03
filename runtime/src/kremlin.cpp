@@ -75,9 +75,11 @@ int main(int argc, char* argv[]) {
 
 	kremlin_config.print();
 
+#if 0
 	for (unsigned i = 0; i < program_args.size(); ++i) {
 		MSG(0,"program arg %u: %s\n", i, program_args[i]);
 	}
+#endif
 
 	if (profiler == NULL) initProfiler();
 	profiler->enable();

@@ -345,7 +345,7 @@ static void emitStat(FILE *fp, ProfileNodeStats *stat) {
 	assert(fp != NULL);
 	assert(stat != NULL);
 
-	MSG(DEBUG_CREGION, "\tstat: sWork = %d, pWork = %d, nInstance = %d\n", 
+	MSG(DEBUG_CREGION, "\tstat: work = %llu, spWork = %llu, nInstance = %llu\n", 
 		stat->total_work, stat->self_par_per_work, stat->num_instances);
 		
 	fwrite(&stat->num_instances, sizeof(Int64), 1, fp);
@@ -387,7 +387,7 @@ static void writeRegionStats(FILE *fp, ProfileNode *node, UInt level) {
 	assert(node->getStatSize() > 0);
 
 	UInt64 stat_size = node->getStatSize();
-	MSG(DEBUG_CREGION, "Emitting Node %d with %d stats\n", node->id, stat_size);
+	MSG(DEBUG_CREGION, "Emitting Node %llu with %llu stats\n", node->id, stat_size);
 	
 	if (isEmittable(level)) {
 		numEntries++;

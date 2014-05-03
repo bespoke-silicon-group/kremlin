@@ -10,6 +10,7 @@ public class Kremlin {
 		parser.accepts("min-time-reduction").withOptionalArg().describedAs("float").defaultsTo("0.0");
 		parser.accepts("planner").withOptionalArg().defaultsTo("gpu");
 		parser.accepts("overhead").withOptionalArg().defaultsTo("0");
+		parser.accepts("sregion").withOptionalArg().defaultsTo("0");
 		//OptionSet options = parser.parse("--cores=3");
 		parser.accepts("region-count");
 		parser.accepts("verbose");
@@ -17,7 +18,7 @@ public class Kremlin {
 	}
 	
 	static void printBanner() {
-		System.out.println("Kremlin Ver 0.1");
+		System.out.println("Kremlin Planner Ver 0.2");
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -39,6 +40,10 @@ public class Kremlin {
 		switch(type) {
 		case Profiler:			 
 			KremlinProfiler.run();
+			break;
+
+		case Query:			 
+			KremlinQuery.run();
 			break;
 
 		case GPU:			 

@@ -326,7 +326,7 @@ public:
 	void disable() { this->enabled = false; }
 	bool isEnabled() { return this->enabled; }
 
-	int getCurrentTime() { return this->curr_time; }
+	Time getCurrentTime() { return this->curr_time; }
 	int getCurrentLevel() { return this->curr_level; }
 	Level getCurrentLevelIndex() { return curr_level - min_level; }
 	int getMinLevel() { return this->min_level; }

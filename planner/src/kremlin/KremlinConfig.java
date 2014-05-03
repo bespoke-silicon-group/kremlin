@@ -16,6 +16,7 @@ public class KremlinConfig {
 	boolean showRegionCount = true;
 	boolean verbose = false;
 	double thresholdReduction = 5.0;	
+	long sregionQueryId = 0;
 	PlannerType type;
 	
 	/*
@@ -40,6 +41,17 @@ public class KremlinConfig {
 		String plannerString = (String)set.valueOf("planner");
 		this.type = PlannerType.fromString(plannerString);
 		if (this.type == null) this.type = PlannerType.GPU;
+
+		// @TRICKY: Java doesn't like to read in Longs that are 64 bits 
+		// and have a 1 in the most significant bit.
+		String s = (String)set.valueOf("sregion");
+		if(s.length() == 16 && s.charAt(0) > '7') {
+			this.sregionQueryId = Long.valueOf(s.substring(1), 16);
+			this.sregionQueryId |= (1L << 63);
+		}
+		else {
+			this.sregionQueryId = Long.valueOf(s, 16);
+		}
 		
 		this.thresholdReduction = Float.valueOf((String)set.valueOf("min-time-reduction"));
 		if (set.has("verbose")) this.verbose = true;
@@ -60,4 +72,5 @@ public class KremlinConfig {
 	}
 	public static boolean showRegionCount() { return instance.showRegionCount; }
 	public static PlannerType getPlanner() { return instance.type; }
+	public static Long getSRegionQueryId() { return instance.sregionQueryId; }
 }
