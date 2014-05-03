@@ -18,7 +18,7 @@ public class Kremlin {
 	}
 	
 	static void printBanner() {
-		System.out.println("Kremlin Ver 0.1");
+		System.out.println("Kremlin Planner Ver 0.2");
 	}
 
 	public static void main(String[] args) throws Exception {
