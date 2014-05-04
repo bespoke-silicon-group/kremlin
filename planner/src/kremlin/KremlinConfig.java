@@ -46,7 +46,19 @@ public class KremlinConfig {
 		// and have a 1 in the most significant bit.
 		String s = (String)set.valueOf("sregion");
 		if(s.length() == 16 && s.charAt(0) > '7') {
-			this.sregionQueryId = Long.valueOf(s.substring(1), 16);
+			char fudge;
+			switch (s.charAt(0)) {
+				case '8': fudge = '0'; break;
+				case '9': fudge = '1'; break;
+				case 'a': fudge = '2'; break;
+				case 'b': fudge = '3'; break;
+				case 'c': fudge = '4'; break;
+				case 'd': fudge = '5'; break;
+				case 'e': fudge = '6'; break;
+				case 'f': fudge = '7'; break;
+				default: fudge = 'x'; break;
+			}
+			this.sregionQueryId = Long.valueOf(fudge + s.substring(1), 16);
 			this.sregionQueryId |= (1L << 63);
 		}
 		else {
