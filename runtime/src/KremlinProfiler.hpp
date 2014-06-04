@@ -33,8 +33,8 @@ private:
 
 	// program region management
 	std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > program_regions;
-	Version* vArray;
-	Time* tArray;
+	Version* level_versions;
+	Time* level_times;
 	static const unsigned int arraySize = 512;
 	Version nextVersion;
 
@@ -83,20 +83,20 @@ private:
 	}
 
 	void initVersionArray() {
-		vArray = new Version[arraySize];
-		for (unsigned i = 0; i < arraySize; ++i) vArray[i] = 0;
+		level_versions = new Version[arraySize];
+		for (unsigned i = 0; i < arraySize; ++i) level_versions[i] = 0;
 	}
 
 	void initTimeArray() {
-		tArray = new Time[arraySize];
-		for (unsigned i = 0; i < arraySize; ++i) tArray[i] = 0;
+		level_times = new Time[arraySize];
+		for (unsigned i = 0; i < arraySize; ++i) level_times[i] = 0;
 	}
 
-	Time* getTimeArray() { return tArray; }
-	Version* getVersionAtLevel(Level level) { return &vArray[level]; }
+	Time* getLevelTimes() { return level_times; }
+	Version* getVersionAtLevel(Level level) { return &level_versions[level]; }
 
 	void issueVersionToLevel(Level level) {
-		vArray[level] = nextVersion++;	
+		level_versions[level] = nextVersion++;	
 	}
 
 	/*!

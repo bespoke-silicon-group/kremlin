@@ -362,7 +362,7 @@ template <bool store_const>
 void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg) {
 	assert(mem_access_size <= 8);
 
-	Time* dest_addr_times = getTimeArray();
+	Time* dest_addr_times = getLevelTimes();
 
 	Index end_index = getCurrNumInstrumentedLevels();
     for (Index index = 0; index < end_index; ++index) {
