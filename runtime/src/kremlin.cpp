@@ -203,14 +203,18 @@ void _KWork(UInt32 work) {
  * Region Management
  *****************************************************************/
 
-std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > ProgramRegion::program_regions;
-unsigned int ProgramRegion::arraySize = 512;
-Version* ProgramRegion::vArray = NULL;
-Time* ProgramRegion::tArray = NULL;
-Version ProgramRegion::nextVersion = 0;
+ProgramRegion* KremlinProfiler::getRegionAtLevel(Level l) {
+	assert(l < program_regions.size());
+	ProgramRegion* ret = program_regions[l];
+	ret->sanityCheck();
+	return ret;
+}
 
-
-
+void KremlinProfiler::increaseNumRegions(unsigned num_new) {
+	for (unsigned i = 0; i < num_new; ++i) {
+		program_regions.push_back(new ProgramRegion());
+	}
+}
 
 void checkRegion() {
 #if 0
@@ -636,6 +640,9 @@ void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
 void printActiveRegionStack() {
 	fprintf(stdout,"Current Regions:\n");
 
+// got rid of this because getRegionAtLevel is private to KremlinProfiler now.
+// TODO: resurrect this somehow
+#if 0
 	int i;
 	Level level = profiler->getCurrentLevel();
 
@@ -658,6 +665,7 @@ void printActiveRegionStack() {
     	UInt64 work = profiler->getCurrentTime() - region->start;
 		fprintf(stdout,"SID=%llu, WORK'=%llu, CP=%llu\n",region->regionId,work,region->cp);
 	}
+#endif
 }
 
 void printControlDepTimes() {
@@ -682,6 +690,9 @@ void printRegisterTimes(Reg reg) {
 
 void printMemoryTimes(Addr addr, Index size) {
 	fprintf(stdout,"Timestamps for Mem[%p]:\n",addr);
+// again, does nothing because moved program region stuff to KremlinProfiler
+// TODO: resurrect
+#if 0
 	Index index;
 	Index depth = profiler->getCurrNumInstrumentedLevels();
 	Level minLevel = profiler->getLevelForIndex(0);
@@ -691,6 +702,7 @@ void printMemoryTimes(Addr addr, Index size) {
 		Time ts = tArray[index];
 		fprintf(stdout,"\t#%u: %llu\n",index,ts);
 	}
+#endif
 }
 
 #if 0

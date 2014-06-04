@@ -163,7 +163,7 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
 	if (use_shadow_mem_dependence) {
 		Index region_depth = getCurrNumInstrumentedLevels();
 		Level min_level = getLevelForIndex(0); // XXX: this doesn't seem right (-sat)
-		src_addr_times = getShadowMemory()->get(src_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), mem_access_size);
+		src_addr_times = getShadowMemory()->get(src_addr, end_index, getVersionAtLevel(min_level), mem_access_size);
 
 //#ifdef KREMLIN_DEBUG
 //		printLoadDebugInfo(src_addr, dest_reg, src_addr_times, end_index);
@@ -172,7 +172,7 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
 
     for (Index index = 0; index < end_index; ++index) {
 		Level i = getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
+		ProgramRegion* region = getRegionAtLevel(i);
 
 		Time dest_time = 0;
 		
@@ -362,12 +362,12 @@ template <bool store_const>
 void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg) {
 	assert(mem_access_size <= 8);
 
-	Time* dest_addr_times = ProgramRegion::getTimeArray();
+	Time* dest_addr_times = getTimeArray();
 
 	Index end_index = getCurrNumInstrumentedLevels();
     for (Index index = 0; index < end_index; ++index) {
 		Level i = getLevelForIndex(index);
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
+		ProgramRegion* region = getRegionAtLevel(i);
 
 		Time control_dep_time = getControlDependenceAtIndex(index);
         Time dest_time = control_dep_time + STORE_COST;
@@ -391,7 +391,7 @@ void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_si
 #endif
 
 	Level min_level = getLevelForIndex(0); // XXX: see notes in KLoads
-	getShadowMemory()->set(dest_addr, end_index, ProgramRegion::getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
+	getShadowMemory()->set(dest_addr, end_index, getVersionAtLevel(min_level), dest_addr_times, mem_access_size);
 }
 
 
@@ -403,11 +403,12 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 
     incrementLevel();
     Level level = getCurrentLevel();
-	if (level == ProgramRegion::getNumRegions()) {
-		ProgramRegion::doubleNumRegions();
+	if (level == getNumRegions()) {
+		doubleNumRegions();
 	}
 	
-	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
+	ProgramRegion* region = getRegionAtLevel(level);
+	issueVersionToLevel(level);
 	region->init(regionId, regionType, level, getCurrentTime());
 
 	MSG(0, "\n");
@@ -487,7 +488,7 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
     if (!enabled) return; 
 
     Level level = getCurrentLevel();
-	ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
+	ProgramRegion* region = getRegionAtLevel(level);
     SID sid = regionId;
 	SID parentSid = 0;
     UInt64 work = getCurrentTime() - region->start;
@@ -523,7 +524,7 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
 	// so no need to compare with max level.
 
 	if (level > getMinLevel()) {
-		ProgramRegion* parentRegion = ProgramRegion::getRegionAtLevel(level - 1);
+		ProgramRegion* parentRegion = getRegionAtLevel(level - 1);
     	parentSid = parentRegion->regionId;
 		parentRegion->childrenWork += work;
 		parentRegion->childrenCP += cp;
@@ -581,7 +582,7 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 	// find deepest level with region id that matches parameter regionId
 	Level end_level = getCurrentLevel()+1;
 	for (unsigned i = getCurrentLevel(); i >= 0; --i) {
-		if (ProgramRegion::getRegionAtLevel(i)->regionId == regionId) {
+		if (getRegionAtLevel(i)->regionId == regionId) {
 			end_level = i;
 			break;
 		}
@@ -590,7 +591,7 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 	
 	while (getCurrentLevel() > end_level) {
 		Level level = getCurrentLevel();
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(level);
+		ProgramRegion* region = getRegionAtLevel(level);
 
 		sid = region->regionId;
 		UInt64 work = getCurrentTime() - region->start;
@@ -626,7 +627,7 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 
 		SID parentSid = 0;
 		if (level > getMinLevel()) {
-			ProgramRegion* parentRegion = ProgramRegion::getRegionAtLevel(level - 1);
+			ProgramRegion* parentRegion = getRegionAtLevel(level - 1);
 			parentSid = parentRegion->regionId;
 			parentRegion->childrenWork += work;
 			parentRegion->childrenCP += cp;
@@ -1188,7 +1189,7 @@ void KremlinProfiler::init() {
 	initRegionTree();
 
 	initShadowMemory();
-	ProgramRegion::initProgramRegions(REGION_INIT_SIZE);
+	initProgramRegions(REGION_INIT_SIZE);
 }
 
 /*
@@ -1199,7 +1200,7 @@ void KremlinProfiler::init() {
 void KremlinProfiler::cleanup() {
     Level level = getCurrentLevel();
 	for (int i = level; i >= 0; --i) {
-		ProgramRegion* region = ProgramRegion::getRegionAtLevel(i);
+		ProgramRegion* region = getRegionAtLevel(i);
 		handleRegionExit(region->regionId, region->regionType);
 	}
 }
@@ -1221,7 +1222,7 @@ void KremlinProfiler::deinit() {
 	deinitShadowMemory();
 	deinitFunctionArgQueue();
 	deinitControlDependences();
-	ProgramRegion::deinitProgramRegions();
+	deinitProgramRegions();
 	
 	DebugDeinit();
 }

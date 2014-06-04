@@ -31,6 +31,13 @@ private:
 	Index curr_num_instrumented_levels; // number of regions currently instrumented
 	bool instrument_curr_level; // whether we should instrument the current level
 
+	// program region management
+	std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > program_regions;
+	Version* vArray;
+	Time* tArray;
+	static const unsigned int arraySize = 512;
+	Version nextVersion;
+
 	// A vector used to represent the call stack.
 	std::vector<FunctionRegion*, MPoolLib::PoolAllocator<FunctionRegion*> > callstack;
 
@@ -52,6 +59,45 @@ private:
 	// Width and height of control dependence table.
 	static const unsigned CDEP_ROW = 256;
 	static const unsigned CDEP_COL = 64;
+
+	ProgramRegion* getRegionAtLevel(Level l);
+	void increaseNumRegions(unsigned num_new);
+
+	unsigned getNumRegions() { return program_regions.size(); }
+	void doubleNumRegions() {
+		increaseNumRegions(program_regions.size());
+	}
+
+	void initProgramRegions(unsigned num_regions) {
+		assert(program_regions.empty());
+		increaseNumRegions(num_regions);
+
+		initVersionArray();
+		initTimeArray();
+	}
+
+	void deinitProgramRegions() { 
+		for (unsigned i = 0; i < program_regions.size(); ++i)
+			delete program_regions[i];
+		program_regions.clear();
+	}
+
+	void initVersionArray() {
+		vArray = new Version[arraySize];
+		for (unsigned i = 0; i < arraySize; ++i) vArray[i] = 0;
+	}
+
+	void initTimeArray() {
+		tArray = new Time[arraySize];
+		for (unsigned i = 0; i < arraySize; ++i) tArray[i] = 0;
+	}
+
+	Time* getTimeArray() { return tArray; }
+	Version* getVersionAtLevel(Level level) { return &vArray[level]; }
+
+	void issueVersionToLevel(Level level) {
+		vArray[level] = nextVersion++;	
+	}
 
 	/*!
 	 * Initializes the control dependence table to size of CDEP_ROW by

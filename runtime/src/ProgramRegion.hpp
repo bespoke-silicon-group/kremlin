@@ -2,16 +2,9 @@
 #define PROGRAM_REGION_H
 
 #include "ktypes.h"
-#include "PoolAllocator.hpp"
-#include <vector>
 
 class ProgramRegion {
   private:
-	static std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > program_regions;
-	static unsigned int arraySize;
-	static Version* vArray;
-	static Time* tArray;
-	static Version nextVersion;
 	static const UInt32 ERROR_CHECK_CODE = 0xDEADBEEF;
 
   public:
@@ -40,8 +33,6 @@ class ProgramRegion {
 				childCount(0) {}
 
 	void init(SID sid, RegionType regionType, Level level, Time start_time) {
-		ProgramRegion::issueVersionToLevel(level);
-
 		regionId = sid;
 		start = start_time;
 		cp = 0ULL;
@@ -65,56 +56,6 @@ class ProgramRegion {
 	}
 
 	void updateCriticalPathLength(Timestamp value);
-
-	static ProgramRegion* getRegionAtLevel(Level l) {
-		assert(l < program_regions.size());
-		ProgramRegion* ret = program_regions[l];
-		ret->sanityCheck();
-		return ret;
-	}
-
-	static void increaseNumRegions(unsigned num_new) {
-		for (unsigned i = 0; i < num_new; ++i) {
-			program_regions.push_back(new ProgramRegion());
-		}
-	}
-
-	static unsigned getNumRegions() { return program_regions.size(); }
-	static void doubleNumRegions() {
-		increaseNumRegions(program_regions.size());
-	}
-
-	static void initProgramRegions(unsigned num_regions) {
-		assert(program_regions.empty());
-		increaseNumRegions(num_regions);
-
-		initVersionArray();
-		initTimeArray();
-	}
-
-	static void deinitProgramRegions() { 
-		for (unsigned i = 0; i < program_regions.size(); ++i)
-			delete program_regions[i];
-		program_regions.clear();
-	}
-
-	static void initVersionArray() {
-		vArray = new Version[arraySize];
-		for (unsigned i = 0; i < arraySize; ++i) vArray[i] = 0;
-	}
-
-	static void initTimeArray() {
-		tArray = new Time[arraySize];
-		for (unsigned i = 0; i < arraySize; ++i) tArray[i] = 0;
-	}
-
-	static Time* getTimeArray() { return tArray; }
-	static Version* getVersionAtLevel(Level level) { return &vArray[level]; }
-
-	static void issueVersionToLevel(Level level) {
-		vArray[level] = nextVersion++;	
-	}
-
 };
 
 #endif
