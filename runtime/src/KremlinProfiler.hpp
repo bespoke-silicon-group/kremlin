@@ -56,6 +56,8 @@ private:
 	int cdt_read_ptr;
 	Time* cdt_current_base;
 
+	unsigned int doall_threshold;
+
 	// Width and height of control dependence table.
 	static const unsigned CDEP_ROW = 256;
 	static const unsigned CDEP_COL = 64;
@@ -326,6 +328,7 @@ public:
 		this->cdt_read_ptr = 0;
 		this->cdt_current_base = NULL;
 		this->shadow_mem = NULL;
+		this->doall_threshold = 5;
 	}
 
 	~KremlinProfiler() {}

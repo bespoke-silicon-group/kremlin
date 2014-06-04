@@ -499,8 +499,7 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
 
 	assert(region->regionId == regionId);
     UInt64 cp = region->cp;
-#define DOALL_THRESHOLD	5
-	UInt64 is_doall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
+	UInt64 is_doall = (cp - region->childMaxCP) < doall_threshold ? 1 : 0;
 	if (regionType != RegionLoop)
 		is_doall = 0;
 	//fprintf(stderr, "is_doall = %d\n", is_doall);
@@ -601,8 +600,7 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 			region->regionType, level, sid, getCurrentTime(), region->cp, work);
 
 		UInt64 cp = region->cp;
-#define DOALL_THRESHOLD	5
-		UInt64 is_doall = (cp - region->childMaxCP) < DOALL_THRESHOLD ? 1 : 0;
+		UInt64 is_doall = (cp - region->childMaxCP) < doall_threshold ? 1 : 0;
 		if (region->regionType != RegionLoop)
 			is_doall = 0;
 		//fprintf(stderr, "is_doall = %d\n", is_doall);

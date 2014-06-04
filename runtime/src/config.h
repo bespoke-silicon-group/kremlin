@@ -29,6 +29,8 @@ private:
 
 	std::string profile_output_filename;
 	std::string debug_output_filename;
+	
+	// TODO: allow "doall_threshold" to be a config option
 
 public:
 
