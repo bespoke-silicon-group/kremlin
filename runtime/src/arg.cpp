@@ -28,7 +28,7 @@ static char* parseOptionStr(char* option_str) {
 		return dbg_level_str;
 	}
 	else {
-		fprintf(stderr,"ERROR: Couldn't parse int from option (%s)\n",option_str);
+		fprintf(stderr,"ERROR: Couldn't parse string from option (%s)\n",option_str);
 	}
 }
 
@@ -58,7 +58,7 @@ void parseKremlinOptions(KremlinConfiguration &config,
 	program_args.push_back(strdup(argv[0])); // program name is always a program arg
 
 	for(unsigned i = 1; i < argc; ++i) {
-		//MSG(0,"parsing arg: %s\n",argv[i]);
+		//fprintf(stderr,"parsing arg: %s\n",argv[i]);
 		char *str_start;
 
 #ifdef KREMLIN_DEBUG
