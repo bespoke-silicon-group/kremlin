@@ -1170,15 +1170,14 @@ void KremlinProfiler::handleReturnConst() {
     }
 }
 
-#define REGION_INIT_SIZE	64
+#define REGION_INIT_SIZE	4
 
 void KremlinProfiler::init() {
-	DebugInit();
     if (initialized) {
-        MSG(0, "kremlinInit skipped\n");
 		return;
     }
 	initialized = true;
+	DebugInit(true);
 
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
         getMinLevel(), getMaxLevel(), getArraySize());

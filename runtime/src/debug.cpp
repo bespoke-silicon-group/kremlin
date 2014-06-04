@@ -24,8 +24,9 @@ static char tabString[2000];
 static int tabLevel = 0;
 static FILE* stream;
 
-void DebugInit() {
-	stream = fopen(kremlin_config.getDebugOutputFilename(), "w");
+void DebugInit(bool pre_init) {
+	const char* df = pre_init ? "/dev/null" : kremlin_config.getDebugOutputFilename();
+	stream = fopen(df, "w");
 	if (stream == NULL) {
 		fprintf(stderr,"ERROR: could not open file for writing: %s\n",kremlin_config.getDebugOutputFilename());
 		exit(1);
