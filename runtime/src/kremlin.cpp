@@ -216,6 +216,12 @@ void KremlinProfiler::increaseNumRegions(unsigned num_new) {
 	}
 }
 
+void KremlinProfiler::deinitProgramRegions() { 
+	for (unsigned i = 0; i < program_regions.size(); ++i)
+		delete program_regions[i];
+	program_regions.clear();
+}
+
 void checkRegion() {
 #if 0
 	int bug = 0;

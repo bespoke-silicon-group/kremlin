@@ -76,11 +76,7 @@ private:
 		initTimeArray();
 	}
 
-	void deinitProgramRegions() { 
-		for (unsigned i = 0; i < program_regions.size(); ++i)
-			delete program_regions[i];
-		program_regions.clear();
-	}
+	void deinitProgramRegions();
 
 	void initVersionArray() {
 		level_versions = new Version[arraySize];
