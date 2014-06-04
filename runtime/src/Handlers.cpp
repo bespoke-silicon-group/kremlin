@@ -1170,7 +1170,7 @@ void KremlinProfiler::handleReturnConst() {
     }
 }
 
-#define REGION_INIT_SIZE	4
+#define REGION_INIT_SIZE	64
 
 void KremlinProfiler::init() {
     if (initialized) {
