@@ -1171,8 +1171,6 @@ void KremlinProfiler::handleReturnConst() {
     }
 }
 
-#define REGION_INIT_SIZE	64
-
 void KremlinProfiler::init() {
     if (initialized) {
 		return;
@@ -1189,7 +1187,7 @@ void KremlinProfiler::init() {
 	initRegionTree();
 
 	initShadowMemory();
-	initProgramRegions(REGION_INIT_SIZE);
+	initProgramRegions(INIT_NUM_REGIONS);
 }
 
 /*

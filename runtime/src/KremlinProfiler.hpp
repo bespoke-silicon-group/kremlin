@@ -60,6 +60,7 @@ private:
 	static const unsigned CDEP_ROW = 256;
 	static const unsigned CDEP_COL = 64;
 
+	static const unsigned INIT_NUM_REGIONS = 64;
 	ProgramRegion* getRegionAtLevel(Level l);
 	void increaseNumRegions(unsigned num_new);
 
