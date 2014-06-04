@@ -201,7 +201,7 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
 		setRegisterTimeAtIndex(dest_time, dest_reg, index);
 
 		if (update_cp) {
-        	region->updateCriticalPathLength(dest_time);
+			region->updateCriticalPathLength(dest_time);
 		}
     }
 }
