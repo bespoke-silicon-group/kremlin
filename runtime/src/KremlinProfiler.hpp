@@ -311,25 +311,24 @@ private:
 
 
 public:
-	KremlinProfiler(Level min, Level max) {
-		this->enabled = false;
-		this->initialized = false;
-		this->curr_time = 0;
-		this->curr_level = -1;
-		this->min_level = min;
-		this->max_level = max;
-		this->max_active_level = 0;
-		this->curr_num_instrumented_levels = 0;
-		this->instrument_curr_level = false;
-		this->waiting_for_register_table_init = false;
-		this->num_function_regions_entered = 0;
-		this->num_register_tables_setup = 0;
-		this->control_dependence_table = NULL;
-		this->cdt_read_ptr = 0;
-		this->cdt_current_base = NULL;
-		this->shadow_mem = NULL;
-		this->doall_threshold = 5;
-	}
+	KremlinProfiler(Level min, Level max) :
+		enabled(false),
+		initialized(false),
+		curr_time(0),
+		curr_level(-1),
+		min_level(min),
+		max_level(max),
+		max_active_level(0),
+		curr_num_instrumented_levels(0),
+		instrument_curr_level(false),
+		waiting_for_register_table_init(false),
+		num_function_regions_entered(0),
+		num_register_tables_setup(0),
+		control_dependence_table(NULL),
+		cdt_read_ptr(0),
+		cdt_current_base(NULL),
+		shadow_mem(NULL),
+		doall_threshold(5) {}
 
 	~KremlinProfiler() {}
 
