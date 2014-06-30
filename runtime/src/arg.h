@@ -7,6 +7,6 @@ class KremlinConfiguration;
 
 void parseKremlinOptions(KremlinConfiguration &config, 
 							int argc, char* argv[], 
-							std::vector<char*> &program_args);
+							std::vector<char*> &native_args);
 
 #endif // _KREMLIN_ARGPARSE_HPP_

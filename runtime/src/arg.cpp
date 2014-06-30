@@ -1,38 +1,20 @@
 // C++ headers
-#include <vector>
 #include <string>
 #include <sstream>
+#include <iostream>
 
-#include "arg.h"
+// following two includes are needed for GNU GetOpt arg parsing
+#include <getopt.h>
+#include <unistd.h>
+
+#include "arg.h" // includes vector
 #include "config.h"
 
 #include "debug.h"
 
-static int parseOptionInt(char* option_str) {
-	char *dbg_level_str = strtok(option_str,"= ");
-	dbg_level_str = strtok(NULL,"= ");
+// TODO: convert uses of atoi to std::stoi when C++11 more common
 
-	if(dbg_level_str) {
-		return atoi(dbg_level_str);
-	}
-	else {
-		fprintf(stderr,"ERROR: Couldn't parse int from option (%s)\n",option_str);
-	}
-}
-
-static char* parseOptionStr(char* option_str) {
-	char *dbg_level_str = strtok(option_str,"= ");
-	dbg_level_str = strtok(NULL,"= ");
-
-	if(dbg_level_str) {
-		return dbg_level_str;
-	}
-	else {
-		fprintf(stderr,"ERROR: Couldn't parse string from option (%s)\n",option_str);
-	}
-}
-
-
+#if 0
 static void getCustomOutputFilename(KremlinConfiguration &config, std::string& filename) {
 	filename = "kremlin-L";
 	
@@ -51,112 +33,134 @@ static void getCustomOutputFilename(KremlinConfiguration &config, std::string& f
 	
 	filename += ".bin";
 }
+#endif
 
 void parseKremlinOptions(KremlinConfiguration &config, 
 							int argc, char* argv[], 
-							std::vector<char*> &program_args) {
-	program_args.push_back(strdup(argv[0])); // program name is always a program arg
+							std::vector<char*>& native_args) {
+	native_args.push_back(argv[0]); // program name is always a native arg
 
-	for(unsigned i = 1; i < argc; ++i) {
-		//fprintf(stderr,"parsing arg: %s\n",argv[i]);
-		char *str_start;
+	opterr = 0; // unknown opt isn't an error: it's a native program opt
 
+	int disable_rs = 0;
+	int enable_sm_compress = 0;
 #ifdef KREMLIN_DEBUG
-		str_start = strstr(argv[i],"kremlin-idbg");
-
-		if(str_start) {
-			__kremlin_idbg = 1;
-			__kremlin_idbg_run_state = Waiting;
-			continue;
-		}
+	int enable_idbg;
 #endif
 
-		str_start = strstr(argv[i],"kremlin-disable-rsummary");
-		if(str_start) {
-			config.disableRecursiveRegionSummarization();
-			continue;
-		}
+	while (true)
+	{
+		static struct option long_options[] =
+		{
+			{"kremlin-disable-rsummary", no_argument, &disable_rs, 1},
+			{"kremlin-compress-shadow-mem", no_argument, &enable_sm_compress, 1},
+#ifdef KREMLIN_DEBUG
+			{"kremlin-idbg", no_argument, &enable_idbg, 1},
+#endif
 
-		str_start = strstr(argv[i],"kremlin-output");
-		if(str_start) {
-			config.setProfileOutputFilename(parseOptionStr(argv[i]));
-			continue;
-		}
+			{"kremlin-output", required_argument, NULL, 'a'},
+			{"kremlin-log-output", required_argument, NULL, 'b'},
+			{"kremlin-shadow-mem-type", required_argument, NULL, 'c'},
+			{"kremlin-shadow-mem-cache-size", required_argument, NULL, 'd'},
+			{"kremlin-shadow-mem-gc-period", required_argument, NULL, 'e'},
+			{"kremlin-cbuffer-size", required_argument, NULL, 'f'},
+			{"kremlin-min-level", required_argument, NULL, 'g'},
+			{"kremlin-max-level", required_argument, NULL, 'h'},
+			{NULL, 0, NULL, 0} // indicates end of options
+		};
 
-		str_start = strstr(argv[i],"kremlin-log-output");
-		if(str_start) {
-			config.setDebugOutputFilename(parseOptionStr(argv[i]));
-			continue;
-		}
+		int currind = optind; // need to cache this for native arg storage
 
+		int option_index = 0;
+		int c = getopt_long(argc, argv, "abc:d:f:", long_options, &option_index);
 
-		str_start = strstr(argv[i],"--kremlin-shadow-mem-type");
-		if(str_start) {
-			int type = parseOptionInt(argv[i]);
-			assert(type >= 0 && type < 4);
-			switch(type) {
-				case 0: { 
+		// finished processing args
+		if (c == -1) break;
+
+		switch (c) {
+			case 0:
+				// 0 indicates a flag, so nothing to do here.
+				// We'll handle flags after the switch.
+				break;
+
+			case 'a':
+				config.setProfileOutputFilename(optarg);
+				break;
+
+			case 'b':
+				config.setDebugOutputFilename(optarg);
+				break;
+
+			case 'c':
+				if (strcmp(optarg, "base") == 0)
 					config.setShadowMemType(ShadowMemoryBase); 
-					break;
-				}
-				case 1: { 
+				else if (strcmp(optarg, "stv") == 0)
 					config.setShadowMemType(ShadowMemorySTV);
-					break;
-				}
-				case 2: { 
+				else if (strcmp(optarg, "skadu") == 0)
 					config.setShadowMemType(ShadowMemorySkadu);
-					break;
-				}
-				case 3: { 
+				else if (strcmp(optarg, "dummy") == 0)
 					config.setShadowMemType(ShadowMemoryDummy);
-					break;
+				else {
+					std::cerr << "ERROR: Invalid shadow memory type: " << optarg << std::endl;
+					std::cerr << "Valid options are: {skadu, stv, base, dummy}" << std::endl;
+					exit(1);
 				}
-				default: { 
-					assert(0);
+
+				break;
+
+			case 'd':
+				config.setShadowMemCacheSizeInMB(atoi(optarg));
+				break;
+
+			case 'e':
+				config.setShadowMemGarbageCollectionPeriod(atoi(optarg));
+				break;
+
+			case 'f':
+				config.setNumCompressionBufferEntries(atoi(optarg));
+				break;
+
+			case 'g':
+				config.setMinProfiledLevel(atoi(optarg));
+				break;
+
+			case 'h':
+				config.setMaxProfiledLevel(atoi(optarg));
+				break;
+
+			case '?':
+				if (optopt) {
+					native_args.push_back(strdup((char*)(&c)));
 				}
-			}
-			continue;
-		}
+				else {
+					native_args.push_back(argv[currind]);
+				}
+				break;
 
-		str_start = strstr(argv[i],"kremlin-shadow-mem-gc-period");
-		if(str_start) {
-			config.setShadowMemGarbageCollectionPeriod(parseOptionInt(argv[i]));
-			continue;
+			default:
+				abort();
 		}
+	}
 
-		str_start = strstr(argv[i],"kremlin-compress-shadow-mem");
-		if(str_start) {
-			config.enableShadowMemCompression();
-			continue;
-		}
+	// handle some kremlin-specific flags being set
+	if (enable_sm_compress)
+		config.enableShadowMemCompression();
 
-		str_start = strstr(argv[i],"kremlin-cbuffer-size");
-		if(str_start) {
-			config.setNumCompressionBufferEntries(
-							parseOptionInt(argv[i]));
-			continue;
-		}
+	if (disable_rs)
+		config.disableRecursiveRegionSummarization();
 
-		str_start = strstr(argv[i],"kremlin-shadow-mem-cache-size");
-		if(str_start) {
-			config.setShadowMemCacheSizeInMB(parseOptionInt(argv[i]));
-			continue;
-		}
+#ifdef KREMLIN_DEBUG
+	if (enable_idbg) {
+		__kremlin_idbg = 1;
+		__kremlin_idbg_run_state = Waiting;
+	}
+#endif
 
-		str_start = strstr(argv[i],"kremlin-min-level");
-		if(str_start) {
-			config.setMinProfiledLevel(parseOptionInt(argv[i]));
-			continue;
-		}
-
-		str_start = strstr(argv[i],"kremlin-max-level");
-		if(str_start) {
-			config.setMaxProfiledLevel(parseOptionInt(argv[i])+1);
-			continue;
-		}
-		else {
-			program_args.push_back(strdup(argv[i]));
+	// any remaining command line args are considered native
+	if (optind < argc)
+	{
+		while (optind < argc) {
+			native_args.push_back(argv[optind++]);
 		}
 	}
 }
-
