@@ -78,9 +78,7 @@ void KremlinProfiler::zeroRegistersAtIndex(Index index) {
 
 	MSG(3, "zeroRegistersAtIndex col [%d] in table [%d, %d]\n",
 		index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
-	for (Reg i = 0; i < getCurrNumShadowRegisters(); ++i) {
-		setRegisterTimeAtIndex(0ULL, i, index);
-	}
+	shadow_reg_file->zeroCol(index);
 }
 
 Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
