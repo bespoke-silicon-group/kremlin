@@ -66,7 +66,7 @@ be significantly faster.
 kremlin will print out a message if any of the tests failed; if you don't see
 this message then kremlin has been successfully installed.
 
-## Using Kremlin
+## Parallelization Planning with Kremlin
 
 The basic flow for using Kremlin requires three steps:
 
