@@ -76,5 +76,5 @@ Target parallelization platforms include:
 * OpenMP (`--planner=openmp`): Based on OpenMP 2.0
 * Profiler (`--planner=profiler`): No plan, just parallelism statistics for
   your program's regions.
-* GPU (`--planner=gpu`): Based on OpenCL
-* Cilk (`--planner=cilk`): Based on Cilk++
+* GPU (`--planner=gpu`): Based on OpenCL. This planner is experimental.
+* Cilk (`--planner=cilk`): Based on Cilk++. This planner is experimental.
