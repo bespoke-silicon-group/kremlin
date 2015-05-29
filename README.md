@@ -1,3 +1,3 @@
-# kremlin: like gprof but for parallelism
+# kremlin: like gprof but for parallelization
 
-kremlin is a tool that allows programmers to discover parallel parts of their programs and come up with an efficient plan to exploit this parallelism.
+ Kremlin is a tool that, given a serial program, tells you which regions to parallelize.
