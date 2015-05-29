@@ -16,8 +16,8 @@ parallelization plan for your program.
 
 ```bash
 make CC=kremlin-gcc
-./kmeans data.large.txt
-kremlin --planner=openmp
+./demo data.large.txt
+kremlin
 
 PlannerType = OpenMP
 Target : NumCore = 4, Overhead = 0,  Cache = 0 MB, BW= 0 MB/s
@@ -30,7 +30,14 @@ Parallel: 45
 
 [ 1] TimeRed(4)=12.77%, TimeRed(Ideal)=15.93%, Cov=17.03%, SelfP=15.50, DOALL
   LOOP     main.c [  11 -   13]:        main
+
+...
 ```
+
+The output of the planner lists the regions of the program that you should
+parallelize, in the order that they should be parallelized.
+It also gives some basic information about each suggestion, including the
+reduction in time if parallelized and the type of parallelism present.
 
 ## Getting Started
 
@@ -60,3 +67,4 @@ The basic flow for using Kremlin requires three steps:
 1. Run the parallelism planner by invoking the `kremlin` program within the
    same directory that you build/ran your program.
    By default, Kremlin gives you a plan based on OpenMP.
+   Run `kremlin -help` for a list of options that Kremlin's planner accepts.
