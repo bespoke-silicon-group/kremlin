@@ -66,7 +66,15 @@ The basic flow for using Kremlin requires three steps:
 1. Run your program as you normally would.
 1. Run the parallelism planner by invoking the `kremlin` program within the
    same directory that you build/ran your program.
-   By default, Kremlin gives you a plan tailored for using OpenMP on a system
-   with 4 cores.
-   Run `kremlin -help` for a list of options--including setting the planner
-   type and number of cores--that Kremlin's planner accepts.
+
+By default, Kremlin gives you a plan tailored for using OpenMP on a system with
+4 cores.
+Run `kremlin -help` for a list of options that Kremlin's parallelism planner
+accepts.
+Target parallelization platforms include:
+
+* OpenMP (`--planner=openmp`): Based on OpenMP 2.0
+* Profiler (`--planner=profiler`): No plan, just parallelism statistics for
+  your program's regions.
+* GPU (`--planner=gpu`): Based on OpenCL
+* Cilk (`--planner=cilk`): Based on Cilk++
