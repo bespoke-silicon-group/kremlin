@@ -41,8 +41,17 @@ reduction in time if parallelized and the type of parallelism present.
 
 ## Getting Started
 
+Before you get started, you will need the following software installed:
+
+* A modern C and C++ compiler (GCC or Clang have been tested; others might work too.)
+* Java JDK (1.6 or above)
+* ant
+* python with argparse (2.7 or above recommended)
+* scons
+* The C++ Boost Library (1.42 or above)
+
 To get started clone the kremlin repository and simply run `make` inside the
-kremlin directory.
+`kremlin` directory.
 This will take some time as it has to compile LLVM.
 
 After compilation is complete, update your shell's `PATH` to point to Kremlin's
