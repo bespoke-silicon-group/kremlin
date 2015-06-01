@@ -90,6 +90,8 @@ Target parallelization platforms include:
 * GPU (`--planner=gpu`): Based on OpenCL. This planner is experimental.
 * Cilk (`--planner=cilk`): Based on Cilk++. This planner is experimental.
 
-## More Details
+## More Details and Getting Help
 
-For more details, head to [Kremlin's Bitbucket wiki](https://bitbucket.org/elsaturnino/kremlin/wiki/Home).
+For more details about using Kremlin and how it works, head to [Kremlin's Bitbucket wiki](https://bitbucket.org/elsaturnino/kremlin/wiki/Home).
+
+If you are running into problems, please use our issue tracker here on Bitbucket.
