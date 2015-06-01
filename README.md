@@ -50,6 +50,8 @@ Before you get started, you will need the following software installed:
 * scons
 * The C++ Boost Library (1.42 or above)
 
+Kremlin has been tested on Mac OS X (10.8 and above) and RHEL 7 but should work well on any modern Linux distribution.
+
 To get started clone the kremlin repository and simply run `make` inside the
 `kremlin` directory.
 This will take some time as it has to compile LLVM.
