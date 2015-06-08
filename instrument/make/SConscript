@@ -2,7 +2,7 @@ import os
 
 Import('env','input_files', 'target', 'output_file', 'make_output_file')
 
-llvm_ver = 3.2
+llvm_ver = '3.6.1'
 
 kremlin_root_dir = os.path.abspath(os.path.join(os.getcwd(),"../..")) + os.sep
 llvm_bin_dir = kremlin_root_dir + 'instrument/llvm/install/bin/'
@@ -12,9 +12,8 @@ llvm_clang = llvm_bin_dir + 'clang'
 llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
 
-kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/llvm/' + \
-	'llvm-' + str(llvm_ver) + '-obj/Debug+Asserts/lib/KremlinInstrument' + \
-	env['SHLIBSUFFIX']
+kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/src/' + \
+	'libKremlinInstrument' + env['SHLIBSUFFIX']
 
 #conf = Configure(env)
 #if not config.CheckHeader
@@ -89,9 +88,7 @@ def compile_files(source_filenames):
 		so_srcs += Glob(glob_str)
 
 	so = env.Command(kremlin_llvm_shared_obj, so_srcs,
-						'make -C ' + kremlin_instrument_src_dir + \
-						' LEVEL=' + '../llvm/llvm-' + str(llvm_ver) + \
-                        '-obj DEBUG=1')
+						'cmake --build ' + kremlin_root_dir + 'instrument')
 	asm_nodes = []
 	for filename in source_filenames:
 		filename_split = str.split(filename,'.')
