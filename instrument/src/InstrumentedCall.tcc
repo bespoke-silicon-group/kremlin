@@ -96,6 +96,7 @@ void InstrumentedCall<Callable>::instrument()
 template <typename Callable>
 std::string& InstrumentedCall<Callable>::formatToString(std::string& buf) const
 {
+	LOG_DEBUG() << "Formatting to string: " << *ci << "\n";
     std::ostringstream os;
     std::string fileName = "??";
     std::string funcName = "??";
@@ -105,11 +106,27 @@ std::string& InstrumentedCall<Callable>::formatToString(std::string& buf) const
     {
         DILocation loc(n);                      // get location info from metadata
 
-        fileName = loc.getFilename();
+		std::string rawName = loc.getFilename();
+		size_t substr_start = rawName.rfind('/');
+		if (substr_start == std::string::npos) {
+			substr_start = 0;
+		}
+		else {
+			substr_start++;
+		}
+		fileName = rawName.substr(substr_start);
+		funcName = ci->getParent()->getParent()->getName();
+		if (funcName.at(0) == '~') funcName.replace(0, 1, "destructor_");
+
         line = loc.getLineNumber();
         
-        LOG_DEBUG() << "function: " << n->getFunction() << "\n";
+        //LOG_DEBUG() << "function: " << ci->getParent()->getParent() << "\n";
     }
+	else {
+		LOG_DEBUG() << "Couldn't find debug info!\n";
+	}
+
+	assert(fileName.compare("??") != 0 && funcName.compare("??") != 0);
 
     os.fill('0');
 
