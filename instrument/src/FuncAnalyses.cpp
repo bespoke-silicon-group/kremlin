@@ -11,7 +11,7 @@ using namespace llvm;
  * @param func  The function to get the analyses for.
  */
 FuncAnalyses::FuncAnalyses(ModulePass& p, Function& func) :
-    dt(p.getAnalysis<DominatorTree>(func)),
+    dt(p.getAnalysis<DominatorTreeWrapperPass>(func).getDomTree()),
     li(p.getAnalysis<LoopInfo>(func)),
     pdf(p.getAnalysis<PostDominanceFrontier>(func)),
     rv(p.getAnalysis<ReductionVars>(func)),

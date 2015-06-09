@@ -15,7 +15,7 @@ struct FuncAnalyses
 
     llvm::DominatorTree& dt;
     llvm::LoopInfo& li;
-    llvm::PostDominanceFrontier& pdf;
+    PostDominanceFrontier& pdf;
     ReductionVars& rv;
     ControlDependence cd;
 };

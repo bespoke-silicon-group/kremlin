@@ -5,7 +5,7 @@
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/PostDominanceFrontier.h"
+#include "PostDominanceFrontier.h"
 
 #include <ctime>
 
@@ -304,7 +304,7 @@ struct CriticalPath : public ModulePass
 
     void getAnalysisUsage(AnalysisUsage &AU) const {
         AU.setPreservesCFG();
-        AU.addRequired<DominatorTree>();
+        AU.addRequired<DominatorTreeWrapperPass>();
         AU.addRequired<PostDominanceFrontier>();
         AU.addRequired<ReductionVars>();
     }

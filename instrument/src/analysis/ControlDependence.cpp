@@ -63,7 +63,7 @@ class IsSuccessor : public std::unary_function<BasicBlock*, bool>
 /**
  * Constructs a new control dependence analysis.
  */
-ControlDependence::ControlDependence(Function& func, llvm::DominatorTree& dt, llvm::PostDominanceFrontier& pdf) :
+ControlDependence::ControlDependence(Function& func, llvm::DominatorTree& dt, PostDominanceFrontier& pdf) :
     dt(dt),
     log(PassLog::get()),
     pdf(pdf)
@@ -226,7 +226,7 @@ BasicBlock* ControlDependence::getControllingBlock(BasicBlock* blk, bool conside
 
 
     // get post dominance frontier for blk
-    DominanceFrontierBase::iterator dsmt_it = pdf.find(blk);
+    DominanceFrontierBase<BasicBlock>::iterator dsmt_it = pdf.find(blk);
 
     // sanity check to make sure an entry in the pdf exists for this blk
     if(dsmt_it == pdf.end())
@@ -255,7 +255,7 @@ BasicBlock* ControlDependence::getControllingBlock(BasicBlock* blk, bool conside
     }
 
     // Look at all blocks in post-dom frontier and find one that dominates the current block
-    for(DominanceFrontierBase::DomSetType::iterator dst_it = dsmt_it->second.begin(), dst_end = dsmt_it->second.end(); dst_it != dst_end; ++dst_it) {
+    for(DominanceFrontierBase<BasicBlock>::DomSetType::iterator dst_it = dsmt_it->second.begin(), dst_end = dsmt_it->second.end(); dst_it != dst_end; ++dst_it) {
         BasicBlock* candidate = *dst_it;
 
         LOG_DEBUG() << "looking at " << candidate->getName() << "\n";
