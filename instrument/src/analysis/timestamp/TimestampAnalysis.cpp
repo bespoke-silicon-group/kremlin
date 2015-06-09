@@ -33,7 +33,9 @@ const Timestamp& TimestampAnalysis::getTimestamp(llvm::Value* input_val)
     {
 		// create a timestamp if one doesn't currently exist for input_val
         auto_ptr<Timestamp> timestamp_ptr_of_val(timestamp_of_val = new Timestamp());
-        getHandler(input_val)->getTimestamp(input_val, *timestamp_ptr_of_val);
+		TimestampHandler* h = getHandler(input_val);
+		assert(h != NULL && "Could not get handler");
+        h->getTimestamp(input_val, *timestamp_ptr_of_val);
         _timestamps.insert(input_val, timestamp_ptr_of_val);
     }
     else
