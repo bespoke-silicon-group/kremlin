@@ -890,9 +890,9 @@ namespace {
 					|| (noRecursiveFuncs && isRecursive(&func)) // make sure we don't try a recursive func if we say not to
 					//or if the functions are the C++ startup and cleanup functions, then skip them too
 					|| (func.hasSection() && 
-						func.getSection().compare(".text.startup") == 0)
+						StringRef(func.getSection()) == ".text.startup")
 					|| (func.hasSection() && 
-						func.getSection().compare(".text.exit") == 0)
+						StringRef(func.getSection()) == ".text.exit")
 				  )
 				{
 					continue;

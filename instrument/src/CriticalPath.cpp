@@ -112,8 +112,8 @@ struct CriticalPath : public ModulePass
                 continue;
             }
 			else if (func.hasSection()
-						&& (func.getSection().compare(".text.startup") == 0
-							|| func.getSection().compare(".text.exit") == 0)
+						&& (StringRef(func.getSection()) == ".text.startup"
+							|| StringRef(func.getSection()) == ".text.exit")
 					) {
                 LOG_WARN() << "Not instrumenting startup function: " << func.getName() << "\n";
 				continue;
