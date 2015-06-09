@@ -118,6 +118,10 @@ struct CriticalPath : public ModulePass
                 LOG_WARN() << "Not instrumenting startup function: " << func.getName() << "\n";
 				continue;
 			}
+			else if (func.hasHiddenVisibility()) {
+                LOG_WARN() << "Not instrumenting hidden function: " << func.getName() << "\n";
+				continue;
+			}
 
 // Mac OS X doesn't support clock_gettime. The usage of clock_gettime here
 // (timing stats for pass) isn't necessary so for now we'll just not do the
