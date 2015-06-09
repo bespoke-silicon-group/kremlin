@@ -192,6 +192,7 @@ void TimestampPlacer::insertInstrumentation()
 
         foreach(Instruction& inst, bb)
         {
+		LOG_DEBUG() << "inserting instrumentation for: " << inst << "\n";
             Signals::iterator it = _signals.find(inst.getOpcode());
             if(it != _signals.end())
 
