@@ -68,15 +68,20 @@ void LoadHandler::handle(llvm::Instruction& inst)
     LLVMTypes types(load.getContext());
     vector<Value*> args;
 
+#if 0
     // Function that pushes an llvm int into args.
     function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back,
         ref(args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
+#endif
 
     // the mem loc is already in ptr form so we simply use that
     CastInst& ptr_cast = *CastInst::CreatePointerCast(load.getPointerOperand(),types.pi8(),"inst_arg_ptr");
     args.push_back(&ptr_cast);
 
+    args.push_back(ConstantInt::get(types.i32(), ts_placer.getId(load), false)); // Dest ID
+#if 0
     push_int(ts_placer.getId(load)); // Dest ID
+#endif 
 
     // If this load uses a getelementptr inst for its address, we need
     // to check for any non-constant ops (other than the pointer index)
@@ -103,13 +108,19 @@ void LoadHandler::handle(llvm::Instruction& inst)
             {
                 //LOG_DEBUG() << "getelementptr " << gepi->getName() << " depends on " << gepi_op->get()->getName() << "\n";
 
+#if 0
                 push_int(ts_placer.getId(*gepi_op->get()));
+#endif
+    		args.push_back(ConstantInt::get(types.i32(), ts_placer.getId(*gepi_op->get()), false));
                 num_conds++;
             }
         }
     }
 
+    	args.push_back(ConstantInt::get(types.i32(), MemoryInstHelper::getTypeSizeInBytes(&load), false));
+#if 0
 	push_int(MemoryInstHelper::getTypeSizeInBytes(&load));
+#endif
 
 	// try to find a specialized version
     Function* log_func = this->log_func;
