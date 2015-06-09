@@ -8,6 +8,7 @@
 #include <set>
 #include <fstream>
 #include <sstream>
+#include <fcntl.h>
 
 #include "PassLog.h"
 #include "LLVMTypes.h"
@@ -29,30 +30,30 @@ namespace {
 		}
 
 		template <class T>
-		void printCallArgs(T* ti, raw_os_ostream*& os, bool print_first_hex) {
-			*os << "(";
+		void printCallArgs(T* ti, raw_fd_ostream& os, bool print_first_hex) {
+			os << "(";
 
 			for(unsigned i = 0; i < ti->getNumArgOperands(); ++i) {
-				if(i > 0) *os << ", ";
+				if(i > 0) os << ", ";
 
 				Value* arg = ti->getArgOperand(i);
 				if(ConstantInt* con = dyn_cast<ConstantInt>(arg)) {
-					if (i == 0 && print_first_hex) *os << toHex(con->getZExtValue());
-					else *os << con->getZExtValue();
+					if (i == 0 && print_first_hex) os << toHex(con->getZExtValue());
+					else os << con->getZExtValue();
 				}
 				else if(arg->hasName()){
-					*os << arg->getName();
+					os << arg->getName();
 				}
 				else {
-					*os << *arg;
+					os << *arg;
 				}
 			}
 
-			*os << ")";
+			os << ")";
 		}
 
 		template <class T>
-		void processFunctionCall(T* ti, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
+		void processFunctionCall(T* ti, std::set<std::string>& kremlib_calls, raw_fd_ostream& os) {
 			Function* called_func = ti->getCalledFunction();
 			if(
 				called_func
@@ -60,7 +61,7 @@ namespace {
 				&& kremlib_calls.find(called_func->getName().str()) != kremlib_calls.end()
 			  )
 			{
-				*os << "\t\t" << called_func->getName();
+				os << "\t\t" << called_func->getName();
 				// If this is enter or exit region function we want the
 				// first number to be printed as hex (easier to debug
 				// since it's a large number and region descriptor file
@@ -70,7 +71,7 @@ namespace {
 					|| called_func->getName().compare("_KExitRegion") == 0
 					|| called_func->getName().compare("_KPrepCall") == 0;
 				printCallArgs<T>(ti,os,is_entry_or_exit_func);
-				*os << "\n";
+				os << "\n";
 			}
 			else {
 				// avoid printing this if it's an LLVM
@@ -79,24 +80,24 @@ namespace {
 					&& called_func->hasName() &&
 					called_func->getName().find("llvm.dbg") != std::string::npos))
 				{
-					*os << "\t\tCALL: ";
+					os << "\t\tCALL: ";
 
 					// print out, e.g. "bar =", if call inst is
 					// named (so we can see where the return
 					// value is being stored).
-					if(ti->hasName()) *os << ti->getName() << " = ";
+					if(ti->hasName()) os << ti->getName() << " = ";
 
 					Value* called_val = ti->getCalledValue();
-					if(called_val->hasName()) *os << called_val->getName();
-					else *os << "_UNNAMED_";
+					if(called_val->hasName()) os << called_val->getName();
+					else os << "_UNNAMED_";
 
 					printCallArgs<T>(ti,os,false);
-					*os << "\n";
+					os << "\n";
 				}
 			}
 		}
 
-		void processInstruction(Instruction *inst, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
+		void processInstruction(Instruction *inst, std::set<std::string>& kremlib_calls, raw_fd_ostream& os) {
 			// See if this is a call to a kremlib function
 			// If it is, we print it out.
 			if(CallInst* ci = dyn_cast<CallInst>(inst)) {
@@ -104,46 +105,46 @@ namespace {
 			}
 			else if(InvokeInst* ii = dyn_cast<InvokeInst>(inst)) {
 				processFunctionCall<InvokeInst>(ii, kremlib_calls, os);
-				*os << "\t\tTERMINATOR: ";
-				*os << "(Normal) " << ii->getNormalDest()->getName() << ", ";
-				*os << "(Exception) " << ii->getUnwindDest()->getName() << "\n";
+				os << "\t\tTERMINATOR: ";
+				os << "(Normal) " << ii->getNormalDest()->getName() << ", ";
+				os << "(Exception) " << ii->getUnwindDest()->getName() << "\n";
 			}
 			else if(isa<ReturnInst>(inst)) {
-				*os << "\t\tRETURN\n";
+				os << "\t\tRETURN\n";
 			}
 			else if(BranchInst* bi = dyn_cast<BranchInst>(inst)) {
-				*os << "\t\tTERMINATOR: ";
+				os << "\t\tTERMINATOR: ";
 				for(unsigned i = 0; i < bi->getNumSuccessors(); ++i) {
-					*os << bi->getSuccessor(i)->getName() << " ";
+					os << bi->getSuccessor(i)->getName() << " ";
 				}
-				*os << "\n";
+				os << "\n";
 			}
 			else if(SwitchInst* si = dyn_cast<SwitchInst>(inst)) {
-				*os << "\t\tTERMINATOR: ";
+				os << "\t\tTERMINATOR: ";
 				for(unsigned i = 0; i < si->getNumSuccessors(); ++i) {
-					*os << si->getSuccessor(i)->getName() << " ";
+					os << si->getSuccessor(i)->getName() << " ";
 				}
-				*os << "\n";
+				os << "\n";
 			}
 		}
 
-		void processBasicBlock(BasicBlock *bb, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
-			*os << "\tBB_BEGIN: " << bb->getName().str() << "\n";
+		void processBasicBlock(BasicBlock *bb, std::set<std::string>& kremlib_calls, raw_fd_ostream& os) {
+			os << "\tBB_BEGIN: " << bb->getName().str() << "\n";
 
 			for(BasicBlock::iterator inst = bb->begin(), inst_e = bb->end(); inst != inst_e; ++inst) {
 				processInstruction(inst,kremlib_calls,os);
 			}
 
-			*os << "\tBB_END: " << bb->getName().str() << "\n";
+			os << "\tBB_END: " << bb->getName().str() << "\n";
 
-			*os << "\n";
+			os << "\n";
 		}
 
-		void processFunction(Function *func, std::set<std::string>& kremlib_calls, raw_os_ostream*& os) {
+		void processFunction(Function *func, std::set<std::string>& kremlib_calls, raw_fd_ostream& os) {
 			std::string func_name;
 			if(func->hasName()) { func_name = func->getName().str(); }
 			else { func_name =  "(unnamed)"; }
-			*os << "FUNCTION_BEGIN: " << func_name << "\n";
+			os << "FUNCTION_BEGIN: " << func_name << "\n";
 
 			log.info() << "dumping function: " << func_name << "\n";
 
@@ -151,10 +152,10 @@ namespace {
 				processBasicBlock(bb,kremlib_calls,os);
 			}
 
-			*os << "FUNCTION_END: " << func_name << "\n";
+			os << "FUNCTION_END: " << func_name << "\n";
 
-			*os << "\n\n";
-			os->flush();
+			os << "\n\n";
+			os.flush();
 		}
 
 		void addKremlibCallsToSet(std::set<std::string>& kremlib_calls) {
@@ -225,27 +226,27 @@ namespace {
 			dump_filename = dump_filename.substr(0,dump_filename.find_first_of("."));
 			dump_filename.append(".kdump");
 
-			std::ofstream dump_file;
-			dump_file.open(dump_filename.c_str());
-
 			log.debug() << "Writing kremlib calls to " << dump_filename << "\n";
 
-			if(!dump_file.is_open()) {
-				log.fatal() << "Could not open file: " << dump_filename << ".Aborting.\n";
+			int dump_fd = open(dump_filename.c_str(), O_RDWR);
+			if (dump_fd == -1) {
+				LOG_FATAL() << "Could not open file: " << dump_filename << ".Aborting.\n";
 				return false;
 			}
 
-			raw_os_ostream* dump_raw_os =  new raw_os_ostream(dump_file);
+			// @note dump_fd is automatically closed when dum_raw_os is destroyed
+			raw_fd_ostream* dump_raw_os = new raw_fd_ostream(dump_fd, true, false);
 
 			std::set<std::string> kremlib_calls;
 			addKremlibCallsToSet(kremlib_calls);
 
 			// Now we'll look for calls to logRegionEntry/Exit and replace old region ID with mapped value
 			for(Module::iterator func = M.begin(), f_e = M.end(); func != f_e; ++func) {
-				processFunction(func,kremlib_calls,dump_raw_os);
+				processFunction(func,kremlib_calls, *dump_raw_os);
 			}
 
-			dump_file.close();
+			//dump_file.close();
+			delete dump_raw_os;
 
 			return false;
 		}// end runOnModule(...)
