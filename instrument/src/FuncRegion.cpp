@@ -3,8 +3,6 @@
 #include <llvm/Support/raw_ostream.h>
 #include <sstream>
 #include "FuncRegion.h"
-#include "SubprogramDebugInfo.h"
-#include "CompileUnitDebugInfo.h"
 #include "UnsupportedOperationException.h"
 
 using namespace llvm;
@@ -18,22 +16,39 @@ FuncRegion::FuncRegion(RegionId id, llvm::Function* func) :
 	DebugInfoFinder debugInfoFinder;
 	debugInfoFinder.processModule(*func->getParent());
 
-	for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
+	for(DebugInfoFinder::subprogram_iterator it = debugInfoFinder.subprograms().begin(), end = debugInfoFinder.subprograms().end(); it != end; it++)
 	{
-		SubprogramDebugInfo debugInfo(*it);
-
-		if(debugInfo.func == func)
+		const DISubprogram *dis = it;
+		Function *f = dis->getFunction();
+		if(f == func)
 		{
-			fileName = debugInfo.fileName;
-			funcName = debugInfo.displayName;
-			startLine = debugInfo.lineNumber;
+			std::string rawName = dis->getFilename().str();
+			size_t substr_start = rawName.rfind('/');
+			if (substr_start == std::string::npos) {
+				substr_start = 0;
+			}
+			else {
+				substr_start++;
+			}
+			fileName = rawName.substr(substr_start);
+			funcName = dis->getDisplayName().str();
+			if (funcName.length() > 1 && funcName.at(0) == '~') funcName.replace(0, 1, "destructor_");
+			assert(funcName.find('/') == std::string::npos);
+			startLine = dis->getLineNumber();
 		}
 	}
 
 	if(fileName == "")
 	{
-		CompileUnitDebugInfo compilationDebugInfo(*debugInfoFinder.compile_unit_begin());
-		fileName = compilationDebugInfo.fileName;
+		std::string rawName = debugInfoFinder.compile_units().begin()->getFilename();
+		size_t substr_start = rawName.rfind('/');
+		if (substr_start == std::string::npos) {
+			substr_start = 0;
+		}
+		else {
+			substr_start++;
+		}
+		fileName = rawName.substr(substr_start);
 	}
 }
 

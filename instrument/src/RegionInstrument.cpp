@@ -759,16 +759,16 @@ namespace {
 
 			log.debug() << "Debug information:\n";
 
-			for(DebugInfoFinder::iterator it = debug_info_finder.compile_unit_begin(), end = debug_info_finder.compile_unit_end(); it != end; it++)
+			for(DebugInfoFinder::compile_unit_iterator it = debug_info_finder.compile_units().begin(), end = debug_info_finder.compile_units().end(); it != end; it++)
 				(*it)->dump();
 
-			for(DebugInfoFinder::iterator it = debug_info_finder.subprogram_begin(), end = debug_info_finder.subprogram_end(); it != end; it++)
+			for(DebugInfoFinder::subprogram_iterator it = debug_info_finder.subprograms().begin(), end = debug_info_finder.subprograms().end(); it != end; it++)
 				(*it)->dump();
 
-			for(DebugInfoFinder::iterator it = debug_info_finder.global_variable_begin(), end = debug_info_finder.global_variable_end(); it != end; it++)
+			for(DebugInfoFinder::global_variable_iterator it = debug_info_finder.global_variables().begin(), end = debug_info_finder.global_variables().end(); it != end; it++)
 				(*it)->dump();
 
-			for(DebugInfoFinder::iterator it = debug_info_finder.type_begin(), end = debug_info_finder.type_end(); it != end; it++)
+			for(DebugInfoFinder::type_iterator it = debug_info_finder.types().begin(), end = debug_info_finder.types().end(); it != end; it++)
 				(*it)->dump();
 
 			

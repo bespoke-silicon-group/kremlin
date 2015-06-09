@@ -5,10 +5,7 @@
 #include <llvm/Module.h>
 #include <llvm/Support/raw_ostream.h>
 #include <sstream>
-#include "CompileUnitDebugInfo.h"
-#include "DebugInfoParser.h"
 #include "LoopRegion.h"
-#include "SubprogramDebugInfo.h"
 #include "UnsupportedOperationException.h"
 #include "foreach.h"
 
@@ -28,14 +25,23 @@ LoopRegion::LoopRegion(RegionId id, llvm::Loop* loop) :
     DebugInfoFinder debugInfoFinder;
     debugInfoFinder.processModule(*func->getParent());
 
-    for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
+    for(DebugInfoFinder::subprogram_iterator it = debugInfoFinder.subprograms().begin(), end = debugInfoFinder.subprograms().end(); it != end; it++)
     {
-        SubprogramDebugInfo debugInfo(*it);
-        if(debugInfo.func == func)
+		const DISubprogram *dis = it;
+		Function *f = dis->getFunction();
+        if(f == func)
         {
-            fileName = debugInfo.fileName;
-            funcName = debugInfo.displayName;
-            funcStartLine = debugInfo.lineNumber;
+			std::string rawName = dis->getFilename().str();
+			size_t substr_start = rawName.rfind('/');
+			if (substr_start == std::string::npos) {
+				substr_start = 0;
+			}
+			else {
+				substr_start++;
+			}
+			fileName = rawName.substr(substr_start);
+			funcName = dis->getDisplayName().str();
+			startLine = dis->getLineNumber();
         }
     }
 
@@ -44,18 +50,19 @@ LoopRegion::LoopRegion(RegionId id, llvm::Loop* loop) :
     // info.
     if(fileName == "")
     {
-        CompileUnitDebugInfo compilationDebugInfo(*debugInfoFinder.compile_unit_begin());
-        fileName = compilationDebugInfo.fileName;
+		fileName = debugInfoFinder.compile_units().begin()->getFilename();
     }
 
     // Look for the next function's start line number. This will be our
     // function's end line number.
-    for(DebugInfoFinder::iterator it = debugInfoFinder.subprogram_begin(), end = debugInfoFinder.subprogram_end(); it != end; it++)
+    for(DebugInfoFinder::subprogram_iterator it = debugInfoFinder.subprograms().begin(), end = debugInfoFinder.subprograms().end(); it != end; it++)
     {
-        SubprogramDebugInfo debugInfo(*it);
-        if(debugInfo.func != func && debugInfo.lineNumber >= funcStartLine)
+		const DISubprogram *dis = it;
+		Function *f = dis->getFunction();
+        if(f != func && dis->getLineNumber() >= funcStartLine)
         {
-            funcEndLine = std::min(funcEndLine, (uint64_t)debugInfo.lineNumber);
+            funcEndLine = std::min(funcEndLine, 
+									(uint64_t)dis->getLineNumber());
         }
     }
 
