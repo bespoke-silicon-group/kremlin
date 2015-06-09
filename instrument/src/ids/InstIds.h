@@ -1,7 +1,7 @@
 #ifndef INST_IDS_H
 #define INST_IDS_H
 
-#include <llvm/Value.h>
+#include <llvm/IR/Value.h>
 #include <map>
 
 class InstIds

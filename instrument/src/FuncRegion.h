@@ -1,7 +1,7 @@
 #ifndef FUNC_REGION_H
 #define FUNC_REGION_H
 
-#include <llvm/Function.h>
+#include <llvm/IR/Function.h>
 #include <iostream>
 #include "Region.h"
 

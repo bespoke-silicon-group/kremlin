@@ -2,7 +2,7 @@
 #define TIMESTAMP_HANDLER_H
 
 #include <typeinfo>
-#include <llvm/Value.h>
+#include <llvm/IR/Value.h>
 #include "analysis/timestamp/Timestamp.h"
 #include "analysis/timestamp/ValueClassifier.h"
 

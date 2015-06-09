@@ -1,8 +1,8 @@
 #define DEBUG_TYPE __FILE__
 
 #include <llvm/Support/Debug.h>
-#include <llvm/Module.h>
-#include <llvm/Constants.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Constants.h>
 #include "analysis/WorkAnalysis.h"
 #include "LLVMTypes.h"
 

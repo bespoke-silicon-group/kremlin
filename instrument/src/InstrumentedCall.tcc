@@ -1,8 +1,8 @@
-#include <llvm/Metadata.h>
-#include <llvm/Function.h>
-#include "llvm/DebugInfo.h"
-#include <llvm/GlobalVariable.h>
-#include <llvm/Constants.h>
+#include <llvm/IR/Metadata.h>
+#include <llvm/IR/Function.h>
+#include "llvm/IR/DebugInfo.h"
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/Constants.h>
 #include <sstream>
 #include <iomanip>
 

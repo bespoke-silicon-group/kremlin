@@ -1,7 +1,7 @@
 #ifndef PHI_HANDLER_H
 #define PHI_HANDLER_H
 
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 #include "TimestampPlacerHandler.h"
 #include "TimestampPlacer.h"
 #include "PassLog.h"

@@ -2,9 +2,9 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Dominators.h"
 #include "PostDominanceFrontier.h"
 
 #include <ctime>

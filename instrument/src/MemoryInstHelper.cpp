@@ -1,5 +1,5 @@
 #include "MemoryInstHelper.h"
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 
 using namespace llvm;
 

@@ -1,7 +1,7 @@
 #ifndef MEMORY_INST_HELPER_H
 #define MEMORY_INST_HELPER_H
 
-#include <llvm/Value.h>
+#include <llvm/IR/Value.h>
 #include "PassLog.h"
 
 /**

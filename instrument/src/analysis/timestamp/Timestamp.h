@@ -2,7 +2,7 @@
 #define TIMESTAMP_H
 
 #include <boost/ptr_container/ptr_set.hpp>
-#include <llvm/Instruction.h>
+#include <llvm/IR/Instruction.h>
 #include "TimestampCandidate.h"
 #include <foreach.h>
 

@@ -1,6 +1,6 @@
-#include <llvm/Instructions.h>
-#include <llvm/Module.h>
-#include <llvm/Support/CallSite.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/CallSite.h>
 
 #include "LLVMTypes.h"
 #include "CallableHandler.h"

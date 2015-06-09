@@ -1,18 +1,18 @@
-#include "llvm/DebugInfo.h"
-#include <llvm/Analysis/Dominators.h>
+#include "llvm/IR/DebugInfo.h"
+#include <llvm/IR/Dominators.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
-#include <llvm/Constants.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Function.h>
-#include <llvm/GlobalVariable.h>
-#include <llvm/Instruction.h>
-#include <llvm/Instructions.h>
-#include <llvm/Module.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
 #include <llvm/Pass.h>
-#include <llvm/Support/CallSite.h>
+#include <llvm/IR/CallSite.h>
 #include <llvm/Support/CommandLine.h>
-#include <llvm/User.h>
+#include <llvm/IR/User.h>
 #include <map>
 
 #include <iostream>
@@ -23,7 +23,7 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 
-#include <llvm/Support/CFG.h>
+#include <llvm/IR/CFG.h>
 
 #include "foreach.h"
 #include "PassLog.h"

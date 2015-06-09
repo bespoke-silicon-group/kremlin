@@ -1,6 +1,6 @@
 #include <llvm/Pass.h>
-#include <llvm/Function.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
 
 using namespace llvm;
 

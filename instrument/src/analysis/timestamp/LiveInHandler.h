@@ -1,7 +1,7 @@
 #ifndef LIVE_IN_HANDLER
 #define LIVE_IN_HANDLER
 
-#include <llvm/Value.h>
+#include <llvm/IR/Value.h>
 #include "analysis/timestamp/TimestampHandler.h"
 #include "analysis/timestamp/ValueClassifier.h"
 

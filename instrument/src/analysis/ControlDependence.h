@@ -1,10 +1,10 @@
 #ifndef CONTROL_DEPENDENCE_H
 #define CONTROL_DEPENDENCE_H
 
-#include "llvm/Function.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Dominators.h"
 #include "PostDominanceFrontier.h"
 
 #include <boost/ptr_container/ptr_map.hpp>

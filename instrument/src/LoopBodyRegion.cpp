@@ -1,8 +1,8 @@
 #include <algorithm>
 #include <iostream>
-#include "llvm/DebugInfo.h"
-#include <llvm/Metadata.h>
-#include <llvm/Module.h>
+#include "llvm/IR/DebugInfo.h"
+#include <llvm/IR/Metadata.h>
+#include <llvm/IR/Module.h>
 #include <llvm/Support/raw_ostream.h>
 #include <sstream>
 #include "LoopBodyRegion.h"

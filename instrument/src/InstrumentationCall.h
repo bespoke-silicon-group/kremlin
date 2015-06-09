@@ -1,8 +1,8 @@
 #ifndef INSTRUMENTATION_CALL_H
 #define INSTRUMENTATION_CALL_H
 
-#include <llvm/Instruction.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
 
 // TODO: Replace all insrumentation calls with this class.
 // TODO: Rename

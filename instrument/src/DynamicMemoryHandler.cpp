@@ -1,7 +1,7 @@
-#include <llvm/Instructions.h>
-#include <llvm/Module.h>
-#include <llvm/Support/CallSite.h>
-#include <llvm/Constants.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/CallSite.h>
+#include <llvm/IR/Constants.h>
 #include "LLVMTypes.h"
 #include "DynamicMemoryHandler.h"
 #include "ReturnsRealValue.h"

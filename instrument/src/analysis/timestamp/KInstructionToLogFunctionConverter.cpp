@@ -2,7 +2,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/lexical_cast.hpp>
-#include <llvm/Constants.h>
+#include <llvm/IR/Constants.h>
 #include <llvm/Support/Debug.h>
 
 #include "analysis/timestamp/KInstructionToLogFunctionConverter.h"
