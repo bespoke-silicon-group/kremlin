@@ -32,7 +32,6 @@ class ControlDependence
     typedef std::map<llvm::BasicBlock*, ControllingBlocks> BbToControllers;
 
     PhiToControllers phi_to_controllers;
-    BbToControllers bb_to_controllers;
     llvm::DominatorTree& dt;
     std::map<llvm::BasicBlock*,llvm::BasicBlock*> idom;
     PassLog& log;
