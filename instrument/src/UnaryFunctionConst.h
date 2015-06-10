@@ -1,6 +1,8 @@
 #ifndef UNARY_FUNCTION_CONST_H
 #define UNARY_FUNCTION_CONST_H
 
+#include <functional>
+
 /**
  * Base class for const unary function objects.
  * @tparam ArgType      The type of the argument of the unary function.
