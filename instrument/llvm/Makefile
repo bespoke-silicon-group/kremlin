@@ -30,7 +30,7 @@ $(CLANG_SRC_TAR):
 
 $(LLVM_SRC_DIR): $(LLVM_SRC_TAR)
 	tar -xJf $<
-	ln -s ../src $@/lib/Transforms/KremlinInstrument
+	ln -s $(CURDIR)/../src $@/lib/Transforms/KremlinInstrument
 	echo "add_subdirectory(KremlinInstrument)" >> $@/lib/Transforms/CMakeLists.txt
 	@touch $@
 
@@ -53,4 +53,4 @@ llvm-$(LLVM_VERSION).build.success: $(LLVM_OBJ_DIR)/Makefile
 	@date > $@
 
 clean:
-	@rm -rf $(LLVM_SRC_TAR) $(LLVM_SRC_DIR) $(LLVM_OBJ_DIR) llvm-*.build.success $(INSTALL_DIR)
+	@rm -rf $(LLVM_SRC_TAR) $(CLANG_SRC_TAR) $(LLVM_SRC_DIR) $(LLVM_OBJ_DIR) llvm-*.build.success $(INSTALL_DIR)
