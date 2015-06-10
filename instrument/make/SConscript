@@ -12,8 +12,8 @@ llvm_clang = llvm_bin_dir + 'clang'
 llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
 
-kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/src/' + \
-	'libKremlinInstrument' + env['SHLIBSUFFIX']
+kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/llvm/install/lib/' + \
+	'KremlinInstrument' + env['SHLIBSUFFIX']
 
 #conf = Configure(env)
 #if not config.CheckHeader
@@ -44,7 +44,7 @@ plain_clang_no_target_bld = Builder(action = llvm_clang + \
 
 llc_opts = ' -march=x86-64'
 if env['PLATFORM'] == 'darwin':
-	llc_opts += ' -disable-cfi -mattr=-avx'
+	llc_opts += ' -mattr=-avx'
 if str(env['CCFLAGS']).find('-fPIC') != -1:
 	llc_opts += ' -relocation-model=pic'
 
@@ -60,6 +60,11 @@ env['BUILDERS']['LLVMOpt'] = opt_bld
 env['BUILDERS']['InstrumentedAssembly'] = llvm_asm_bld
 env['BUILDERS']['PlainClang'] = plain_clang_bld
 env['BUILDERS']['PlainClangNoTarget'] = plain_clang_no_target_bld
+
+# use clang to assemble because the built-in assembler has problems on some
+# platforms **glares at Mac OS X**
+env['AS'] = llvm_clang
+env['ASFLAGS'] = '-c'
 
 env['LINK'] = 'g++'
 
@@ -87,8 +92,6 @@ def compile_files(source_filenames):
 		glob_str = os.path.join(kremlin_instrument_src_dir,d,'*.cpp')
 		so_srcs += Glob(glob_str)
 
-	so = env.Command(kremlin_llvm_shared_obj, so_srcs,
-						'cmake --build ' + kremlin_root_dir + 'instrument')
 	asm_nodes = []
 	for filename in source_filenames:
 		filename_split = str.split(filename,'.')
@@ -104,7 +107,7 @@ def compile_files(source_filenames):
 			input_pass_str = pass_str
 			pass_str += '.' + p
 			t = env.LLVMOpt(prefix_str + pass_str + '.bc', \
-						[prefix_str + input_pass_str + '.bc', so])
+						prefix_str + input_pass_str + '.bc')
 			log_name = prefix_str + '.' + p + '.log'
 			Clean(t, log_name)
 			if p == 'criticalpath':

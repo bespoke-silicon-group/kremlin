@@ -1,5 +1,5 @@
-add_library(KremlinInstrument MODULE
-#add_llvm_loadable_module(KremlinInstrument
+#add_library(KremlinInstrument MODULE
+add_llvm_loadable_module(KremlinInstrument
 	AssociativeDependenceBreak.cpp
 	ControlDependencePlacer.cpp
 	CppExceptionSupport.cpp
