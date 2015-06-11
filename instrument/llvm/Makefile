@@ -7,6 +7,13 @@ INSTALL_DIR=$(CURDIR)/install
 LLVM_CMAKE_OPTS = -DLLVM_ENABLE_EH=ON -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_TARGETS_TO_BUILD="X86"
 LLVM_CMAKE_OPTS += -DCMAKE_INSTALL_PREFIX=$(INSTALL_DIR) -DCMAKE_BUILD_TYPE="Release"
 
+# Homebrew installs boost in /usr/local/include so check for includes there
+# when we notice we have a Mac
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	LLVM_CMAKE_OPTS += -DCMAKE_CXX_FLAGS=-I/usr/local/include
+endif
+
 LLVM_SRC_DIR=llvm-$(LLVM_VERSION).src
 LLVM_OBJ_DIR=llvm-$(LLVM_VERSION)-obj
 CLANG_SRC_DIR=$(LLVM_SRC_DIR)/tools/clang
@@ -53,4 +60,4 @@ llvm-$(LLVM_VERSION).build.success: $(LLVM_OBJ_DIR)/Makefile
 	@date > $@
 
 clean:
-	@rm -rf $(LLVM_SRC_TAR) $(CLANG_SRC_TAR) $(LLVM_SRC_DIR) $(LLVM_OBJ_DIR) llvm-*.build.success $(INSTALL_DIR)
+	@rm -rf $(LLVM_SRC_TAR) $(CLANG_SRC_TAR) $(LLVM_SRC_DIR) $(LLVM_OBJ_DIR) llvm-*.build.success $(INSTALL_DIR)/*

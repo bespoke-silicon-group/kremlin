@@ -9,6 +9,7 @@ llvm_bin_dir = kremlin_root_dir + 'instrument/llvm/install/bin/'
 kremlin_instrument_src_dir = kremlin_root_dir + 'instrument/src/'
 kremlib_dir = kremlin_root_dir + 'runtime/src/'
 llvm_clang = llvm_bin_dir + 'clang'
+llvm_clangxx = llvm_clang + '++'
 llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
 
@@ -34,19 +35,25 @@ def generate_opt_actions(target, source, env, for_signature):
 	action_str += ' &> ' + target_name_splits[0] + '.' + action + '.log'
 	return action_str
 
-llvm_bc_bld = Builder(action = llvm_clang + \
-					' $CCFLAGS -g -emit-llvm -c -o $TARGET $SOURCE')
-
-plain_clang_bld = Builder(action = llvm_clang + \
-					' $CCFLAGS -o $TARGET $SOURCES')
-plain_clang_no_target_bld = Builder(action = llvm_clang + \
-					' $CCFLAGS $SOURCES')
-
 llc_opts = ' -march=x86-64'
+compile_opts = ' '
+
 if env['PLATFORM'] == 'darwin':
 	llc_opts += ' -mattr=-avx'
+	# for some reason mac's default libc++ doesn't work (bug?)
+	compile_opts += '-stdlib=libstdc++' 
+	env['LINKFLAGS'] = '-stdlib=libstdc++'
+    
 if str(env['CCFLAGS']).find('-fPIC') != -1:
 	llc_opts += ' -relocation-model=pic'
+
+llvm_bc_bld = Builder(action = llvm_clang + compile_opts + \
+					' $CCFLAGS -g -emit-llvm -c -o $TARGET $SOURCE')
+
+plain_clang_bld = Builder(action = llvm_clang + compile_opts + \
+					' $CCFLAGS -o $TARGET $SOURCES')
+plain_clang_no_target_bld = Builder(action = llvm_clang + compile_opts + \
+					' $CCFLAGS $SOURCES')
 
 llvm_asm_bld = Builder(action = llvm_llc + \
 					llc_opts + ' -o $TARGET $SOURCE',
@@ -66,7 +73,7 @@ env['BUILDERS']['PlainClangNoTarget'] = plain_clang_no_target_bld
 env['AS'] = llvm_clang
 env['ASFLAGS'] = '-c'
 
-env['LINK'] = 'g++'
+env['LINK'] = llvm_clangxx
 
 def get_prefix_str(filename):
 	filename_split = str.split(filename,'.')
