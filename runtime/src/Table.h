@@ -34,7 +34,6 @@ public:
 	inline Time* getElementAddr(int row, int col);
 	inline Time getValue(int row, int col);
 	inline void setValue(Time time, int row, int col);
-	inline void zeroCol(int col_num);
 
 	/*!
 	 * Copy values of a register to another table
@@ -59,7 +58,7 @@ public:
 int Table::getOffset(int row, int col) {
 	assert(row < this->row);
 	assert(col < this->col);
-	return (this->row * col + row);
+	return (this->col * row + col);
 }
 
 Time* Table::getElementAddr(int row, int col) {
@@ -87,10 +86,6 @@ void Table::setValue(Time time, int row, int col) {
 	MSG(3, "TableSetValue\n");
 	int offset = this->getOffset(row, col);
 	this->array[offset] = time;
-}
-
-void Table::zeroCol(int col_num) {
-	memset(&this->array[col_num*this->row], sizeof(Time)*this->row, 0);
 }
 
 void Table::copyToDest(Table* dest_table, Reg dest_reg, Reg src_reg, 
