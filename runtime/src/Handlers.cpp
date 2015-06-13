@@ -1174,7 +1174,7 @@ void KremlinProfiler::init() {
 		return;
     }
 	initialized = true;
-	DebugInit(false);
+	DebugInit();
 
     MSG(0, "Profile Level = (%d, %d), Index Size = %d\n", 
         getMinLevel(), getMaxLevel(), getArraySize());
