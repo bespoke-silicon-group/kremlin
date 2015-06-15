@@ -51,7 +51,8 @@ Before you get started, you will need the following software installed:
 * CMake (2.8.8 or above)
 * The C++ Boost Library (1.42 or above)
 
-Kremlin has been tested on Mac OS X (10.9 and 10.10) and RHEL 7 but should work well on any modern Linux distribution, assuming you have the required software listed above.
+Kremlin has been tested on Mac OS X (10.9 and 10.10) and RHEL 7 but should work well
+on any modern Linux distribution, assuming you have the required software listed above.
 
 To get started clone the kremlin repository and simply run `make` inside the
 `kremlin` directory.
@@ -79,7 +80,7 @@ The basic flow for using Kremlin requires three steps:
 1. Run the parallelism planner by invoking the `kremlin` program within the
    same directory that you build/ran your program.
 
-By default, Kremlin gives you a basic parallelization information based on a 4 core
+By default, Kremlin gives you basic parallelization information based on a 4 core
 CPU.
 Kremlin provides various planners to guide you towards parallelizing with a specific
 platform (e.g. OpenMP 2.0).
