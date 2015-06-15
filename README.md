@@ -17,7 +17,7 @@ parallelization plan for your program.
 ```bash
 make CC=kremlin-gcc
 ./demo data.large.txt
-kremlin
+kremlin --planner=openmp
 
 PlannerType = OpenMP
 Target : NumCore = 4, Overhead = 0,  Cache = 0 MB, BW= 0 MB/s
