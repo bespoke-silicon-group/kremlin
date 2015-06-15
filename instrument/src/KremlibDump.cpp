@@ -228,9 +228,10 @@ namespace {
 
 			log.debug() << "Writing kremlib calls to " << dump_filename << "\n";
 
-			int dump_fd = open(dump_filename.c_str(), O_RDWR);
+			int dump_fd = open(dump_filename.c_str(), O_RDWR | O_CREAT);
 			if (dump_fd == -1) {
-				LOG_FATAL() << "Could not open file: " << dump_filename << ".Aborting.\n";
+				LOG_FATAL() << "Could not open file: " << dump_filename << "\n";
+				LOG_FATAL() << "\t Reason: " << strerror(errno) << "\n";
 				return false;
 			}
 
