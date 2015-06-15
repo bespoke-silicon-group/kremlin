@@ -5,6 +5,7 @@
 
 class MShadow {
 public:
+	virtual ~MShadow() {}
 	virtual void init() = 0;
 	virtual void deinit() = 0;
 

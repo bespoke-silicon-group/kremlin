@@ -11,6 +11,7 @@ protected:
 	MShadowSkadu *mem_shadow;
 
 public:
+	virtual ~CacheInterface() {}
 	virtual void init(int size, bool compress, MShadowSkadu* mshadow) = 0;
 	virtual void deinit() = 0;
 
