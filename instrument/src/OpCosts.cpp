@@ -140,7 +140,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const OpCosts& costs)
  */
 std::ostream& operator<<(std::ostream& os, const OpCosts& costs)
 {
-	operator<< <std::ostream>(os, costs);
-
+	os << costs;
 	return os;
 }

@@ -4,8 +4,8 @@
 #include <boost/signals2/signal.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/scoped_ptr.hpp>
-#include <llvm/Function.h>
-#include <llvm/Instruction.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instruction.h>
 #include <set>
 #include "Placer.h"
 #include "FuncAnalyses.h"

@@ -8,7 +8,7 @@ public class Kremlin {
 		parser.accepts("help");
 		parser.accepts("cores", "number of cores").withOptionalArg().describedAs("int").defaultsTo("4");
 		parser.accepts("min-time-reduction").withOptionalArg().describedAs("float").defaultsTo("0.0");
-		parser.accepts("planner").withOptionalArg().defaultsTo("gpu");
+		parser.accepts("planner").withOptionalArg().defaultsTo("profiler");
 		parser.accepts("overhead").withOptionalArg().defaultsTo("0");
 		parser.accepts("sregion").withOptionalArg().defaultsTo("0");
 		//OptionSet options = parser.parse("--cores=3");

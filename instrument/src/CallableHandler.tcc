@@ -1,6 +1,6 @@
-#include <llvm/Instructions.h>
-#include <llvm/Module.h>
-#include <llvm/Support/CallSite.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/CallSite.h>
 
 #include "LLVMTypes.h"
 #include "CallableHandler.h"
@@ -143,8 +143,10 @@ void CallableHandler<Callable>::handle(llvm::Instruction& inst)
 
     // Function that pushes an llvm int into kremlib_call_args.
     vector<Value*> kremlib_call_args;
+#if 0
     boost::function<void(Type*, unsigned int)> push_int = bind(&vector<Value*>::push_back,
         boost::ref(kremlib_call_args), boost::bind<Constant*>(&ConstantInt::get, _1, _2, false));
+#endif
 
 	// We are going to insert multiple calls to kremlib functions. In order to
 	// maintain the correct ordering, we'll use the last_call and feed that as
@@ -157,8 +159,11 @@ void CallableHandler<Callable>::handle(llvm::Instruction& inst)
     if(ret_real_val(call_inst)) 
     {
         kremlib_call_args.clear();
+	kremlib_call_args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(call_inst))); // dest ID
+#if 0
         push_int(types.i32(), timestampPlacer.getId(call_inst)); // dest ID
-		ArrayRef<Value*> *aref = new ArrayRef<Value*>(kremlib_call_args);
+#endif
+	ArrayRef<Value*> *aref = new ArrayRef<Value*>(kremlib_call_args);
         CallInst* ret_val_link = CallInst::Create(linkReturnFunc, *aref, "");
 		delete aref;
         timestampPlacer.constrainInstPlacement(*ret_val_link, *last_call);
@@ -181,8 +186,11 @@ void CallableHandler<Callable>::handle(llvm::Instruction& inst)
 			ArrayRef<Value*> *aref = NULL;
             if(!isa<Constant>(&call_arg))
             {
+		kremlib_call_args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(call_arg))); // Source ID.
+#if 0
                 push_int(types.i32(), timestampPlacer.getId(call_arg)); // Source ID.
-				aref = new ArrayRef<Value*>(kremlib_call_args);
+#endif
+                aref = new ArrayRef<Value*>(kremlib_call_args);
                 link_arg_call = CallInst::Create(linkArgFunc, *aref, "");
 
                 timestampPlacer.requireValTimestampBeforeUser(call_arg, *link_arg_call);

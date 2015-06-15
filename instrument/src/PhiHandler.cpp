@@ -1,7 +1,7 @@
 #include <boost/lexical_cast.hpp>
-#include <llvm/Instructions.h>
-#include <llvm/Module.h>
-#include <llvm/Constants.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Constants.h>
 #include "PhiHandler.h"
 #include "LLVMTypes.h"
 
@@ -313,8 +313,10 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
 {
     std::vector<Value*> args;
     LLVMTypes types(phi.getContext());
+#if 0
     function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back, 
         ref(args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
+#endif
 
     BasicBlock& phi_bb = *phi.getParent();
 
@@ -365,8 +367,12 @@ void PhiHandler::handleLoops(llvm::PHINode& phi)
         }
     }
 
+    args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(phi), false)); // id for destination
+    args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(controlling_cond), false)); // id for controlling cond
+#if 0
     push_int(timestampPlacer.getId(phi)); // id for destination
     push_int(timestampPlacer.getId(controlling_cond)); // id for controlling cond
+#endif
 
 
 	ArrayRef<Value*> *aref = NULL;
@@ -435,13 +441,18 @@ void PhiHandler::handle(llvm::Instruction& inst)
 
     std::vector<Value*> log_func_args;
     LLVMTypes types(phi.getContext());
+#if 0
     function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back, 
         ref(log_func_args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
+#endif
 
     LOG_DEBUG() << "processing phi node: " << PRINT_VALUE(inst) << "\n";
 
     // Destination ID
+    log_func_args.push_back(ConstantInt::get(types.i32(), timestampPlacer.getId(phi), false));
+#if 0
     push_int(timestampPlacer.getId(phi));
+#endif
 
     // Incoming Value ID.
     PHINode& incoming_val_id = identifyIncomingValueId(phi);
@@ -463,8 +474,12 @@ void PhiHandler::handle(llvm::Instruction& inst)
         phi_logging_func = it->second;
 
     // Otherwise, use var arg and set the num of args.
-    else
+    else {
+    	log_func_args.push_back(ConstantInt::get(types.i32(), num_ctrl_deps, false));
+#if 0
         push_int(num_ctrl_deps);
+#endif
+    }
 
     // Push on all the ctrl deps.
     foreach(PHINode* ctrl_dep, ctrl_deps)

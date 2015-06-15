@@ -27,13 +27,16 @@ TimestampAnalysis::~TimestampAnalysis()
  */
 const Timestamp& TimestampAnalysis::getTimestamp(llvm::Value* input_val) 
 {
+    LOG_DEBUG() << "getting TS for " << *input_val << "\n";
     Timestamp* timestamp_of_val;
     Timestamps::iterator timestamp_iter = _timestamps.find(input_val);
     if(timestamp_iter == _timestamps.end())
     {
 		// create a timestamp if one doesn't currently exist for input_val
         auto_ptr<Timestamp> timestamp_ptr_of_val(timestamp_of_val = new Timestamp());
-        getHandler(input_val)->getTimestamp(input_val, *timestamp_ptr_of_val);
+		TimestampHandler* h = getHandler(input_val);
+		assert(h != NULL && "Could not get handler");
+        h->getTimestamp(input_val, *timestamp_ptr_of_val);
         _timestamps.insert(input_val, timestamp_ptr_of_val);
     }
     else
@@ -42,7 +45,8 @@ const Timestamp& TimestampAnalysis::getTimestamp(llvm::Value* input_val)
         timestamp_of_val = timestamp_iter->second;
 	}
 
-    LOG_DEBUG() << "TS for " << *input_val << ": " << *timestamp_of_val << "\n";
+    LOG_DEBUG() << "\tTS for " << *input_val << ": " << *timestamp_of_val << "\n";
+	PassLog::get().debug().flush();
     return *timestamp_of_val;
 }
 
@@ -55,7 +59,7 @@ TimestampHandler* TimestampAnalysis::getHandler(llvm::Value* input_val) const
 
     if(handler_iter == _handlers.end())
     {
-        DEBUG(LOG_WARN() << "Failed to find handler for inst " << *input_val << "\n");
+        LOG_WARN() << "Failed to find handler for inst " << *input_val << "\n";
         return NULL;
     }
     return handler_iter->second;

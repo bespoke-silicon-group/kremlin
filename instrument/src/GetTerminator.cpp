@@ -1,6 +1,6 @@
 #include <foreach.h>
 #include "GetTerminator.h"
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 
 using namespace llvm;
 

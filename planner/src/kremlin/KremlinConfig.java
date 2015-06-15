@@ -40,7 +40,7 @@ public class KremlinConfig {
 		this.overhead = Integer.valueOf((String)set.valueOf("overhead"));
 		String plannerString = (String)set.valueOf("planner");
 		this.type = PlannerType.fromString(plannerString);
-		if (this.type == null) this.type = PlannerType.GPU;
+		if (this.type == null) this.type = PlannerType.Profiler;
 
 		// @TRICKY: Java doesn't like to read in Longs that are 64 bits 
 		// and have a 1 in the most significant bit.

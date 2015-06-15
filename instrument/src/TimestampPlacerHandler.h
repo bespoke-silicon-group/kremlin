@@ -2,8 +2,8 @@
 #define TIMESTAMP_PLACER_HANDLER_H
 
 #include <vector>
-#include <llvm/Instruction.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
 
 /**
  * Interface for handlers inserting logTimestamp calls.

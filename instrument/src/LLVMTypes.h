@@ -1,8 +1,8 @@
 #ifndef LLVM_TYPES_H
 #define LLVM_TYPES_H
 
-#include <llvm/LLVMContext.h>
-#include <llvm/Type.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Type.h>
 
 /**
  * Holds references to llvm types.

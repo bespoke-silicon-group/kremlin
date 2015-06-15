@@ -2,10 +2,10 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/PostDominanceFrontier.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Dominators.h"
+#include "PostDominanceFrontier.h"
 
 #include <ctime>
 
@@ -112,10 +112,14 @@ struct CriticalPath : public ModulePass
                 continue;
             }
 			else if (func.hasSection()
-						&& (func.getSection().compare(".text.startup") == 0
-							|| func.getSection().compare(".text.exit") == 0)
+						&& (StringRef(func.getSection()) == ".text.startup"
+							|| StringRef(func.getSection()) == ".text.exit")
 					) {
                 LOG_WARN() << "Not instrumenting startup function: " << func.getName() << "\n";
+				continue;
+			}
+			else if (func.hasHiddenVisibility()) {
+                LOG_WARN() << "Not instrumenting hidden function: " << func.getName() << "\n";
 				continue;
 			}
 
@@ -304,7 +308,7 @@ struct CriticalPath : public ModulePass
 
     void getAnalysisUsage(AnalysisUsage &AU) const {
         AU.setPreservesCFG();
-        AU.addRequired<DominatorTree>();
+        AU.addRequired<DominatorTreeWrapperPass>();
         AU.addRequired<PostDominanceFrontier>();
         AU.addRequired<ReductionVars>();
     }

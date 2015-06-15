@@ -24,9 +24,15 @@ static char tabString[2000];
 static int tabLevel = 0;
 static FILE* stream;
 
-void DebugInit(bool pre_init) {
-	const char* df = pre_init ? "/dev/null" : kremlin_config.getDebugOutputFilename();
-	stream = fopen(df, "w");
+void DebugInit() {
+	const char* df = kremlin_config.getDebugOutputFilename();
+
+	// TRICKY: With C++, sometimes we have to call DebugInit before we
+	// have set up the configuration (including the debug output
+	// filename). Here we check if the filename exists: if not, we just
+	// write to /dev/null.
+	// TODO: Come up with a better way to handle this corner case.
+	stream = fopen(df ? df : "/dev/null", "w");
 	if (stream == NULL) {
 		fprintf(stderr,"ERROR: could not open file for writing: %s\n",kremlin_config.getDebugOutputFilename());
 		exit(1);

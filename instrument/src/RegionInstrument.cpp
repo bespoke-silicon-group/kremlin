@@ -1,18 +1,18 @@
-#include "llvm/DebugInfo.h"
-#include <llvm/Analysis/Dominators.h>
+#include "llvm/IR/DebugInfo.h"
+#include <llvm/IR/Dominators.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
-#include <llvm/Constants.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Function.h>
-#include <llvm/GlobalVariable.h>
-#include <llvm/Instruction.h>
-#include <llvm/Instructions.h>
-#include <llvm/Module.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
 #include <llvm/Pass.h>
-#include <llvm/Support/CallSite.h>
+#include <llvm/IR/CallSite.h>
 #include <llvm/Support/CommandLine.h>
-#include <llvm/User.h>
+#include <llvm/IR/User.h>
 #include <map>
 
 #include <iostream>
@@ -23,7 +23,7 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 
-#include <llvm/Support/CFG.h>
+#include <llvm/IR/CFG.h>
 
 #include "foreach.h"
 #include "PassLog.h"
@@ -759,16 +759,16 @@ namespace {
 
 			log.debug() << "Debug information:\n";
 
-			for(DebugInfoFinder::iterator it = debug_info_finder.compile_unit_begin(), end = debug_info_finder.compile_unit_end(); it != end; it++)
+			for(DebugInfoFinder::compile_unit_iterator it = debug_info_finder.compile_units().begin(), end = debug_info_finder.compile_units().end(); it != end; it++)
 				(*it)->dump();
 
-			for(DebugInfoFinder::iterator it = debug_info_finder.subprogram_begin(), end = debug_info_finder.subprogram_end(); it != end; it++)
+			for(DebugInfoFinder::subprogram_iterator it = debug_info_finder.subprograms().begin(), end = debug_info_finder.subprograms().end(); it != end; it++)
 				(*it)->dump();
 
-			for(DebugInfoFinder::iterator it = debug_info_finder.global_variable_begin(), end = debug_info_finder.global_variable_end(); it != end; it++)
+			for(DebugInfoFinder::global_variable_iterator it = debug_info_finder.global_variables().begin(), end = debug_info_finder.global_variables().end(); it != end; it++)
 				(*it)->dump();
 
-			for(DebugInfoFinder::iterator it = debug_info_finder.type_begin(), end = debug_info_finder.type_end(); it != end; it++)
+			for(DebugInfoFinder::type_iterator it = debug_info_finder.types().begin(), end = debug_info_finder.types().end(); it != end; it++)
 				(*it)->dump();
 
 			
@@ -890,9 +890,9 @@ namespace {
 					|| (noRecursiveFuncs && isRecursive(&func)) // make sure we don't try a recursive func if we say not to
 					//or if the functions are the C++ startup and cleanup functions, then skip them too
 					|| (func.hasSection() && 
-						func.getSection().compare(".text.startup") == 0)
+						StringRef(func.getSection()) == ".text.startup")
 					|| (func.hasSection() && 
-						func.getSection().compare(".text.exit") == 0)
+						StringRef(func.getSection()) == ".text.exit")
 				  )
 				{
 					continue;

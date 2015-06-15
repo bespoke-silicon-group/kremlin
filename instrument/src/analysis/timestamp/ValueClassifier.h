@@ -1,7 +1,7 @@
 #ifndef VALUE_CLASSIFIER_H
 #define VALUE_CLASSIFIER_H
 
-#include <llvm/Value.h>
+#include <llvm/IR/Value.h>
 #include "analysis/ReductionVars.h"
 
 class ValueClassifier

@@ -1,7 +1,7 @@
 #ifndef TIMESTAMP_BLOCK_HANDLER_H
 #define TIMESTAMP_BLOCK_HANDLER_H
 
-#include <llvm/BasicBlock.h>
+#include <llvm/IR/BasicBlock.h>
 
 /**
  * Interface for handlers called once per basic block.

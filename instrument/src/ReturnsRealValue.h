@@ -1,8 +1,8 @@
 #ifndef RETURNS_REAL_VALUE_H
 #define RETURNS_REAL_VALUE_H
 
-#include <llvm/Instructions.h>
-#include <llvm/Function.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Function.h>
 
 /**
  * Checks whether this returns a non-ptr value (not void)

@@ -2,7 +2,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/lexical_cast.hpp>
-#include <llvm/Constants.h>
+#include <llvm/IR/Constants.h>
 #include <llvm/Support/Debug.h>
 
 #include "analysis/timestamp/KInstructionToLogFunctionConverter.h"
@@ -55,10 +55,15 @@ llvm::CallInst* InstructionToLogFunctionConverter::operator()(const Value* inst,
 
     std::vector<Value*> args;
     LLVMTypes types(m.getContext());
+#if 0
     function<void(unsigned int)> push_int = bind(&vector<Value*>::push_back, 
         ref(args), bind<Constant*>(&ConstantInt::get, types.i32(), _1, false));
+#endif
 
+    args.push_back(ConstantInt::get(types.i32(), inst_to_id.getId(*inst), false)); // dest id.
+#if 0
     push_int(inst_to_id.getId(*inst)); // dest id.
+#endif
 
     // Look up the custom function
     FuncMap::const_iterator it = func_map.find(ts.size());
@@ -66,15 +71,22 @@ llvm::CallInst* InstructionToLogFunctionConverter::operator()(const Value* inst,
     if(it == func_map.end())
     {
         func = log_func;
+        args.push_back(ConstantInt::get(types.i32(), ts.size(), false)); // num args.
+#if 0
         push_int(ts.size()); // num args.
+#endif
     }
     else
         func = it->second;
 
     foreach(const TimestampCandidate& cand, ts)
     {
+        args.push_back(ConstantInt::get(types.i32(), inst_to_id.getId(*cand.getBase()), false)); // vtable index
+        args.push_back(ConstantInt::get(types.i32(), cand.getOffset(), false)); // constant work
+#if 0
         push_int(inst_to_id.getId(*cand.getBase())); // vtable index
         push_int(cand.getOffset()); // constant work
+#endif
     }
 
 	ArrayRef<Value*> *aref = new ArrayRef<Value*>(args);

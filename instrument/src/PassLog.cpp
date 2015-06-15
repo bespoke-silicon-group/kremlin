@@ -1,6 +1,6 @@
 #include "PassLog.h"
-#include <iostream>
-#include <llvm/Support/CommandLine.h>
+//#include <iostream>
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 
@@ -8,79 +8,67 @@ static cl::opt<std::string> log_name("log-name",cl::desc("Where to log to."),cl:
 
 PassLog* PassLog::singleton;
 
-PassLog::PassLog()
-{
-	std::string error_message;
+PassLog::PassLog() {}
 
-	// Allocate the output stream.
-	os.reset(new os_ostream(std::cerr));
-	ns = new PassLog::nstream();
-
-	// Logs should be unbuffered.
-	os->SetUnbuffered();
-}
-
-PassLog::~PassLog()
-{
-}
+PassLog::~PassLog() {}
 
 /**
  * Prints a fatal message.
  * @return The stream to print fatal messages to.
  */
-PassLog::ostream& PassLog::fatal()
+raw_ostream& PassLog::fatal()
 {
-	*os << "FATAL: ";
-	return *os;
+	outs() << "FATAL: ";
+	return outs();
 }
 
 /**
  * Prints an error message.
  * @return The stream to print error messages to.
  */
-PassLog::ostream& PassLog::error()
+raw_ostream& PassLog::error()
 {
-	*os << "ERROR: ";
-	return *os;
+	outs() << "ERROR: ";
+	return outs();
 }
 
 /**
  * Prints a warning message.
  * @return The stream to print warning messages to.
  */
-PassLog::ostream& PassLog::warn()
+raw_ostream& PassLog::warn()
 {
-	*os << "WARNING: ";
-	return *os;
+	outs() << "WARNING: ";
+	return outs();
 }
 
 /**
  * Prints a info message.
  * @return The stream to print info messages to.
  */
-PassLog::ostream& PassLog::info()
+raw_ostream& PassLog::info()
 {
-	*os << "INFO: ";
-	return *os;
+	outs() << "INFO: ";
+	return outs();
 }
 
 /**
  * Prints a debug message.
  * @return The stream to print debug messages to.
  */
-PassLog::ostream& PassLog::debug()
+raw_ostream& PassLog::debug()
 {
-	*os << "DEBUG: ";
-	return *os;
+	outs() << "DEBUG: ";
+	return outs();
 }
 
 /**
  * Prints a non-decorated message.
  * @return A stream to print undecorated messages to.
  */
-PassLog::ostream& PassLog::plain()
+raw_ostream& PassLog::plain()
 {
-	return *os;
+	return outs();
 }
 
 /**
@@ -97,8 +85,6 @@ PassLog& PassLog::get()
  */
 void PassLog::close()
 {
-	os.reset();
-	delete ns;
 	delete singleton;
 	singleton = NULL;
 }

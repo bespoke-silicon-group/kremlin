@@ -2,7 +2,7 @@
 #define UNKNOWN_OP_CODE_EXCEPTION_H
 
 #include <exception>
-#include <llvm/Instruction.h>
+#include <llvm/IR/Instruction.h>
 
 /**
  * Thrown for unknown op codes. The complete list of op-codes are here: <llvm/Instruction.def>

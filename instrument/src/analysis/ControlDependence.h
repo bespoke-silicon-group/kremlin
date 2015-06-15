@@ -1,11 +1,11 @@
 #ifndef CONTROL_DEPENDENCE_H
 #define CONTROL_DEPENDENCE_H
 
-#include "llvm/Function.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/PostDominanceFrontier.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Dominators.h"
+#include "PostDominanceFrontier.h"
 
 #include <boost/ptr_container/ptr_map.hpp>
 #include <map>
@@ -19,7 +19,7 @@ class ControlDependence
     public:
     typedef std::set<llvm::BasicBlock*> ControllingBlocks;
 
-    ControlDependence(llvm::Function& func, llvm::DominatorTree& dt, llvm::PostDominanceFrontier& pdf);
+    ControlDependence(llvm::Function& func, llvm::DominatorTree& dt, PostDominanceFrontier& pdf);
     virtual ~ControlDependence() {}
 
     ControllingBlocks& getPhiControllingBlocks(llvm::PHINode& phi, ControllingBlocks& result);
@@ -32,11 +32,10 @@ class ControlDependence
     typedef std::map<llvm::BasicBlock*, ControllingBlocks> BbToControllers;
 
     PhiToControllers phi_to_controllers;
-    BbToControllers bb_to_controllers;
     llvm::DominatorTree& dt;
     std::map<llvm::BasicBlock*,llvm::BasicBlock*> idom;
     PassLog& log;
-    llvm::PostDominanceFrontier& pdf;
+    PostDominanceFrontier& pdf;
 
     void createIDomMap(llvm::Function& func);
     llvm::BasicBlock* getImmediateDominator(llvm::BasicBlock* blk);

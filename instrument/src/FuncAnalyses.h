@@ -1,7 +1,7 @@
 #ifndef FUNC_ANALYSES
 #define FUNC_ANALYSES
 
-#include <llvm/Analysis/Dominators.h>
+#include <llvm/IR/Dominators.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include "analysis/ControlDependence.h"
 #include "analysis/ReductionVars.h"
@@ -15,7 +15,7 @@ struct FuncAnalyses
 
     llvm::DominatorTree& dt;
     llvm::LoopInfo& li;
-    llvm::PostDominanceFrontier& pdf;
+    PostDominanceFrontier& pdf;
     ReductionVars& rv;
     ControlDependence cd;
 };

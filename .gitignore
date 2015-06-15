@@ -2,6 +2,8 @@
 .*.swp
 *.nfs*
 
+*.tar.xz
+
 ###########################
 # intermediate build code #
 ###########################
@@ -17,6 +19,14 @@ region.graph
 kremlin.mk
 kremlin_region_graph.dot
 *.ids.txt
+*.so
+*.dylib
+
+instrument/Makefile
+instrument/src/Makefile
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
 
 .sconsign.dblite
 

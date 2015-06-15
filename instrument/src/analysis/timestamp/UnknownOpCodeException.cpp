@@ -1,8 +1,7 @@
 #include "UnknownOpCodeException.h"
 
 #include <string>
-#include <llvm/Support/raw_os_ostream.h>
-#include <llvm/Support/raw_ostream.h>
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

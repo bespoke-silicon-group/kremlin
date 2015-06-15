@@ -1,7 +1,7 @@
 #ifndef TIMESTAMP_CANDIDATE_H
 #define TIMESTAMP_CANDIDATE_H
 
-#include <llvm/Instruction.h>
+#include <llvm/IR/Instruction.h>
 
 class TimestampCandidate
 {

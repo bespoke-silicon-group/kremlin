@@ -2,7 +2,7 @@
 #define REDUCTION_VARS_H
 
 #include <llvm/Pass.h>
-#include <llvm/Instruction.h>
+#include <llvm/IR/Instruction.h>
 #include <llvm/Analysis/LoopInfo.h>
 
 #include <set>

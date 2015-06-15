@@ -2,9 +2,9 @@
 #define PLACER_H
 
 #include <boost/ptr_container/ptr_map.hpp>
-#include <llvm/Analysis/Dominators.h>
-#include <llvm/Function.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Dominators.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
 #include <set>
 #include "PassLog.h"
 

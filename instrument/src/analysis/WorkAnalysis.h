@@ -1,8 +1,8 @@
 #ifndef WORK_ANALYSIS_H
 #define WORK_ANALYSIS_H
 
-#include <llvm/BasicBlock.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Instructions.h>
 #include "analysis/timestamp/ConstantWorkOpHandler.h"
 #include "TimestampBlockHandler.h"
 #include "TimestampPlacer.h"

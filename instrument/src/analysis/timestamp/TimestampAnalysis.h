@@ -4,7 +4,7 @@
 #include <boost/ptr_container/ptr_map.hpp>
 
 #include <llvm/Pass.h>
-#include <llvm/Instruction.h>
+#include <llvm/IR/Instruction.h>
 
 #include "analysis/timestamp/Timestamp.h"
 #include "analysis/timestamp/TimestampHandler.h"

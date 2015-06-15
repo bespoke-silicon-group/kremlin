@@ -1,8 +1,8 @@
 #include "analysis/ReductionVars.h"
 
-#include <llvm/Module.h>
+#include <llvm/IR/Module.h>
 #include <llvm/Analysis/LoopInfo.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 #include "foreach.h"
 
 using namespace llvm;

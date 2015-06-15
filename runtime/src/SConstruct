@@ -1,4 +1,9 @@
 env = Environment(CCFLAGS = '-O3')
+
+# default c++ library (libc++) doesn't work on Mac (bug?)
+if env['PLATFORM'] == 'darwin':
+    env.Append(CCFLAGS = ' -stdlib=libstdc++')
+
 files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
     'ProfileNode.cpp', 'CRegion.cpp', 'ProfileNodeStats.cpp', 
 	'MShadowBase.cpp', 'MShadowSkadu.cpp', 'MShadowSTV.cpp', 

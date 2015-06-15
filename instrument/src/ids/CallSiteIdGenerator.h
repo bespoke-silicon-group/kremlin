@@ -1,7 +1,7 @@
 #ifndef CALL_SITE_ID_GENERATOR_H
 #define CALL_SITE_ID_GENERATOR_H
 
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 
 class CallSiteIdGenerator
 {

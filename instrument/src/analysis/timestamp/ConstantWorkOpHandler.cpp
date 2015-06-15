@@ -386,7 +386,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const ConstantWorkOpHandler
  */
 std::ostream& operator<<(std::ostream& os, const ConstantWorkOpHandler& costs)
 {
-    operator<< <std::ostream>(os, costs);
+    os << costs;
 
     return os;
 }

@@ -1,9 +1,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Value.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Type.h"
-#include "llvm/InstrTypes.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/InstrTypes.h"
 
 #include <map>
 #include <set>

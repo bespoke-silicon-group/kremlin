@@ -2,7 +2,7 @@
 #define GET_TERMINATOR_H
 
 #include "UnaryFunctionConst.h"
-#include <llvm/BasicBlock.h>
+#include <llvm/IR/BasicBlock.h>
 
 struct GetTerminator : public UnaryFunctionConst<llvm::BasicBlock*, llvm::Instruction*> 
 {

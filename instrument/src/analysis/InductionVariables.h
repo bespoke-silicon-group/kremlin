@@ -3,7 +3,7 @@
 
 #include <set>
 #include <llvm/Analysis/LoopInfo.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 #include "PassLog.h"
 
 class InductionVariables

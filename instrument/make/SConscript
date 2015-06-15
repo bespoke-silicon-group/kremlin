@@ -2,19 +2,19 @@ import os
 
 Import('env','input_files', 'target', 'output_file', 'make_output_file')
 
-llvm_ver = 3.2
+llvm_ver = '3.6.1'
 
 kremlin_root_dir = os.path.abspath(os.path.join(os.getcwd(),"../..")) + os.sep
 llvm_bin_dir = kremlin_root_dir + 'instrument/llvm/install/bin/'
 kremlin_instrument_src_dir = kremlin_root_dir + 'instrument/src/'
 kremlib_dir = kremlin_root_dir + 'runtime/src/'
 llvm_clang = llvm_bin_dir + 'clang'
+llvm_clangxx = llvm_clang + '++'
 llvm_opt = llvm_bin_dir + 'opt'
 llvm_llc = llvm_bin_dir + 'llc'
 
-kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/llvm/' + \
-	'llvm-' + str(llvm_ver) + '-obj/Debug+Asserts/lib/KremlinInstrument' + \
-	env['SHLIBSUFFIX']
+kremlin_llvm_shared_obj = kremlin_root_dir + 'instrument/llvm/install/lib/' + \
+	'KremlinInstrument' + env['SHLIBSUFFIX']
 
 #conf = Configure(env)
 #if not config.CheckHeader
@@ -35,19 +35,25 @@ def generate_opt_actions(target, source, env, for_signature):
 	action_str += ' &> ' + target_name_splits[0] + '.' + action + '.log'
 	return action_str
 
-llvm_bc_bld = Builder(action = llvm_clang + \
-					' $CCFLAGS -g -emit-llvm -c -o $TARGET $SOURCE')
-
-plain_clang_bld = Builder(action = llvm_clang + \
-					' $CCFLAGS -o $TARGET $SOURCES')
-plain_clang_no_target_bld = Builder(action = llvm_clang + \
-					' $CCFLAGS $SOURCES')
-
 llc_opts = ' -march=x86-64'
+compile_opts = ' '
+
 if env['PLATFORM'] == 'darwin':
-	llc_opts += ' -disable-cfi -mattr=-avx'
+	llc_opts += ' -mattr=-avx'
+	# for some reason mac's default libc++ doesn't work (bug?)
+	compile_opts += '-stdlib=libstdc++' 
+	env['LINKFLAGS'] = '-stdlib=libstdc++'
+    
 if str(env['CCFLAGS']).find('-fPIC') != -1:
 	llc_opts += ' -relocation-model=pic'
+
+llvm_bc_bld = Builder(action = llvm_clang + compile_opts + \
+					' $CCFLAGS -g -emit-llvm -c -o $TARGET $SOURCE')
+
+plain_clang_bld = Builder(action = llvm_clang + compile_opts + \
+					' $CCFLAGS -o $TARGET $SOURCES')
+plain_clang_no_target_bld = Builder(action = llvm_clang + compile_opts + \
+					' $CCFLAGS $SOURCES')
 
 llvm_asm_bld = Builder(action = llvm_llc + \
 					llc_opts + ' -o $TARGET $SOURCE',
@@ -62,7 +68,12 @@ env['BUILDERS']['InstrumentedAssembly'] = llvm_asm_bld
 env['BUILDERS']['PlainClang'] = plain_clang_bld
 env['BUILDERS']['PlainClangNoTarget'] = plain_clang_no_target_bld
 
-env['LINK'] = 'g++'
+# use clang to assemble because the built-in assembler has problems on some
+# platforms **glares at Mac OS X**
+env['AS'] = llvm_clang
+env['ASFLAGS'] = '-c'
+
+env['LINK'] = llvm_clangxx
 
 def get_prefix_str(filename):
 	filename_split = str.split(filename,'.')
@@ -88,10 +99,6 @@ def compile_files(source_filenames):
 		glob_str = os.path.join(kremlin_instrument_src_dir,d,'*.cpp')
 		so_srcs += Glob(glob_str)
 
-	so = env.Command(kremlin_llvm_shared_obj, so_srcs,
-						'make -C ' + kremlin_instrument_src_dir + \
-						' LEVEL=' + '../llvm/llvm-' + str(llvm_ver) + \
-                        '-obj DEBUG=1')
 	asm_nodes = []
 	for filename in source_filenames:
 		filename_split = str.split(filename,'.')
@@ -107,7 +114,7 @@ def compile_files(source_filenames):
 			input_pass_str = pass_str
 			pass_str += '.' + p
 			t = env.LLVMOpt(prefix_str + pass_str + '.bc', \
-						[prefix_str + input_pass_str + '.bc', so])
+						prefix_str + input_pass_str + '.bc')
 			log_name = prefix_str + '.' + p + '.log'
 			Clean(t, log_name)
 			if p == 'criticalpath':

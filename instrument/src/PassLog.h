@@ -2,8 +2,7 @@
 #define PASS_LOG_H
 
 #include <string>
-#include <llvm/Support/raw_os_ostream.h>
-#include <llvm/Support/raw_ostream.h>
+#include "llvm/Support/raw_ostream.h"
 #include <boost/smart_ptr.hpp>
 
 #define LOG_PLAIN() (PassLog::get().plain() << __FILE__ << ":" << __LINE__ << " ")
@@ -34,30 +33,18 @@ class PassLog
 	public:
 	static PassLog& get();
 
-	public:
-	/**
-	 * The type of the stream backing the log.
-	 */
-	typedef llvm::raw_ostream ostream;
-	typedef llvm::raw_os_ostream os_ostream;
-	typedef llvm::raw_null_ostream nstream;
-
 	private:
-	boost::scoped_ptr<os_ostream> os;
-	//boost::scoped_ptr<nstream> ns;
-	nstream* ns;
-
 	PassLog();
 
 	public:
 	virtual ~PassLog();
 
-	ostream& fatal();
-	ostream& error();
-	ostream& warn();
-	ostream& info();
-	ostream& debug();
-	ostream& plain();
+	llvm::raw_ostream& fatal();
+	llvm::raw_ostream& error();
+	llvm::raw_ostream& warn();
+	llvm::raw_ostream& info();
+	llvm::raw_ostream& debug();
+	llvm::raw_ostream& plain();
 
 	void close();
 };
