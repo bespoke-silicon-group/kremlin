@@ -48,7 +48,7 @@ public:
 	 * @pre table is non-NULL.
 	 * @pre index < NUM_ENTRIES
 	 */
-	LevelTable* setLevelTableAtIndex(LevelTable *table, unsigned index) { 
+	void setLevelTableAtIndex(LevelTable *table, unsigned index) { 
 		assert(table != NULL);
 		assert(index < NUM_ENTRIES);
 		level_tables[index] = table;
