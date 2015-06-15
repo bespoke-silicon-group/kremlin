@@ -1,9 +1,9 @@
 #include <cassert>
-#include "debug.h"
+#include "debug.hpp"
 #include "ktypes.h"
-#include "MShadowStat.h" // for mshadow event counters
+#include "MShadowStat.hpp" // for mshadow event counters
 #include "LevelTable.hpp"
-#include "compression.h"
+#include "compression.hpp"
 
 void* LevelTable::operator new(size_t size) {
 	return MemPoolAllocSmall(sizeof(LevelTable));

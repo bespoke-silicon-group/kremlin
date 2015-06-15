@@ -1,11 +1,11 @@
-#include "debug.h"
+#include "debug.hpp"
 #include "kremlin.h"
-#include "config.h"
+#include "config.hpp"
 
 #include "MemorySegment.hpp"
 #include "LevelTable.hpp"
-#include "MShadowStat.h"
-#include "MShadowSkadu.h"
+#include "MShadowStat.hpp"
+#include "MShadowSkadu.hpp"
 
 MemStat _stat;
 L1Stat _cacheStat;

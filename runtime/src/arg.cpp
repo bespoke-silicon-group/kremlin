@@ -7,10 +7,10 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#include "arg.h" // includes vector
-#include "config.h"
+#include "arg.hpp" // includes vector
+#include "config.hpp"
 
-#include "debug.h"
+#include "debug.hpp"
 
 // TODO: convert uses of atoi to std::stoi when C++11 more common
 

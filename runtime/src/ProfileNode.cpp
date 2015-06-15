@@ -2,8 +2,8 @@
 
 #include "ProfileNode.hpp"
 #include "ProfileNodeStats.hpp"
-#include "MemMapAllocator.h"
-#include "debug.h"
+#include "MemMapAllocator.hpp"
+#include "debug.hpp"
 
 static UInt64 lastId = 0; // FIXME: change to member variable?
 UInt64 ProfileNode::allocId() { return ++lastId; }

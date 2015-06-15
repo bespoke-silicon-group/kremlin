@@ -1,11 +1,11 @@
-#include "debug.h"
-#include "config.h"
+#include "debug.hpp"
+#include "config.hpp"
 #include "KremlinProfiler.hpp"
 #include "ProgramRegion.hpp"
 #include "FunctionRegion.hpp"
-#include "CRegion.h"
-#include "MShadow.h"
-#include "Table.h"
+#include "CRegion.hpp"
+#include "MShadow.hpp"
+#include "Table.hpp"
 
 Table *KremlinProfiler::shadow_reg_file = NULL;
 

@@ -1,8 +1,8 @@
 #include <cassert>
-#include "config.h"
-#include "Table.h"
-#include "TagVectorCache.h"
-#include "TagVectorCacheLine.h"
+#include "config.hpp"
+#include "Table.hpp"
+#include "TagVectorCache.hpp"
+#include "TagVectorCacheLine.hpp"
 
 static const int TV_CACHE_DEBUG_LVL = 0;
 

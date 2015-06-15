@@ -1,7 +1,7 @@
 #include "LevelTable.hpp"
-#include "MShadowSkadu.h"
-#include "MShadowNullCache.h"
-#include "compression.h"
+#include "MShadowSkadu.hpp"
+#include "MShadowNullCache.hpp"
+#include "compression.hpp"
 
 static Time tempArray[1000];
 

@@ -7,8 +7,8 @@
 #include <cstdio>
 #include <sys/mman.h>
 
-#include "debug.h"
-#include "MemMapAllocator.h"
+#include "debug.hpp"
+#include "MemMapAllocator.hpp"
 #include "mpool.h"
 
 typedef struct _MChunk {

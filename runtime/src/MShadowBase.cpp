@@ -1,6 +1,6 @@
 #include "kremlin.h"
-#include "config.h"
-#include "MShadowBase.h"
+#include "config.hpp"
+#include "MShadowBase.hpp"
 
 #include <assert.h>
 #include <limits.h>

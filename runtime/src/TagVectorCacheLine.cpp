@@ -1,5 +1,5 @@
-#include "debug.h"
-#include "TagVectorCacheLine.h"
+#include "debug.hpp"
+#include "TagVectorCacheLine.hpp"
 
 static const int TV_CACHE_LINE_DEBUG_LVL = 0;
 

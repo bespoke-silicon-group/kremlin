@@ -1,12 +1,12 @@
 #include <map>
 
 #include "kremlin.h"
-#include "compression.h"
-#include "MShadowSkadu.h"
+#include "compression.hpp"
+#include "MShadowSkadu.hpp"
 #include "LevelTable.hpp"
-#include "config.h"
+#include "config.hpp"
 #include "minilzo.h"
-#include "debug.h"
+#include "debug.hpp"
 
 static UInt64 _compSrcSize;
 static UInt64 _compDestSize;

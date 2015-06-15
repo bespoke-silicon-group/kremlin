@@ -1,5 +1,5 @@
-#ifndef _CREGION_H_
-#define _CREGION_H_
+#ifndef _CREGION_HPP_
+#define _CREGION_HPP_
 
 #include "ktypes.h"
 

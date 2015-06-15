@@ -2,18 +2,18 @@
 #include <string.h> // for memset
 #include <vector>
 
-#include "config.h"
-#include "debug.h"
-#include "MemMapAllocator.h"
+#include "config.hpp"
+#include "debug.hpp"
+#include "MemMapAllocator.hpp"
 
 #include "LevelTable.hpp"
 #include "MemorySegment.hpp"
-#include "MShadowSkadu.h"
-#include "MShadowStat.h" // for event counters
-#include "compression.h" // for CBuffer
+#include "MShadowSkadu.hpp"
+#include "MShadowStat.hpp" // for event counters
+#include "compression.hpp" // for CBuffer
 
-#include "MShadowCache.h"
-#include "MShadowNullCache.h"
+#include "MShadowCache.hpp"
+#include "MShadowNullCache.hpp"
 
 /*!
  * @brief A sparse table that tracks 4GB memory chunks being used.

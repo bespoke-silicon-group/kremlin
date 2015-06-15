@@ -3,7 +3,7 @@
 
 #include <cassert>
 #include "ktypes.h"
-#include "MShadow.h" // for MShadow class 
+#include "MShadow.hpp" // for MShadow class 
 #include "TimeTable.hpp" // for TimeTable::TableType
 
 class SparseTable;

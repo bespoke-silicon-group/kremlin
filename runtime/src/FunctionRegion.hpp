@@ -1,8 +1,8 @@
 #ifndef FUNCTION_REGION_HPP
 #define FUNCTION_REGION_HPP
 
-#include "MemMapAllocator.h"
-#include "Table.h" // for delete of table in destructor
+#include "MemMapAllocator.hpp"
+#include "Table.hpp" // for delete of table in destructor
 
 class FunctionRegion {
 private:

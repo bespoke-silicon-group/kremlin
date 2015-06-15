@@ -1,6 +1,6 @@
 #include <iostream>
 #include <cassert>
-#include "config.h"
+#include "config.hpp"
 
 void KremlinConfiguration::print() {
 	std::cerr << "Kremlin Configuration:\n";

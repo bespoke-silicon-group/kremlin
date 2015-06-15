@@ -3,7 +3,7 @@
 
 #include <cstddef> // for std::size_t, std::ptrdiff_t
 #include <limits>
-#include "MemMapAllocator.h"
+#include "MemMapAllocator.hpp"
 
 namespace MPoolLib {
 	template <class T>

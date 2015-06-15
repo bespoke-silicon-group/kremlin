@@ -3,7 +3,7 @@
 
 #include <vector>
 #include "PoolAllocator.hpp"
-#include "CRegion.h"
+#include "CRegion.hpp"
 
 #define DEBUG_CREGION	3
 

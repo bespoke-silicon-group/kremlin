@@ -2,8 +2,8 @@
 #define _TABLE_H
 
 #include "ktypes.h"
-#include "debug.h"
-#include "MemMapAllocator.h"
+#include "debug.hpp"
+#include "MemMapAllocator.hpp"
 
 #include <cstdlib> // for calloc
 

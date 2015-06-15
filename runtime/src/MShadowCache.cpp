@@ -4,17 +4,17 @@
 #include <stdio.h>
 #include <string.h> // for memcpy
 
-#include "debug.h"
-#include "config.h"
-#include "MemMapAllocator.h"
-#include "Table.h"
-#include "compression.h"
+#include "debug.hpp"
+#include "config.hpp"
+#include "MemMapAllocator.hpp"
+#include "Table.hpp"
+#include "compression.hpp"
 
-#include "MShadowStat.h"
-#include "MShadowSkadu.h"
-#include "MShadowCache.h"
-#include "TagVectorCache.h"
-#include "TagVectorCacheLine.h"
+#include "MShadowStat.hpp"
+#include "MShadowSkadu.hpp"
+#include "MShadowCache.hpp"
+#include "TagVectorCache.hpp"
+#include "TagVectorCacheLine.hpp"
 
 //#define TVCacheDebug	0
 static const int SKADU_CACHE_DEBUG_LVL = 0;

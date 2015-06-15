@@ -2,7 +2,7 @@
 #define _MSHADOW_STV_H
 
 #include "ktypes.h"
-#include "MShadow.h"
+#include "MShadow.hpp"
 
 class MShadowSTV : public MShadow {
 public:

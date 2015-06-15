@@ -1,10 +1,10 @@
-#ifndef _MSHADOW_BASE_H
-#define _MSHADOW_BASE_H
+#ifndef _MSHADOW_DUMMY_H
+#define _MSHADOW_DUMMY_H
 
 #include "ktypes.h"
-#include "MShadow.h"
+#include "MShadow.hpp"
 
-class MShadowBase : public MShadow {
+class MShadowDummy : public MShadow {
 public:
 	void init();
 	void deinit();

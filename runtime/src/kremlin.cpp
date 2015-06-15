@@ -8,19 +8,19 @@
 #include <string.h>
 #include <sys/time.h>
 #include "kremlin.h"
-#include "arg.h"
-#include "debug.h"
-#include "config.h"
-#include "CRegion.h"
+#include "arg.hpp"
+#include "debug.hpp"
+#include "config.hpp"
+#include "CRegion.hpp"
 
-#include "MShadow.h"
-#include "MShadowDummy.h"
-#include "MShadowBase.h"
-#include "MShadowSTV.h"
-#include "MShadowSkadu.h"
+#include "MShadow.hpp"
+#include "MShadowDummy.hpp"
+#include "MShadowBase.hpp"
+#include "MShadowSTV.hpp"
+#include "MShadowSkadu.hpp"
 
-#include "Table.h"
-#include "RShadow.h"
+#include "Table.hpp"
+#include "RShadow.hpp"
 #include "PoolAllocator.hpp"
 
 #include "KremlinProfiler.hpp"

@@ -1,7 +1,7 @@
 #ifndef TAG_VECTOR_CACHE_LINE_H
 #define TAG_VECTOR_CACHE_LINE_H
 
-#include "MShadowSkadu.h" // needed for TimeTable::TableType :(
+#include "MShadowSkadu.hpp" // needed for TimeTable::TableType :(
 
 /*! \brief Single line in a tag vector cache */ 
 class TagVectorCacheLine {

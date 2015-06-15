@@ -1,6 +1,6 @@
 #include "kremlin.h"
-#include "config.h"
-#include "MShadowSTV.h"
+#include "config.hpp"
+#include "MShadowSTV.hpp"
 
 #include <assert.h>
 #include <limits.h>
@@ -10,8 +10,8 @@
 #include <string.h>
 #include <sys/time.h>
 
-#include "debug.h"
-//#include "MShadow.h"
+#include "debug.hpp"
+//#include "MShadow.hpp"
 
 #define DEBUGLEVEL 3
 

@@ -1,5 +1,5 @@
 #include "kremlin.h"
-#include "MShadowDummy.h"
+#include "MShadowDummy.hpp"
 
 
 Time _dummy_buffer[128];

@@ -1,8 +1,8 @@
 #include <cassert>
-#include "debug.h"
-#include "MemMapAllocator.h"
+#include "debug.hpp"
+#include "MemMapAllocator.hpp"
 #include "TimeTable.hpp"
-#include "MShadowStat.h" // for mem shadow event counters
+#include "MShadowStat.hpp" // for mem shadow event counters
 
 void* TimeTable::operator new(size_t size) {
 	return MemPoolAllocSmall(sizeof(TimeTable));

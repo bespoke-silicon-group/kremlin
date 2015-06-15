@@ -3,8 +3,8 @@
 #include <stdlib.h>
 
 #include "ktypes.h"
-#include "debug.h"
-#include "config.h"
+#include "debug.hpp"
+#include "config.hpp"
 //#include "idbg.h"
 
 #include <vector>

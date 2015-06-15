@@ -12,8 +12,8 @@
 #include <sys/time.h>
 #include <stdint.h>
 #include "ktypes.h"
-#include "debug.h"
-#include "MemMapAllocator.h"
+#include "debug.hpp"
+#include "MemMapAllocator.hpp"
 
 
 extern Time* (*MShadowGet)(Addr, Index, Version*, UInt32);

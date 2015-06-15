@@ -3,11 +3,11 @@
 #include <utility> // for std::pair
 #include <sstream>
 
-#include "config.h"
+#include "config.hpp"
 #include "kremlin.h"
-#include "MemMapAllocator.h"
+#include "MemMapAllocator.hpp"
 
-#include "CRegion.h"
+#include "CRegion.hpp"
 #include "ProfileNode.hpp"
 #include "ProfileNodeStats.hpp"
 
