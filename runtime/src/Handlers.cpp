@@ -580,9 +580,12 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 
 	// find deepest level with region id that matches parameter regionId
 	Level end_level = getCurrentLevel()+1;
-	for (unsigned i = getCurrentLevel(); i >= 0; --i) {
+	for (unsigned i = getCurrentLevel(); ; --i) {
 		if (getRegionAtLevel(i)->regionId == regionId) {
 			end_level = i;
+			break;
+		}
+		else if (i == 0) {
 			break;
 		}
 	}
