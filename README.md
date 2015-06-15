@@ -17,7 +17,7 @@ parallelization plan for your program.
 ```bash
 make CC=kremlin-gcc
 ./demo data.large.txt
-kremlin
+kremlin --planner=openmp
 
 PlannerType = OpenMP
 Target : NumCore = 4, Overhead = 0,  Cache = 0 MB, BW= 0 MB/s
@@ -43,14 +43,16 @@ reduction in time if parallelized and the type of parallelism present.
 
 Before you get started, you will need the following software installed:
 
-* A modern C and C++ compiler (GCC or Clang have been tested; others might work too.)
+* A modern C and C++ compiler (GCC 4.7+ or Clang 3.1+, per [LLVM's requirements](http://llvm.org/docs/GettingStarted.html#host-c-toolchain-both-compiler-and-standard-library))
 * Java JDK (1.6 or above)
 * ant
-* python with argparse (2.7 or above recommended)
+* python with argparse (2.7 or above _highly_ recommended)
 * scons
+* CMake (2.8.8 or above)
 * The C++ Boost Library (1.42 or above)
 
-Kremlin has been tested on Mac OS X (10.8 and above) and RHEL 7 but should work well on any modern Linux distribution.
+Kremlin has been tested on Mac OS X (10.9 and 10.10) and RHEL 7 but should work well
+on any modern Linux distribution, assuming you have the required software listed above.
 
 To get started clone the kremlin repository and simply run `make` inside the
 `kremlin` directory.
@@ -78,9 +80,11 @@ The basic flow for using Kremlin requires three steps:
 1. Run the parallelism planner by invoking the `kremlin` program within the
    same directory that you build/ran your program.
 
-By default, Kremlin gives you a plan tailored for using OpenMP on a system with
-4 cores.
-Run `kremlin -help` for a list of options that Kremlin's parallelism planner
+By default, Kremlin gives you basic parallelization information based on a 4 core
+CPU.
+Kremlin provides various planners to guide you towards parallelizing with a specific
+platform (e.g. OpenMP 2.0).
+Run `kremlin --help` for a list of options that Kremlin's parallelism planner
 accepts.
 Target parallelization platforms include:
 
