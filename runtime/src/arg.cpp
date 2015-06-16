@@ -58,15 +58,15 @@ void parseKremlinOptions(KremlinConfiguration &config,
 			{"kremlin-idbg", no_argument, &enable_idbg, 1},
 #endif
 
-			{"kremlin-output", required_argument, NULL, 'a'},
-			{"kremlin-log-output", required_argument, NULL, 'b'},
-			{"kremlin-shadow-mem-type", required_argument, NULL, 'c'},
-			{"kremlin-shadow-mem-cache-size", required_argument, NULL, 'd'},
-			{"kremlin-shadow-mem-gc-period", required_argument, NULL, 'e'},
-			{"kremlin-cbuffer-size", required_argument, NULL, 'f'},
-			{"kremlin-min-level", required_argument, NULL, 'g'},
-			{"kremlin-max-level", required_argument, NULL, 'h'},
-			{NULL, 0, NULL, 0} // indicates end of options
+			{"kremlin-output", required_argument, nullptr, 'a'},
+			{"kremlin-log-output", required_argument, nullptr, 'b'},
+			{"kremlin-shadow-mem-type", required_argument, nullptr, 'c'},
+			{"kremlin-shadow-mem-cache-size", required_argument, nullptr, 'd'},
+			{"kremlin-shadow-mem-gc-period", required_argument, nullptr, 'e'},
+			{"kremlin-cbuffer-size", required_argument, nullptr, 'f'},
+			{"kremlin-min-level", required_argument, nullptr, 'g'},
+			{"kremlin-max-level", required_argument, nullptr, 'h'},
+			{nullptr, 0, nullptr, 0} // indicates end of options
 		};
 
 		int currind = optind; // need to cache this for native arg storage

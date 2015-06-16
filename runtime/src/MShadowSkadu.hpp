@@ -36,7 +36,7 @@ public:
 	void deinit();
 
 	/*!
-	 * @pre curr_versions is non-NULL.
+	 * @pre curr_versions is non-nullptr.
 	 */
 	Time* get(Addr addr, Index size, Version *curr_versions, UInt32 width);
 
@@ -46,19 +46,19 @@ public:
 	CBuffer* getCompressionBuffer() { return compression_buffer; }
 
 	/*!
-	 * @pre curr_versions and timestamps are non-NULL.
+	 * @pre curr_versions and timestamps are non-nullptr.
 	 */
 	void fetch(Addr addr, Index size, Version *curr_versions, 
 				Time *timestamps, TimeTable::TableType type);
 
 	/*!
-	 * @pre new_timestamps and curr_versions are non-NULL.
+	 * @pre new_timestamps and curr_versions are non-nullptr.
 	 */
 	void evict(Time *new_timestamps, Addr addr, Index size, 
 				Version *curr_versions, TimeTable::TableType type);
 
 	/*!
-	 * @pre curr_versions is non-NULL.
+	 * @pre curr_versions is non-nullptr.
 	 */
 	LevelTable* getLevelTable(Addr addr, Version *curr_versions);
 };

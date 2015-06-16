@@ -16,9 +16,9 @@ void ProfileNode::operator delete(void* ptr) {
 	MemPoolFreeSmall(ptr, sizeof(ProfileNode));
 }
 
-ProfileNode::ProfileNode(SID static_id, CID callsite_id, RegionType type) : parent(NULL),
+ProfileNode::ProfileNode(SID static_id, CID callsite_id, RegionType type) : parent(nullptr),
 	node_type(NORMAL), region_type(type), static_id(static_id), 
-	id(ProfileNode::allocId()), callsite_id(callsite_id), recursion(NULL),
+	id(ProfileNode::allocId()), callsite_id(callsite_id), recursion(nullptr),
 	num_instances(0), is_doall(1), curr_stat_index(-1) {
 
 	new(&this->children) std::vector<ProfileNode*, MPoolLib::PoolAllocator<ProfileNode*> >();
@@ -50,11 +50,11 @@ ProfileNode* ProfileNode::getChild(UInt64 static_id, UInt64 callsite_id) {
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 void ProfileNode::addChild(ProfileNode *child) {
-	assert(child != NULL);
+	assert(child != nullptr);
 	// TODO: add pre-condition to make sure child isn't already in list?
 	this->children.push_back(child);
 	child->parent = this;
@@ -63,7 +63,7 @@ void ProfileNode::addChild(ProfileNode *child) {
 }
 
 void ProfileNode::addStats(RegionStats *new_stats) {
-	assert(new_stats != NULL);
+	assert(new_stats != nullptr);
 
 	MSG(DEBUG_CREGION, "CRegionUpdate: callsite_id(0x%lx), work(0x%lx), cp(%lx), spWork(%lx)\n", 
 			new_stats->callSite, new_stats->work, new_stats->cp, new_stats->spWork);
@@ -83,13 +83,13 @@ void ProfileNode::addStats(RegionStats *new_stats) {
  * Update the current ProfileNodeStats with a new set of stats.
  *
  * @param new_stats The new set of stats to use when updating.
- * @pre new_stats is non-NULL
+ * @pre new_stats is non-nullptr
  * @pre The current stat index is non-negative.
  * @pre There is at least one ProfileNodeStats associated with this node.
  * @post There is at least one instance of the current ProfileNodeStats.
  */
 void ProfileNode::updateCurrentStats(RegionStats *new_stats) {
-	assert(new_stats != NULL);
+	assert(new_stats != nullptr);
 	assert(this->curr_stat_index >= 0);
 	assert(!this->stats.empty());
 
@@ -124,7 +124,7 @@ const char* ProfileNode::toString() {
 	char _buf[256]; // FIXME: C++ string?
 	const char* _strType[] = {"NORM", "RINIT", "RSINK"};
 
-	UInt64 parentId = (this->parent == NULL) ? 0 : this->parent->id;
+	UInt64 parentId = (this->parent == nullptr) ? 0 : this->parent->id;
 	UInt64 childId = (this->children.empty()) ? 0 : this->children[0]->id;
 	std::stringstream ss;
 	ss << "id: " << this->id << "node_type: " << _strType[this->node_type] 
@@ -154,21 +154,21 @@ void ProfileNode::moveToPrevStats() {
 }
 
 ProfileNode* ProfileNode::getAncestorWithSameStaticID() {
-	assert(this->parent != NULL);
+	assert(this->parent != nullptr);
 
 	MSG(DEBUG_CREGION, "findAncestor: static_id: 0x%llx....", this->static_id);
 
 	ProfileNode *ancestor = this->parent;
 	
-	while (ancestor != NULL) {
+	while (ancestor != nullptr) {
 		if (ancestor->static_id == this->static_id) {
-			assert(ancestor->parent != NULL);
+			assert(ancestor->parent != nullptr);
 			return ancestor;
 		}
 
 		ancestor = ancestor->parent;
 	}
-	return NULL;
+	return nullptr;
 }
 
 
@@ -183,7 +183,7 @@ void ProfileNode::handleRecursion() {
 
 	ProfileNode *ancestor = getAncestorWithSameStaticID();
 
-	if (ancestor == NULL) {
+	if (ancestor == nullptr) {
 		return;
 	}
 	else {

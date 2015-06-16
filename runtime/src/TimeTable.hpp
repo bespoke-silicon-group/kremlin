@@ -23,7 +23,7 @@ public:
 	 * Constructor to create Timetable of the given type.
 	 *
 	 * @param size_type Type of the table (64-bit or 32-bit)
-	 * @post TimeTable array will be non-NULL.
+	 * @post TimeTable array will be non-nullptr.
 	 */
 	TimeTable(TableType size_type);
 	~TimeTable();
@@ -55,7 +55,7 @@ public:
 	 * @param addr The address whose time should be set.
 	 * @param time The value to which we will set the time.
 	 * @param access_type Type of access (32 or 64-bit)
-	 * @pre addr is non-NULL
+	 * @pre addr is non-nullptr
 	 */
 	void setTimeAtAddr(Addr addr, Time time, TableType access_type);
 

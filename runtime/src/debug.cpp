@@ -1,6 +1,7 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <cstddef>
 
 #include "ktypes.h"
 #include "debug.hpp"
@@ -33,7 +34,7 @@ void DebugInit() {
 	// write to /dev/null.
 	// TODO: Come up with a better way to handle this corner case.
 	stream = fopen(df ? df : "/dev/null", "w");
-	if (stream == NULL) {
+	if (stream == nullptr) {
 		fprintf(stderr,"ERROR: could not open file for writing: %s\n",kremlin_config.getDebugOutputFilename());
 		exit(1);
 	}
@@ -57,11 +58,11 @@ char** tokenizeString(char* str) {
 	char** tokens = new char*[3]; //malloc(3*sizeof(char*));
 
 	tokens[0] = strtok(str," \n"); // FIXME: this isn't robust at all
-	tokens[1] = strtok(NULL," \n");
-	tokens[2] = strtok(NULL," \n");
+	tokens[1] = strtok(nullptr," \n");
+	tokens[2] = strtok(nullptr," \n");
 	/*
 	fprintf(stdout,"tokens[0] = %s\n",tokens[0]);
-	if(tokens[1] != NULL) {
+	if(tokens[1] != nullptr) {
 		fprintf(stdout,"tokens[1] = %s\n",tokens[1]);
 	}
 	*/
@@ -109,7 +110,7 @@ void iDebugHandler(UInt kremFunc) {
 
 		char** tokens = tokenizeString(dbg_arg);
 
-		if(tokens[0] == NULL) {} // will be NULL for empty string
+		if(tokens[0] == nullptr) {} // will be nullptr for empty string
 		else if(strcmp(tokens[0],"next") == 0
 		   || strcmp(tokens[0],"n") == 0
 			) {
@@ -135,7 +136,7 @@ void iDebugHandler(UInt kremFunc) {
 		else if(strcmp(tokens[0],"register") == 0
 			    || strcmp(tokens[0],"reg") == 0
 			   ) {
-			if(tokens[1] == NULL) {
+			if(tokens[1] == nullptr) {
 				fprintf(stderr,"ERROR: incorrect format for register command\n");
 			}
 			else {
@@ -146,7 +147,7 @@ void iDebugHandler(UInt kremFunc) {
 		else if(strcmp(tokens[0],"memory") == 0
 			    || strcmp(tokens[0],"mem") == 0
 			   ) {
-			if(tokens[1] == NULL || tokens[2] == NULL) {
+			if(tokens[1] == nullptr || tokens[2] == nullptr) {
 				fprintf(stderr,"ERROR: incorrect format for memory command\n");
 			}
 			else {
@@ -160,7 +161,7 @@ void iDebugHandler(UInt kremFunc) {
 		else if(strcmp(tokens[0],"break") == 0
 			    || strcmp(tokens[0],"b") == 0
 			   ) {
-			if(tokens[1] == NULL) {
+			if(tokens[1] == nullptr) {
 				fprintf(stderr,"ERROR: incorrect format for break command\n");
 			}
 			else {
@@ -174,7 +175,7 @@ void iDebugHandler(UInt kremFunc) {
 		else if(strcmp(tokens[0],"info") == 0
 			    || strcmp(tokens[0],"i") == 0
 			   ) {
-			if(tokens[1] == NULL) {
+			if(tokens[1] == nullptr) {
 				fprintf(stderr,"ERROR: incorrect format for break command\n");
 			}
 			else if(strcmp(tokens[1],"break") == 0) {

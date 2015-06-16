@@ -29,7 +29,7 @@ class Table;
  */
 class ShadowRegisterFile {
 public:
-	ShadowRegisterFile() : times(NULL) {}
+	ShadowRegisterFile() : times(nullptr) {}
 	void init(Index depth) {}
 	void deinit() {}
 

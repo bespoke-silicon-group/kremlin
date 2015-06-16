@@ -37,7 +37,7 @@ public:
 
 	ProfileNodeType node_type; /*!< The type of node. */
 	ProfileNode *recursion; /*!< Points to node which this is a recursive instance of
-							or NULL if this is not a recursive region. */
+							or nullptr if this is not a recursive region. */
 
 	// statistics for node
 	std::vector<ProfileNodeStats*, MPoolLib::PoolAllocator<ProfileNodeStats*> > stats;
@@ -61,7 +61,7 @@ public:
 
 	/*!
 	 * Returns the child with the specified static and callsite ID. If no children
-	 * match these criteria, NULL is returns.
+	 * match these criteria, nullptr is returns.
 	 *
 	 * @remark Only function regions have a callsite_id. If a region is not a
 	 * function, the match will only be based on the static_id.
@@ -70,7 +70,7 @@ public:
 	 * @param callsite_id The callsite ID of the child to find. This is ignored if
 	 * the child is not a function region.
 	 * @return Pointer to the child node with the given static and callsite ID;
-	 * NULL if no children match.
+	 * nullptr if no children match.
 	 */
 	ProfileNode* getChild(UInt64 static_id, UInt64 callsite_id);
 
@@ -79,7 +79,7 @@ public:
 	 * set to this node.
 	 *
 	 * @param child The region to add as a child.
-	 * @pre child is non-NULL.
+	 * @pre child is non-nullptr.
 	 * @post The child's parent will be this node.
 	 * @post There will be at least one child.
 	 */
@@ -106,17 +106,17 @@ public:
 	 * Adds a new set of stats to this node.
 	 *
 	 * @param new_stats The stats to add.
-	 * @pre new_stats is non-NULL.
+	 * @pre new_stats is non-nullptr.
 	 * @post num_instances > 0
 	 */
 	void addStats(RegionStats *new_stats);
 
 	/*!
 	 * Returns the closest ancestor with the same static region ID. If no such ancestor
-	 * is found, returns NULL. Note that the root of the region tree should never be
+	 * is found, returns nullptr. Note that the root of the region tree should never be
 	 * returned as it is a dummy node.
 	 *
-	 * @return The ancestor with the same static ID as this node; NULL if none exist.
+	 * @return The ancestor with the same static ID as this node; nullptr if none exist.
 	 * @pre This node has a parent (i.e. isn't a root node).
 	 * @post The returned node isn't the root.
 	 */

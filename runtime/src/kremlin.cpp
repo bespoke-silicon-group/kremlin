@@ -81,14 +81,14 @@ int main(int argc, char* argv[]) {
 	}
 #endif
 
-	if (profiler == NULL) initProfiler();
+	if (profiler == nullptr) initProfiler();
 	profiler->enable();
 
 	__main(program_args.size(), &program_args[0]);
 
 	profiler->deinit();
 	delete profiler;
-	profiler = NULL;
+	profiler = nullptr;
 }
 
 // XXX: hacky... badness!
@@ -104,8 +104,8 @@ static UInt64	storeCnt = 0llu;
 
 FunctionRegion* KremlinProfiler::getCurrentFunction() {
 	if (callstack.empty()) {
-		MSG(3, "getCurrentFunction  NULL\n");
-		return NULL;
+		MSG(3, "getCurrentFunction  nullptr\n");
+		return nullptr;
 	}
 
 	FunctionRegion* func = callstack.back();
@@ -118,7 +118,7 @@ FunctionRegion* KremlinProfiler::getCurrentFunction() {
 FunctionRegion* KremlinProfiler::getCallingFunction() {
 	if (callstack.size() == 1) {
 		MSG(3, "getCallingFunction  No Caller Context\n");
-		return NULL;
+		return nullptr;
 	}
 	FunctionRegion* func = callstack[callstack.size()-2];
 
@@ -147,7 +147,7 @@ void KremlinProfiler::initShadowMemory() {
 void KremlinProfiler::deinitShadowMemory() {
 	shadow_mem->deinit();
 	delete shadow_mem;
-	shadow_mem = NULL;
+	shadow_mem = nullptr;
 }
 
 
@@ -349,7 +349,7 @@ void _KTurnOff() {
 
 void _KEnterRegion(SID regionId, RegionType regionType) {
 	// @TRICKY: In C++ some instrumented object constructors may be called
-	// before main. We need to make sure that profiler is not NULL whenever we
+	// before main. We need to make sure that profiler is not nullptr whenever we
 	// have an API call. Luckily, we are guaranteed that KEnterRegion will be
 	// the kremlin first function called in a constructor. We'll take
 	// advantage of that invariant and initialize the profiler here if we find 
@@ -357,7 +357,7 @@ void _KEnterRegion(SID regionId, RegionType regionType) {
 	// Note that initProfiler doesn't enable profiling so we won't actual
 	// profile any of the code in the pre-main constructors (just like we
 	// won't profile any code in post-main destructors)
-	if (profiler == NULL) initProfiler();
+	if (profiler == nullptr) initProfiler();
 	profiler->handleRegionEntry(regionId, regionType);
 }
 
@@ -542,7 +542,7 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
     for (i = 0; i < num_in; i++) {
         UInt src = va_arg(ap, UInt);
         entrySrc[i] = getLTEntry(src);
-        assert(entrySrc[i] != NULL);
+        assert(entrySrc[i] != nullptr);
     }   
     va_end(ap);
 
@@ -585,7 +585,7 @@ void _KMalloc(Addr addr, size_t size, UInt dest) {
     
     MSG(1, "KMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
 
-    // Don't do anything if malloc returned NULL
+    // Don't do anything if malloc returned nullptr
     if(!addr) { return; }
 
     createMEntry(addr,size);
@@ -600,8 +600,8 @@ void _KFree(Addr addr) {
 
     MSG(1, "KFree addr=0x%x\n", addr);
 
-    // Calls to free with NULL just return.
-    if(addr == NULL) return;
+    // Calls to free with nullptr just return.
+    if(addr == nullptr) return;
 
     size_t mem_size = getMEntry(addr);
 

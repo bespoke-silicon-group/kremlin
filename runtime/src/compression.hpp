@@ -21,7 +21,7 @@ public:
 	 *
 	 * @param table The level table to add to the compression buffer.
 	 * @return The number of bytes gained as a result of adding.
-	 * @pre table is non-NULL.
+	 * @pre table is non-nullptr.
 	 */
 	int add(LevelTable *table);
 
@@ -37,7 +37,7 @@ public:
 	 *
 	 * @param table The level table to decompress.
 	 * @return Number of extra bytes required for decompression.
-	 * @pre table is non-NULL.
+	 * @pre table is non-nullptr.
 	 */
 	int decompress(LevelTable *table);
 
@@ -47,7 +47,7 @@ private:
 	/*! \brief Adds a level table entry to the compression buffer.
 	 *
 	 * \param l_table The level table to add to the buffer.
-	 * \pre l_table is non-NULL.
+	 * \pre l_table is non-nullptr.
 	 */
 	void addToBuffer(LevelTable *l_table);
 
@@ -64,10 +64,10 @@ private:
  * @param decomp_size The size of input data (in bytes)
  * @param[out] comp_size The size data after compressed
  * @return Pointer to the beginning of compressed data
- * @pre decomp_data is non-NULL.
+ * @pre decomp_data is non-nullptr.
  * @pre decomp_size is positive.
- * @pre comp_size is non-NULL.
- * @post Returned pointer is non-NULL.
+ * @pre comp_size is non-nullptr.
+ * @post Returned pointer is non-nullptr.
  */
 UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, lzo_uintp comp_size);
 
@@ -77,9 +77,9 @@ UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, lzo_uintp comp_siz
  * @param comp_data Pointer to the data to be decompressed.
  * @param comp_size Size of the compressed data (in bytes)
  * @param[out] decomp_size Size of the decompressed data (in bytes)
- * @pre comp_data, decomp_data, and decomp_size are all non-NULL.
+ * @pre comp_data, decomp_data, and decomp_size are all non-nullptr.
  * @pre comp_size is positive.
- * @post comp_data will point to NULL.
+ * @post comp_data will point to nullptr.
  */
 void decompressData(UInt8* decomp_data, UInt8* comp_data, lzo_uint comp_size, lzo_uintp decomp_size);
 

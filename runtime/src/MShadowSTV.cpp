@@ -185,7 +185,7 @@ static SegTable* SegTableAlloc() {
 static void SegTableFree(SegTable* table) {
 	int i;
 	for (i=0; i<L1_SIZE; i++) {
-		if (table->entry[i].tTable != NULL) {
+		if (table->entry[i].tTable != nullptr) {
 			TimeTableFree(table->entry[i].tTable, table->entry[i].type);	
 		}
 	}
@@ -285,7 +285,7 @@ static void SegEntryCheckConversion(SegEntry* entry, Version* vArray, int size, 
 }
 
 static void SegTableSetTime(SegEntry* entry, Addr addr, Index size, Version* vArray, Time* tArray, int type) {
-	if (entry->tTable == NULL) {
+	if (entry->tTable == nullptr) {
 		entry->tTable = TimeTableAlloc(type, entry->depth);
 		entry->versions = VersionAlloc(type);
 
@@ -301,7 +301,7 @@ static void SegTableSetTime(SegEntry* entry, Addr addr, Index size, Version* vAr
 }
 
 static Time* SegTableGetTime(SegEntry* entry, Addr addr, Index size, Version* vArray, int type) {
-	if (entry->tTable == NULL) {
+	if (entry->tTable == nullptr) {
 		entry->tTable = TimeTableAlloc(type, entry->depth);
 		entry->versions = VersionAlloc(type);
 
@@ -383,9 +383,9 @@ Time* MShadowSTV::get(Addr addr, Index size, Version* vArray, UInt32 width) {
 	MSG(DEBUGLEVEL, "MShadowGet 0x%llx, size %d\n", addr, size);
 
 	if (size < 1)
-		return NULL;
+		return nullptr;
 
-	SegEntry* segEntry = NULL;
+	SegEntry* segEntry = nullptr;
 	int type = TYPE_32BIT;
 	if (width  > 4)
 		type = TYPE_64BIT;
@@ -401,14 +401,14 @@ void MShadowSTV::set(Addr addr, Index size, Version* vArray, Time* tArray, UInt3
 	if (size < 1)
 		return;
 
-	SegEntry* segEntry = NULL;
+	SegEntry* segEntry = nullptr;
 	int type = TYPE_32BIT;
 	if (width  > 4)
 		type = TYPE_64BIT;
 
 	SegTable* segTable = STableGetSegTable(addr);
 	segEntry = SegTableGetEntry(segTable, addr);
-	//assert(entry->segEntry != NULL);
+	//assert(entry->segEntry != nullptr);
 	SegTableSetTime(segEntry, addr, size, vArray, tArray, type);
 }
 

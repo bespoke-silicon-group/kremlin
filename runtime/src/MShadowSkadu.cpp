@@ -48,7 +48,7 @@ public:
 		for (int i = 0; i < writePtr; i++) {
 			SparseTableElement* e = &entry[i];
 			delete e->segTable;		
-			e->segTable = NULL;
+			e->segTable = nullptr;
 			eventSegTableFree();
 		}
 	}
@@ -88,12 +88,12 @@ void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 	eventGC();
 	for (unsigned i = 0; i < SparseTable::NUM_ENTRIES; ++i) {
 		MemorySegment* table = sparse_table->entry[i].segTable;	
-		if (table == NULL)
+		if (table == nullptr)
 			continue;
 		
 		for (unsigned j = 0; j < MemorySegment::getNumLevelTables(); ++j) {
 			LevelTable* lTable = table->getLevelTableAtIndex(j);
-			if (lTable != NULL) {
+			if (lTable != nullptr) {
 				lTable->collectGarbageWithinBounds(curr_versions, size);
 			}
 		}
@@ -101,14 +101,14 @@ void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 }
 
 LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version *curr_versions) {
-	assert(curr_versions != NULL);
+	assert(curr_versions != nullptr);
 
 	SparseTableElement* sEntry = sparse_table->getElement(addr);
 	MemorySegment* segTable = sEntry->segTable;
-	assert(segTable != NULL);
+	assert(segTable != nullptr);
 	unsigned segIndex = MemorySegment::GetIndex(addr);
 	LevelTable* lTable = segTable->getLevelTableAtIndex(segIndex);
-	if (lTable == NULL) {
+	if (lTable == nullptr) {
 		lTable = new LevelTable();
 		if (useCompression()) {
 			int compressGain = compression_buffer->add(lTable);
@@ -158,16 +158,16 @@ MemorySegment::MemorySegment() {
 MemorySegment::~MemorySegment() {
 	for (unsigned i = 0; i < MemorySegment::NUM_ENTRIES; ++i) {
 		LevelTable *l = level_tables[i];
-		if (l != NULL) {
+		if (l != nullptr) {
 			delete l;
-			l = NULL;
+			l = nullptr;
 		}
 	}
 }
 
 void MShadowSkadu::evict(Time *new_timestamps, Addr addr, Index size, Version *curr_versions, TimeTable::TableType type) {
-	assert(new_timestamps != NULL);
-	assert(curr_versions != NULL);
+	assert(new_timestamps != nullptr);
+	assert(curr_versions != nullptr);
 
 	MSG(0, "\tmshadow evict 0x%llx, size=%u, effectiveSize=%u \n", addr, size, size);
 		
@@ -190,8 +190,8 @@ void MShadowSkadu::evict(Time *new_timestamps, Addr addr, Index size, Version *c
 
 void MShadowSkadu::fetch(Addr addr, Index size, Version *curr_versions, 
 							Time *timestamps, TimeTable::TableType type) {
-	assert(curr_versions != NULL);
-	assert(timestamps != NULL);
+	assert(curr_versions != nullptr);
+	assert(timestamps != nullptr);
 
 	MSG(3, "\tmshadow fetch 0x%llx, size %u\n", addr, size);
 	LevelTable* lTable = this->getLevelTable(addr, curr_versions);
@@ -207,9 +207,9 @@ void MShadowSkadu::fetch(Addr addr, Index size, Version *curr_versions,
 
 Time* MShadowSkadu::get(Addr addr, Index size, Version *curr_versions, 
 						UInt32 width) {
-	assert(curr_versions != NULL);
+	assert(curr_versions != nullptr);
 
-	if (size < 1) return NULL;
+	if (size < 1) return nullptr;
 
 	TimeTable::TableType type = TimeTable::TYPE_64BIT; // FIXME: assumes 64 bit
 
@@ -222,8 +222,8 @@ Time* MShadowSkadu::get(Addr addr, Index size, Version *curr_versions,
 
 void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions, 
 						Time *timestamps, UInt32 width) {
-	assert(curr_versions != NULL);
-	assert(timestamps != NULL);
+	assert(curr_versions != nullptr);
+	assert(timestamps != nullptr);
 	
 	MSG(0, "mshadow set 0x%llx, size %u [", addr, size);
 	if (size < 1) return;
@@ -273,10 +273,10 @@ void MShadowSkadu::init() {
 void MShadowSkadu::deinit() {
 	cache->deinit();
 	delete cache;
-	cache = NULL;
+	cache = nullptr;
 	compression_buffer->deinit();
 	delete compression_buffer;
-	compression_buffer = NULL;
+	compression_buffer = nullptr;
 	MShadowStatPrint();
 	sparse_table->deinit();
 }

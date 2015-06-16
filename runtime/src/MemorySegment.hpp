@@ -19,12 +19,12 @@ private:
 
 public:
 	/*!
-	 * Default constructor. Sets all LevelTable* in level_tables to NULL.
+	 * Default constructor. Sets all LevelTable* in level_tables to nullptr.
 	 */
 	MemorySegment();
 
 	/*!
-	 * Destructor. Deletes any valid (i.e non-NULL) LevelTables pointed to by
+	 * Destructor. Deletes any valid (i.e non-nullptr) LevelTables pointed to by
 	 * this MemorySegment.
 	 */
 	~MemorySegment();
@@ -45,11 +45,11 @@ public:
 	 *
 	 * @param table The LevelTable* to which we will set it.
 	 * @param index The index of the LevelTable* to set.
-	 * @pre table is non-NULL.
+	 * @pre table is non-nullptr.
 	 * @pre index < NUM_ENTRIES
 	 */
 	void setLevelTableAtIndex(LevelTable *table, unsigned index) { 
-		assert(table != NULL);
+		assert(table != nullptr);
 		assert(index < NUM_ENTRIES);
 		level_tables[index] = table;
 	}

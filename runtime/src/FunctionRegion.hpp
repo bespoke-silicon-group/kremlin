@@ -21,16 +21,16 @@ public:
 	}
 
 	FunctionRegion(CID callsite_id) { 
-		this->table = NULL;
+		this->table = nullptr;
 		this->return_register = FunctionRegion::DUMMY_RETURN_REG;
 		this->error_checking_code = FunctionRegion::ERROR_CHECK_CODE;
 		this->call_site_id = callsite_id;
 	}
 
 	~FunctionRegion() {
-		assert(this->table != NULL);
+		assert(this->table != nullptr);
 		delete this->table;
-		this->table = NULL;
+		this->table = nullptr;
 	}
 
 	CID getCallSiteID() { return this->call_site_id; }

@@ -110,7 +110,7 @@ private:
 	/*!
 	 * @pre Control dependence table hasn't been deinitialized since the last time
 	 * it was initialized.
-	 * @post control_dependence_table is NULL
+	 * @post control_dependence_table is nullptr
 	 */
 	void deinitControlDependences();
 
@@ -148,7 +148,7 @@ private:
 	 * (i.e. depth).
 	 *
 	 * @param index The level at which to set all register timestamps to 0.
-	 * @pre shadow_reg_file is non-NULL
+	 * @pre shadow_reg_file is non-nullptr
 	 * @pre index is not larger than the shadow register's depth
 	 */
 	void zeroRegistersAtIndex(Index index);
@@ -175,7 +175,7 @@ private:
 	 * @param offset The additional time added to value stored in reg.
 	 * @param l The level (depth) of the shadow register.
 	 * @return The calculated maximum (see description).
-	 * @pre shadow_reg_file is non-NULL.
+	 * @pre shadow_reg_file is non-nullptr.
 	 * @pre reg is less than the current number of shadow registers.
 	 * @pre l is less than the shadow register's depth.
 	 */
@@ -212,12 +212,12 @@ private:
 	 * @param addr The address of the shadow memory dependence.
 	 * @param mem_access_size The memory access size.
 	 *
-	 * @pre shadow_reg_file is non-NULL.
-	 * @pre shadow_mem is non-NULL.
+	 * @pre shadow_reg_file is non-nullptr.
+	 * @pre shadow_mem is non-nullptr.
 	 * @pre dest_reg is less than the current number of shadow registers.
 	 * @pre Any used src_reg is less than the current number of shadow registers.
 	 * @pre Any unused src_reg and offset will be 0.
-	 * @pre If not using shadow mem, addr should be NULL and mem_access_size
+	 * @pre If not using shadow mem, addr should be nullptr and mem_access_size
 	 * should be 0.
 	 * @pre If we're using shadow mem, the memory access size is between 1 and
 	 * 8.
@@ -232,7 +232,7 @@ private:
 							UInt32 src2_reg=0, UInt32 src2_offset=0,
 							UInt32 src3_reg=0, UInt32 src3_offset=0,
 							UInt32 src4_reg=0, UInt32 src4_offset=0,
-							Addr src_addr=NULL,
+							Addr src_addr=nullptr,
 							UInt32 mem_access_size=0);
 
 	/*
@@ -271,7 +271,7 @@ private:
 	 * @pre All shadow registers specified in the vararg list are less 
 	 * than the current number of shadow registers.
 	 * @pre Any unused src_reg and offset will be 0.
-	 * @pre If not using shadow mem, addr should be NULL and mem_access_size
+	 * @pre If not using shadow mem, addr should be nullptr and mem_access_size
 	 * should be 0.
 	 * @pre If we're using shadow mem, the memory access size is between 1 and
 	 * 8.
@@ -305,7 +305,7 @@ private:
 	Table* getRegisterFileTable() { return shadow_reg_file; }
 
 	void setRegisterFileTable(Table* table) { 
-		assert(table != NULL);
+		assert(table != nullptr);
 		shadow_reg_file = table;
 	}
 
@@ -324,10 +324,10 @@ public:
 		waiting_for_register_table_init(false),
 		num_function_regions_entered(0),
 		num_register_tables_setup(0),
-		control_dependence_table(NULL),
+		control_dependence_table(nullptr),
 		cdt_read_ptr(0),
-		cdt_current_base(NULL),
-		shadow_mem(NULL),
+		cdt_current_base(nullptr),
+		shadow_mem(nullptr),
 		doall_threshold(5) {}
 
 	~KremlinProfiler() {}
@@ -343,7 +343,7 @@ public:
 	 * @param reg The shadow register number.
 	 * @param index The depth at which to get the timestamp.
 	 * @return The value in the specified shadow register.
-	 * @pre shadow_reg_file is non-NULL
+	 * @pre shadow_reg_file is non-nullptr
 	 * @pre reg is less than the current number of shadow registers.
 	 * @pre index is not larger than the shadow register's depth
 	 */
@@ -356,7 +356,7 @@ public:
 	 * @param time The time value to which to set the register value.
 	 * @param reg The shadow register number.
 	 * @param index The depth at which to get the timestamp.
-	 * @pre shadow_reg_file is non-NULL
+	 * @pre shadow_reg_file is non-nullptr
 	 * @pre reg is less than the current number of shadow registers.
 	 * @pre index is not larger than the shadow register's depth
 	 */

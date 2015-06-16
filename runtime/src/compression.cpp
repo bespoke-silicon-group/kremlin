@@ -21,9 +21,9 @@ static HEAP_ALLOC(wrkmem, LZO1X_1_MEM_COMPRESS);
 
 UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, 
 					lzo_uintp comp_size) {
-	assert(decomp_data != NULL);
+	assert(decomp_data != nullptr);
 	assert(decomp_size > 0);
-	assert(comp_size != NULL);
+	assert(comp_size != nullptr);
 
 	//XXX need a specialized memory allocator, for now, just check the 
 
@@ -38,18 +38,18 @@ UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size,
 	_compSrcSize += decomp_size;
 	_compDestSize += *comp_size;
 
-	assert(comp_data != NULL);
+	assert(comp_data != nullptr);
 	return comp_data;
 }
 
 void decompressData(UInt8* decomp_data, UInt8* comp_data, 
 					lzo_uint comp_size, lzo_uintp decomp_size) {
-	assert(comp_data != NULL);
-	assert(decomp_data != NULL);
+	assert(comp_data != nullptr);
+	assert(decomp_data != nullptr);
 	assert(comp_size > 0);
-	assert(decomp_size != NULL);
+	assert(decomp_size != nullptr);
 
-	int result = lzo1x_decompress(comp_data, comp_size, decomp_data, decomp_size, NULL);
+	int result = lzo1x_decompress(comp_data, comp_size, decomp_data, decomp_size, nullptr);
 	assert(result == LZO_E_OK);
 	//memcpy(decomp_data, comp_data, comp_size);
 	//*decomp_size = comp_size;
@@ -57,8 +57,8 @@ void decompressData(UInt8* decomp_data, UInt8* comp_data,
 	//MSG(3, "decompressed from %d to %d\n", comp_size, *decomp_size);
 	//MemPoolFree(comp_data);
 	free(comp_data);
-	comp_data = NULL;
-	assert(comp_data == NULL);
+	comp_data = nullptr;
+	assert(comp_data == nullptr);
 }
 
 /*
@@ -153,7 +153,7 @@ active_set_iterator getVictim() {
 }
 
 void CBuffer::addToBuffer(LevelTable *l_table) {
-	assert(l_table != NULL);
+	assert(l_table != nullptr);
 
 	//fprintf(stderr, "adding l_table 0x%llx\n", l_table);
 	ActiveSetEntry *as = new ActiveSetEntry();
@@ -173,13 +173,13 @@ int CBuffer::evictFromBuffer() {
 	int bytes_gained = lTable->compress();
 	totalEvict++;
 	delete victim->second;
-	victim->second = NULL;
+	victim->second = nullptr;
 	active_set.erase(victim);
 	return bytes_gained;
 }
 
 int CBuffer::decompress(LevelTable *table) {
-	assert(table != NULL);
+	assert(table != nullptr);
 
 	int loss = table->decompress();
 	int gain = this->add(table);
@@ -187,7 +187,7 @@ int CBuffer::decompress(LevelTable *table) {
 }
 
 int CBuffer::add(LevelTable *table) {
-	assert(table != NULL);
+	assert(table != nullptr);
 	assert(table->code == 0xDEADBEEF);
 
 	if (!kremlin_config.compressShadowMem()) return 0;
@@ -203,7 +203,7 @@ int CBuffer::add(LevelTable *table) {
 }
 
 void CBuffer::touch(LevelTable *table) {
-	assert(table != NULL);
+	assert(table != nullptr);
 	if (!kremlin_config.compressShadowMem()) return;
 
 	active_set_iterator it = active_set.find(table);

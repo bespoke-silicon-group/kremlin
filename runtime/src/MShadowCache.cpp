@@ -37,7 +37,7 @@ void SkaduCache::deinit() {
 		delete tag_vector_cache->valueTable;
 	}
 	delete tag_vector_cache;
-	tag_vector_cache = NULL;
+	tag_vector_cache = nullptr;
 }
 
 // XXX: not sure this should be a global function
@@ -130,8 +130,8 @@ static void check(Addr addr, Time* src, int size, int site) {
 
 Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
 	checkResize(size, vArray);
-	TagVectorCacheLine* entry = NULL;
-	Time* destAddr = NULL;
+	TagVectorCacheLine* entry = nullptr;
+	Time* destAddr = nullptr;
 	int offset = 0;
 	int index = 0;
 	tag_vector_cache->lookupRead(addr, type, &index, &entry, &offset, &destAddr);
@@ -174,8 +174,8 @@ Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableTy
 
 void SkaduCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
 	checkResize(size, vArray);
-	TagVectorCacheLine* entry = NULL;
-	Time* destAddr = NULL;
+	TagVectorCacheLine* entry = nullptr;
+	Time* destAddr = nullptr;
 	int index = 0;
 	int offset = 0;
 
@@ -204,7 +204,7 @@ void SkaduCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeT
 		//	evictSize = size;
 		MSG(0, "\t CacheSet: evict size = %d, lastSize = %d, size = %d\n", 
 			evictSize, lastSize, size);
-		if (entry->tag != NULL)
+		if (entry->tag != nullptr)
 			mem_shadow->evict(destAddr, entry->tag, evictSize, vArray, entry->type);
 #endif
 	} 		

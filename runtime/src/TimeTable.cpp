@@ -30,7 +30,7 @@ TimeTable::TimeTable(TimeTable::TableType size_type) : type(size_type) {
 	this->size = sizeof(Time) * TIMETABLE_SIZE / 2; // XXX: hardwired for 64?
 
 	eventTimeTableAlloc(size_type, this->size);
-	assert(this->array != NULL);
+	assert(this->array != nullptr);
 }
 
 
@@ -39,7 +39,7 @@ TimeTable::~TimeTable() {
 	eventTimeTableFree(this->type, this->size);
 
 	MemPoolFree(this->array);
-	this->array = NULL;
+	this->array = nullptr;
 }
 
 // TODO: Replace with a function that modifies this TimeTable rather than
@@ -57,7 +57,7 @@ TimeTable* TimeTable::create32BitClone() {
 void TimeTable::setTimeAtAddr(Addr addr, 
 								Time time, 
 								TimeTable::TableType access_type) {
-	assert(addr != NULL);
+	assert(addr != nullptr);
 
 	unsigned index = this->getIndex(addr);
 

@@ -33,7 +33,7 @@ inline void ShadowRegisterFile::zeroRegistersAtIndex(Index index) {
 	MSG(3, "zeroRegistersAtIndex col [%d] in table [%d, %d]\n",
 		index, times->getRow(), times->getCol());
 	Reg i;
-	assert(times != NULL);
+	assert(times != nullptr);
 	for (i=0; i<times->getRow(); i++) {
 		setRegisterTimeAtIndex(0ULL, i, index);
 	}

@@ -1,3 +1,5 @@
+#include <cstddef>
+
 #include "debug.hpp"
 #include "config.hpp"
 #include "KremlinProfiler.hpp"
@@ -7,7 +9,7 @@
 #include "MShadow.hpp"
 #include "Table.hpp"
 
-Table *KremlinProfiler::shadow_reg_file = NULL;
+Table *KremlinProfiler::shadow_reg_file = nullptr;
 
 void KremlinProfiler::addFunctionToStack(CID callsite_id) {
 	FunctionRegion* func = new FunctionRegion(callsite_id);
@@ -33,27 +35,27 @@ void KremlinProfiler::callstackPop() {
  *****************************************************************/
 
 void KremlinProfiler::initControlDependences() {
-	assert(control_dependence_table == NULL);
+	assert(control_dependence_table == nullptr);
 	cdt_read_ptr = 0;
 	control_dependence_table = new Table(KremlinProfiler::CDEP_ROW, 
 											KremlinProfiler::CDEP_COL);
-	assert(control_dependence_table != NULL);
+	assert(control_dependence_table != nullptr);
 }
 
 void KremlinProfiler::deinitControlDependences() {
-	assert(control_dependence_table != NULL);
+	assert(control_dependence_table != nullptr);
 	delete control_dependence_table;
-	control_dependence_table = NULL;
+	control_dependence_table = nullptr;
 }
 
 Time KremlinProfiler::getControlDependenceAtIndex(Index index) {
-	assert(control_dependence_table != NULL);
+	assert(control_dependence_table != nullptr);
 	assert(index < KremlinProfiler::CDEP_COL);
 	return *(cdt_current_base + index);
 }
 
 void KremlinProfiler::initRegionControlDependences(Index index) {
-	assert(control_dependence_table != NULL);
+	assert(control_dependence_table != nullptr);
 	MSG(3, "initRegionControlDependences ReadPtr = %d, Index = %d\n", cdt_read_ptr, index);
 	control_dependence_table->setValue(0, cdt_read_ptr, index);
 	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
@@ -74,7 +76,7 @@ unsigned KremlinProfiler::getShadowRegisterFileDepth() {
 
 void KremlinProfiler::zeroRegistersAtIndex(Index index) {
 	assert(index < getShadowRegisterFileDepth());
-	assert(shadow_reg_file != NULL);
+	assert(shadow_reg_file != nullptr);
 
 	MSG(3, "zeroRegistersAtIndex col [%d] in table [%d, %d]\n",
 		index, shadow_reg_file->getRow(), shadow_reg_file->getCol());
@@ -84,7 +86,7 @@ void KremlinProfiler::zeroRegistersAtIndex(Index index) {
 }
 
 Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
-	assert(shadow_reg_file != NULL);
+	assert(shadow_reg_file != nullptr);
 	assert(reg < getCurrNumShadowRegisters());	
 	assert(index < getShadowRegisterFileDepth());
 
@@ -96,7 +98,7 @@ Time KremlinProfiler::getRegisterTimeAtIndex(Reg reg, Index index) {
 }
 
 void KremlinProfiler::setRegisterTimeAtIndex(Time time, Reg reg, Index index) {
-	assert(shadow_reg_file != NULL);
+	assert(shadow_reg_file != nullptr);
 	assert(reg < getCurrNumShadowRegisters());	
 	assert(index < getShadowRegisterFileDepth());
 
@@ -112,7 +114,7 @@ void KremlinProfiler::setRegisterTimeAtIndex(Time time, Reg reg, Index index) {
 
 template <unsigned num_data_deps, unsigned data_dep, bool ignore_offset>
 Time KremlinProfiler::calcMaxTime(Time curr_time, UInt32 reg, UInt32 offset, Level l) {
-	assert(shadow_reg_file != NULL);
+	assert(shadow_reg_file != nullptr);
 	assert(reg < getCurrNumShadowRegisters());	
 	assert(l < getShadowRegisterFileDepth());
 
@@ -138,8 +140,8 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
 										UInt32 mem_access_size
 										) {
 
-	assert(shadow_reg_file != NULL);
-	assert(shadow_mem != NULL);
+	assert(shadow_reg_file != nullptr);
+	assert(shadow_mem != nullptr);
 	assert(dest_reg < getCurrNumShadowRegisters());	
 	// pre-condition: if used, src reg should be less than depth
 	assert(num_data_deps < 1 || src0_reg < getCurrNumShadowRegisters());
@@ -153,11 +155,11 @@ void KremlinProfiler::timestampUpdater(UInt32 dest_reg,
 	assert(num_data_deps > 2 || (src2_reg == 0 && src2_offset == 0));
 	assert(num_data_deps > 3 || (src3_reg == 0 && src3_offset == 0));
 	assert(num_data_deps > 4 || (src4_reg == 0 && src4_offset == 0));
-	assert(use_shadow_mem_dependence || (addr == NULL && mem_access_size == 0));
+	assert(use_shadow_mem_dependence || (addr == nullptr && mem_access_size == 0));
 	assert(!use_shadow_mem_dependence 
 			|| (mem_access_size > 0 && mem_access_size <= 8));
 
-	Time* src_addr_times = NULL;
+	Time* src_addr_times = nullptr;
 	Index end_index = getCurrNumInstrumentedLevels();
 
 	if (use_shadow_mem_dependence) {
@@ -218,7 +220,7 @@ void KremlinProfiler::handleVariableNumArgs(UInt32 dest_reg, UInt32 src_reg,
 											va_list arg_list) {
 	assert(dest_reg < getCurrNumShadowRegisters());	
 	assert(use_src_reg || src_reg == 0);
-	assert(use_shadow_mem_dependence || (addr == NULL && mem_access_size == 0));
+	assert(use_shadow_mem_dependence || (addr == nullptr && mem_access_size == 0));
 	assert(!use_shadow_mem_dependence 
 			|| (mem_access_size > 0 && mem_access_size <= 8));
 
@@ -428,7 +430,7 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 	}
 
     FunctionRegion* funcHead = getCurrentFunction();
-	CID callSiteId = (funcHead == NULL) ? 0x0 : funcHead->getCallSiteID();
+	CID callSiteId = (funcHead == nullptr) ? 0x0 : funcHead->getCallSiteID();
 	openRegionContext(regionId, callSiteId, regionType);
 
 	if (shouldInstrumentCurrLevel()) {
@@ -478,7 +480,7 @@ void KremlinProfiler::handleFunctionExit() {
 	}
 
 	FunctionRegion* funcHead = getCurrentFunction();
-	assert(funcHead != NULL);
+	assert(funcHead != nullptr);
 	setRegisterFileTable(funcHead->table); 
 }
 
@@ -714,7 +716,7 @@ void KremlinProfiler::handleTimestamp(UInt32 dest_reg, UInt32 num_srcs, va_list 
     if (!enabled) return;
 
 	handleVariableNumArgs<true, true, false, true, false>
-						(dest_reg, 0, NULL, 0, num_srcs, args);
+						(dest_reg, 0, nullptr, 0, num_srcs, args);
 }
 
 // XXX: not 100% sure this is the correct functionality
@@ -905,7 +907,7 @@ void KremlinProfiler::handlePhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, va_
 
 	if (num_ctrls > 0) {
 		handleVariableNumArgs<false, false, true, false, false>
-							(dest_reg, src_reg, NULL, 0, num_ctrls, args);
+							(dest_reg, src_reg, nullptr, 0, num_ctrls, args);
 	}
 	else {
 		timestampUpdater<true, true, 1, false>(dest_reg, src_reg);
@@ -1104,7 +1106,7 @@ void KremlinProfiler::handlePrepRTable(UInt num_virt_regs, UInt nested_depth) {
     assert(waitingForRegisterTableSetup());
     Table* table = new Table(tableHeight, tableWidth);
     FunctionRegion* funcHead = getCurrentFunction();
-	assert(funcHead != NULL);
+	assert(funcHead != nullptr);
     funcHead->table = table;
 
     setRegisterFileTable(funcHead->table);
@@ -1138,7 +1140,7 @@ void KremlinProfiler::handleReturn(Reg src) {
     FunctionRegion* caller = getCallingFunction();
 
 	// main function does not have a return point
-	if (caller == NULL)
+	if (caller == nullptr)
 		return;
 
 	Reg ret = caller->getReturnRegister();
@@ -1162,7 +1164,7 @@ void KremlinProfiler::handleReturnConst() {
 	FunctionRegion* caller = getCallingFunction();
 
 	// main function does not have a return point
-	if (caller == NULL)
+	if (caller == nullptr)
 		return;
 
 	Index index;

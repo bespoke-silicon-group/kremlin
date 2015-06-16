@@ -19,7 +19,7 @@ Time* NullCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableTyp
 
 void NullCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
 	LevelTable* lTable = mem_shadow->getLevelTable(addr, vArray);	
-	assert(lTable != NULL);
+	assert(lTable != nullptr);
 	Index i;
 	for (i=0; i<size; i++) {
 		lTable->setTimeForAddrAtLevel(i, addr, vArray[i], tArray[i], type);

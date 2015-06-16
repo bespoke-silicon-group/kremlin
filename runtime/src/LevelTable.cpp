@@ -21,9 +21,9 @@ LevelTable::LevelTable() : code(0xDEADBEEF) {
 LevelTable::~LevelTable() {
 	for (unsigned i = 0; i < LevelTable::MAX_LEVEL; ++i) {
 		TimeTable *t = time_tables[i];
-		if (t != NULL) {
+		if (t != nullptr) {
 			delete t;
-			t = NULL;
+			t = nullptr;
 		}
 	}
 }
@@ -35,7 +35,7 @@ Time LevelTable::getTimeForAddrAtLevel(Index level, Addr addr, Version curr_ver)
 	Version stored_ver = this->versions[level];
 
 	Time ret = 0;
-	if (table != NULL && stored_ver == curr_ver) {
+	if (table != nullptr && stored_ver == curr_ver) {
 		ret = table->getTimeAtAddr(addr);
 		MSG(0, "\t\tlv %d: \tversion = [%d, %d] value = %d\n", 
 			level, stored_ver, curr_ver, ret);
@@ -54,7 +54,7 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr,
 	eventLevelWrite(level);
 
 	// no timeTable exists so create it
-	if (table == NULL) {
+	if (table == nullptr) {
 		table = new TimeTable(type);
 		table->setTimeAtAddr(addr, value, type);
 		this->setTimeTableAtLevel(level, table); 
@@ -67,11 +67,11 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr,
 			table = table->create32BitClone();
 			eventTimeTableConvertTo32();
 			delete old;
-			old = NULL;
+			old = nullptr;
 		}
 
 		if (stored_ver == curr_ver) {
-			assert(table != NULL);
+			assert(table != nullptr);
 			table->setTimeAtAddr(addr, value, type);
 		} else {
 			// exists but version is old so clean it and reuse
@@ -84,11 +84,11 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr,
 
 
 unsigned LevelTable::findLowestInvalidIndex(Version *curr_versions) {
-	assert(curr_versions != NULL);
+	assert(curr_versions != nullptr);
 
 	unsigned lowest_valid = 0;
 	while(lowest_valid < LevelTable::MAX_LEVEL 
-		&& this->time_tables[lowest_valid] != NULL 
+		&& this->time_tables[lowest_valid] != nullptr 
 		&& this->versions[lowest_valid] >= curr_versions[lowest_valid]) {
 		++lowest_valid;
 	}
@@ -100,30 +100,30 @@ unsigned LevelTable::findLowestInvalidIndex(Version *curr_versions) {
 void LevelTable::cleanTimeTablesFromLevel(Index start_level) {
 	for(unsigned i = start_level; i < LevelTable::MAX_LEVEL; ++i) {
 		TimeTable *t = this->time_tables[i];
-		if (t != NULL) {
+		if (t != nullptr) {
 			delete t;
-			t = NULL;
-			this->time_tables[i] = NULL;
+			t = nullptr;
+			this->time_tables[i] = nullptr;
 		}
 	}
 }
 
 void LevelTable::collectGarbageWithinBounds(Version *curr_versions, 
 											unsigned end_index) {
-	assert(curr_versions != NULL);
+	assert(curr_versions != nullptr);
 	assert(end_index < LevelTable::MAX_LEVEL);
 
 	for (unsigned i = 0; i < end_index; ++i) {
 		TimeTable *table = this->time_tables[i];
-		if (table == NULL)
+		if (table == nullptr)
 			continue;
 
 		Version ver = this->versions[i];
 		if (ver < curr_versions[i]) {
 			// out of date
 			delete table;
-			table = NULL;
-			this->time_tables[i] = NULL;
+			table = nullptr;
+			this->time_tables[i] = nullptr;
 		}
 	}
 
@@ -131,7 +131,7 @@ void LevelTable::collectGarbageWithinBounds(Version *curr_versions,
 }
 
 void LevelTable::collectGarbageUnbounded(Version *curr_versions) {
-	assert(curr_versions != NULL);
+	assert(curr_versions != nullptr);
 
 	int lii = this->findLowestInvalidIndex(curr_versions);
 	this->cleanTimeTablesFromLevel(lii);
@@ -145,7 +145,7 @@ UInt64 LevelTable::compress() {
 
 	TimeTable* tt1 = this->time_tables[0];
 
-	if (tt1 == NULL) {
+	if (tt1 == nullptr) {
 		this->compressed = true;
 		return 0;
 	}
@@ -161,11 +161,11 @@ UInt64 LevelTable::compress() {
 		// step 1: create/fill in time difference table
 		TimeTable* tt2 = this->time_tables[i];
 		TimeTable* ttPrev = this->time_tables[i-1];
-		if(tt2 == NULL)
+		if(tt2 == nullptr)
 			continue;
 
-		assert(tt2 != NULL);
-		assert(ttPrev != NULL);
+		assert(tt2 != nullptr);
+		assert(ttPrev != nullptr);
 
 		int j;
 		for(j = 0; j < TimeTable::TIMETABLE_SIZE/2; ++j) {
@@ -214,7 +214,7 @@ UInt64 LevelTable::decompress() {
 
 	// for now, we'll always diff based on level 0
 	TimeTable* tt1 = this->time_tables[0];
-	if (tt1 == NULL) {
+	if (tt1 == nullptr) {
 		this->compressed = false;
 		return 0;
 	}
@@ -235,11 +235,11 @@ UInt64 LevelTable::decompress() {
 	for(unsigned i = 1; i < LevelTable::MAX_LEVEL; ++i) {
 		TimeTable* tt2 = this->time_tables[i];
 		TimeTable* ttPrev = this->time_tables[i-1];
-		if(tt2 == NULL) 
+		if(tt2 == nullptr) 
 			break;
 
-		assert(tt2 != NULL);
-		assert(ttPrev != NULL);
+		assert(tt2 != nullptr);
+		assert(ttPrev != nullptr);
 
 		// step 1: decompress time different table, 
 		// the src buffer will be freed in decompressData
@@ -276,7 +276,7 @@ UInt64 LevelTable::decompress() {
 }
 
 void LevelTable::makeDiff(Time *array) {
-	assert(array != NULL);
+	assert(array != nullptr);
 	unsigned size = TimeTable::TIMETABLE_SIZE / 2;
 
 	for (unsigned i = size-1; i >= 1; --i) {
@@ -285,7 +285,7 @@ void LevelTable::makeDiff(Time *array) {
 }
 
 void LevelTable::restoreDiff(Time *array) {
-	assert(array != NULL);
+	assert(array != nullptr);
 	unsigned size = TimeTable::TIMETABLE_SIZE / 2;
 	for (unsigned i = 1; i < size; ++i) {
 		array[i] += array[i-1];
@@ -293,10 +293,10 @@ void LevelTable::restoreDiff(Time *array) {
 }
 
 unsigned LevelTable::getDepth() {
-	// TODO: assert for NULL TimeTable* precondition
+	// TODO: assert for nullptr TimeTable* precondition
 	for (unsigned i = 0; i < LevelTable::MAX_LEVEL; ++i) {
 		TimeTable* t = this->time_tables[i];
-		if (t == NULL)
+		if (t == nullptr)
 			return i;
 	}
 	assert(0);

@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 #include <cstdio>
+#include <cstddef>
 #include <sys/mman.h>
 
 #include "debug.hpp"
@@ -25,7 +26,7 @@ static mpool_t* poolSmall;
 void MemPoolInit(int nMB, int sizeEach) {
 	mmapSizeMB = nMB;
 	chunkSize = sizeEach;
-	freeList = NULL;	
+	freeList = nullptr;	
 	int error;
 	poolSmall = mpool_open(0, 0, (void*)0x100000000000, &error);
 	if (error != 1) {
@@ -82,10 +83,10 @@ static void FillFreeList() {
 	unsigned char* data;
 // Mac OS X doesn't have mmap64... not sure if it's really needed
 #ifdef __MACH__
-    data = (unsigned char*)mmap(NULL, mmapSizeMB * 1024 * 1024, protection,
+    data = (unsigned char*)mmap(nullptr, mmapSizeMB * 1024 * 1024, protection,
 								flags, -1, 0);
 #else
-    data = (unsigned char*)mmap64(NULL, mmapSizeMB * 1024 * 1024, protection,
+    data = (unsigned char*)mmap64(nullptr, mmapSizeMB * 1024 * 1024, protection,
 								flags, -1, 0);
 #endif
 	
@@ -93,7 +94,7 @@ static void FillFreeList() {
 		perror("mmap");
 		exit(1);
 	} else {
-		assert(freeList == NULL);
+		assert(freeList == nullptr);
 	}
 
 	unsigned char* current = data;
@@ -111,7 +112,7 @@ static void FillFreeList() {
 
 
 Addr MemPoolAlloc() {
-	if (freeList == NULL) {
+	if (freeList == nullptr) {
 		FillFreeList();
 	}
 	MChunk* head = freeList;

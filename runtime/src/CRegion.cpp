@@ -1,6 +1,7 @@
-#include <stdlib.h>
+#include <cstdlib>
+#include <cstddef>
 #include <stack>
-#include <utility> // for std::pair
+//#include <utility> // for std::pair
 #include <sstream>
 
 #include "config.hpp"
@@ -33,7 +34,7 @@ static ProfileNode* curr_region_node; // TODO: make mem var of profiler?
  */
 static const char* getCurrentRegionIDString() {
 	ProfileNode* node = curr_region_node;
-	UInt64 nodeId = (node == NULL) ? 0 : node->id;
+	UInt64 nodeId = (node == nullptr) ? 0 : node->id;
 	std::stringstream ss;
 	ss << "<" << nodeId << ">";
 	return ss.str().c_str();
@@ -53,31 +54,31 @@ static void printCurrRegionNode() {
  *********************************/
 
 void initRegionTree() {
-	assert(region_tree_root == NULL);
+	assert(region_tree_root == nullptr);
 	region_tree_root = new ProfileNode(0, 0, RegionFunc);
 	curr_region_node = region_tree_root;
-	assert(region_tree_root != NULL);
+	assert(region_tree_root != nullptr);
 	assert(region_tree_root == curr_region_node);
 }
 
 void printProfiledData(const char* filename) {
-	assert(filename != NULL);
-	assert(region_tree_root != NULL);
+	assert(filename != nullptr);
+	assert(region_tree_root != nullptr);
 	assert(!c_region_stack.empty());
 	writeProgramStats(filename);
 }
 
 void deinitRegionTree() {
-	assert(region_tree_root != NULL);
+	assert(region_tree_root != nullptr);
 	assert(curr_region_node == region_tree_root);
 	delete region_tree_root;
-	curr_region_node = region_tree_root = NULL;
+	curr_region_node = region_tree_root = nullptr;
 }
 
 void openRegionContext(SID region_static_id, CID region_callsite_id, 
 						RegionType region_type) {
-	assert(region_tree_root != NULL);
-	assert(curr_region_node != NULL);
+	assert(region_tree_root != nullptr);
+	assert(curr_region_node != nullptr);
 	unsigned prev_stack_size = c_region_stack.size();
 
 	ProfileNode* parent = curr_region_node;
@@ -89,7 +90,7 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 
 	// If no child was found with this static and callsite ID, we'll create a
 	// new ProfileNode for this child.
-	if (child == NULL) {
+	if (child == nullptr) {
 		// TODO: make body of this if statement a separate function
 		child = new ProfileNode(region_static_id, region_callsite_id, region_type); // XXX: mem leak
 		parent->addChild(child);
@@ -105,7 +106,7 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 			curr_region_node = child;
 			break;
 		case R_SINK:
-			assert(child->recursion != NULL);
+			assert(child->recursion != nullptr);
 			curr_region_node = child->recursion;
 			child->recursion->moveToNextStats();
 			break;
@@ -124,13 +125,13 @@ void openRegionContext(SID region_static_id, CID region_callsite_id,
 }
 
 void closeRegionContext(RegionStats *region_stats) {
-	assert(region_stats != NULL);
+	assert(region_stats != nullptr);
 	assert(!c_region_stack.empty());
-	assert(region_tree_root != NULL);
-	assert(curr_region_node != NULL);
+	assert(region_tree_root != nullptr);
+	assert(curr_region_node != nullptr);
 	assert(curr_region_node->curr_stat_index >= 0);
 	assert(curr_region_node != region_tree_root);
-	assert(curr_region_node->parent != NULL); // redundant with curr != root?
+	assert(curr_region_node->parent != nullptr); // redundant with curr != root?
 	unsigned prev_stack_size = c_region_stack.size();
 
 	MSG(DEBUG_CREGION, "closeRegionContext: Begin\n"); 
@@ -139,8 +140,8 @@ void closeRegionContext(RegionStats *region_stats) {
 #if 0
 	// don't update stats if we didn't give it any region_stats
 	// this happens when we are out of range for logging
-	if (region_stats != NULL) {
-		assert(curr_region_node != NULL);
+	if (region_stats != nullptr) {
+		assert(curr_region_node != nullptr);
 		curr_region_node->update(region_stats);
 	}
 #endif
@@ -182,11 +183,11 @@ void closeRegionContext(RegionStats *region_stats) {
  * Pushes a node onto the region stack.
  *
  * @param node The node to add to the region stack.
- * @pre The specified node is non-NULL
+ * @pre The specified node is non-nullptr
  * @post The region stack will not be empty.
  */
 void pushOnRegionStack(ProfileNode* node) {
-	assert(node != NULL);
+	assert(node != nullptr);
 	MSG(DEBUG_CREGION, "pushOnRegionStack: ");
 	MSG(DEBUG_CREGION, "%s\n", node->toString());
 
@@ -199,7 +200,7 @@ void pushOnRegionStack(ProfileNode* node) {
  *
  * @return The node that was at the top of the region stack.
  * @pre The region stack is not empty.
- * @post The returned node will be non-NULL.
+ * @post The returned node will be non-nullptr.
  */
 ProfileNode* popFromRegionStack() {
 	assert(!c_region_stack.empty());
@@ -209,7 +210,7 @@ ProfileNode* popFromRegionStack() {
 	c_region_stack.pop();
 	MSG(DEBUG_CREGION, "%s\n", ret->toString());
 
-	assert(ret != NULL);
+	assert(ret != nullptr);
 	return ret;
 }
 
@@ -228,17 +229,17 @@ static int numCreated = 0;
  * Writes statistics for all nodes in the region tree to a specified file.
  *
  * @param filename The location we will write the stats too.
- * @pre filename is non-NULL
- * @pre The region tree has been initialized (i.e. is non-NULL)
+ * @pre filename is non-nullptr
+ * @pre The region tree has been initialized (i.e. is non-nullptr)
  * @pre There is exactly one child of the root region (i.e. main)
  */
 static void writeProgramStats(const char* filename) {
-	assert(filename != NULL);
-	assert(region_tree_root != NULL);
+	assert(filename != nullptr);
+	assert(region_tree_root != nullptr);
 	assert(region_tree_root->getNumChildren() == 1);
 
 	FILE* fp = fopen(filename, "w");
-	if(fp == NULL) {
+	if(fp == nullptr) {
 		fprintf(stderr,"[kremlin] ERROR: couldn't open binary output file\n");
 		// TODO: throw exception rather than dying... so we can possibly reask
 		// for the correct filename
@@ -283,12 +284,12 @@ static bool isEmittable(Level level) {
  *
  * @param fp File pointer for file we want to write data to.
  * @param node The node whose stats will be written.
- * @pre fp is non-NULL
- * @pre node is non-NULL
+ * @pre fp is non-nullptr
+ * @pre node is non-nullptr
  */
 static void writeNodeStats(FILE* fp, ProfileNode* node) {
-	assert(fp != NULL);
-	assert(node != NULL);
+	assert(fp != nullptr);
+	assert(node != nullptr);
 
 	MSG(DEBUG_CREGION, "dyn_id: %llx, static_id: %llx callsite_id: %llx, node_type: %d, num_instances: %llu nChildren: %u DOALL: %llu\n", 
 		node->id, node->static_id, node->callsite_id, node->node_type, 
@@ -302,7 +303,7 @@ static void writeNodeStats(FILE* fp, ProfileNode* node) {
 	UInt64 nodeType = node->node_type;
 	fwrite(&nodeType, sizeof(Int64), 1, fp);
 	
-	UInt64 target_id = (node->recursion == NULL) ? 0 : node->recursion->id;
+	UInt64 target_id = (node->recursion == nullptr) ? 0 : node->recursion->id;
 	fwrite(&target_id, sizeof(Int64), 1, fp);
 	fwrite(&node->num_instances, sizeof(Int64), 1, fp);
 	fwrite(&node->is_doall, sizeof(Int64), 1, fp);
@@ -338,12 +339,12 @@ static void writeNodeStats(FILE* fp, ProfileNode* node) {
  *
  * @param fp File pointer for file we want to write data to.
  * @param node The ProfileNodeStats whose contents will be written.
- * @pre fp is non-NULL
- * @pre stat is non-NULL
+ * @pre fp is non-nullptr
+ * @pre stat is non-nullptr
  */
 static void emitStat(FILE *fp, ProfileNodeStats *stat) {
-	assert(fp != NULL);
-	assert(stat != NULL);
+	assert(fp != nullptr);
+	assert(stat != nullptr);
 
 	MSG(DEBUG_CREGION, "\tstat: work = %llu, spWork = %llu, nInstance = %llu\n", 
 		stat->total_work, stat->self_par_per_work, stat->num_instances);
@@ -377,13 +378,13 @@ static void emitStat(FILE *fp, ProfileNodeStats *stat) {
  * @param fp File pointer for file we want to write data to.
  * @param node The node whose stats will be written.
  * @param level The depth in the region tree of the node.
- * @pre fp is non-NULL
- * @pre node is non-NULL
+ * @pre fp is non-nullptr
+ * @pre node is non-nullptr
  * @pre There is at least one ProfileNodeStats associated with the node.
  */
 static void writeRegionStats(FILE *fp, ProfileNode *node, UInt level) {
-    assert(fp != NULL);
-    assert(node != NULL);
+    assert(fp != nullptr);
+    assert(node != nullptr);
 	assert(node->getStatSize() > 0);
 
 	UInt64 stat_size = node->getStatSize();

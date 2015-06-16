@@ -38,7 +38,7 @@ public:
 	/*!
 	 * Copy values of a register to another table
 	 *
-	 * @pre dest_table is non-NULL
+	 * @pre dest_table is non-nullptr
 	 * @pre start is less than number of columns in both this table and the
 	 * destination table
 	 */
@@ -91,7 +91,7 @@ void Table::setValue(Time time, int row, int col) {
 void Table::copyToDest(Table* dest_table, Reg dest_reg, Reg src_reg, 
 						unsigned start, unsigned size) {
 	Table* src_table = this;
-	assert(dest_table != NULL);
+	assert(dest_table != nullptr);
 	assert(start < dest_table->getCol());
 	assert(start < this->getCol());
 

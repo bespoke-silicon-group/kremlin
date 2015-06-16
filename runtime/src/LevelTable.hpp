@@ -17,7 +17,7 @@ private:
 public:
 	/*!
 	 * Default, no-argument constructor. Sets all versions to 0 and all
-	 * time_tables to NULL.
+	 * time_tables to nullptr.
 	 */
 	LevelTable();
 
@@ -50,7 +50,7 @@ public:
 
 	/*!
 	 * Returns pointer to TimeTable at specified level.
-	 * @remark The returned pointer may be NULL.
+	 * @remark The returned pointer may be nullptr.
 	 *
 	 * @param level The level at which to get the TimeTable.
 	 * @pre level < MAX_LEVEL
@@ -67,11 +67,11 @@ public:
 	 * @param level The level at which to get the version.
 	 * @param table New value for TimeTable* at level.
 	 * @pre level < MAX_LEVEL
-	 * @pre table is non-NULL
+	 * @pre table is non-nullptr
 	 */
 	void setTimeTableAtLevel(Index level, TimeTable *table) {
 		assert(level < LevelTable::MAX_LEVEL);
-		assert(table != NULL);
+		assert(table != nullptr);
 		time_tables[level] = table;
 	}
 
@@ -108,12 +108,12 @@ public:
 	 *
 	 * A given depth is invalid if any of these conditions are met:
 	 * 1. The depth exceeds the MAX_LEVEL for the LevelTable.
-	 * 2. The timestamp* at that depth is NULL.
+	 * 2. The timestamp* at that depth is nullptr.
 	 * 3. The stored version (versions) at that depth is less than the version at
 	 * that depth in the version array parameter.
 	 *
 	 * @param curr_versions Array of versions with which to compare.
-	 * @pre curr_versions is non-NULL.
+	 * @pre curr_versions is non-nullptr.
 	 */
 	unsigned findLowestInvalidIndex(Version *curr_versions);
 
@@ -129,13 +129,13 @@ public:
 	 * up to the specified depth. All times below that depth will be cleared.
 	 *
 	 * When a level is garbage collected, the corresponding TimeTable is
-	 * deleted and the pointer to it set to NULL. Garbage collection occurs
+	 * deleted and the pointer to it set to nullptr. Garbage collection occurs
 	 * in a level whenever the stored version for that level is less than the
 	 * current version for that level.
 	 *
 	 * @param curr_versions The array of current versions.
 	 * @param end_index The maximum level to garbage collect for.
-	 * @pre curr_versions is non-NULL.
+	 * @pre curr_versions is non-nullptr.
 	 * @pre end_index < MAX_LEVEL
 	 */
 	void collectGarbageWithinBounds(Version *curr_versions, unsigned end_index);
@@ -148,7 +148,7 @@ public:
 	 * corresponding version in the current version array.
 	 *
 	 * @param curr_versions The array of current version numbers.
-	 * @pre curr_versions is non-NULL.
+	 * @pre curr_versions is non-nullptr.
 	 */
 	void collectGarbageUnbounded(Version *curr_versions);
 
@@ -179,14 +179,14 @@ private:
 	 * and the previous element.
 	 *
 	 * @param[in,out] array The array to convert
-	 * @pre array is non-NULL.
+	 * @pre array is non-nullptr.
 	 */
 	void makeDiff(Time *array);
 
 	/*! @brief Perform inverse operation of makeDiff
 	 *
 	 * @param[in,out] array The array to convert.
-	 * @pre array is non-NULL.
+	 * @pre array is non-nullptr.
 	 */
 	void restoreDiff(Time *array);
 
@@ -194,7 +194,7 @@ private:
 	 * TimeTables it has)
 	 *
 	 * @return Number of entries in specified level table.
-	 * @pre At least one TimeTable* in this level table is NULL.
+	 * @pre At least one TimeTable* in this level table is nullptr.
 	 */
 	unsigned getDepth();
 };
