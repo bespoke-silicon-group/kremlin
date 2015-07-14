@@ -5,10 +5,10 @@
 
 class ProgramRegion {
   private:
-	static const UInt32 ERROR_CHECK_CODE = 0xDEADBEEF;
+	static const uint32_t ERROR_CHECK_CODE = 0xDEADBEEF;
 
   public:
-	UInt32 code;
+	uint32_t code;
 	Version version;
 	SID	regionId;
 	RegionType regionType;
@@ -17,14 +17,14 @@ class ProgramRegion {
 	Time childrenWork;
 	Time childrenCP;
 	Time childMaxCP;
-	UInt64 childCount;
+	uint64_t childCount;
 #ifdef EXTRA_STATS
-	UInt64 loadCnt;
-	UInt64 storeCnt;
-	UInt64 readCnt;
-	UInt64 writeCnt;
-	UInt64 readLineCnt;
-	UInt64 writeLineCnt;
+	uint64_t loadCnt;
+	uint64_t storeCnt;
+	uint64_t readCnt;
+	uint64_t writeCnt;
+	uint64_t readLineCnt;
+	uint64_t writeLineCnt;
 #endif
 
 	ProgramRegion() : code(ProgramRegion::ERROR_CHECK_CODE), version(0), regionId(0), 

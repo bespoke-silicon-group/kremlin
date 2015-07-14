@@ -10,14 +10,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#include <stdint.h>
 #include "ktypes.h"
 #include "debug.hpp"
 #include "MemMapAllocator.hpp"
 
 
-extern Time* (*MShadowGet)(Addr, Index, Version*, UInt32);
-extern void  (*MShadowSet)(Addr, Index, Version*, Time*, UInt32) ;
+extern Time* (*MShadowGet)(Addr, Index, Version*, uint32_t);
+extern void  (*MShadowSet)(Addr, Index, Version*, Time*, uint32_t) ;
 
 
 Level getMaxActiveLevel();

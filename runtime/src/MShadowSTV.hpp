@@ -9,8 +9,8 @@ public:
 	void init();
 	void deinit();
 
-	Time* get(Addr addr, Index size, Version* versions, UInt32 width);
-	void set(Addr addr, Index size, Version* versions, Time* times, UInt32 width);
+	Time* get(Addr addr, Index size, Version* versions, uint32_t width);
+	void set(Addr addr, Index size, Version* versions, Time* times, uint32_t width);
 };
 
 #endif

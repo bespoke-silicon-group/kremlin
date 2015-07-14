@@ -5,60 +5,60 @@ Level __kremlin_max_level = 21;
 
 
 
-void* logBinaryOp(UInt opCost, UInt src0, UInt src1, UInt dest) {}
-void* logBinaryOpConst(UInt opCost, UInt src, UInt dest) {}
+void* logBinaryOp(uint32_t opCost, uint32_t src0, uint32_t src1, uint32_t dest) {}
+void* logBinaryOpConst(uint32_t opCost, uint32_t src, uint32_t dest) {}
 
-void* logAssignment(UInt src, UInt dest) {}
-void* logAssignmentConst(UInt dest) {}
+void* logAssignment(uint32_t src, uint32_t dest) {}
+void* logAssignmentConst(uint32_t dest) {}
 
-void* logInsertValue(UInt src, UInt dest) {}
-void* logInsertValueConst(UInt dest) {} 
+void* logInsertValue(uint32_t src, uint32_t dest) {}
+void* logInsertValueConst(uint32_t dest) {} 
 
-void* logLoadInst(Addr src_addr, UInt dest, UInt32 size) {} 
-void* logLoadInst1Src(Addr src_addr, UInt src1, UInt dest, UInt32 size) {}
-void* logLoadInst2Src(Addr src_addr, UInt src1, UInt src2, UInt dest, UInt32 size) {}
-void* logLoadInst3Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt dest, UInt32 size) {}
-void* logLoadInst4Src(Addr src_addr, UInt src1, UInt src2, UInt src3, UInt src4, UInt dest, UInt32 size) {}
-void* logStoreInst(UInt src, Addr dest_addr, UInt32 size) {} 
-void* logStoreInstConst(Addr dest_addr, UInt32 size) {} 
+void* logLoadInst(Addr src_addr, uint32_t dest, uint32_t size) {} 
+void* logLoadInst1Src(Addr src_addr, uint32_t src1, uint32_t dest, uint32_t size) {}
+void* logLoadInst2Src(Addr src_addr, uint32_t src1, uint32_t src2, uint32_t dest, uint32_t size) {}
+void* logLoadInst3Src(Addr src_addr, uint32_t src1, uint32_t src2, uint32_t src3, uint32_t dest, uint32_t size) {}
+void* logLoadInst4Src(Addr src_addr, uint32_t src1, uint32_t src2, uint32_t src3, uint32_t src4, uint32_t dest, uint32_t size) {}
+void* logStoreInst(uint32_t src, Addr dest_addr, uint32_t size) {} 
+void* logStoreInstConst(Addr dest_addr, uint32_t size) {} 
 
-void logMalloc(Addr addr, size_t size, UInt dest) {}
-void logRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {}
+void logMalloc(Addr addr, size_t size, uint32_t dest) {}
+void logRealloc(Addr old_addr, Addr new_addr, size_t size, uint32_t dest) {}
 void logFree(Addr addr) {}
 
-void* logPhiNode1CD(UInt dest, UInt src, UInt cd) {} 
-void* logPhiNode2CD(UInt dest, UInt src, UInt cd1, UInt cd2) {} 
-void* logPhiNode3CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3) {} 
-void* logPhiNode4CD(UInt dest, UInt src, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {} 
+void* logPhiNode1CD(uint32_t dest, uint32_t src, uint32_t cd) {} 
+void* logPhiNode2CD(uint32_t dest, uint32_t src, uint32_t cd1, uint32_t cd2) {} 
+void* logPhiNode3CD(uint32_t dest, uint32_t src, uint32_t cd1, uint32_t cd2, uint32_t cd3) {} 
+void* logPhiNode4CD(uint32_t dest, uint32_t src, uint32_t cd1, uint32_t cd2, uint32_t cd3, uint32_t cd4) {} 
 
-void* log4CDToPhiNode(UInt dest, UInt cd1, UInt cd2, UInt cd3, UInt cd4) {}
+void* log4CDToPhiNode(uint32_t dest, uint32_t cd1, uint32_t cd2, uint32_t cd3, uint32_t cd4) {}
 
-void* logPhiNodeAddCondition(UInt dest, UInt src) {}
+void* logPhiNodeAddCondition(uint32_t dest, uint32_t src) {}
 
-void prepareInvoke(UInt64 x) {}
-void invokeThrew(UInt64 x) {}
-void invokeOkay(UInt64 x) {}
+void prepareInvoke(uint64_t x) {}
+void invokeThrew(uint64_t x) {}
+void invokeOkay(uint64_t x) {}
 
-void addControlDep(UInt cond) {}
+void addControlDep(uint32_t cond) {}
 void removeControlDep() {}
 
-void prepareCall(UInt64 x, UInt64 y) {}
-void addReturnValueLink(UInt dest) {}
-void logFuncReturn(UInt src) {} 
+void prepareCall(uint64_t x, uint64_t y) {}
+void addReturnValueLink(uint32_t dest) {}
+void logFuncReturn(uint32_t src) {} 
 void logFuncReturnConst(void) {}
 
-void linkArgToLocal(UInt src) {} 
+void linkArgToLocal(uint32_t src) {} 
 void linkArgToConst(void) {}
-void transferAndUnlinkArg(UInt dest) {} 
+void transferAndUnlinkArg(uint32_t dest) {} 
 
-void* logLibraryCall(UInt cost, UInt dest, UInt num_in, ...) {} 
+void* logLibraryCall(uint32_t cost, uint32_t dest, uint32_t num_in, ...) {} 
 
-void logBBVisit(UInt bb_id) {} 
+void logBBVisit(uint32_t bb_id) {} 
 
-void* logInductionVar(UInt dest) {} 
-void* logInductionVarDependence(UInt induct_var) {} 
+void* logInductionVar(uint32_t dest) {} 
+void* logInductionVarDependence(uint32_t induct_var) {} 
 
-void* logReductionVar(UInt opCost, UInt dest) {} 
+void* logReductionVar(uint32_t opCost, uint32_t dest) {} 
 
 void initProfiler() {
 	curr_level = 0;
@@ -74,20 +74,20 @@ void deinitProfiler() {
 void turnOnProfiler() {}
 void turnOffProfiler() {}
 
-void logRegionEntry(UInt64 region_id, UInt region_type) {
+void logRegionEntry(uint64_t region_id, uint32_t region_type) {
 	++curr_level;
 
 	max_level = (curr_level > max_level) ? curr_level : max_level;
 }
 
-void logRegionExit(UInt64 region_id, UInt region_type) {
+void logRegionExit(uint64_t region_id, uint32_t region_type) {
 	--curr_level;
 }
 
 void cppEntry() {}
 void cppExit() {}
 
-void setupLocalTable(UInt maxVregNum, UInt maxLoopDepth) {}
+void setupLocalTable(uint32_t maxVregNum, uint32_t maxLoopDepth) {}
 
 void printProfileData() {}
 int main(int argc, char* argv[]) { __main(argc,argv); }

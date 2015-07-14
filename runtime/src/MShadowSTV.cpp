@@ -53,17 +53,17 @@ typedef struct _Segment {
  * MemStat
  */
 typedef struct _MemStat {
-	UInt64 nSTableEntry;
-	UInt64 nSegTableAllocated;
-	UInt64 nSegTableActive;
-	UInt64 nSegTableActiveMax;
+	uint64_t nSTableEntry;
+	uint64_t nSegTableAllocated;
+	uint64_t nSegTableActive;
+	uint64_t nSegTableActiveMax;
 
-	UInt64 nTimeTableAllocated[2];
-	UInt64 nTimeTableFreed[2];
-	UInt64 nTimeTableActive;
-	UInt64 nTimeTableActiveMax;
+	uint64_t nTimeTableAllocated[2];
+	uint64_t nTimeTableFreed[2];
+	uint64_t nTimeTableActive;
+	uint64_t nTimeTableActiveMax;
 	
-	UInt64 nTimeTableConverted;
+	uint64_t nTimeTableConverted;
 
 } MemStat;
 
@@ -88,8 +88,8 @@ static void printMemStat() {
 
 	//int timeTableEach64 = sizeof(Time) * (L2_SIZE/2) * getMaxActiveLevel();
 	int timeTableEach64 = sizeof(Time) * (L2_SIZE/2) * getMaxActiveLevel();
-	UInt64 nTable64 = stat.nTimeTableAllocated[0] - stat.nTimeTableFreed[0];
-	UInt64 nTable32 = stat.nTimeTableAllocated[1] - stat.nTimeTableFreed[1];
+	uint64_t nTable64 = stat.nTimeTableAllocated[0] - stat.nTimeTableFreed[0];
+	uint64_t nTable32 = stat.nTimeTableAllocated[1] - stat.nTimeTableFreed[1];
 	double timeTableSize = timeTableEach64 * (nTable64 + 2*nTable32) / (1024.0 * 1024.0);
 
 	int verTableEach64 = sizeof(Version) * (L2_SIZE/2);
@@ -137,7 +137,7 @@ static void TimeTableFree(Time* table, int type) {
 }
 
 static inline int SegTableEntryOffset(Addr addr, int type) {
-    int ret = ((UInt64)addr >> L2_SHIFT) & L2_MASK;
+    int ret = ((uint64_t)addr >> L2_SHIFT) & L2_MASK;
 	if (type == TYPE_64BIT)
 		ret = ret / 2;
 	return ret;
@@ -194,7 +194,7 @@ static void SegTableFree(SegTable* table) {
 }
 
 static int SegTableGetIndex(Addr addr) {
-	return ((UInt64)addr >> L1_SHIFT) & L1_MASK;
+	return ((uint64_t)addr >> L1_SHIFT) & L1_MASK;
 }
 
 
@@ -329,7 +329,7 @@ static Time* SegTableGetTime(SegEntry* entry, Addr addr, Index size, Version* vA
  */
 
 typedef struct _SEntry {
-	UInt32 	addrHigh;	// upper 32bit in 64bit addr
+	uint32_t 	addrHigh;	// upper 32bit in 64bit addr
 	SegTable* segTable;
 } SEntry;
 
@@ -356,7 +356,7 @@ static void STableDeinit() {
 }
 
 static SegTable* STableGetSegTable(Addr addr) {
-	UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
+	uint32_t highAddr = (uint32_t)((uint64_t)addr >> 32);
 
 	// walk-through STable
 	int i;
@@ -379,7 +379,7 @@ static SegTable* STableGetSegTable(Addr addr) {
 }
 
 
-Time* MShadowSTV::get(Addr addr, Index size, Version* vArray, UInt32 width) {
+Time* MShadowSTV::get(Addr addr, Index size, Version* vArray, uint32_t width) {
 	MSG(DEBUGLEVEL, "MShadowGet 0x%llx, size %d\n", addr, size);
 
 	if (size < 1)
@@ -395,7 +395,7 @@ Time* MShadowSTV::get(Addr addr, Index size, Version* vArray, UInt32 width) {
 	return SegTableGetTime(segEntry, addr, size, vArray, type);
 }
 
-void MShadowSTV::set(Addr addr, Index size, Version* vArray, Time* tArray, UInt32 width) {
+void MShadowSTV::set(Addr addr, Index size, Version* vArray, Time* tArray, uint32_t width) {
 	MSG(1, "MShadowSet 0x%llx, size %d\n", addr, size);
 
 	if (size < 1)

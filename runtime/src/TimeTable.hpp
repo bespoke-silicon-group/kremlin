@@ -15,7 +15,7 @@ public:
 	static const unsigned TIMETABLE_SIZE = TIMETABLE_MASK+1;
 
 	TableType type; //!< The access type of this table (32 or 64-bit)
-	UInt32 size;	//!< The number of bytes in array
+	uint32_t size;	//!< The number of bytes in array
 					// XXX: is size member variable necessary?
 	Time* array;	//!< The timestamp data array.
 

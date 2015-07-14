@@ -137,7 +137,7 @@ void LevelTable::collectGarbageUnbounded(Version *curr_versions) {
 	this->cleanTimeTablesFromLevel(lii);
 }
 
-UInt64 LevelTable::compress() {
+uint64_t LevelTable::compress() {
 	assert(this->code == 0xDEADBEEF);
 	assert(!isCompressed());
 
@@ -150,7 +150,7 @@ UInt64 LevelTable::compress() {
 		return 0;
 	}
 
-	UInt64 compressionSavings = 0;
+	uint64_t compressionSavings = 0;
 	lzo_uint srcLen = sizeof(Time)*TimeTable::TIMETABLE_SIZE/2; // XXX assumes 8 bytes
 	lzo_uint compLen = 0;
 
@@ -174,7 +174,7 @@ UInt64 LevelTable::compress() {
 
 		// step 2: compress diffs
 		makeDiff(diffBuffer);
-		compressedData = compressData((UInt8*)diffBuffer, srcLen, &compLen);
+		compressedData = compressData((uint8_t*)diffBuffer, srcLen, &compLen);
 		compressionSavings += (srcLen - compLen);
 		tt2->size = compLen;
 
@@ -185,7 +185,7 @@ UInt64 LevelTable::compress() {
 	Time* level0Array = (Time*)MemPoolAlloc();
 	memcpy(level0Array, tt1->array, srcLen);
 	makeDiff(tt1->array);
-	compressedData = compressData((UInt8*)tt1->array, srcLen, &compLen);
+	compressedData = compressData((uint8_t*)tt1->array, srcLen, &compLen);
 	MemPoolFree(tt1->array);
 	//Time* level0Array = tt1->array;
 	tt1->array = (Time*)compressedData;
@@ -203,12 +203,12 @@ UInt64 LevelTable::compress() {
 	return compressionSavings;
 }
 
-UInt64 LevelTable::decompress() {
+uint64_t LevelTable::decompress() {
 	assert(this->code == 0xDEADBEEF);
 	assert(isCompressed());
 
 	//fprintf(stderr,"[LevelTable] decompressing LevelTable (%p)\n",this);
-	UInt64 decompressionCost = 0;
+	uint64_t decompressionCost = 0;
 	lzo_uint srcLen = sizeof(Time)*TimeTable::TIMETABLE_SIZE/2;
 	lzo_uint uncompLen = srcLen;
 
@@ -221,7 +221,7 @@ UInt64 LevelTable::decompress() {
 	int compressedSize = tt1->size;
 
 	Time* decompedArray = (Time*)MemPoolAlloc();
-	decompressData((UInt8*)decompedArray, (UInt8*)tt1->array, compressedSize, &uncompLen);
+	decompressData((uint8_t*)decompedArray, (uint8_t*)tt1->array, compressedSize, &uncompLen);
 	restoreDiff((Time*)decompedArray);
 
 	tt1->array = decompedArray;
@@ -244,7 +244,7 @@ UInt64 LevelTable::decompress() {
 		// step 1: decompress time different table, 
 		// the src buffer will be freed in decompressData
 		uncompLen = srcLen;
-		decompressData((UInt8*)diffBuffer, (UInt8*)tt2->array, tt2->size, &uncompLen);
+		decompressData((uint8_t*)diffBuffer, (uint8_t*)tt2->array, tt2->size, &uncompLen);
 		restoreDiff((Time*)diffBuffer);
 		assert(srcLen == uncompLen);
 		decompressionCost += (srcLen - tt2->size);

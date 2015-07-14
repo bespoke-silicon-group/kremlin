@@ -8,25 +8,25 @@
  */
 class ProfileNodeStats {
 public:
-	UInt64 total_work; //!< Total amount of work across all instances.
+	uint64_t total_work; //!< Total amount of work across all instances.
 	double min_self_par; //!< Minimum self-parallelism in any instance.
 	double max_self_par; //!< Maximum self-parallelism in any instance.
 
-	UInt64 self_par_per_work; //!< work / self-parallelism
-	UInt64 total_par_per_work; //!< work / total-parallelism
+	uint64_t self_par_per_work; //!< work / self-parallelism
+	uint64_t total_par_per_work; //!< work / total-parallelism
 
 #ifdef EXTRA_STATS
-	UInt64 readCnt;
-	UInt64 writeCnt;
-	UInt64 loadCnt;
-	UInt64 storeCnt;
+	uint64_t readCnt;
+	uint64_t writeCnt;
+	uint64_t loadCnt;
+	uint64_t storeCnt;
 #endif
 	
-	UInt64 num_dynamic_child_regions; //!< Total number of dynamic children.
-	UInt64 min_dynamic_child_regions; //!< Min dynamic children in any instance.
-	UInt64 max_dynamic_child_regions; //!< Max dynamic children in any instance.
+	uint64_t num_dynamic_child_regions; //!< Total number of dynamic children.
+	uint64_t min_dynamic_child_regions; //!< Min dynamic children in any instance.
+	uint64_t max_dynamic_child_regions; //!< Max dynamic children in any instance.
 
-	UInt64 num_instances; //!< Total number of instances.
+	uint64_t num_instances; //!< Total number of instances.
 
 	ProfileNodeStats() : total_work(0), min_self_par(-1), max_self_par(0),
 				self_par_per_work(0), total_par_per_work(0), 

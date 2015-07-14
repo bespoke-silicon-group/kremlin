@@ -97,8 +97,8 @@ Level getMaxActiveLevel() {
 }
 
 // BEGIN TODO: make these not global
-static UInt64	loadCnt = 0llu;
-static UInt64	storeCnt = 0llu;
+static uint64_t	loadCnt = 0llu;
+static uint64_t	storeCnt = 0llu;
 // END TODO: make these not global
 
 
@@ -162,7 +162,7 @@ void KremlinProfiler::deinitShadowMemory() {
  * Global Timestamp Management
  *************************************************************/
 
-void _KWork(UInt32 work) {
+void _KWork(uint32_t work) {
 	profiler->increaseTime(work);
 }
 
@@ -281,7 +281,7 @@ void _KPopCDep() {
  *****************************************************************/
 
 
-void _KPrepCall(CID callSiteId, UInt64 calledRegionId) {
+void _KPrepCall(CID callSiteId, uint64_t calledRegionId) {
 	profiler->handlePrepCall(callSiteId, calledRegionId);
 }
 
@@ -297,7 +297,7 @@ void _KDeqArg(Reg dest) {
 	profiler->handleDequeueArgument(dest);
 }
 
-void _KPrepRTable(UInt maxVregNum, UInt maxNestLevel) {
+void _KPrepRTable(uint32_t maxVregNum, uint32_t maxNestLevel) {
 	profiler->handlePrepRTable(maxVregNum, maxNestLevel);
 }
 
@@ -380,88 +380,88 @@ void _KLandingPad(SID regionId, RegionType regionType) {
  * KInduction, KReduction, KTimestamp, KAssignConst
  *****************************************************************/
 
-void _KAssignConst(UInt dest_reg) {
+void _KAssignConst(uint32_t dest_reg) {
 	profiler->handleAssignConst(dest_reg);
 }
-void _KInduction(UInt dest_reg) {
+void _KInduction(uint32_t dest_reg) {
 	profiler->handleInduction(dest_reg);
 }
-void _KReduction(UInt op_cost, Reg dest_reg) {
+void _KReduction(uint32_t op_cost, Reg dest_reg) {
 	profiler->handleReduction(op_cost, dest_reg);
 }
 
-void _KTimestamp(UInt32 dest_reg, UInt32 num_srcs, ...) {
+void _KTimestamp(uint32_t dest_reg, uint32_t num_srcs, ...) {
 	va_list args;
 	va_start(args,num_srcs);
 	profiler->handleTimestamp(dest_reg, num_srcs, args);
 	va_end(args);
 }
-void _KTimestamp0(UInt32 dest_reg) {
+void _KTimestamp0(uint32_t dest_reg) {
 	profiler->handleTimestamp0(dest_reg);
 }
-void _KTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
+void _KTimestamp1(uint32_t dest_reg, uint32_t src_reg, uint32_t src_offset) {
 	profiler->handleTimestamp1(dest_reg, src_reg, src_offset);
 }
-void _KTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset) {
+void _KTimestamp2(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset) {
 	profiler->handleTimestamp2(dest_reg, src1_reg, src1_offset, src2_reg, src2_offset);
 }
-void _KTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset) {
+void _KTimestamp3(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset) {
 	profiler->handleTimestamp3(dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg, src3_offset);
 }
-void _KTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset) {
+void _KTimestamp4(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t src4_reg, uint32_t src4_offset) {
 	profiler->handleTimestamp4(dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg, src3_offset, src4_reg, src4_offset);
 }
-void _KTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
+void _KTimestamp5(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset) {
 	profiler->handleTimestamp5(dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg, src3_offset, src4_reg, src4_offset, src5_reg, src5_offset);
 }
-void _KTimestamp6(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32 src6_reg, UInt32 src6_offset) {
+void _KTimestamp6(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset, uint32_t src6_reg, uint32_t src6_offset) {
 	profiler->handleTimestamp6(dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg, src3_offset, src4_reg, src4_offset, src5_reg, src5_offset, src6_reg, src6_offset);
 }
-void _KTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, 
-					UInt32 src2_reg, UInt32 src2_offset, 
-					UInt32 src3_reg, UInt32 src3_offset, 
-					UInt32 src4_reg, UInt32 src4_offset, 
-					UInt32 src5_reg, UInt32 src5_offset, 
-					UInt32 src6_reg, UInt32 src6_offset, 
-					UInt32 src7_reg, UInt32 src7_offset) {
+void _KTimestamp7(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, 
+					uint32_t src2_reg, uint32_t src2_offset, 
+					uint32_t src3_reg, uint32_t src3_offset, 
+					uint32_t src4_reg, uint32_t src4_offset, 
+					uint32_t src5_reg, uint32_t src5_offset, 
+					uint32_t src6_reg, uint32_t src6_offset, 
+					uint32_t src7_reg, uint32_t src7_offset) {
 	profiler->handleTimestamp7(dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg, src3_offset, src4_reg, src4_offset, src5_reg, src5_offset, src6_reg, src6_offset, src7_reg, src7_offset);
 }
 
 
-void _KLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs, ...) {
+void _KLoad(Addr src_addr, Reg dest_reg, uint32_t mem_access_size, uint32_t num_srcs, ...) {
 	va_list args;
 	va_start(args,num_srcs);
 	profiler->handleLoad(src_addr, dest_reg, mem_access_size, num_srcs, args);
 	va_end(args);
 }
-void _KLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
+void _KLoad0(Addr src_addr, Reg dest_reg, uint32_t mem_access_size) {
 	profiler->handleLoad0(src_addr, dest_reg, mem_access_size);
 }
-void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
+void _KLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, uint32_t mem_access_size) {
 	profiler->handleLoad1(src_addr, dest_reg, src_reg, mem_access_size);
 }
 
 
 // XXX: KLoad{2,3,4} will soon be deprecated
-void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, UInt32 mem_access_size) {
+void _KLoad2(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, uint32_t mem_access_size) {
 	_KLoad0(src_addr,dest_reg,mem_access_size);
 	//_KLoad(src_addr,dest_reg,mem_access_size,2,src1_reg,src2_reg);
 }
 
-void _KLoad3(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, UInt32 mem_access_size){
+void _KLoad3(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, uint32_t mem_access_size){
 	_KLoad0(src_addr,dest_reg,mem_access_size);
 	//_KLoad(src_addr,dest_reg,mem_access_size,3,src1_reg,src2_reg,src3_reg);
 }
 
-void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, Reg src4_reg, UInt32 mem_access_size) { 
+void _KLoad4(Addr src_addr, Reg dest_reg, Reg src1_reg, Reg src2_reg, Reg src3_reg, Reg src4_reg, uint32_t mem_access_size) { 
 	_KLoad0(src_addr,dest_reg,mem_access_size);
 	//_KLoad(src_addr,dest_reg,mem_access_size,4,src1_reg,src2_reg,src3_reg,src4_reg);
 }
 
-void _KStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
+void _KStore(Reg src_reg, Addr dest_addr, uint32_t mem_access_size) {
 	profiler->handleStore(src_reg, dest_addr, mem_access_size);
 }
-void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
+void _KStoreConst(Addr dest_addr, uint32_t mem_access_size) {
 	profiler->handleStoreConst(dest_addr, mem_access_size);
 }
 
@@ -473,7 +473,7 @@ void _KStoreConst(Addr dest_addr, UInt32 mem_access_size) {
  ******************************************************************/
 
 // TODO: shouldn't call KPhi if num_ctrls is 0 (instrumentation issue)
-void _KPhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, ...) {
+void _KPhi(Reg dest_reg, Reg src_reg, uint32_t num_ctrls, ...) {
 	va_list args;
 	va_start(args, num_ctrls);
 	profiler->handlePhi(dest_reg, src_reg, num_ctrls, args);
@@ -523,7 +523,7 @@ void _KDeinit() {}
 
 // use estimated cost for a callee function we cannot instrument
 // TODO: implement new shadow mem interface
-void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
+void _KCallLib(uint32_t cost, uint32_t dest, uint32_t num_in, ...) {
 	idbgAction(KREM_CD_TO_PHI,"## KCallLib(cost=%u,dest=%u,num_in=%u,...)\n",cost,dest,num_in);
 
 #if 0
@@ -541,7 +541,7 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 
     int i;
     for (i = 0; i < num_in; i++) {
-        UInt src = va_arg(ap, UInt);
+        uint32_t src = va_arg(ap, uint32_t);
         entrySrc[i] = getLTEntry(src);
         assert(entrySrc[i] != nullptr);
     }   
@@ -552,18 +552,18 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 
     TEntryRealloc(entryDest, maxLevel);
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt version = *ProgramRegion::getVersionAtLevel(i);
-        UInt64 max = 0;
+        uint32_t version = *ProgramRegion::getVersionAtLevel(i);
+        uint64_t max = 0;
         
 		/*
         int j;
         for (j = 0; j < num_in; j++) {
-            UInt64 ts = profiler->getCurrentTime(entrySrc[j], i, version);
+            uint64_t ts = profiler->getCurrentTime(entrySrc[j], i, version);
             if (ts > max)
                 max = ts;
         } */  
         
-		UInt64 value = max + cost;
+		uint64_t value = max + cost;
 
 		updateCP(value, i);
     }
@@ -579,12 +579,12 @@ void _KCallLib(UInt cost, UInt dest, UInt num_in, ...) {
 
 
 // FIXME: support 64 bit address
-void _KMalloc(Addr addr, size_t size, UInt dest) {
+void _KMalloc(Addr addr, size_t size, uint32_t dest) {
 	// TODO: idbgAction
 #if 0
     if (!profiler->isEnabled()) return;
     
-    MSG(1, "KMalloc addr=0x%x size=%llu\n", addr, (UInt64)size);
+    MSG(1, "KMalloc addr=0x%x size=%llu\n", addr, (uint64_t)size);
 
     // Don't do anything if malloc returned nullptr
     if(!addr) { return; }
@@ -619,7 +619,7 @@ void _KFree(Addr addr) {
 
     int i;
     for (i = minLevel; i <= maxLevel; i++) {
-        UInt64 value = profiler->getControlDependenceAtIndex(i) + FREE_COST;
+        uint64_t value = profiler->getControlDependenceAtIndex(i) + FREE_COST;
 
         updateCP(value, i);
     }
@@ -629,13 +629,13 @@ void _KFree(Addr addr) {
 // TODO: more efficient implementation (if old_addr = new_addr)
 // XXX: This is wrong. Values in the realloc'd location should still have the
 // same timestamp.
-void _KRealloc(Addr old_addr, Addr new_addr, size_t size, UInt dest) {
+void _KRealloc(Addr old_addr, Addr new_addr, size_t size, uint32_t dest) {
 	// TODO: idbgAction
 #if 0
     if (!profiler->isEnabled())
         return;
 
-    MSG(1, "KRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (UInt64)size);
+    MSG(1, "KRealloc old_addr=0x%x new_addr=0x%x size=%llu\n", old_addr, new_addr, (uint64_t)size);
     _KFree(old_addr);
     _KMalloc(new_addr,size,dest);
 #endif
@@ -669,7 +669,7 @@ void printActiveRegionStack() {
 			fprintf(stdout,"type=ILLEGAL ");
 		}
 
-    	UInt64 work = profiler->getCurrentTime() - region->start;
+    	uint64_t work = profiler->getCurrentTime() - region->start;
 		fprintf(stdout,"SID=%llu, WORK'=%llu, CP=%llu\n",region->regionId,work,region->cp);
 	}
 #endif
@@ -717,7 +717,7 @@ void printMemoryTimes(Addr addr, Index size) {
  * DJ: not sure what these are for 
  ************************************************/
 
-void* _KInsertValue(UInt src, UInt dest) {
+void* _KInsertValue(uint32_t src, uint32_t dest) {
 	assert(0);
     //printf("Warning: logInsertValue not correctly implemented\n");
 
@@ -732,7 +732,7 @@ void* _KInsertValue(UInt src, UInt dest) {
     return _KAssign(src, dest);
 }
 
-void* _KInsertValueConst(UInt dest) {
+void* _KInsertValueConst(uint32_t dest) {
 	assert(0);
     //printf("Warning: _KInsertValueConst not correctly implemented\n");
 
@@ -769,7 +769,7 @@ void cppExit() {
 }
 
 typedef struct _InvokeRecord {
-	UInt64 id;
+	uint64_t id;
 	int stackHeight;
 } InvokeRecord;
 
@@ -777,18 +777,18 @@ InvokeRecords*      invokeRecords;
 
 static std::vector<InvokeRecord*> invokeRecords; // A vector used to record invoked calls.
 
-void _KPrepInvoke(UInt64 id) {
+void _KPrepInvoke(uint64_t id) {
     if(!profiler->isEnabled())
         return;
 
-    MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (UInt64)profiler->getCurrentLevel());
+    MSG(1, "prepareInvoke(%llu) - saved at %lld\n", id, (uint64_t)profiler->getCurrentLevel());
    
     InvokeRecord* currentRecord = InvokeRecordsPush(invokeRecords); // FIXME
     currentRecord->id = id;
     currentRecord->stackHeight = profiler->getCurrentLevel();
 }
 
-void _KInvokeOkay(UInt64 id) {
+void _KInvokeOkay(uint64_t id) {
     if(!profiler->isEnabled())
         return;
 
@@ -799,7 +799,7 @@ void _KInvokeOkay(UInt64 id) {
         MSG(1, "invokeOkay(%u) ignored\n", id);
 }
 
-void _KInvokeThrew(UInt64 id)
+void _KInvokeThrew(uint64_t id)
 {
     if(!profiler->isEnabled())
         return;
@@ -811,7 +811,7 @@ void _KInvokeThrew(UInt64 id)
         MSG(1, "invokeThrew(%u) - Popping to %d\n", currentRecord->id, currentRecord->stackHeight);
         while(profiler->getCurrentLevel() > currentRecord->stackHeight)
         {
-            UInt64 lastLevel = profiler->getCurrentLevel();
+            uint64_t lastLevel = profiler->getCurrentLevel();
             ProgramRegion* region = regionInfo + getLevelOffset(profiler->getCurrentLevel()); // FIXME: regionInfo is vector now
             _KExitRegion(region->regionId, region->regionType);
             assert(profiler->getCurrentLevel() < lastLevel);

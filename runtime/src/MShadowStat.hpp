@@ -11,12 +11,12 @@ void MShadowStatPrint();
 
 
 typedef struct _AllocStat {
-	UInt64 nAlloc;
-	UInt64 nDealloc;
-	UInt64 nConvertIn;
-	UInt64 nConvertOut;
-	UInt64 nActive;
-	UInt64 nActiveMax;
+	uint64_t nAlloc;
+	uint64_t nDealloc;
+	uint64_t nConvertIn;
+	uint64_t nConvertOut;
+	uint64_t nActive;
+	uint64_t nActiveMax;
 	
 } AStat;
 
@@ -53,8 +53,8 @@ static inline void AStatConvertOut(AStat* stat) {
 typedef struct _LevelStat {
 	AStat  segTable;
 	AStat  tTable[2];
-	UInt64 nTimeTableRealoc;
-	UInt64 nLevelWrite;
+	uint64_t nTimeTableRealoc;
+	uint64_t nLevelWrite;
 } LStat;
 
 
@@ -71,11 +71,11 @@ typedef struct _MemStat {
 
 	AStat lTable;
 
-	UInt64 nGC;
+	uint64_t nGC;
 
 	// tracking overhead of timetables (in bytes) with compression
-	UInt64 timeTableOverhead;
-	UInt64 timeTableOverheadMax;
+	uint64_t timeTableOverhead;
+	uint64_t timeTableOverheadMax;
 
 } MemStat;
 
@@ -144,7 +144,7 @@ static inline void eventGC() {
 }
 
 
-static inline UInt64 getActiveTimeTableSize() {
+static inline uint64_t getActiveTimeTableSize() {
 	return _stat.tTable[0].nActive + _stat.tTable[1].nActive;
 }
 
@@ -153,18 +153,18 @@ static inline UInt64 getActiveTimeTableSize() {
  */
 
 typedef struct _L1Stat {
-	UInt64 nRead;
-	UInt64 nReadHit;
-	UInt64 nReadEvict;
-	UInt64 nWrite;
-	UInt64 nWriteHit;
-	UInt64 nWriteEvict;
+	uint64_t nRead;
+	uint64_t nReadHit;
+	uint64_t nReadEvict;
+	uint64_t nWrite;
+	uint64_t nWriteHit;
+	uint64_t nWriteEvict;
 
-	UInt64 nEvictLevel[128];
-	UInt64 nEvictTotal;
-	UInt64 nCacheEvictLevelTotal;
-	UInt64 nCacheEvictLevelEffective;
-	UInt64 nCacheEvict;
+	uint64_t nEvictLevel[128];
+	uint64_t nEvictTotal;
+	uint64_t nCacheEvictLevelTotal;
+	uint64_t nCacheEvictLevelEffective;
+	uint64_t nCacheEvict;
 
 
 } L1Stat;

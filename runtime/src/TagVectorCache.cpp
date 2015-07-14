@@ -48,14 +48,14 @@ void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
 int TagVectorCache::getLineIndex(Addr addr) {
 #if 0
 	int nShift = 3; 	// 8 byte 
-	int ret = (((UInt64)addr) >> nShift) & lineMask;
+	int ret = (((uint64_t)addr) >> nShift) & lineMask;
 	assert(ret >= 0 && ret < lineNum);
 #endif
 	int nShift = 3;	
 	int lineMask = getLineMask();
 	int lineShift = getLineShift();
-	int val0 = (((UInt64)addr) >> nShift) & lineMask;
-	int val1 = (((UInt64)addr) >> (nShift + lineShift)) & lineMask;
+	int val0 = (((uint64_t)addr) >> nShift) & lineMask;
+	int val1 = (((uint64_t)addr) >> (nShift + lineShift)) & lineMask;
 	return val0 ^ val1;
 }
 
@@ -73,7 +73,7 @@ void TagVectorCache::lookupRead(Addr addr, int type, int* pIndex, TagVectorCache
 		offset = (*option0 > *option1) ? 0 : 1;
 
 	} else {
-		offset = ((UInt64)addr >> 2) & 0x1;
+		offset = ((uint64_t)addr >> 2) & 0x1;
 	}
 
 	assert(index < this->getLineCount());
@@ -86,7 +86,7 @@ void TagVectorCache::lookupRead(Addr addr, int type, int* pIndex, TagVectorCache
 
 void TagVectorCache::lookupWrite(Addr addr, int type, int *pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray) {
 	int index = this->getLineIndex(addr);
-	int offset = ((UInt64)addr >> 2) & 0x1;
+	int offset = ((uint64_t)addr >> 2) & 0x1;
 	assert(index < this->getLineCount());
 	TagVectorCacheLine* line = this->getTag(index);
 

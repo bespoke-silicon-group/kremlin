@@ -56,7 +56,7 @@ public:
 
 	static unsigned getNumLevelTables() { return NUM_ENTRIES; }
 	static unsigned GetIndex(Addr addr) {
-		return ((UInt64)addr >> SEGMENT_SHIFT) & SEGMENT_MASK;
+		return ((uint64_t)addr >> SEGMENT_SHIFT) & SEGMENT_MASK;
 	}
 
 	static void* operator new(size_t size);

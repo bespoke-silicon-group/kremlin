@@ -12,7 +12,7 @@ private:
 	Version	versions[LevelTable::MAX_LEVEL];	//!< version for each level
 	TimeTable* time_tables[LevelTable::MAX_LEVEL];	//!< TimeTable for each level
 	bool compressed; //!< Indicates if this table has compressed TimeTables
-	UInt32 code; // TODO: this should be debug-only or just go away
+	uint32_t code; // TODO: this should be debug-only or just go away
 
 public:
 	/*!
@@ -161,7 +161,7 @@ public:
 	 * @post compressed is 1.
 	 * @invariant code is 0xDEADBEEF
 	 */
-	UInt64 compress();
+	uint64_t compress();
 
 	/*! @brief Decompress the level table.
 	 *
@@ -169,7 +169,7 @@ public:
 	 * @pre This LevelTable is compressed.
 	 * @invariant code is 0xDEADBEEF
 	 */
-	UInt64 decompress();
+	uint64_t decompress();
 
 	static void* operator new(size_t size);
 	static void operator delete(void* ptr);

@@ -14,7 +14,7 @@ void TimeTable::operator delete(void* ptr) {
 
 unsigned TimeTable::getIndex(Addr addr) {
 	const int WORD_SHIFT = 2;
-	int ret = ((UInt64)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
+	int ret = ((uint64_t)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
 	if (this->type == TYPE_64BIT) ret >>= 1;
 
 	assert((this->type == TYPE_64BIT && ret < TimeTable::TIMETABLE_SIZE/2) 

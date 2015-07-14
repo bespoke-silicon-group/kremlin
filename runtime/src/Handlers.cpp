@@ -113,7 +113,7 @@ void KremlinProfiler::setRegisterTimeAtIndex(Time time, Reg reg, Index index) {
  *****************************************************************/
 
 template <unsigned num_data_deps, unsigned data_dep, bool ignore_offset>
-Time KremlinProfiler::calcMaxTime(Time curr_time, UInt32 reg, UInt32 offset, Level l) {
+Time KremlinProfiler::calcMaxTime(Time curr_time, uint32_t reg, uint32_t offset, Level l) {
 	assert(shadow_reg_file != nullptr);
 	assert(reg < getCurrNumShadowRegisters());	
 	assert(l < getShadowRegisterFileDepth());
@@ -130,14 +130,14 @@ Time KremlinProfiler::calcMaxTime(Time curr_time, UInt32 reg, UInt32 offset, Lev
 // TODO: once C++11 is widespread, give use_shadow_mem_dependence 
 // a default value of false
 template <bool use_ctrl_dependence, bool update_cp, unsigned num_data_deps, bool use_shadow_mem_dependence>
-void KremlinProfiler::timestampUpdater(UInt32 dest_reg, 
-										UInt32 src0_reg, UInt32 src0_offset,
-										UInt32 src1_reg, UInt32 src1_offset,
-										UInt32 src2_reg, UInt32 src2_offset,
-										UInt32 src3_reg, UInt32 src3_offset,
-										UInt32 src4_reg, UInt32 src4_offset,
+void KremlinProfiler::timestampUpdater(uint32_t dest_reg, 
+										uint32_t src0_reg, uint32_t src0_offset,
+										uint32_t src1_reg, uint32_t src1_offset,
+										uint32_t src2_reg, uint32_t src2_offset,
+										uint32_t src3_reg, uint32_t src3_offset,
+										uint32_t src4_reg, uint32_t src4_offset,
 										Addr src_addr,
-										UInt32 mem_access_size
+										uint32_t mem_access_size
 										) {
 
 	assert(shadow_reg_file != nullptr);
@@ -213,9 +213,9 @@ template <bool use_ctrl_dependence,
 			bool use_src_reg,
 			bool use_offsets,
 			bool use_shadow_mem_dependence>
-void KremlinProfiler::handleVariableNumArgs(UInt32 dest_reg, UInt32 src_reg, 
+void KremlinProfiler::handleVariableNumArgs(uint32_t dest_reg, uint32_t src_reg, 
 											Addr mem_dependency_addr, 
-											UInt32 mem_access_size,
+											uint32_t mem_access_size,
 											unsigned num_var_args,
 											va_list arg_list) {
 	assert(dest_reg < getCurrNumShadowRegisters());	
@@ -224,24 +224,24 @@ void KremlinProfiler::handleVariableNumArgs(UInt32 dest_reg, UInt32 src_reg,
 	assert(!use_shadow_mem_dependence 
 			|| (mem_access_size > 0 && mem_access_size <= 8));
 
-	UInt32 src_regs[5];
-	UInt32 src_offsets[5];
+	uint32_t src_regs[5];
+	uint32_t src_offsets[5];
 
 	if (use_src_reg && num_var_args == 0) {
-		memset(&src_regs, 0, 5*sizeof(UInt32));
+		memset(&src_regs, 0, 5*sizeof(uint32_t));
 	}
 
 	if (!use_offsets) {
-		memset(&src_offsets, 0, 5*sizeof(UInt32));
+		memset(&src_offsets, 0, 5*sizeof(uint32_t));
 	}
 
 	unsigned arg_idx;
 	for(arg_idx = 0; arg_idx < num_var_args; ++arg_idx) {
 		unsigned index = arg_idx % 5;
-		src_regs[index] = va_arg(arg_list,UInt32);
+		src_regs[index] = va_arg(arg_list,uint32_t);
 		assert(src_regs[index] < getCurrNumShadowRegisters());	
 		if (use_offsets) {
-			src_offsets[index] = va_arg(arg_list,UInt32);
+			src_offsets[index] = va_arg(arg_list,uint32_t);
 		}
 
 		if (index == 0) {
@@ -341,13 +341,13 @@ static inline void printTArray(Time* times, Index depth) {
 	}
 }
 
-static inline void printLoadDebugInfo(Addr addr, UInt dest, Time* times, Index depth) {
+static inline void printLoadDebugInfo(Addr addr, uint32_t dest, Time* times, Index depth) {
     MSG(0, "LOAD: ts[%u] = ts[0x%x] -- { ", dest, addr);
 	printTArray(times,depth);
 	MSG(0," }\n");
 }
 
-static inline void printStoreDebugInfo(UInt src, Addr addr, Time* times, Index depth) {
+static inline void printStoreDebugInfo(uint32_t src, Addr addr, Time* times, Index depth) {
     MSG(0, "STORE: ts[0x%x] = ts[%u] -- { ", addr, src);
 	printTArray(times,depth);
 	MSG(0," }\n");
@@ -361,7 +361,7 @@ static inline void printStoreConstDebugInfo(Addr addr, Time* times, Index depth)
 // END: move to iteractive debugger file
 
 template <bool store_const>
-void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg) {
+void KremlinProfiler::timestampUpdaterStore(Addr dest_addr, uint32_t mem_access_size, Reg src_reg) {
 	assert(mem_access_size <= 8);
 
 	Time* dest_addr_times = getLevelTimes();
@@ -444,7 +444,7 @@ void KremlinProfiler::handleRegionEntry(SID regionId, RegionType regionType) {
 /**
  * Creates RegionStats and fills it based on inputs.
  */
-static RegionStats fillRegionStats(UInt64 work, UInt64 cp, CID callSiteId, UInt64 spWork, UInt64 is_doall, ProgramRegion* region_info) {
+static RegionStats fillRegionStats(uint64_t work, uint64_t cp, CID callSiteId, uint64_t spWork, uint64_t is_doall, ProgramRegion* region_info) {
 	RegionStats stats;
 
     stats.work = work;
@@ -493,15 +493,15 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
 	ProgramRegion* region = getRegionAtLevel(level);
     SID sid = regionId;
 	SID parentSid = 0;
-    UInt64 work = getCurrentTime() - region->start;
+    uint64_t work = getCurrentTime() - region->start;
 	decIndentTab(); // applies only to debug printing
 	MSG(0, "\n");
     MSG(0, "[---] region [type %u, level %u, sid 0x%llx] time %llu cp %llu work %llu\n",
         regionType, level, regionId, getCurrentTime(), region->cp, work);
 
 	assert(region->regionId == regionId);
-    UInt64 cp = region->cp;
-	UInt64 is_doall = (cp - region->childMaxCP) < doall_threshold ? 1 : 0;
+    uint64_t cp = region->cp;
+	uint64_t is_doall = (cp - region->childMaxCP) < doall_threshold ? 1 : 0;
 	if (regionType != RegionLoop)
 		is_doall = 0;
 	//fprintf(stderr, "is_doall = %d\n", is_doall);
@@ -554,7 +554,7 @@ void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
 	}
 #endif
 
-	UInt64 spWork = (UInt64)((double)work / sp);
+	uint64_t spWork = (uint64_t)((double)work / sp);
 
 	// due to floating point variables,
 	// spWork can be larger than work
@@ -598,14 +598,14 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 		ProgramRegion* region = getRegionAtLevel(level);
 
 		sid = region->regionId;
-		UInt64 work = getCurrentTime() - region->start;
+		uint64_t work = getCurrentTime() - region->start;
 		decIndentTab(); // applies only to debug printing
 		MSG(0, "\n");
 		MSG(0, "[!---] region [type %u, level %u, sid 0x%llx] time %llu cp %llu work %llu\n",
 			region->regionType, level, sid, getCurrentTime(), region->cp, work);
 
-		UInt64 cp = region->cp;
-		UInt64 is_doall = (cp - region->childMaxCP) < doall_threshold ? 1 : 0;
+		uint64_t cp = region->cp;
+		uint64_t is_doall = (cp - region->childMaxCP) < doall_threshold ? 1 : 0;
 		if (region->regionType != RegionLoop)
 			is_doall = 0;
 		//fprintf(stderr, "is_doall = %d\n", is_doall);
@@ -659,7 +659,7 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 		}
 #endif
 
-		UInt64 spWork = (UInt64)((double)work / sp);
+		uint64_t spWork = (uint64_t)((double)work / sp);
 
 		// due to floating point variables,
 		// spWork can be larger than work
@@ -680,7 +680,7 @@ void KremlinProfiler::handleLandingPad(SID regionId, RegionType regionType) {
 }
 
 
-void KremlinProfiler::handleAssignConst(UInt dest_reg) {
+void KremlinProfiler::handleAssignConst(uint32_t dest_reg) {
     MSG(1, "_KAssignConst ts[%u]\n", dest_reg);
 	idbgAction(KREM_ASSIGN_CONST,"## _KAssignConst(dest_reg=%u)\n",dest_reg);
 
@@ -691,7 +691,7 @@ void KremlinProfiler::handleAssignConst(UInt dest_reg) {
 
 // This function is mainly to help identify induction variables in the source
 // code.
-void KremlinProfiler::handleInduction(UInt dest_reg) {
+void KremlinProfiler::handleInduction(uint32_t dest_reg) {
     MSG(1, "KInduction to %u\n", dest_reg);
 	idbgAction(KREM_INDUCTION,"## _KInduction(dest_reg=%u)\n",dest_reg);
 
@@ -700,7 +700,7 @@ void KremlinProfiler::handleInduction(UInt dest_reg) {
 	timestampUpdater<true, true, 0, false>(dest_reg);
 }
 
-void KremlinProfiler::handleReduction(UInt op_cost, Reg dest_reg) {
+void KremlinProfiler::handleReduction(uint32_t op_cost, Reg dest_reg) {
     MSG(3, "KReduction ts[%u] with cost = %d\n", dest_reg, op_cost);
 	idbgAction(KREM_REDUCTION, "## KReduction(op_cost=%u,dest_reg=%u)\n",op_cost,dest_reg);
 
@@ -709,7 +709,7 @@ void KremlinProfiler::handleReduction(UInt op_cost, Reg dest_reg) {
 	// XXX: do nothing??? (-sat)
 }
 
-void KremlinProfiler::handleTimestamp(UInt32 dest_reg, UInt32 num_srcs, va_list args) {
+void KremlinProfiler::handleTimestamp(uint32_t dest_reg, uint32_t num_srcs, va_list args) {
     MSG(1, "KTimestamp ts[%u] = (0..%u) \n", dest_reg,num_srcs);
 	idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,num_srcs=%u,...)\n",dest_reg,num_srcs);
 
@@ -720,7 +720,7 @@ void KremlinProfiler::handleTimestamp(UInt32 dest_reg, UInt32 num_srcs, va_list 
 }
 
 // XXX: not 100% sure this is the correct functionality
-void KremlinProfiler::handleTimestamp0(UInt32 dest_reg) {
+void KremlinProfiler::handleTimestamp0(uint32_t dest_reg) {
     MSG(1, "KTimestamp0 to %u\n", dest_reg);
 	idbgAction(KREM_TS,"## _KTimestamp0(dest_reg=%u)\n",dest_reg);
     if (!enabled) return;
@@ -728,7 +728,7 @@ void KremlinProfiler::handleTimestamp0(UInt32 dest_reg) {
 	timestampUpdater<true, true, 0, false>(dest_reg);
 }
 
-void KremlinProfiler::handleTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset) {
+void KremlinProfiler::handleTimestamp1(uint32_t dest_reg, uint32_t src_reg, uint32_t src_offset) {
     MSG(3, "KTimestamp1 ts[%u] = ts[%u] + %u\n", dest_reg, src_reg, src_offset);
 	idbgAction(KREM_TS,"## _KTimestamp1(dest_reg=%u,src_reg=%u,src_offset=%u)\n",dest_reg,src_reg,src_offset);
 
@@ -737,7 +737,7 @@ void KremlinProfiler::handleTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 s
 	timestampUpdater<true, true, 1, false>(dest_reg, src_reg, src_offset);
 }
 
-void KremlinProfiler::handleTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset) {
+void KremlinProfiler::handleTimestamp2(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset) {
     MSG(3, "KTimestamp2 ts[%u] = max(ts[%u] + %u,ts[%u] + %u)\n", dest_reg, src1_reg, src1_offset, src2_reg, src2_offset);
 	idbgAction(KREM_TS,"## _KTimestamp(dest_reg=%u,src1_reg=%u,src1_offset=%u,src2_reg=%u,src2_offset=%u)\n",dest_reg,src1_reg,src1_offset,src2_reg,src2_offset);
 
@@ -747,7 +747,7 @@ void KremlinProfiler::handleTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 
 									src2_reg, src2_offset);
 }
 
-void KremlinProfiler::handleTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset) {
+void KremlinProfiler::handleTimestamp3(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset) {
     MSG(3, "KTimestamp3 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u)\n",
 	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
 	  src3_offset);
@@ -761,7 +761,7 @@ void KremlinProfiler::handleTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 
 										src3_reg, src3_offset);
 }
 
-void KremlinProfiler::handleTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset) {
+void KremlinProfiler::handleTimestamp4(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t src4_reg, uint32_t src4_offset) {
     MSG(3, "KTimestamp4 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u,"
 	"ts[%u] + %u)\n",
 	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
@@ -777,9 +777,9 @@ void KremlinProfiler::handleTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 
 										src4_reg, src4_offset);
 }
 
-void KremlinProfiler::handleTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
-src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
-src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
+void KremlinProfiler::handleTimestamp5(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t
+src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t
+src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset) {
     MSG(3, "KTimestamp5 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u,"
 	"ts[%u] + %u, ts[%u] + %u)\n",
 	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
@@ -796,10 +796,10 @@ src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset) {
 										src5_reg, src5_offset);
 }
 
-void KremlinProfiler::handleTimestamp6(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
-src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
-src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
-src6_reg, UInt32 src6_offset) {
+void KremlinProfiler::handleTimestamp6(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t
+src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t
+src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset, uint32_t
+src6_reg, uint32_t src6_offset) {
     MSG(3, "KTimestamp6 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u,"
 	"ts[%u] + %u, ts[%u] + %u, ts[%u] + %u)\n",
 	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
@@ -818,10 +818,10 @@ src6_reg, UInt32 src6_offset) {
 										src6_reg, src6_offset);
 }
 
-void KremlinProfiler::handleTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
-src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
-src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
-src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
+void KremlinProfiler::handleTimestamp7(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t
+src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t
+src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset, uint32_t
+src6_reg, uint32_t src6_offset, uint32_t src7_reg, uint32_t src7_offset) {
     MSG(3, "KTimestamp7 ts[%u] = max(ts[%u] + %u,ts[%u] + %u, ts[%u] + %u,"
 	"ts[%u] + %u, ts[%u] + %u, ts[%u] + %u, ts[%u] + %u)\n",
 	  dest_reg, src1_reg, src1_offset, src2_reg, src2_offset, src3_reg,
@@ -842,7 +842,7 @@ src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset) {
 										src7_reg, src7_offset);
 }
 
-void KremlinProfiler::handleLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs, va_list args) {
+void KremlinProfiler::handleLoad(Addr src_addr, Reg dest_reg, uint32_t mem_access_size, uint32_t num_srcs, va_list args) {
     MSG(1, "KLoad ts[%u] = max(ts[0x%x],...,ts_src%u[...]) + %u (access size: %u)\n", dest_reg,src_addr,num_srcs,LOAD_COST,mem_access_size);
 	idbgAction(KREM_LOAD,"## _KLoad(src_addr=0x%x,dest_reg=%u,mem_access_size=%u,num_srcs=%u,...)\n",src_addr,dest_reg,mem_access_size,num_srcs);
 
@@ -852,7 +852,7 @@ void KremlinProfiler::handleLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_
 						(dest_reg, 0, src_addr, mem_access_size, num_srcs, args);
 }
 
-void KremlinProfiler::handleLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size) {
+void KremlinProfiler::handleLoad0(Addr src_addr, Reg dest_reg, uint32_t mem_access_size) {
     MSG(1, "load size %d ts[%u] = ts[0x%x] + %u\n", mem_access_size, dest_reg, src_addr, LOAD_COST);
 	idbgAction(KREM_LOAD, "## KLoad0(Addr=0x%x,dest_reg=%u,mem_access_size=%u)\n",
 		src_addr, dest_reg, mem_access_size);
@@ -865,7 +865,7 @@ void KremlinProfiler::handleLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access
     MSG(3, "load ts[%u] completed\n\n",dest_reg);
 }
 
-void KremlinProfiler::handleLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size) {
+void KremlinProfiler::handleLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, uint32_t mem_access_size) {
     MSG(1, "load1 ts[%u] = max(ts[0x%x],ts[%u]) + %u\n", dest_reg, src_addr, src_reg, LOAD_COST);
 	idbgAction(KREM_LOAD,"## KLoad1(Addr=0x%x,src_reg=%u,dest_reg=%u,mem_access_size=%u)\n",src_addr,src_reg,dest_reg,mem_access_size);
 
@@ -876,7 +876,7 @@ void KremlinProfiler::handleLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt
 											src_addr, mem_access_size);
 }
 
-void KremlinProfiler::handleStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size) {
+void KremlinProfiler::handleStore(Reg src_reg, Addr dest_addr, uint32_t mem_access_size) {
     MSG(1, "store size %d ts[0x%x] = ts[%u] + %u\n", mem_access_size, dest_addr, src_reg, STORE_COST);
 	idbgAction(KREM_STORE,"## KStore(src_reg=%u,dest_addr=0x%x,mem_access_size=%u)\n",src_reg,dest_addr,mem_access_size);
 
@@ -888,7 +888,7 @@ void KremlinProfiler::handleStore(Reg src_reg, Addr dest_addr, UInt32 mem_access
 }
 
 
-void KremlinProfiler::handleStoreConst(Addr dest_addr, UInt32 mem_access_size) {
+void KremlinProfiler::handleStoreConst(Addr dest_addr, uint32_t mem_access_size) {
     MSG(1, "KStoreConst ts[0x%x] = %u\n", dest_addr, STORE_COST);
 	idbgAction(KREM_STORE,"## _KStoreConst(dest_addr=0x%x,mem_access_size=%u)\n",dest_addr,mem_access_size);
 
@@ -899,7 +899,7 @@ void KremlinProfiler::handleStoreConst(Addr dest_addr, UInt32 mem_access_size) {
     MSG(1, "store const mem[0x%x] completed\n", dest_addr);
 }
 
-void KremlinProfiler::handlePhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, va_list args) {
+void KremlinProfiler::handlePhi(Reg dest_reg, Reg src_reg, uint32_t num_ctrls, va_list args) {
     MSG(1, "KPhi ts[%u] = max(ts[%u],ts[ctrl0]...ts[ctrl%u])\n", dest_reg, src_reg,num_ctrls);
 	idbgAction(KREM_PHI,"## KPhi (dest_reg=%u,src_reg=%u,num_ctrls=%u)\n",dest_reg,src_reg,num_ctrls);
 
@@ -1029,7 +1029,7 @@ void KremlinProfiler::handlePopCDep() {
 	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
 }
 
-void KremlinProfiler::handlePrepCall(CID callSiteId, UInt64 calledRegionId) {
+void KremlinProfiler::handlePrepCall(CID callSiteId, uint64_t calledRegionId) {
 	MSG(3, "KPrepCall(callSiteId=%llx, calledRegionId=%llx)\n", callSiteId, calledRegionId);
 	idbgAction(KREM_PREP_CALL, "## _KPrepCall(callSiteId=%llu,calledRegionId=%llu)\n",callSiteId,calledRegionId);
     if (!enabled) return; 
@@ -1094,7 +1094,7 @@ void KremlinProfiler::handleDequeueArgument(Reg dest) {
  *		nested_depth represents the max depth of a region that can use 
  *		the RTable. 
  */
-void KremlinProfiler::handlePrepRTable(UInt num_virt_regs, UInt nested_depth) {
+void KremlinProfiler::handlePrepRTable(uint32_t num_virt_regs, uint32_t nested_depth) {
 	int tableHeight = num_virt_regs;
 	int tableWidth = getCurrentLevel() + nested_depth + 1;
     MSG(1, "KPrep RShadow Table row=%d, col=%d (curLevel=%d, nested_depth=%d)\n",

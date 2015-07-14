@@ -25,7 +25,7 @@
  */
 class SparseTableElement {
 public:
-	UInt32 	addrHigh;	// upper 32bit in 64bit addr
+	uint32_t 	addrHigh;	// upper 32bit in 64bit addr
 	MemorySegment* segTable;
 };
 
@@ -54,7 +54,7 @@ public:
 	}
 
 	SparseTableElement* getElement(Addr addr) {
-		UInt32 highAddr = (UInt32)((UInt64)addr >> 32);
+		uint32_t highAddr = (uint32_t)((uint64_t)addr >> 32);
 
 		// walk-through SparseTable
 		for (int i=0; i < writePtr; i++) {
@@ -199,14 +199,14 @@ void MShadowSkadu::fetch(Addr addr, Index size, Version *curr_versions,
 }
 
 Time* MShadowSkadu::get(Addr addr, Index size, Version *curr_versions, 
-						UInt32 width) {
+						uint32_t width) {
 	assert(curr_versions != nullptr);
 
 	if (size < 1) return nullptr;
 
 	TimeTable::TableType type = TimeTable::TYPE_64BIT; // FIXME: assumes 64 bit
 
-	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
+	Addr tAddr = (Addr)((uint64_t)addr & ~(uint64_t)0x7);
 	MSG(0, "mshadow get 0x%llx, size %u \n", tAddr, size);
 	eventRead();
 
@@ -214,7 +214,7 @@ Time* MShadowSkadu::get(Addr addr, Index size, Version *curr_versions,
 }
 
 void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions, 
-						Time *timestamps, UInt32 width) {
+						Time *timestamps, uint32_t width) {
 	assert(curr_versions != nullptr);
 	assert(timestamps != nullptr);
 	
@@ -231,7 +231,7 @@ void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions,
 	TimeTable::TableType type = TimeTable::TYPE_64BIT;
 
 
-	Addr tAddr = (Addr)((UInt64)addr & ~(UInt64)0x7);
+	Addr tAddr = (Addr)((uint64_t)addr & ~(uint64_t)0x7);
 	MSG(0, "]\n");
 	eventWrite();
 	cache->set(tAddr, size, curr_versions, timestamps, type);

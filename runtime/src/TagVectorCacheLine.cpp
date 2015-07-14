@@ -11,7 +11,7 @@ bool TagVectorCacheLine::isHit(Addr addr) {
 	MSG(3, "isHit addr = 0x%llx, tag = 0x%llx, entry tag = 0x%llx\n",
 		addr, this->tag, this->tag);
 
-	return (((UInt64)this->tag ^ (UInt64)addr) >> 3) == 0;
+	return (((uint64_t)this->tag ^ (uint64_t)addr) >> 3) == 0;
 }
 
 void TagVectorCacheLine::validateTag(Time* destAddr, Version* vArray, Index size) {

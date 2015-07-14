@@ -70,7 +70,7 @@ private:
  * @pre comp_size is non-nullptr.
  * @post Returned pointer is non-nullptr.
  */
-UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, lzo_uintp comp_size);
+uint8_t* compressData(uint8_t* decomp_data, lzo_uint decomp_size, lzo_uintp comp_size);
 
 /*! @brief Decompress data using LZO library
  *
@@ -82,6 +82,6 @@ UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, lzo_uintp comp_siz
  * @pre comp_size is positive.
  * @post comp_data will point to nullptr.
  */
-void decompressData(UInt8* decomp_data, UInt8* comp_data, lzo_uint comp_size, lzo_uintp decomp_size);
+void decompressData(uint8_t* decomp_data, uint8_t* comp_data, lzo_uint comp_size, lzo_uintp decomp_size);
 
 #endif

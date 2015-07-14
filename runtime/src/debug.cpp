@@ -92,7 +92,7 @@ void iDebugHandlerRegionEntry(SID regionId) {
 	}
 }
 
-void iDebugHandler(UInt kremFunc) {
+void iDebugHandler(uint32_t kremFunc) {
 	if(__kremlin_idbg_run_state == RunUntilFinish) {
 		if(kremFunc != KREM_REGION_EXIT) return;
 		else {

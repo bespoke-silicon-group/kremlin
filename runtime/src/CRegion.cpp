@@ -18,7 +18,7 @@ static void pushOnRegionStack(ProfileNode* node);
 static ProfileNode* popFromRegionStack();
 
 static void writeProgramStats(const char* filename);
-static void writeRegionStats(FILE* fp, ProfileNode* node, UInt level);
+static void writeRegionStats(FILE* fp, ProfileNode* node, uint32_t level);
 
 /******************************** 
  * CPosition Management 
@@ -34,7 +34,7 @@ static ProfileNode* curr_region_node; // TODO: make mem var of profiler?
  */
 static const char* getCurrentRegionIDString() {
 	ProfileNode* node = curr_region_node;
-	UInt64 nodeId = (node == nullptr) ? 0 : node->id;
+	uint64_t nodeId = (node == nullptr) ? 0 : node->id;
 	std::stringstream ss;
 	ss << "<" << nodeId << ">";
 	return ss.str().c_str();
@@ -295,26 +295,26 @@ static void writeNodeStats(FILE* fp, ProfileNode* node) {
 		node->id, node->static_id, node->callsite_id, node->node_type, 
 		node->num_instances, node->children.size(), node->is_doall);
 
-	fwrite(&node->id, sizeof(Int64), 1, fp);
-	fwrite(&node->static_id, sizeof(Int64), 1, fp);
-	fwrite(&node->callsite_id, sizeof(Int64), 1, fp);
+	fwrite(&node->id, sizeof(int64_t), 1, fp);
+	fwrite(&node->static_id, sizeof(int64_t), 1, fp);
+	fwrite(&node->callsite_id, sizeof(int64_t), 1, fp);
 
 	assert(node->node_type >=0 && node->node_type <= 2);
-	UInt64 nodeType = node->node_type;
-	fwrite(&nodeType, sizeof(Int64), 1, fp);
+	uint64_t nodeType = node->node_type;
+	fwrite(&nodeType, sizeof(int64_t), 1, fp);
 	
-	UInt64 target_id = (node->recursion == nullptr) ? 0 : node->recursion->id;
-	fwrite(&target_id, sizeof(Int64), 1, fp);
-	fwrite(&node->num_instances, sizeof(Int64), 1, fp);
-	fwrite(&node->is_doall, sizeof(Int64), 1, fp);
-	UInt64 num_children = node->children.size();
-	fwrite(&num_children, sizeof(Int64), 1, fp);
+	uint64_t target_id = (node->recursion == nullptr) ? 0 : node->recursion->id;
+	fwrite(&target_id, sizeof(int64_t), 1, fp);
+	fwrite(&node->num_instances, sizeof(int64_t), 1, fp);
+	fwrite(&node->is_doall, sizeof(int64_t), 1, fp);
+	uint64_t num_children = node->children.size();
+	fwrite(&num_children, sizeof(int64_t), 1, fp);
 
 	// TRICKY: not sure this is necessary but we go in reverse order to mimic
 	// the behavior when we had a C linked-list for children
 	for (int i = num_children-1; i >= 0; --i) {
 		ProfileNode* child = node->children[i];
-		fwrite(&child->id, sizeof(Int64), 1, fp);    
+		fwrite(&child->id, sizeof(int64_t), 1, fp);    
 	}
 
 	numCreated++;
@@ -349,19 +349,19 @@ static void emitStat(FILE *fp, ProfileNodeStats *stat) {
 	MSG(DEBUG_CREGION, "\tstat: work = %llu, spWork = %llu, nInstance = %llu\n", 
 		stat->total_work, stat->self_par_per_work, stat->num_instances);
 		
-	fwrite(&stat->num_instances, sizeof(Int64), 1, fp);
-	fwrite(&stat->total_work, sizeof(Int64), 1, fp);
-	fwrite(&stat->total_par_per_work, sizeof(Int64), 1, fp);
-	fwrite(&stat->self_par_per_work, sizeof(Int64), 1, fp);
+	fwrite(&stat->num_instances, sizeof(int64_t), 1, fp);
+	fwrite(&stat->total_work, sizeof(int64_t), 1, fp);
+	fwrite(&stat->total_par_per_work, sizeof(int64_t), 1, fp);
+	fwrite(&stat->self_par_per_work, sizeof(int64_t), 1, fp);
 
-	UInt64 minSPInt = (UInt64)(stat->min_self_par * 100.0);
-	UInt64 maxSPInt = (UInt64)(stat->max_self_par * 100.0);
-	fwrite(&minSPInt, sizeof(Int64), 1, fp);
-	fwrite(&maxSPInt, sizeof(Int64), 1, fp);
+	uint64_t minSPInt = (uint64_t)(stat->min_self_par * 100.0);
+	uint64_t maxSPInt = (uint64_t)(stat->max_self_par * 100.0);
+	fwrite(&minSPInt, sizeof(int64_t), 1, fp);
+	fwrite(&maxSPInt, sizeof(int64_t), 1, fp);
 
-	fwrite(&stat->num_dynamic_child_regions, sizeof(Int64), 1, fp);
-	fwrite(&stat->min_dynamic_child_regions, sizeof(Int64), 1, fp);
-	fwrite(&stat->max_dynamic_child_regions, sizeof(Int64), 1, fp);
+	fwrite(&stat->num_dynamic_child_regions, sizeof(int64_t), 1, fp);
+	fwrite(&stat->min_dynamic_child_regions, sizeof(int64_t), 1, fp);
+	fwrite(&stat->max_dynamic_child_regions, sizeof(int64_t), 1, fp);
 }
 
 /*!
@@ -382,12 +382,12 @@ static void emitStat(FILE *fp, ProfileNodeStats *stat) {
  * @pre node is non-nullptr
  * @pre There is at least one ProfileNodeStats associated with the node.
  */
-static void writeRegionStats(FILE *fp, ProfileNode *node, UInt level) {
+static void writeRegionStats(FILE *fp, ProfileNode *node, uint32_t level) {
     assert(fp != nullptr);
     assert(node != nullptr);
 	assert(node->getStatSize() > 0);
 
-	UInt64 stat_size = node->getStatSize();
+	uint64_t stat_size = node->getStatSize();
 	MSG(DEBUG_CREGION, "Emitting Node %llu with %llu stats\n", node->id, stat_size);
 	
 	if (isEmittable(level)) {
@@ -397,7 +397,7 @@ static void writeRegionStats(FILE *fp, ProfileNode *node, UInt level) {
 
 		writeNodeStats(fp, node);
 
-		fwrite(&stat_size, sizeof(Int64), 1, fp);
+		fwrite(&stat_size, sizeof(int64_t), 1, fp);
 		// FIXME: run through stats in reverse?
 		for (unsigned i = 0; i < stat_size; ++i) {
 			ProfileNodeStats *s = node->stats[i];

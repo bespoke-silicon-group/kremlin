@@ -34,7 +34,7 @@ void DebugDeinit();
 	void updateTabString();
 	void incIndentTab();
 	void decIndentTab();
-	void iDebugHandler(UInt kremFunc);
+	void iDebugHandler(uint32_t kremFunc);
 	void iDebugHandlerRegionEntry(SID regionId);
 	#define idbgAction(op, ...) 	((void)0)
 #if 0

@@ -4,19 +4,19 @@
 #include "ktypes.h"
 
 struct RegionStats {
-	UInt64 work;
-	UInt64 cp;
-	UInt64 callSite;
-	UInt64 spWork;
-	UInt64 is_doall;
-	UInt64 childCnt;
+	uint64_t work;
+	uint64_t cp;
+	uint64_t callSite;
+	uint64_t spWork;
+	uint64_t is_doall;
+	uint64_t childCnt;
 #ifdef EXTRA_STATS
-	UInt64 readCnt;
-	UInt64 writeCnt;
-	UInt64 readLineCnt;
-	UInt64 writeLineCnt;
-	UInt64 loadCnt;
-	UInt64 storeCnt;
+	uint64_t readCnt;
+	uint64_t writeCnt;
+	uint64_t readLineCnt;
+	uint64_t writeLineCnt;
+	uint64_t loadCnt;
+	uint64_t storeCnt;
 #endif
 };
 

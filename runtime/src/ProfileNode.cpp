@@ -5,8 +5,8 @@
 #include "MemMapAllocator.hpp"
 #include "debug.hpp"
 
-static UInt64 lastId = 0; // FIXME: change to member variable?
-UInt64 ProfileNode::allocId() { return ++lastId; }
+static uint64_t lastId = 0; // FIXME: change to member variable?
+uint64_t ProfileNode::allocId() { return ++lastId; }
 
 void* ProfileNode::operator new(size_t size) {
 	return MemPoolAllocSmall(sizeof(ProfileNode));
@@ -40,7 +40,7 @@ ProfileNode::~ProfileNode() {
 	*/
 }
 
-ProfileNode* ProfileNode::getChild(UInt64 static_id, UInt64 callsite_id) {
+ProfileNode* ProfileNode::getChild(uint64_t static_id, uint64_t callsite_id) {
 	for (unsigned i = 0; i < this->children.size(); ++i) {
 		ProfileNode* child = this->children[i];
 		if ( child->static_id == static_id
@@ -124,8 +124,8 @@ const char* ProfileNode::toString() {
 	char _buf[256]; // FIXME: C++ string?
 	const char* _strType[] = {"NORM", "RINIT", "RSINK"};
 
-	UInt64 parentId = (this->parent == nullptr) ? 0 : this->parent->id;
-	UInt64 childId = (this->children.empty()) ? 0 : this->children[0]->id;
+	uint64_t parentId = (this->parent == nullptr) ? 0 : this->parent->id;
+	uint64_t childId = (this->children.empty()) ? 0 : this->children[0]->id;
 	std::stringstream ss;
 	ss << "id: " << this->id << "node_type: " << _strType[this->node_type] 
 		<< ", parent: " << parentId << ", firstChild: " << childId 

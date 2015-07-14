@@ -21,7 +21,7 @@ double getCacheSize(int level) {
 	return (double)(cacheSize* 4.0 + level * cacheSize * 2);
 }
 
-static double getSizeMB(UInt64 nUnit, UInt64 size) {
+static double getSizeMB(uint64_t nUnit, uint64_t size) {
 	return (nUnit * size) / (1024.0 * 1024.0);	
 }
 
@@ -51,14 +51,14 @@ void printMemReqStat() {
 	double segSize = getSizeMB(_stat.segTable.nActiveMax, sizeof(MemorySegment));
 	double lTableSize = getSizeMB(_stat.lTable.nActiveMax, sizeof(LevelTable));
 
-	UInt64 nTable0 = _stat.tTable[0].nActiveMax;
-	UInt64 nTable1 = _stat.tTable[1].nActiveMax;
+	uint64_t nTable0 = _stat.tTable[0].nActiveMax;
+	uint64_t nTable1 = _stat.tTable[1].nActiveMax;
 	int sizeTable64 = sizeof(TimeTable) + sizeof(Time) * (TimeTable::TIMETABLE_SIZE / 2);
 	int sizeTable32 = sizeof(TimeTable) + sizeof(Time) * TimeTable::TIMETABLE_SIZE;
 	//double tTableSize1 = getSizeMB(nTable1, sizeTable32);
 	//double tTableSize = tTableSize0 + tTableSize1;
 
-	UInt64 sizeUncompressed = sizeTable64 + sizeTable32;
+	uint64_t sizeUncompressed = sizeTable64 + sizeTable32;
 	double tTableSize = getSizeMB(sizeUncompressed, 1);
 	double tTableSizeWithCompression = getSizeMB(_stat.timeTableOverheadMax, 1);
 
@@ -66,8 +66,8 @@ void printMemReqStat() {
 	double totalSize = segSize + lTableSize + tTableSize + cacheSize;
 	double totalSizeComp = segSize + lTableSize + cacheSize + tTableSizeWithCompression;
 	
-	UInt64 compressedNoBuffer = _stat.timeTableOverheadMax - kremlin_config.getNumCompressionBufferEntries() * sizeTable64;
-	UInt64 noCompressedNoBuffer = sizeUncompressed - kremlin_config.getNumCompressionBufferEntries() * sizeTable64;
+	uint64_t compressedNoBuffer = _stat.timeTableOverheadMax - kremlin_config.getNumCompressionBufferEntries() * sizeTable64;
+	uint64_t noCompressedNoBuffer = sizeUncompressed - kremlin_config.getNumCompressionBufferEntries() * sizeTable64;
 	double compressionRatio = (double)noCompressedNoBuffer / compressedNoBuffer;
 
 	//minTotal += getCacheSize(2);

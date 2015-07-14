@@ -49,8 +49,8 @@ private:
 	unsigned int arg_queue_write_index;
 
 	bool waiting_for_register_table_init;
-	UInt64 num_function_regions_entered;
-	UInt64 num_register_tables_setup;;
+	uint64_t num_function_regions_entered;
+	uint64_t num_register_tables_setup;;
 
 	Table* control_dependence_table;
 	int cdt_read_ptr;
@@ -180,7 +180,7 @@ private:
 	 * @pre l is less than the shadow register's depth.
 	 */
 	template <unsigned num_data_deps, unsigned data_dep, bool ignore_offset>
-	Time calcMaxTime(Time curr_time, UInt32 reg, UInt32 offset, Level l);
+	Time calcMaxTime(Time curr_time, uint32_t reg, uint32_t offset, Level l);
 
 	/*!
 	 * @brief Updates the timestamp of the destination register based on a
@@ -226,14 +226,14 @@ private:
 				bool update_cp, 
 				unsigned num_data_deps, 
 				bool use_shadow_mem_dependence>
-	void timestampUpdater(UInt32 dest_reg, 
-							UInt32 src0_reg=0, UInt32 src0_offset=0,
-							UInt32 src1_reg=0, UInt32 src1_offset=0,
-							UInt32 src2_reg=0, UInt32 src2_offset=0,
-							UInt32 src3_reg=0, UInt32 src3_offset=0,
-							UInt32 src4_reg=0, UInt32 src4_offset=0,
+	void timestampUpdater(uint32_t dest_reg, 
+							uint32_t src0_reg=0, uint32_t src0_offset=0,
+							uint32_t src1_reg=0, uint32_t src1_offset=0,
+							uint32_t src2_reg=0, uint32_t src2_offset=0,
+							uint32_t src3_reg=0, uint32_t src3_offset=0,
+							uint32_t src4_reg=0, uint32_t src4_offset=0,
 							Addr src_addr=nullptr,
-							UInt32 mem_access_size=0);
+							uint32_t mem_access_size=0);
 
 	/*
 	 * @brief Handles timestamp update when we have an unspecified number of
@@ -281,12 +281,12 @@ private:
 				bool use_src_reg,
 				bool use_offsets,
 				bool use_shadow_mem_dependence>
-	void handleVariableNumArgs(UInt32 dest_reg, UInt32 src_reg, 
-							Addr mem_dependency_addr, UInt32 mem_access_size,
+	void handleVariableNumArgs(uint32_t dest_reg, uint32_t src_reg, 
+							Addr mem_dependency_addr, uint32_t mem_access_size,
 							unsigned num_var_args, va_list arg_list);
 
 	template <bool store_const>
-	void timestampUpdaterStore(Addr dest_addr, UInt32 mem_access_size, Reg src_reg);
+	void timestampUpdaterStore(Addr dest_addr, uint32_t mem_access_size, Reg src_reg);
 
 	/*!
 	 * Pushes new function region  onto function call stack.
@@ -387,7 +387,7 @@ public:
 	Level getLevelForIndex(Index index) { return min_level + index; }
 
 	void setLastCallsiteID(CID cs_id) { this->last_callsite_id = cs_id; }
-	void increaseTime(UInt32 amount) { curr_time += amount; } // XXX: UInt32 -> Time?
+	void increaseTime(uint32_t amount) { curr_time += amount; } // XXX: uint32_t -> Time?
 
 	void incrementLevel() { 
 		++curr_level;
@@ -462,32 +462,32 @@ public:
 	void handleRegionExit(SID regionId, RegionType regionType);
 	void handleFunctionExit();
 	void handleLandingPad(SID regionId, RegionType regionType);
-	void handleAssignConst(UInt dest_reg);
-	void handleInduction(UInt dest_reg);
-	void handleReduction(UInt op_cost, Reg dest_reg);
-	void handleTimestamp(UInt32 dest_reg, UInt32 num_srcs, va_list args);
-	void handleTimestamp0(UInt32 dest_reg);
-	void handleTimestamp1(UInt32 dest_reg, UInt32 src_reg, UInt32 src_offset);
-	void handleTimestamp2(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset);
-	void handleTimestamp3(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset);
-	void handleTimestamp4(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32 src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32 src4_reg, UInt32 src4_offset);
-	void handleTimestamp5(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
-				src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
-				src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset);
-	void handleTimestamp6(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
-				src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
-				src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
-				src6_reg, UInt32 src6_offset);
-	void handleTimestamp7(UInt32 dest_reg, UInt32 src1_reg, UInt32 src1_offset, UInt32
-				src2_reg, UInt32 src2_offset, UInt32 src3_reg, UInt32 src3_offset, UInt32
-				src4_reg, UInt32 src4_offset, UInt32 src5_reg, UInt32 src5_offset, UInt32
-				src6_reg, UInt32 src6_offset, UInt32 src7_reg, UInt32 src7_offset);
-	void handleLoad(Addr src_addr, Reg dest_reg, UInt32 mem_access_size, UInt32 num_srcs, va_list args);
-	void handleLoad0(Addr src_addr, Reg dest_reg, UInt32 mem_access_size);
-	void handleLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, UInt32 mem_access_size);
-	void handleStore(Reg src_reg, Addr dest_addr, UInt32 mem_access_size);
-	void handleStoreConst(Addr dest_addr, UInt32 mem_access_size);
-	void handlePhi(Reg dest_reg, Reg src_reg, UInt32 num_ctrls, va_list args);
+	void handleAssignConst(uint32_t dest_reg);
+	void handleInduction(uint32_t dest_reg);
+	void handleReduction(uint32_t op_cost, Reg dest_reg);
+	void handleTimestamp(uint32_t dest_reg, uint32_t num_srcs, va_list args);
+	void handleTimestamp0(uint32_t dest_reg);
+	void handleTimestamp1(uint32_t dest_reg, uint32_t src_reg, uint32_t src_offset);
+	void handleTimestamp2(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset);
+	void handleTimestamp3(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset);
+	void handleTimestamp4(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t src4_reg, uint32_t src4_offset);
+	void handleTimestamp5(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t
+				src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t
+				src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset);
+	void handleTimestamp6(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t
+				src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t
+				src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset, uint32_t
+				src6_reg, uint32_t src6_offset);
+	void handleTimestamp7(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t
+				src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t
+				src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset, uint32_t
+				src6_reg, uint32_t src6_offset, uint32_t src7_reg, uint32_t src7_offset);
+	void handleLoad(Addr src_addr, Reg dest_reg, uint32_t mem_access_size, uint32_t num_srcs, va_list args);
+	void handleLoad0(Addr src_addr, Reg dest_reg, uint32_t mem_access_size);
+	void handleLoad1(Addr src_addr, Reg dest_reg, Reg src_reg, uint32_t mem_access_size);
+	void handleStore(Reg src_reg, Addr dest_addr, uint32_t mem_access_size);
+	void handleStoreConst(Addr dest_addr, uint32_t mem_access_size);
+	void handlePhi(Reg dest_reg, Reg src_reg, uint32_t num_ctrls, va_list args);
 	void handlePhi1To1(Reg dest_reg, Reg src_reg, Reg ctrl_reg);
 	void handlePhi2To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg);
 	void handlePhi3To1(Reg dest_reg, Reg src_reg, Reg ctrl1_reg, Reg ctrl2_reg, Reg ctrl3_reg);
@@ -498,11 +498,11 @@ public:
 	void handlePopCDep();
 	void handlePushCDep(Reg cond);
 
-	void handlePrepCall(CID callSiteId, UInt64 calledRegionId);
+	void handlePrepCall(CID callSiteId, uint64_t calledRegionId);
 	void handleEnqueueArgument(Reg src);
 	void handleEnqueueConstArgument();
 	void handleDequeueArgument(Reg dest);
-	void handlePrepRTable(UInt num_virt_regs, UInt nested_depth);
+	void handlePrepRTable(uint32_t num_virt_regs, uint32_t nested_depth);
 	void handleLinkReturn(Reg dest);
 	void handleReturn(Reg src);
 	void handleReturnConst();

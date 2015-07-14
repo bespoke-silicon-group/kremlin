@@ -18,12 +18,12 @@ private:
 
 	ShadowMemoryType shadow_mem_type;
 
-	UInt32 shadow_mem_cache_size_in_mb;
+	uint32_t shadow_mem_cache_size_in_mb;
 
-	UInt32 garbage_collection_period;
+	uint32_t garbage_collection_period;
 
 	bool compress_shadow_mem;
-	UInt32 num_compression_buffer_entries;
+	uint32_t num_compression_buffer_entries;
 
 	bool summarize_recursive_regions;
 
@@ -53,12 +53,12 @@ public:
 	Level getMaxProfiledLevel() { return max_profiled_level; }
 	Level getNumProfiledLevels() { return max_profiled_level - min_profiled_level + 1; }
 	ShadowMemoryType getShadowMemType() { return shadow_mem_type; }
-	UInt32 getShadowMemCacheSizeInMB() { return shadow_mem_cache_size_in_mb; }
-	UInt32 getShadowMemGarbageCollectionPeriod() { 
+	uint32_t getShadowMemCacheSizeInMB() { return shadow_mem_cache_size_in_mb; }
+	uint32_t getShadowMemGarbageCollectionPeriod() { 
 		return garbage_collection_period;
 	}
 	bool compressShadowMem() { return compress_shadow_mem; }
-	UInt32 getNumCompressionBufferEntries() { 
+	uint32_t getNumCompressionBufferEntries() { 
 		return num_compression_buffer_entries;
 	}
 	bool summarizeRecursiveRegions() { return summarize_recursive_regions; }
@@ -73,14 +73,14 @@ public:
 	void setMinProfiledLevel(Level l) { min_profiled_level = l; }
 	void setMaxProfiledLevel(Level l) { max_profiled_level = l; }
 	void setShadowMemType(ShadowMemoryType t) { shadow_mem_type = t; }
-	void setShadowMemCacheSizeInMB(UInt32 s) {
+	void setShadowMemCacheSizeInMB(uint32_t s) {
 		shadow_mem_cache_size_in_mb = s;
 	}
-	void setShadowMemGarbageCollectionPeriod(UInt32 p) { 
+	void setShadowMemGarbageCollectionPeriod(uint32_t p) { 
 		garbage_collection_period = p;
 	}
 	void enableShadowMemCompression() { compress_shadow_mem = true; }
-	void setNumCompressionBufferEntries(UInt32 n) { 
+	void setNumCompressionBufferEntries(uint32_t n) { 
 		num_compression_buffer_entries = n;
 	}
 	void disableRecursiveRegionSummarization() { 

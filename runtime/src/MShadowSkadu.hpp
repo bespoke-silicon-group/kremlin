@@ -17,7 +17,7 @@ class MShadowSkadu : public MShadow {
 private:
 	const std::unique_ptr<SparseTable> sparse_table; 
 
-	UInt64 next_gc_time;
+	uint64_t next_gc_time;
 	unsigned garbage_collection_period;
 
 	void runGarbageCollector(Version *curr_versions, int size);
@@ -43,10 +43,10 @@ public:
 	/*!
 	 * @pre curr_versions is non-nullptr.
 	 */
-	Time* get(Addr addr, Index size, Version *curr_versions, UInt32 width);
+	Time* get(Addr addr, Index size, Version *curr_versions, uint32_t width);
 
 	void set(Addr addr, Index size, Version *curr_versions, 
-				Time *timestamps, UInt32 width);
+				Time *timestamps, uint32_t width);
 
 	CBuffer* getCompressionBuffer() { return compression_buffer; }
 

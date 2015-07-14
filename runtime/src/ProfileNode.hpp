@@ -24,15 +24,15 @@ private:
 										with this node. */
 
 public:
-	const UInt64 id; /*!< A unique identifier amongst all ProfileNodes. */
-	const UInt64 static_id; /*!< The static ID of the region associated with 
+	const uint64_t id; /*!< A unique identifier amongst all ProfileNodes. */
+	const uint64_t static_id; /*!< The static ID of the region associated with 
 									this node. */
-	const UInt64 callsite_id; /*!< The callsite ID of the region associated with 
+	const uint64_t callsite_id; /*!< The callsite ID of the region associated with 
 									this node (or 0 if this is not a function 
 									region). */
-	UInt64 num_instances; /*!< The number of dynamic instances of
+	uint64_t num_instances; /*!< The number of dynamic instances of
 								the region associated with this node. */
-	UInt64 is_doall; /*!< Indicates whether the region associated with this
+	uint64_t is_doall; /*!< Indicates whether the region associated with this
 							node is a DOALL region (i.e. completely parallel) */
 
 	ProfileNodeType node_type; /*!< The type of node. */
@@ -72,7 +72,7 @@ public:
 	 * @return Pointer to the child node with the given static and callsite ID;
 	 * nullptr if no children match.
 	 */
-	ProfileNode* getChild(UInt64 static_id, UInt64 callsite_id);
+	ProfileNode* getChild(uint64_t static_id, uint64_t callsite_id);
 
 	/*!
 	 * Adds a region to this node's list of children. The child's parent will be
@@ -134,7 +134,7 @@ public:
 	
 private:
 	void updateCurrentStats(RegionStats *info);
-	static UInt64 allocId();
+	static uint64_t allocId();
 };
 
 #endif // _PROFILENODE_HPP_

@@ -7,10 +7,10 @@
 class FunctionRegion {
 private:
 	static const int DUMMY_RETURN_REG = -1;
-	static const UInt32 ERROR_CHECK_CODE = 0xDEADBEEF; // XXX: debug only?
+	static const uint32_t ERROR_CHECK_CODE = 0xDEADBEEF; // XXX: debug only?
 	Reg return_register;
 	CID call_site_id;
-	UInt32 error_checking_code;
+	uint32_t error_checking_code;
 
 public:
 	Table* table; // TODO: make this private

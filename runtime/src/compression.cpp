@@ -8,10 +8,10 @@
 #include "minilzo.h"
 #include "debug.hpp"
 
-static UInt64 _compSrcSize;
-static UInt64 _compDestSize;
-static UInt64 totalAccess;
-static UInt64 totalEvict;
+static uint64_t _compSrcSize;
+static uint64_t _compDestSize;
+static uint64_t totalAccess;
+static uint64_t totalEvict;
 
 #define HEAP_ALLOC(var,size) \
     lzo_align_t __LZO_MMODEL var [ ((size) + (sizeof(lzo_align_t) - 1)) / sizeof(lzo_align_t) ]
@@ -19,7 +19,7 @@ static UInt64 totalEvict;
 static HEAP_ALLOC(wrkmem, LZO1X_1_MEM_COMPRESS);
 
 
-UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size, 
+uint8_t* compressData(uint8_t* decomp_data, lzo_uint decomp_size, 
 					lzo_uintp comp_size) {
 	assert(decomp_data != nullptr);
 	assert(decomp_size > 0);
@@ -27,8 +27,8 @@ UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size,
 
 	//XXX need a specialized memory allocator, for now, just check the 
 
-	//UInt8 *comp_data = MemPoolAlloc();
-	UInt8 *comp_data = (UInt8*)malloc(decomp_size);
+	//uint8_t *comp_data = MemPoolAlloc();
+	uint8_t *comp_data = (uint8_t*)malloc(decomp_size);
 	int result = lzo1x_1_compress(decomp_data, decomp_size, comp_data, comp_size, wrkmem);
 	assert(result == LZO_E_OK);
 	//memcpy(comp_data, decomp_data, decomp_size);
@@ -42,7 +42,7 @@ UInt8* compressData(UInt8* decomp_data, lzo_uint decomp_size,
 	return comp_data;
 }
 
-void decompressData(UInt8* decomp_data, UInt8* comp_data, 
+void decompressData(uint8_t* decomp_data, uint8_t* comp_data, 
 					lzo_uint comp_size, lzo_uintp decomp_size) {
 	assert(comp_data != nullptr);
 	assert(decomp_data != nullptr);
@@ -70,8 +70,8 @@ void decompressData(UInt8* decomp_data, UInt8* comp_data,
  */
 class ActiveSetEntry {
 public:
-	UInt16 r_bit;
-	UInt32 code; // TODO: make this debug mode only
+	uint16_t r_bit;
+	uint32_t code; // TODO: make this debug mode only
 	ActiveSetEntry() : r_bit(1), code(0xDEADBEEF) {}
 	~ActiveSetEntry() {}
 
