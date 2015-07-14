@@ -105,7 +105,7 @@ static inline void printActiveSet() {
 	}
 }
 
-void CBuffer::init(unsigned size) {
+CBuffer::CBuffer(unsigned size) {
 	assert(size > 0);
 	if (!kremlin_config.compressShadowMem()) return;
 
@@ -121,7 +121,7 @@ void CBuffer::init(unsigned size) {
 	this->num_entries = size;
 }
 
-void CBuffer::deinit() {
+CBuffer::~CBuffer() {
 	MSG(2, "CBuffer (evict / access / ratio) = %llu, %llu, %.2f\n",
 		totalEvict, totalAccess, ((double)totalEvict / totalAccess) * 100.0);
 	MSG(2, "Compression Overall Rate = %.2f X\n", (double)_compSrcSize / _compDestSize);

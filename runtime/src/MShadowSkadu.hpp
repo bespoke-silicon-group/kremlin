@@ -1,6 +1,7 @@
 #ifndef _MSHADOW_SKADU_H
 #define _MSHADOW_SKADU_H
 
+#include <memory>
 #include <cassert>
 #include "ktypes.h"
 #include "MShadow.hpp" // for MShadow class 
@@ -14,15 +15,15 @@ class CBuffer;
 
 class MShadowSkadu : public MShadow {
 private:
-	SparseTable *sparse_table; 
+	const std::unique_ptr<SparseTable> sparse_table; 
 
 	UInt64 next_gc_time;
 	unsigned garbage_collection_period;
 
-	void initGarbageCollector(unsigned period);
 	void runGarbageCollector(Version *curr_versions, int size);
 
-	CacheInterface *cache; //!< The cache associated with shadow mem
+	// TODO: make cache a const unique_ptr
+	std::unique_ptr<CacheInterface> cache; //!< The cache associated with shadow mem
 
 	bool compression_enabled; //!< Indicates whether we should use compression
 	CBuffer *compression_buffer;
@@ -34,6 +35,10 @@ private:
 public:
 	void init();
 	void deinit();
+
+	MShadowSkadu() = delete;
+	MShadowSkadu(unsigned gc_period, bool enable_compress);
+	~MShadowSkadu(); // TODO: work on removing this so we can follow Rule of 0
 
 	/*!
 	 * @pre curr_versions is non-nullptr.

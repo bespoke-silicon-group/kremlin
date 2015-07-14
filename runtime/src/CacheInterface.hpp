@@ -12,8 +12,6 @@ protected:
 
 public:
 	virtual ~CacheInterface() {}
-	virtual void init(int size, bool compress, MShadowSkadu* mshadow) = 0;
-	virtual void deinit() = 0;
 
 	virtual void set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) = 0;
 	virtual Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) = 0;

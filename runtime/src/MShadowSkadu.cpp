@@ -39,12 +39,12 @@ public:
 	std::vector<SparseTableElement> entry;
 	int writePtr;
 
-	void init() { 
+	SparseTable() { 
 		entry.resize(SparseTable::NUM_ENTRIES);
 		writePtr = 0;
 	}
 
-	void deinit() {
+	~SparseTable() {
 		for (int i = 0; i < writePtr; i++) {
 			SparseTableElement* e = &entry[i];
 			delete e->segTable;		
@@ -76,13 +76,6 @@ public:
 	}
 	
 };
-
-void MShadowSkadu::initGarbageCollector(unsigned period) {
-	MSG(3, "set garbage collection period to %u\n", period);
-	next_gc_time = period;
-	garbage_collection_period = period;
-	if (period == 0) next_gc_time = 0xFFFFFFFFFFFFFFFF;
-}
 
 void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 	eventGC();
@@ -244,39 +237,31 @@ void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions,
 	cache->set(tAddr, size, curr_versions, timestamps, type);
 }
 
-void MShadowSkadu::init() {
+void MShadowSkadu::init() {}
+void MShadowSkadu::deinit() {}
+
+MShadowSkadu::MShadowSkadu(unsigned gc_period, bool enable_compress) 
+	: sparse_table(std::unique_ptr<SparseTable>(new SparseTable())) 
+	, next_gc_time(gc_period == 0 ? 0xFFFFFFFFFFFFFFFF : gc_period)
+	, garbage_collection_period(gc_period)
+	, compression_enabled(enable_compress)
+	, compression_buffer(new CBuffer(kremlin_config.getNumCompressionBufferEntries())) {
+
 	int cacheSizeMB = kremlin_config.getShadowMemCacheSizeInMB();
 	MSG(1,"MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
 
 	if (cacheSizeMB > 0) 
-		cache = new SkaduCache();
+		cache = std::unique_ptr<CacheInterface>(new SkaduCache(cacheSizeMB, kremlin_config.compressShadowMem(), this));
 	else
-		cache = new NullCache();
-
-	cache->init(cacheSizeMB, kremlin_config.compressShadowMem(), this);
+		cache = std::unique_ptr<CacheInterface>(new NullCache(cacheSizeMB, kremlin_config.compressShadowMem(), this));
 
 	unsigned size = TimeTable::GetNumEntries(TimeTable::TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
-	
-	initGarbageCollector(kremlin_config.getShadowMemGarbageCollectionPeriod());
- 
-	sparse_table = new SparseTable();
-	sparse_table->init();
-
-	compression_buffer = new CBuffer();
-	compression_buffer->init(kremlin_config.getNumCompressionBufferEntries());
-	compression_enabled = kremlin_config.compressShadowMem();
 }
 
-
-void MShadowSkadu::deinit() {
-	cache->deinit();
-	delete cache;
-	cache = nullptr;
-	compression_buffer->deinit();
+MShadowSkadu::~MShadowSkadu() {
 	delete compression_buffer;
 	compression_buffer = nullptr;
 	MShadowStatPrint();
-	sparse_table->deinit();
 }

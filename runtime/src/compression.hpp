@@ -7,15 +7,16 @@ class LevelTable;
 
 class CBuffer {
 public:
+	CBuffer() = delete; // disallow default constructor
+
 	/*! @brief Initializes the compression buffer.
 	 *
 	 * @param size The number of entries allowed in the compression buffer.
 	 * @pre size is positive.
 	 */
-	void init(unsigned size);
+	CBuffer(unsigned size);
 
-	/*! \brief De-initializes the compression buffer. */
-	void deinit();
+	~CBuffer();
 
 	/*! @brief Adds a level table entry to the compression buffer.
 	 *

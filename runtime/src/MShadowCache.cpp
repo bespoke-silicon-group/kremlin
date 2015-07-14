@@ -19,18 +19,19 @@
 //#define TVCacheDebug	0
 static const int SKADU_CACHE_DEBUG_LVL = 0;
 
-void SkaduCache::init(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
-	tag_vector_cache = new TagVectorCache();
+SkaduCache::SkaduCache(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
+	this->use_compression = compress; 
+	this->mem_shadow = mshadow;
+
+	this->tag_vector_cache = new TagVectorCache();
 	if (size_in_mb == 0) {
 		MSG(0, "MShadowCache: Bypassing Cache\n"); 
 	} else {
-		tag_vector_cache->configure(size_in_mb, kremlin_config.getNumProfiledLevels());
+		this->tag_vector_cache->configure(size_in_mb, kremlin_config.getNumProfiledLevels());
 	}
-	this->use_compression = compress;
-	this->mem_shadow = mshadow;
 }
 
-void SkaduCache::deinit() {
+SkaduCache::~SkaduCache() {
 	if (kremlin_config.getShadowMemCacheSizeInMB() > 0) {
 		// XXX: not sure of logic behind the next two lines (-sat)
 		MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(TagVectorCacheLine) * tag_vector_cache->getLineCount());

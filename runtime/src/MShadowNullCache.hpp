@@ -10,11 +10,14 @@
 
 class NullCache : public CacheInterface {
 public:
-	void init(int size, bool compress, MShadowSkadu* mshadow) { 
-		this->use_compression = compress;
+	NullCache() = delete;
+	NullCache(int size, bool compress, MShadowSkadu *mshadow) {
+		this->use_compression = compress; 
 		this->mem_shadow = mshadow;
 	}
-	void deinit() { this->mem_shadow = nullptr; }
+	~NullCache() {
+		this->mem_shadow = nullptr;
+	}
 
 	void  set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type);
 	Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type);

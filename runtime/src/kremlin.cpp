@@ -136,7 +136,8 @@ void KremlinProfiler::initShadowMemory() {
 			shadow_mem = new MShadowSTV();
 			break;
 		case ShadowMemorySkadu:
-			shadow_mem = new MShadowSkadu();
+			shadow_mem = new MShadowSkadu(kremlin_config.getShadowMemGarbageCollectionPeriod(),
+											kremlin_config.compressShadowMem());
 			break;
 		default:
 			shadow_mem = new MShadowDummy();
