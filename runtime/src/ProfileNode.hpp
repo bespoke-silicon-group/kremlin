@@ -50,7 +50,7 @@ public:
 	ProfileNode(SID static_id, CID callsite_id, RegionType type);
 	~ProfileNode();
 
-	const RegionType getRegionType() { return region_type; }
+	RegionType getRegionType() { return region_type; }
 	unsigned getStatSize() { return stats.size(); }
 	unsigned getNumChildren() { return children.size(); }
 

@@ -30,8 +30,6 @@ class Table;
 class ShadowRegisterFile {
 public:
 	ShadowRegisterFile() : times(nullptr) {}
-	void init(Index depth) {}
-	void deinit() {}
 
 	Time getRegisterTimeAtIndex(Reg reg, Index index);
 	void setRegisterTimeAtIndex(Time time, Reg reg, Index index);

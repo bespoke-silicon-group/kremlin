@@ -327,8 +327,8 @@ public:
 		control_dependence_table(nullptr),
 		cdt_read_ptr(0),
 		cdt_current_base(nullptr),
-		shadow_mem(nullptr),
-		doall_threshold(5) {}
+		doall_threshold(5),
+		shadow_mem(nullptr) {}
 
 	~KremlinProfiler() {}
 

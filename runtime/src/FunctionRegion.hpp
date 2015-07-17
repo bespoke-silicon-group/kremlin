@@ -42,7 +42,7 @@ public:
 	}
 
 	static void* operator new(size_t size) {
-		return (FunctionRegion*)MemPoolAllocSmall(sizeof(FunctionRegion));
+		return (FunctionRegion*)MemPoolAllocSmall(size);
 	}
 
 	static void operator delete(void* ptr) {

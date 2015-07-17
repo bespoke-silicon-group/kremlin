@@ -34,12 +34,14 @@ private:
 
 public:
 
-	KremlinConfiguration() : compress_shadow_mem(false),
-							min_profiled_level(0), max_profiled_level(32), 
-							num_compression_buffer_entries(4096),
-							shadow_mem_cache_size_in_mb(4), 
+	KremlinConfiguration() : 
+							min_profiled_level(0),
+							max_profiled_level(32), 
 							shadow_mem_type(ShadowMemorySkadu),
+							shadow_mem_cache_size_in_mb(4), 
 							garbage_collection_period(1024), 
+							compress_shadow_mem(false),
+							num_compression_buffer_entries(4096),
 							summarize_recursive_regions(true), 
 							profile_output_filename("kremlin.bin"),
 							debug_output_filename("kremlin.debug.log") {}

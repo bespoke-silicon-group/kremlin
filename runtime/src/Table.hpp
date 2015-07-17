@@ -46,7 +46,7 @@ public:
 							unsigned start, unsigned size);
 
 	static void* operator new(size_t size) {
-		return (Table*)MemPoolAllocSmall(sizeof(Table));
+		return (Table*)MemPoolAllocSmall(size);
 	}
 
 	static void operator delete(void* ptr) {

@@ -9,17 +9,24 @@ static uint64_t lastId = 0; // FIXME: change to member variable?
 uint64_t ProfileNode::allocId() { return ++lastId; }
 
 void* ProfileNode::operator new(size_t size) {
-	return MemPoolAllocSmall(sizeof(ProfileNode));
+	return MemPoolAllocSmall(size);
 }
 
 void ProfileNode::operator delete(void* ptr) {
 	MemPoolFreeSmall(ptr, sizeof(ProfileNode));
 }
 
-ProfileNode::ProfileNode(SID static_id, CID callsite_id, RegionType type) : parent(nullptr),
-	node_type(NORMAL), region_type(type), static_id(static_id), 
-	id(ProfileNode::allocId()), callsite_id(callsite_id), recursion(nullptr),
-	num_instances(0), is_doall(1), curr_stat_index(-1) {
+ProfileNode::ProfileNode(SID static_id, CID callsite_id, RegionType type) : 
+	region_type(type), 
+	id(ProfileNode::allocId()), 
+	static_id(static_id), 
+	callsite_id(callsite_id), 
+	num_instances(0), 
+	is_doall(1), 
+	node_type(NORMAL), 
+	recursion(nullptr),
+	curr_stat_index(-1),
+	parent(nullptr) {
 
 	new(&this->children) std::vector<ProfileNode*, MPoolLib::PoolAllocator<ProfileNode*> >();
 	new(&this->stats) std::vector<ProfileNodeStats*, MPoolLib::PoolAllocator<ProfileNodeStats*> >();
@@ -121,7 +128,6 @@ void ProfileNode::updateCurrentStats(RegionStats *new_stats) {
 }
 
 const char* ProfileNode::toString() {
-	char _buf[256]; // FIXME: C++ string?
 	const char* _strType[] = {"NORM", "RINIT", "RSINK"};
 
 	uint64_t parentId = (this->parent == nullptr) ? 0 : this->parent->id;
@@ -139,7 +145,8 @@ void ProfileNode::moveToNextStats() {
 
 	MSG(DEBUG_CREGION, "ProfileNodeStatsForward id %d to page %d\n", this->id, stat_index);
 
-	if (stat_index >= this->stats.size()) {
+	assert(stat_index >= 0);
+	if ((unsigned)stat_index >= this->stats.size()) {
 		ProfileNodeStats *new_stat = new ProfileNodeStats(); // FIXME: memory leak
 		this->stats.push_back(new_stat);
 	}

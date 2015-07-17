@@ -96,12 +96,6 @@ Level getMaxActiveLevel() {
 	return profiler->getMaxActiveLevel();
 }
 
-// BEGIN TODO: make these not global
-static uint64_t	loadCnt = 0llu;
-static uint64_t	storeCnt = 0llu;
-// END TODO: make these not global
-
-
 FunctionRegion* KremlinProfiler::getCurrentFunction() {
 	if (callstack.empty()) {
 		MSG(3, "getCurrentFunction  nullptr\n");

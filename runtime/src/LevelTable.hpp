@@ -12,7 +12,9 @@ private:
 	Version	versions[LevelTable::MAX_LEVEL];	//!< version for each level
 	TimeTable* time_tables[LevelTable::MAX_LEVEL];	//!< TimeTable for each level
 	bool compressed; //!< Indicates if this table has compressed TimeTables
-	uint32_t code; // TODO: this should be debug-only or just go away
+#ifdef KREMLIN_DEBUG
+	uint32_t code; // TODO: do we _really_ need this?
+#endif
 
 public:
 	/*!

@@ -21,8 +21,11 @@ iDbgRunState __kremlin_idbg_run_state = Waiting;
 
 //static SID regionBreaks;
 
+#ifdef KREMLIN_DEBUG
 static char tabString[2000];
 static int tabLevel = 0;
+#endif
+
 static FILE* stream;
 
 void DebugInit() {

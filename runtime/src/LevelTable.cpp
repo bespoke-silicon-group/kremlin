@@ -6,14 +6,18 @@
 #include "compression.hpp"
 
 void* LevelTable::operator new(size_t size) {
-	return MemPoolAllocSmall(sizeof(LevelTable));
+	return MemPoolAllocSmall(size);
 }
 
 void LevelTable::operator delete(void* ptr) {
 	MemPoolFreeSmall(ptr, sizeof(LevelTable));
 }
 
-LevelTable::LevelTable() : code(0xDEADBEEF) {
+LevelTable::LevelTable() 
+#ifdef KREMLIN_DEBUG
+	: code(0xDEADBEEF)
+#endif
+{
 	memset(this->versions, 0, LevelTable::MAX_LEVEL * sizeof(Version));
 	memset(this->time_tables, 0, LevelTable::MAX_LEVEL * sizeof(TimeTable*));
 }
@@ -167,7 +171,7 @@ uint64_t LevelTable::compress() {
 		assert(tt2 != nullptr);
 		assert(ttPrev != nullptr);
 
-		int j;
+		unsigned j;
 		for(j = 0; j < TimeTable::TIMETABLE_SIZE/2; ++j) {
 			diffBuffer[j] = ttPrev->array[j] - tt2->array[j];
 		}
