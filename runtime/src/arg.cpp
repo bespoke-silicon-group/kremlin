@@ -12,8 +12,6 @@
 
 #include "debug.hpp"
 
-// TODO: convert uses of atoi to std::stoi when C++11 more common
-
 #if 0
 static void getCustomOutputFilename(KremlinConfiguration &config, std::string& filename) {
 	filename = "kremlin-L";
@@ -108,24 +106,66 @@ void parseKremlinOptions(KremlinConfiguration &config,
 
 				break;
 
+			// TODO: The following cases are all very similar... factor these
+			// into a higher-order function
 			case 'd':
-				config.setShadowMemCacheSizeInMB(atoi(optarg));
+				try {
+					int cache_size = std::stoi(optarg);
+					if (cache_size < 0) throw std::domain_error("must be postive");
+					config.setShadowMemCacheSizeInMB(cache_size);
+				}
+				catch (std::exception& e) {
+					std::cerr << "kremlin: WARNING: invalid shadow memory cache size. "
+						<< "(Reason: " << e.what() << "). Using default value.\n";
+				}
 				break;
 
 			case 'e':
-				config.setShadowMemGarbageCollectionPeriod(atoi(optarg));
+				try {
+					int gc_period = std::stoi(optarg);
+					if (gc_period < 0) throw std::domain_error("must be postive");
+					config.setShadowMemGarbageCollectionPeriod(gc_period);
+				}
+				catch (std::exception& e) {
+					std::cerr << "kremlin: WARNING: invalid garbage collection period. "
+						<< "(Reason: " << e.what() << "). Using default value.\n";
+				}
 				break;
 
 			case 'f':
-				config.setNumCompressionBufferEntries(atoi(optarg));
+				try {
+					int cb_entries = std::stoi(optarg);
+					if (cb_entries < 0) throw std::domain_error("must be postive");
+					config.setNumCompressionBufferEntries(cb_entries);
+				}
+				catch (std::exception& e) {
+					std::cerr << "kremlin: WARNING: invalid number of compression buffer entries. "
+						<< "(Reason: " << e.what() << "). Using default value.\n";
+				}
 				break;
 
 			case 'g':
-				config.setMinProfiledLevel(atoi(optarg));
+				try {
+					int min_lev = std::stoi(optarg);
+					if (min_lev < 0) throw std::domain_error("must be postive");
+					config.setMinProfiledLevel(min_lev);
+				}
+				catch (std::exception& e) {
+					std::cerr << "kremlin: WARNING: invalid MIN profile level. " 
+						<< "(Reason: " << e.what() << "). Using default value.\n";
+				}
 				break;
 
 			case 'h':
-				config.setMaxProfiledLevel(atoi(optarg));
+				try {
+					int max_lev = std::stoi(optarg);
+					if (max_lev < 0) throw std::domain_error("must be postive");
+					config.setMaxProfiledLevel(max_lev);
+				}
+				catch (std::exception& e) {
+					std::cerr << "kremlin: WARNING: invalid MAX profile level. "
+						<< "(Reason: " << e.what() << "). Using default value.\n";
+				}
 				break;
 
 			case '?':
