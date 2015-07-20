@@ -12,7 +12,7 @@
 #include "MShadowStat.hpp" // for event counters
 #include "compression.hpp" // for CBuffer
 
-#include "MShadowCache.hpp"
+#include "ShadowMemoryCache.hpp"
 #include "MShadowNullCache.hpp"
 
 /*!
@@ -249,7 +249,7 @@ ShadowMemory::ShadowMemory(unsigned gc_period, bool enable_compress)
 		cacheSizeMB, sizeof(TimeTable));
 
 	if (cacheSizeMB > 0) 
-		cache = std::unique_ptr<CacheInterface>(new SkaduCache(cacheSizeMB, kremlin_config.compressShadowMem(), this));
+		cache = std::unique_ptr<CacheInterface>(new ShadowMemoryCache(cacheSizeMB, kremlin_config.compressShadowMem(), this));
 	else
 		cache = std::unique_ptr<CacheInterface>(new NullCache(cacheSizeMB, kremlin_config.compressShadowMem(), this));
 

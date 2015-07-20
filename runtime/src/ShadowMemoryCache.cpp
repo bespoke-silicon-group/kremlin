@@ -12,14 +12,14 @@
 
 #include "MShadowStat.hpp"
 #include "ShadowMemory.hpp"
-#include "MShadowCache.hpp"
+#include "ShadowMemoryCache.hpp"
 #include "TagVectorCache.hpp"
 #include "TagVectorCacheLine.hpp"
 
 //#define TVCacheDebug	0
 static const int SKADU_CACHE_DEBUG_LVL = 0;
 
-SkaduCache::SkaduCache(int size_in_mb, bool compress, ShadowMemory *mshadow) {
+ShadowMemoryCache::ShadowMemoryCache(int size_in_mb, bool compress, ShadowMemory *mshadow) {
 	this->use_compression = compress; 
 	this->mem_shadow = mshadow;
 
@@ -31,7 +31,7 @@ SkaduCache::SkaduCache(int size_in_mb, bool compress, ShadowMemory *mshadow) {
 	}
 }
 
-SkaduCache::~SkaduCache() {
+ShadowMemoryCache::~ShadowMemoryCache() {
 	if (kremlin_config.getShadowMemCacheSizeInMB() > 0) {
 		// XXX: not sure of logic behind the next two lines (-sat)
 		MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(TagVectorCacheLine) * tag_vector_cache->getLineCount());
@@ -68,7 +68,7 @@ int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
  * TagVectorCache Evict / Flush / Resize 
  */
 
-void SkaduCache::evict(int index, Version* vArray) {
+void ShadowMemoryCache::evict(int index, Version* vArray) {
 	TagVectorCacheLine* line = tag_vector_cache->getTag(index);
 	Addr addr = line->tag;
 	if (addr == 0x0)
@@ -89,7 +89,7 @@ void SkaduCache::evict(int index, Version* vArray) {
 	}
 }
 
-void SkaduCache::flush(Version* vArray) {
+void ShadowMemoryCache::flush(Version* vArray) {
 	int i;
 	int size = tag_vector_cache->getLineCount();
 	for (i=0; i<size; i++) {
@@ -98,7 +98,7 @@ void SkaduCache::flush(Version* vArray) {
 		
 }
 
-void SkaduCache::resize(int newSize, Version* vArray) {
+void ShadowMemoryCache::resize(int newSize, Version* vArray) {
 	flush(vArray);
 	int size = tag_vector_cache->getSize();
 	int oldDepth = tag_vector_cache->getDepth();
@@ -109,7 +109,7 @@ void SkaduCache::resize(int newSize, Version* vArray) {
 	tag_vector_cache->configure(size, newDepth);
 }
 
-void SkaduCache::checkResize(int size, Version* vArray) {
+void ShadowMemoryCache::checkResize(int size, Version* vArray) {
 	int oldDepth = tag_vector_cache->getDepth();
 	if (oldDepth < size) {
 		resize(oldDepth + 10, vArray);
@@ -129,7 +129,7 @@ static void check(Addr addr, Time* src, int size, int site) {
 #endif
 }
 
-Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
+Time* ShadowMemoryCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
 	checkResize(size, vArray);
 	TagVectorCacheLine* entry = nullptr;
 	Time* destAddr = nullptr;
@@ -173,7 +173,7 @@ Time* SkaduCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableTy
 	return destAddr;
 }
 
-void SkaduCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
+void ShadowMemoryCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
 	checkResize(size, vArray);
 	TagVectorCacheLine* entry = nullptr;
 	Time* destAddr = nullptr;

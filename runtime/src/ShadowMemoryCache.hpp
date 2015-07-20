@@ -1,16 +1,16 @@
-#ifndef MSHADOW_SKADUCACHE_H
-#define MSHADOW_SKADUCACHE_H
+#ifndef __SHADOW_MEMORY_CACHE_HPP__
+#define __SHADOW_MEMORY_CACHE_HPP__
 
 #include "ktypes.h"
 #include "CacheInterface.hpp"
 
 class TagVectorCache;
 
-class SkaduCache : public CacheInterface {
+class ShadowMemoryCache : public CacheInterface {
 public:
-	SkaduCache() = delete;
-	SkaduCache(int size_in_mb, bool compress, ShadowMemory *mshadow);
-	~SkaduCache();
+	ShadowMemoryCache() = delete;
+	ShadowMemoryCache(int size_in_mb, bool compress, ShadowMemory *mshadow);
+	~ShadowMemoryCache();
 
 	void  set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type);
 	Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type);

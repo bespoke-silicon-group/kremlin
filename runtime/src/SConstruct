@@ -7,7 +7,7 @@ if env['PLATFORM'] == 'darwin':
 files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
     'ProfileNode.cpp', 'CRegion.cpp', 'ProfileNodeStats.cpp', 
 	'ShadowMemory.cpp', 'compression.cpp', 'config.cpp', 'minilzo.cpp', 
-    'mpool.cpp', 'MShadowStat.cpp', 'MShadowCache.cpp',
+    'mpool.cpp', 'MShadowStat.cpp', 'ShadowMemoryCache.cpp',
 	'MShadowNullCache.cpp', 'TagVectorCache.cpp', 'TagVectorCacheLine.cpp',
 	'Handlers.cpp','TimeTable.cpp', 'LevelTable.cpp'
 	]
