@@ -12,17 +12,10 @@
 #include "debug.hpp"
 #include "config.hpp"
 #include "CRegion.hpp"
-
-#include "MShadow.hpp"
-#include "MShadowDummy.hpp"
-#include "MShadowBase.hpp"
-#include "MShadowSTV.hpp"
 #include "MShadowSkadu.hpp"
-
 #include "Table.hpp"
 #include "RShadow.hpp"
 #include "PoolAllocator.hpp"
-
 #include "KremlinProfiler.hpp"
 #include "ProgramRegion.hpp"
 #include "FunctionRegion.hpp"
@@ -120,33 +113,6 @@ FunctionRegion* KremlinProfiler::getCallingFunction() {
 	func->sanityCheck();
 	return func;
 }
-
-#if 0
-void KremlinProfiler::initShadowMemory() {
-	switch(kremlin_config.getShadowMemType()) {
-		case ShadowMemoryBase:
-			shadow_mem = new MShadowBase();
-			break;
-		case ShadowMemorySTV:
-			shadow_mem = new MShadowSTV();
-			break;
-		case ShadowMemorySkadu:
-			shadow_mem = new MShadowSkadu(kremlin_config.getShadowMemGarbageCollectionPeriod(),
-											kremlin_config.compressShadowMem());
-			break;
-		default:
-			shadow_mem = new MShadowDummy();
-	}
-	shadow_mem->init();
-}
-
-void KremlinProfiler::deinitShadowMemory() {
-	shadow_mem->deinit();
-	delete shadow_mem;
-	shadow_mem = nullptr;
-}
-#endif
-
 
 
 /*************************************************************
