@@ -8,7 +8,7 @@
 
 #include "LevelTable.hpp"
 #include "MemorySegment.hpp"
-#include "MShadowSkadu.hpp"
+#include "ShadowMemory.hpp"
 #include "MShadowStat.hpp" // for event counters
 #include "compression.hpp" // for CBuffer
 
@@ -77,7 +77,7 @@ public:
 	
 };
 
-void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
+void ShadowMemory::runGarbageCollector(Version* curr_versions, int size) {
 	eventGC();
 	for (unsigned i = 0; i < SparseTable::NUM_ENTRIES; ++i) {
 		MemorySegment* table = sparse_table->entry[i].segTable;	
@@ -93,7 +93,7 @@ void MShadowSkadu::runGarbageCollector(Version* curr_versions, int size) {
 	}
 }
 
-LevelTable* MShadowSkadu::getLevelTable(Addr addr, Version *curr_versions) {
+LevelTable* ShadowMemory::getLevelTable(Addr addr, Version *curr_versions) {
 	assert(curr_versions != nullptr);
 
 	SparseTableElement* sEntry = sparse_table->getElement(addr);
@@ -158,7 +158,7 @@ MemorySegment::~MemorySegment() {
 	}
 }
 
-void MShadowSkadu::evict(Time *new_timestamps, Addr addr, Index size, Version *curr_versions, TimeTable::TableType type) {
+void ShadowMemory::evict(Time *new_timestamps, Addr addr, Index size, Version *curr_versions, TimeTable::TableType type) {
 	assert(new_timestamps != nullptr);
 	assert(curr_versions != nullptr);
 
@@ -181,7 +181,7 @@ void MShadowSkadu::evict(Time *new_timestamps, Addr addr, Index size, Version *c
 	check(addr, new_timestamps, size, 3);
 }
 
-void MShadowSkadu::fetch(Addr addr, Index size, Version *curr_versions, 
+void ShadowMemory::fetch(Addr addr, Index size, Version *curr_versions, 
 							Time *timestamps, TimeTable::TableType type) {
 	assert(curr_versions != nullptr);
 	assert(timestamps != nullptr);
@@ -198,7 +198,7 @@ void MShadowSkadu::fetch(Addr addr, Index size, Version *curr_versions,
 		compression_buffer->touch(lTable);
 }
 
-Time* MShadowSkadu::get(Addr addr, Index size, Version *curr_versions, 
+Time* ShadowMemory::get(Addr addr, Index size, Version *curr_versions, 
 						uint32_t width) {
 	assert(curr_versions != nullptr);
 
@@ -213,7 +213,7 @@ Time* MShadowSkadu::get(Addr addr, Index size, Version *curr_versions,
 	return cache->get(tAddr, size, curr_versions, type);
 }
 
-void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions, 
+void ShadowMemory::set(Addr addr, Index size, Version *curr_versions, 
 						Time *timestamps, uint32_t width) {
 	assert(curr_versions != nullptr);
 	assert(timestamps != nullptr);
@@ -237,7 +237,7 @@ void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions,
 	cache->set(tAddr, size, curr_versions, timestamps, type);
 }
 
-MShadowSkadu::MShadowSkadu(unsigned gc_period, bool enable_compress) 
+ShadowMemory::ShadowMemory(unsigned gc_period, bool enable_compress) 
 	: sparse_table(std::unique_ptr<SparseTable>(new SparseTable())) 
 	, next_gc_time(gc_period == 0 ? 0xFFFFFFFFFFFFFFFF : gc_period)
 	, garbage_collection_period(gc_period)
@@ -257,7 +257,7 @@ MShadowSkadu::MShadowSkadu(unsigned gc_period, bool enable_compress)
 	MemPoolInit(1024, size * sizeof(Time));
 }
 
-MShadowSkadu::~MShadowSkadu() {
+ShadowMemory::~ShadowMemory() {
 	delete compression_buffer;
 	compression_buffer = nullptr;
 	MShadowStatPrint();

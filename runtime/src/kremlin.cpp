@@ -12,7 +12,7 @@
 #include "debug.hpp"
 #include "config.hpp"
 #include "CRegion.hpp"
-#include "MShadowSkadu.hpp"
+#include "ShadowMemory.hpp"
 #include "Table.hpp"
 #include "RShadow.hpp"
 #include "PoolAllocator.hpp"

@@ -3,12 +3,12 @@
 
 #include "TimeTable.hpp" // for TimeTable::TableType
 
-class MShadowSkadu;
+class ShadowMemory;
 
 class CacheInterface {
 protected:
 	bool use_compression;
-	MShadowSkadu *mem_shadow;
+	ShadowMemory *mem_shadow;
 
 public:
 	virtual ~CacheInterface() {}

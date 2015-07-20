@@ -1,5 +1,5 @@
-#ifndef _MSHADOW_SKADU_HPP
-#define _MSHADOW_SKADU_HPP
+#ifndef _SHADOW_MEMORY_HPP
+#define _SHADOW_MEMORY_HPP
 
 #include <memory>
 #include <cassert>
@@ -12,7 +12,7 @@ class LevelTable;
 class CacheInterface;
 class CBuffer;
 
-class MShadowSkadu {
+class ShadowMemory {
 private:
 	const std::unique_ptr<SparseTable> sparse_table; 
 
@@ -32,9 +32,9 @@ private:
 	}
 
 public:
-	MShadowSkadu() = delete;
-	MShadowSkadu(unsigned gc_period, bool enable_compress);
-	~MShadowSkadu(); // TODO: work on removing this so we can follow Rule of 0
+	ShadowMemory() = delete;
+	ShadowMemory(unsigned gc_period, bool enable_compress);
+	~ShadowMemory(); // TODO: work on removing this so we can follow Rule of 0
 
 	/*!
 	 * @pre curr_versions is non-nullptr.

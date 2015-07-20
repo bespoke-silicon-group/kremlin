@@ -9,7 +9,7 @@ class TagVectorCache;
 class SkaduCache : public CacheInterface {
 public:
 	SkaduCache() = delete;
-	SkaduCache(int size_in_mb, bool compress, MShadowSkadu *mshadow);
+	SkaduCache(int size_in_mb, bool compress, ShadowMemory *mshadow);
 	~SkaduCache();
 
 	void  set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type);

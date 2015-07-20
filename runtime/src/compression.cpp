@@ -2,7 +2,7 @@
 
 #include "kremlin.h"
 #include "compression.hpp"
-#include "MShadowSkadu.hpp"
+#include "ShadowMemory.hpp"
 #include "LevelTable.hpp"
 #include "config.hpp"
 #include "minilzo.h"

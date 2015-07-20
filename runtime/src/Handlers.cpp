@@ -6,7 +6,7 @@
 #include "ProgramRegion.hpp"
 #include "FunctionRegion.hpp"
 #include "CRegion.hpp"
-#include "MShadowSkadu.hpp"
+#include "ShadowMemory.hpp"
 #include "Table.hpp"
 
 Table *KremlinProfiler::shadow_reg_file = nullptr;
@@ -1189,7 +1189,7 @@ void KremlinProfiler::init() {
 	initControlDependences();
 	initRegionTree();
 
-	shadow_mem = new MShadowSkadu(kremlin_config.getShadowMemGarbageCollectionPeriod(),
+	shadow_mem = new ShadowMemory(kremlin_config.getShadowMemGarbageCollectionPeriod(),
 									kremlin_config.compressShadowMem());
 	initProgramRegions(INIT_NUM_REGIONS);
 }

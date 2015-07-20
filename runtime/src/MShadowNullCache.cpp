@@ -1,5 +1,5 @@
 #include "LevelTable.hpp"
-#include "MShadowSkadu.hpp"
+#include "ShadowMemory.hpp"
 #include "MShadowNullCache.hpp"
 #include "compression.hpp"
 

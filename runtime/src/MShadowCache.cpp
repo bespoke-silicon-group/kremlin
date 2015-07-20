@@ -11,7 +11,7 @@
 #include "compression.hpp"
 
 #include "MShadowStat.hpp"
-#include "MShadowSkadu.hpp"
+#include "ShadowMemory.hpp"
 #include "MShadowCache.hpp"
 #include "TagVectorCache.hpp"
 #include "TagVectorCacheLine.hpp"
@@ -19,7 +19,7 @@
 //#define TVCacheDebug	0
 static const int SKADU_CACHE_DEBUG_LVL = 0;
 
-SkaduCache::SkaduCache(int size_in_mb, bool compress, MShadowSkadu *mshadow) {
+SkaduCache::SkaduCache(int size_in_mb, bool compress, ShadowMemory *mshadow) {
 	this->use_compression = compress; 
 	this->mem_shadow = mshadow;
 

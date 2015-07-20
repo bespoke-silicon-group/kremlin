@@ -5,7 +5,7 @@
 #include "MemorySegment.hpp"
 #include "LevelTable.hpp"
 #include "MShadowStat.hpp"
-#include "MShadowSkadu.hpp"
+#include "ShadowMemory.hpp"
 
 MemStat _stat;
 L1Stat _cacheStat;
