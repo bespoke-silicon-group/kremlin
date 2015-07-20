@@ -33,12 +33,15 @@ void DebugInit() {
 
 	// TRICKY: With C++, sometimes we have to call DebugInit before we
 	// have set up the configuration (including the debug output
-	// filename). Here we check if the filename exists: if not, we just
-	// write to /dev/null.
+	// filename).
+	// Here we check if the filename exists and is non-0 length: if not, we
+	// just write to /dev/null.
 	// TODO: Come up with a better way to handle this corner case.
-	stream = fopen(df ? df : "/dev/null", "w");
+	bool use_filename = df && (strnlen(df,100) != 0);
+	stream = fopen(use_filename ? df : "/dev/null", "w");
 	if (stream == nullptr) {
-		fprintf(stderr,"ERROR: could not open file for writing: %s\n",kremlin_config.getDebugOutputFilename());
+		fprintf(stderr,"ERROR: could not open debug output file for writing: %s\n", 
+				use_filename ? df : "/dev/null");
 		exit(1);
 	}
 }
