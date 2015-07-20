@@ -237,9 +237,6 @@ void MShadowSkadu::set(Addr addr, Index size, Version *curr_versions,
 	cache->set(tAddr, size, curr_versions, timestamps, type);
 }
 
-void MShadowSkadu::init() {}
-void MShadowSkadu::deinit() {}
-
 MShadowSkadu::MShadowSkadu(unsigned gc_period, bool enable_compress) 
 	: sparse_table(std::unique_ptr<SparseTable>(new SparseTable())) 
 	, next_gc_time(gc_period == 0 ? 0xFFFFFFFFFFFFFFFF : gc_period)

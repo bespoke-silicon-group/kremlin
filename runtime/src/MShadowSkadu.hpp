@@ -1,10 +1,9 @@
-#ifndef _MSHADOW_SKADU_H
-#define _MSHADOW_SKADU_H
+#ifndef _MSHADOW_SKADU_HPP
+#define _MSHADOW_SKADU_HPP
 
 #include <memory>
 #include <cassert>
 #include "ktypes.h"
-#include "MShadow.hpp" // for MShadow class 
 #include "TimeTable.hpp" // for TimeTable::TableType
 
 class SparseTable;
@@ -13,7 +12,7 @@ class LevelTable;
 class CacheInterface;
 class CBuffer;
 
-class MShadowSkadu : public MShadow {
+class MShadowSkadu {
 private:
 	const std::unique_ptr<SparseTable> sparse_table; 
 
@@ -33,9 +32,6 @@ private:
 	}
 
 public:
-	void init();
-	void deinit();
-
 	MShadowSkadu() = delete;
 	MShadowSkadu(unsigned gc_period, bool enable_compress);
 	~MShadowSkadu(); // TODO: work on removing this so we can follow Rule of 0

@@ -59,7 +59,6 @@ void parseKremlinOptions(KremlinConfiguration &config,
 
 			{"kremlin-output", required_argument, nullptr, 'a'},
 			{"kremlin-log-output", required_argument, nullptr, 'b'},
-			{"kremlin-shadow-mem-type", required_argument, nullptr, 'c'},
 			{"kremlin-shadow-mem-cache-size", required_argument, nullptr, 'd'},
 			{"kremlin-shadow-mem-gc-period", required_argument, nullptr, 'e'},
 			{"kremlin-cbuffer-size", required_argument, nullptr, 'f'},
@@ -88,23 +87,6 @@ void parseKremlinOptions(KremlinConfiguration &config,
 
 			case 'b':
 				config.setDebugOutputFilename(optarg);
-				break;
-
-			case 'c':
-				if (strcmp(optarg, "base") == 0)
-					config.setShadowMemType(ShadowMemoryBase); 
-				else if (strcmp(optarg, "stv") == 0)
-					config.setShadowMemType(ShadowMemorySTV);
-				else if (strcmp(optarg, "skadu") == 0)
-					config.setShadowMemType(ShadowMemorySkadu);
-				else if (strcmp(optarg, "dummy") == 0)
-					config.setShadowMemType(ShadowMemoryDummy);
-				else {
-					std::cerr << "ERROR: Invalid shadow memory type: " << optarg << std::endl;
-					std::cerr << "Valid options are: {skadu, stv, base, dummy}" << std::endl;
-					exit(1);
-				}
-
 				break;
 
 			// TODO: The following cases are all very similar... factor these

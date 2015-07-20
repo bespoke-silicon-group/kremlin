@@ -4,19 +4,10 @@
 #include <string>
 #include "ktypes.h"
 
-enum ShadowMemoryType {
-	ShadowMemoryBase = 0,
-	ShadowMemorySTV = 1,
-	ShadowMemorySkadu = 2,
-	ShadowMemoryDummy = 3
-};
-
 class KremlinConfiguration {
 private:
 	Level min_profiled_level;
 	Level max_profiled_level;
-
-	ShadowMemoryType shadow_mem_type;
 
 	uint32_t shadow_mem_cache_size_in_mb;
 
@@ -37,7 +28,6 @@ public:
 	KremlinConfiguration() : 
 							min_profiled_level(0),
 							max_profiled_level(32), 
-							shadow_mem_type(ShadowMemorySkadu),
 							shadow_mem_cache_size_in_mb(4), 
 							garbage_collection_period(1024), 
 							compress_shadow_mem(false),
@@ -54,7 +44,6 @@ public:
 	Level getMinProfiledLevel() { return min_profiled_level; }
 	Level getMaxProfiledLevel() { return max_profiled_level; }
 	Level getNumProfiledLevels() { return max_profiled_level - min_profiled_level + 1; }
-	ShadowMemoryType getShadowMemType() { return shadow_mem_type; }
 	uint32_t getShadowMemCacheSizeInMB() { return shadow_mem_cache_size_in_mb; }
 	uint32_t getShadowMemGarbageCollectionPeriod() { 
 		return garbage_collection_period;
@@ -74,7 +63,6 @@ public:
 	/* Setters for all private member variables. */
 	void setMinProfiledLevel(Level l) { min_profiled_level = l; }
 	void setMaxProfiledLevel(Level l) { max_profiled_level = l; }
-	void setShadowMemType(ShadowMemoryType t) { shadow_mem_type = t; }
 	void setShadowMemCacheSizeInMB(uint32_t s) {
 		shadow_mem_cache_size_in_mb = s;
 	}

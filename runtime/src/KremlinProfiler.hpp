@@ -9,7 +9,7 @@
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 
-class MShadow;
+class MShadowSkadu;
 class ProgramRegion;
 class FunctionRegion;
 class Table;
@@ -127,7 +127,7 @@ private:
 	void initRegionControlDependences(Index index);
 
 	static Table *shadow_reg_file;
-	MShadow *shadow_mem;
+	MShadowSkadu *shadow_mem;
 
 	/*!
 	 * @brief Returns number of shadow registers in the current function.
@@ -378,7 +378,7 @@ public:
 	int getMaxLevel() { return this->max_level; }
 	int getMaxActiveLevel() { return this->max_active_level; }
 	CID getLastCallsiteID() { return this->last_callsite_id; }
-	MShadow* getShadowMemory() { return this->shadow_mem; }
+	MShadowSkadu* getShadowMemory() { return this->shadow_mem; }
 	bool shouldInstrumentCurrLevel() { return instrument_curr_level; }
 
 	int getArraySize() { return max_level - min_level + 1; }

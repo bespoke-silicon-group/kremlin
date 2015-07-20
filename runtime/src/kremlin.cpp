@@ -121,6 +121,7 @@ FunctionRegion* KremlinProfiler::getCallingFunction() {
 	return func;
 }
 
+#if 0
 void KremlinProfiler::initShadowMemory() {
 	switch(kremlin_config.getShadowMemType()) {
 		case ShadowMemoryBase:
@@ -144,6 +145,7 @@ void KremlinProfiler::deinitShadowMemory() {
 	delete shadow_mem;
 	shadow_mem = nullptr;
 }
+#endif
 
 
 
