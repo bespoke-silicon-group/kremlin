@@ -14,7 +14,6 @@
 #include "CRegion.hpp"
 #include "ShadowMemory.hpp"
 #include "Table.hpp"
-#include "RShadow.hpp"
 #include "PoolAllocator.hpp"
 #include "KremlinProfiler.hpp"
 #include "ProgramRegion.hpp"

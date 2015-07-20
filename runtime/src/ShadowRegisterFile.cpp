@@ -1,6 +1,6 @@
 #include "Table.hpp"
 #include "MemMapAllocator.hpp"
-#include "RShadow.hpp"
+#include "ShadowRegisterFile.hpp"
 
 /*
  * Register Shadow Memory 
