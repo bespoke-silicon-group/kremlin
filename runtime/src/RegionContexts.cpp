@@ -8,7 +8,7 @@
 #include "kremlin.h"
 #include "MemMapAllocator.hpp"
 
-#include "CRegion.hpp"
+#include "RegionContexts.hpp"
 #include "ProfileNode.hpp"
 #include "ProfileNodeStats.hpp"
 

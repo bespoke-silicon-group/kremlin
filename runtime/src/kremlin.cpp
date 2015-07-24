@@ -11,7 +11,7 @@
 #include "ArgParse.hpp"
 #include "debug.hpp"
 #include "KremlinConfig.hpp"
-#include "CRegion.hpp"
+#include "RegionContexts.hpp"
 #include "ShadowMemory.hpp"
 #include "Table.hpp"
 #include "PoolAllocator.hpp"

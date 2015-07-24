@@ -5,7 +5,7 @@
 #include "KremlinProfiler.hpp"
 #include "ProgramRegion.hpp"
 #include "FunctionRegion.hpp"
-#include "CRegion.hpp"
+#include "RegionContexts.hpp"
 #include "ShadowMemory.hpp"
 #include "Table.hpp"
 
