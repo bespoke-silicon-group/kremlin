@@ -1,5 +1,13 @@
 env = Environment(CCFLAGS = '-O3 -std=c++11 -Wno-deprecated')
-env.Append(CPPDEFINES = ['NDEBUG'])
+
+debug = ARGUMENTS.get('debug', 0)
+debug_level = ARGUMENTS.get('debug_level', 0)
+if int(debug):
+    env.Append(CPPDEFINES = ['KREMLIN_DEBUG',
+                             'KREMLIN_DEBUG_LEVEL=' + str(debug_level)])
+else:
+    env.Append(CPPDEFINES = ['NDEBUG',
+                             'KREMLIN_DEBUG_LEVEL=' + str(debug_level)])
 
 files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
     'ProfileNode.cpp', 'RegionContexts.cpp', 'ProfileNodeStats.cpp', 
@@ -8,6 +16,7 @@ files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
 	'MShadowNullCache.cpp', 'TagVectorCache.cpp', 'TagVectorCacheLine.cpp',
 	'Handlers.cpp','TimeTable.cpp', 'LevelTable.cpp'
 	]
+
 kremlib_dynamic = env.SharedLibrary('kremlin', files)
 files.append('ArgParse.cpp')
 kremlib_static = env.Library('kremlin', files)

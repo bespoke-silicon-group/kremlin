@@ -1,10 +1,8 @@
-#ifndef _DEBUG_H
-#define _DEBUG_H
+#ifndef __DEBUG_HPP__
+#define __DEBUG_HPP__
 
 #include <signal.h>
 #include "ktypes.h"
-//#define KREMLIN_DEBUG	1
-#define KREMLIN_DEBUG_LEVEL 0
 
 /* WARNING!!!!
  *
