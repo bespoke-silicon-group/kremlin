@@ -1,5 +1,4 @@
 #include "debug.hpp"
-#include "kremlin.h"
 #include "KremlinConfig.hpp"
 
 #include "MemorySegment.hpp"
@@ -10,6 +9,7 @@
 MemStat _stat;
 L1Stat _cacheStat;
 
+extern Level getMaxActiveLevel();
 
 
 /*

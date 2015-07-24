@@ -1,11 +1,11 @@
 #include <cstdlib>
 #include <cstddef>
 #include <stack>
-//#include <utility> // for std::pair
+#include <cassert>
 #include <sstream>
 
 #include "KremlinConfig.hpp"
-#include "kremlin.h"
+#include "debug.hpp"
 #include "MemMapAllocator.hpp"
 
 #include "RegionContexts.hpp"

@@ -4,6 +4,7 @@
 #include "MShadowStat.hpp" // for mshadow event counters
 #include "LevelTable.hpp"
 #include "compression.hpp"
+#include "MemMapAllocator.hpp"
 
 void* LevelTable::operator new(size_t size) {
 	return MemPoolAllocSmall(size);

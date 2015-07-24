@@ -1,12 +1,12 @@
 #include <map>
 
-#include "kremlin.h"
 #include "compression.hpp"
 #include "ShadowMemory.hpp"
 #include "LevelTable.hpp"
 #include "KremlinConfig.hpp"
 #include "minilzo.h"
 #include "debug.hpp"
+#include "MemMapAllocator.hpp"
 
 static uint64_t _compSrcSize;
 static uint64_t _compDestSize;

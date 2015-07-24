@@ -2,7 +2,9 @@
 #define KREMLIN_PROFILER_HPP
 
 #include <vector>
-#include <stdarg.h> /* for variable length args */
+#include <cstdarg> /* for variable length args */
+#include <cassert>
+
 #include "ktypes.h"
 #include "PoolAllocator.hpp"
 

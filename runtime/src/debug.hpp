@@ -2,7 +2,7 @@
 #define _DEBUG_H
 
 #include <signal.h>
-#include "kremlin.h"
+#include "ktypes.h"
 //#define KREMLIN_DEBUG	1
 #define KREMLIN_DEBUG_LEVEL 0
 

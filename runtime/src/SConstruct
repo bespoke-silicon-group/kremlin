@@ -1,4 +1,5 @@
 env = Environment(CCFLAGS = '-O3 -std=c++11 -Wno-deprecated')
+env.Append(CPPDEFINES = ['NDEBUG'])
 
 # default c++ library (libc++) doesn't work on Mac (bug?)
 if env['PLATFORM'] == 'darwin':

@@ -1,4 +1,3 @@
-#include "KremlinAPI.hpp"
 
 #include <assert.h>
 #include <limits.h>
@@ -7,7 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#include "kremlin.h"
+#include <vector>
+#include <iostream>
+#include <signal.h> // for catching CTRL-V during debug
+
+#include "KremlinAPI.hpp"
+//#include "kremlin.h"
 #include "ArgParse.hpp"
 #include "debug.hpp"
 #include "KremlinConfig.hpp"
@@ -19,10 +23,9 @@
 #include "ProgramRegion.hpp"
 #include "FunctionRegion.hpp"
 
-#include <vector>
-#include <iostream>
-#include <signal.h> // for catching CTRL-V during debug
 
+extern Time* (*MShadowGet)(Addr, Index, Version*, uint32_t);
+extern void  (*MShadowSet)(Addr, Index, Version*, Time*, uint32_t);
 
 static KremlinProfiler *profiler;
 KremlinConfig kremlin_config;

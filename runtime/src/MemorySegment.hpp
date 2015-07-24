@@ -3,6 +3,8 @@
 
 #include "ktypes.h"
 
+#include <cassert>
+
 class LevelTable;
 
 /*!

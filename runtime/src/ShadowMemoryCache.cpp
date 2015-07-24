@@ -1,5 +1,3 @@
-#include "kremlin.h"
-
 #include <cassert>
 #include <stdio.h>
 #include <string.h> // for memcpy

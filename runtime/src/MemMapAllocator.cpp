@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstddef>
+#include <cassert>
 #include <sys/mman.h>
 
 #include "debug.hpp"

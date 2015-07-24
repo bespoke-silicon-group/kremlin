@@ -1,4 +1,5 @@
 #include <sstream>
+#include <cassert>
 
 #include "ProfileNode.hpp"
 #include "ProfileNodeStats.hpp"

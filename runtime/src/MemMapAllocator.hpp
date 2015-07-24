@@ -1,7 +1,6 @@
 #ifndef MEM_MAP_ALLOCATOR_H
 #define MEM_MAP_ALLOCATOR_H
 
-#include <stdlib.h>
 #include "ktypes.h"
 
 void MemPoolInit(int, int);
