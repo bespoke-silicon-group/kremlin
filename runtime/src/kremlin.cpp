@@ -1,17 +1,11 @@
 
-#include <assert.h>
-#include <limits.h>
-#include <stdarg.h> /* for variable length args */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
+#include <cassert>
+#include <cstdarg> // for variable length args
+#include <csignal> // for catching CTRL-V during debug
 #include <vector>
 #include <iostream>
-#include <signal.h> // for catching CTRL-V during debug
 
 #include "KremlinAPI.hpp"
-//#include "kremlin.h"
 #include "ArgParse.hpp"
 #include "debug.hpp"
 #include "KremlinConfig.hpp"

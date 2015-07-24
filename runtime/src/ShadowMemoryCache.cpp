@@ -1,6 +1,6 @@
 #include <cassert>
-#include <stdio.h>
-#include <string.h> // for memcpy
+#include <cstdio>
+#include <cstring> // for memcpy
 
 #include "debug.hpp"
 #include "KremlinConfig.hpp"

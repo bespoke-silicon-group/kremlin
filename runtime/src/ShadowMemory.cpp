@@ -1,5 +1,5 @@
 #include <cassert>
-#include <string.h> // for memset
+#include <cstring> // for memset
 #include <vector>
 
 #include "KremlinConfig.hpp"
