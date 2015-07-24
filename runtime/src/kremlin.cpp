@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include "kremlin.h"
-#include "arg.hpp"
+#include "ArgParse.hpp"
 #include "debug.hpp"
 #include "KremlinConfig.hpp"
 #include "CRegion.hpp"

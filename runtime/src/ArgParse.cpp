@@ -8,7 +8,7 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#include "arg.hpp" // includes vector
+#include "ArgParse.hpp" // includes vector
 #include "KremlinConfig.hpp"
 
 #include "debug.hpp"

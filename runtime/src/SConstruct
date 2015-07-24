@@ -12,6 +12,6 @@ files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
 	'Handlers.cpp','TimeTable.cpp', 'LevelTable.cpp'
 	]
 kremlib_dynamic = env.SharedLibrary('kremlin', files)
-files.append('arg.cpp')
+files.append('ArgParse.cpp')
 kremlib_static = env.Library('kremlin', files)
 Return('kremlib_static kremlib_dynamic')
