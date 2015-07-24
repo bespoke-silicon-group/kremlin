@@ -4,7 +4,7 @@
 #include "compression.hpp"
 #include "ShadowMemory.hpp"
 #include "LevelTable.hpp"
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 #include "minilzo.h"
 #include "debug.hpp"
 

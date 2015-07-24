@@ -9,12 +9,12 @@
 #include <unistd.h>
 
 #include "arg.hpp" // includes vector
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 
 #include "debug.hpp"
 
 #if 0
-static void getCustomOutputFilename(KremlinConfiguration &config, std::string& filename) {
+static void getCustomOutputFilename(KremlinConfig &config, std::string& filename) {
 	filename = "kremlin-L";
 	
 	// TODO: update to use to_string for C++11
@@ -34,7 +34,7 @@ static void getCustomOutputFilename(KremlinConfiguration &config, std::string& f
 }
 #endif
 
-void parseKremlinOptions(KremlinConfiguration &config, 
+void parseKremlinOptions(KremlinConfig &config, 
 							int argc, char* argv[], 
 							std::vector<char*>& native_args) {
 	native_args.push_back(argv[0]); // program name is always a native arg

@@ -1,7 +1,7 @@
 #include <cstddef>
 
 #include "debug.hpp"
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 #include "KremlinProfiler.hpp"
 #include "ProgramRegion.hpp"
 #include "FunctionRegion.hpp"

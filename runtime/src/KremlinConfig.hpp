@@ -4,7 +4,7 @@
 #include <string>
 #include "ktypes.h"
 
-class KremlinConfiguration {
+class KremlinConfig {
 private:
 	Level min_profiled_level;
 	Level max_profiled_level;
@@ -25,7 +25,7 @@ private:
 
 public:
 
-	KremlinConfiguration() : 
+	KremlinConfig() : 
 							min_profiled_level(0),
 							max_profiled_level(32), 
 							shadow_mem_cache_size_in_mb(4), 
@@ -36,7 +36,7 @@ public:
 							profile_output_filename("kremlin.bin"),
 							debug_output_filename("kremlin.debug.log") {}
 
-	~KremlinConfiguration() {}
+	~KremlinConfig() {}
 
 	void print();
 
@@ -86,6 +86,6 @@ public:
 	}
 };
 
-extern KremlinConfiguration kremlin_config;
+extern KremlinConfig kremlin_config;
 
 #endif // _KREMLINCONFIG_HPP_

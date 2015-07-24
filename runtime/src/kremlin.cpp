@@ -10,7 +10,7 @@
 #include "kremlin.h"
 #include "arg.hpp"
 #include "debug.hpp"
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 #include "CRegion.hpp"
 #include "ShadowMemory.hpp"
 #include "Table.hpp"
@@ -25,7 +25,7 @@
 
 
 static KremlinProfiler *profiler;
-KremlinConfiguration kremlin_config;
+KremlinConfig kremlin_config;
 
 extern "C" int __main(int argc, char** argv);
 
@@ -41,7 +41,7 @@ static void initProfiler() {
  *
  * This function performs the following actions:
  * 1) Search for any kremlin specific parameters and use those to modify our 
- * KremlinConfiguration, keeping a list of the "true" (i.e. non-kremlin)
+ * KremlinConfig, keeping a list of the "true" (i.e. non-kremlin)
  * arguments during this search.
  * 2) Initialize the KremlinProfiler.
  * 3) Call the program's original main function with only the true args.

@@ -5,7 +5,7 @@
 #include <string.h> // for memcpy
 
 #include "debug.hpp"
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 #include "MemMapAllocator.hpp"
 #include "Table.hpp"
 #include "compression.hpp"

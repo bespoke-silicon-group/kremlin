@@ -1,8 +1,8 @@
 #include <iostream>
 #include <cassert>
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 
-void KremlinConfiguration::print() {
+void KremlinConfig::print() {
 	std::cerr << "Kremlin Configuration:\n";
 	std::cerr << "\tMin profiled level: " << min_profiled_level << "\n";
 	std::cerr << "\tMax profiled level: " << max_profiled_level << "\n";

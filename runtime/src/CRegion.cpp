@@ -4,7 +4,7 @@
 //#include <utility> // for std::pair
 #include <sstream>
 
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 #include "kremlin.h"
 #include "MemMapAllocator.hpp"
 

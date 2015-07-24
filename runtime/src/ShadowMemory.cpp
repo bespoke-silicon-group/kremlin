@@ -2,7 +2,7 @@
 #include <string.h> // for memset
 #include <vector>
 
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 #include "debug.hpp"
 #include "MemMapAllocator.hpp"
 

@@ -1,5 +1,5 @@
 #include <cassert>
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 #include "Table.hpp"
 #include "TagVectorCache.hpp"
 #include "TagVectorCacheLine.hpp"

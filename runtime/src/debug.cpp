@@ -5,7 +5,7 @@
 
 #include "ktypes.h"
 #include "debug.hpp"
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 //#include "idbg.h"
 
 #include <vector>

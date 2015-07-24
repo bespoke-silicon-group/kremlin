@@ -1,6 +1,6 @@
 #include "debug.hpp"
 #include "kremlin.h"
-#include "config.hpp"
+#include "KremlinConfig.hpp"
 
 #include "MemorySegment.hpp"
 #include "LevelTable.hpp"

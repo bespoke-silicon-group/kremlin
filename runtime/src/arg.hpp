@@ -3,9 +3,9 @@
 
 #include <vector>
 
-class KremlinConfiguration;
+class KremlinConfig;
 
-void parseKremlinOptions(KremlinConfiguration &config, 
+void parseKremlinOptions(KremlinConfig &config, 
 							int argc, char* argv[], 
 							std::vector<char*> &native_args);
 
