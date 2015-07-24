@@ -2,6 +2,7 @@
 #define TAG_VECTOR_CACHE_H
 
 #include "ktypes.h"
+#include "TimeTable.hpp" // for TimeTable::TableType... (TODO: avoid this include)
 
 class TagVectorCacheLine;
 class Table;
@@ -29,8 +30,8 @@ public:
 	int getLineIndex(Addr addr);
 
 	void configure(int size_in_mb, int depth);
-	void lookupRead(Addr addr, int type, int* pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray);
-	void lookupWrite(Addr addr, int type, int *pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray);
+	void lookupRead(Addr addr, TimeTable::TableType type, int* pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray);
+	void lookupWrite(Addr addr, TimeTable::TableType type, int *pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray);
 };
 
 #endif

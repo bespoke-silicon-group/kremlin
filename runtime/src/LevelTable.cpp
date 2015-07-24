@@ -67,7 +67,7 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr,
 	} else {
 		// convert the table if needed
 		// XXX: what about if table is 32-bit but type is 64-bit?
-		if (type == TimeTable::TYPE_32BIT && table->type == TimeTable::TYPE_64BIT) {
+		if (type == TimeTable::TableType::TYPE_32BIT && table->type == TimeTable::TableType::TYPE_64BIT) {
 			TimeTable *old = table;
 			table = table->create32BitClone();
 			eventTimeTableConvertTo32();

@@ -61,11 +61,11 @@ int TagVectorCache::getLineIndex(Addr addr) {
 
 
 
-void TagVectorCache::lookupRead(Addr addr, int type, int* pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray) {
+void TagVectorCache::lookupRead(Addr addr, TimeTable::TableType type, int* pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray) {
 	int index = this->getLineIndex(addr);
 	int offset = 0; 
 	TagVectorCacheLine* line = this->getTag(index);
-	if (line->type == TimeTable::TYPE_32BIT && type == TimeTable::TYPE_64BIT) {
+	if (line->type == TimeTable::TableType::TYPE_32BIT && type == TimeTable::TableType::TYPE_64BIT) {
 		// in this case, use the more recently one
 		Time* option0 = this->getData(index, 0);
 		Time* option1 = this->getData(index, 1);
@@ -84,15 +84,15 @@ void TagVectorCache::lookupRead(Addr addr, int type, int* pIndex, TagVectorCache
 	*pLine = line;
 }
 
-void TagVectorCache::lookupWrite(Addr addr, int type, int *pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray) {
+void TagVectorCache::lookupWrite(Addr addr, TimeTable::TableType type, int *pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray) {
 	int index = this->getLineIndex(addr);
 	int offset = ((uint64_t)addr >> 2) & 0x1;
 	assert(index < this->getLineCount());
 	TagVectorCacheLine* line = this->getTag(index);
 
-	if (line->type == TimeTable::TYPE_64BIT && type == TimeTable::TYPE_32BIT) {
+	if (line->type == TimeTable::TableType::TYPE_64BIT && type == TimeTable::TableType::TYPE_32BIT) {
 		// convert to 32bit	by duplicating 64bit info
-		line->type = TimeTable::TYPE_32BIT;
+		line->type = TimeTable::TableType::TYPE_32BIT;
 		line->version[1] = line->version[0];
 		line->lastSize[1] = line->lastSize[1];
 

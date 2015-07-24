@@ -2,6 +2,7 @@
 #define _MSHADOW_STAT
 
 #include "ktypes.h"
+#include "TimeTable.hpp" // for TimeTable::TableType (TODO: avoid this)
 
 void MShadowStatPrint();
 
@@ -86,9 +87,9 @@ static inline void eventLevelTableAlloc() {
 	AStatAlloc(&_stat.lTable);
 }
 
-static inline void eventTimeTableNewAlloc(int level, int type) {
+static inline void eventTimeTableNewAlloc(int level, TimeTable::TableType type) {
 	//_stat.levels[level].nTimeTableNewAlloc++;
-	AStatAlloc(&_stat.levels[level].tTable[type]);
+	AStatAlloc(&_stat.levels[level].tTable[(int)type]);
 }
 
 
@@ -121,13 +122,13 @@ static inline void eventCompression(int gain) {
 	decreaseTimeTableMemSize(gain);
 }
 
-static inline void eventTimeTableAlloc(int sizeType, int size) {
-	AStatAlloc(&_stat.tTable[sizeType]);
+static inline void eventTimeTableAlloc(TimeTable::TableType sizeType, int size) {
+	AStatAlloc(&_stat.tTable[(int)sizeType]);
 	increaseTimeTableMemSize(size);
 }
 
-static inline void eventTimeTableFree(int type, int size) {
-	AStatDealloc(&_stat.tTable[type]);
+static inline void eventTimeTableFree(TimeTable::TableType type, int size) {
+	AStatDealloc(&_stat.tTable[(int)type]);
 	decreaseTimeTableMemSize(size);
 }
 

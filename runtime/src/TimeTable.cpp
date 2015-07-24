@@ -15,14 +15,14 @@ void TimeTable::operator delete(void* ptr) {
 unsigned TimeTable::getIndex(Addr addr) {
 	const int WORD_SHIFT = 2;
 	int ret = ((uint64_t)addr >> WORD_SHIFT) & TimeTable::TIMETABLE_MASK;
-	if (this->type == TYPE_64BIT) ret >>= 1;
+	if (this->type == TableType::TYPE_64BIT) ret >>= 1;
 
-	assert((this->type == TYPE_64BIT && ret < TimeTable::TIMETABLE_SIZE/2) 
+	assert((this->type == TableType::TYPE_64BIT && ret < TimeTable::TIMETABLE_SIZE/2) 
 			|| ret < TimeTable::TIMETABLE_SIZE);
 	return ret;
 }
 
-TimeTable::TimeTable(TimeTable::TableType size_type) : type(size_type) {
+TimeTable::TimeTable(TableType size_type) : type(size_type) {
 	this->array = (Time*)MemPoolAlloc();
 	unsigned size = TimeTable::GetNumEntries(size_type);
 	memset(this->array, 0, sizeof(Time) * size);
@@ -45,8 +45,8 @@ TimeTable::~TimeTable() {
 // TODO: Replace with a function that modifies this TimeTable rather than
 // creating a new one
 TimeTable* TimeTable::create32BitClone() {
-	assert(this->type == TimeTable::TYPE_64BIT);
-	TimeTable* ret = new TimeTable(TimeTable::TYPE_32BIT);
+	assert(this->type == TableType::TYPE_64BIT);
+	TimeTable* ret = new TimeTable(TableType::TYPE_32BIT);
 	for (unsigned i = 0; i < TIMETABLE_SIZE/2; ++i) {
 		ret->array[i*2] = this->array[i];
 		ret->array[i*2 + 1] = this->array[i];
@@ -56,7 +56,7 @@ TimeTable* TimeTable::create32BitClone() {
 
 void TimeTable::setTimeAtAddr(Addr addr, 
 								Time time, 
-								TimeTable::TableType access_type) {
+								TableType access_type) {
 	assert(addr != nullptr);
 
 	unsigned index = this->getIndex(addr);
@@ -67,8 +67,8 @@ void TimeTable::setTimeAtAddr(Addr addr,
 			this, &array[0]);
 
 	array[index] = time;
-	if (this->type == TimeTable::TYPE_32BIT 
-		&& access_type == TimeTable::TYPE_64BIT) {
+	if (this->type == TableType::TYPE_32BIT 
+		&& access_type == TableType::TYPE_64BIT) {
 		array[index+1] = time;
 	}
 }

@@ -204,7 +204,7 @@ Time* ShadowMemory::get(Addr addr, Index size, Version *curr_versions,
 
 	if (size < 1) return nullptr;
 
-	TimeTable::TableType type = TimeTable::TYPE_64BIT; // FIXME: assumes 64 bit
+	TimeTable::TableType type = TimeTable::TableType::TYPE_64BIT; // FIXME: assumes 64 bit
 
 	Addr tAddr = (Addr)((uint64_t)addr & ~(uint64_t)0x7);
 	MSG(0, "mshadow get 0x%llx, size %u \n", tAddr, size);
@@ -228,7 +228,7 @@ void ShadowMemory::set(Addr addr, Index size, Version *curr_versions,
 	}
 
 	//TimeTable::TableType type = (width > 4) ? TimeTable::TYPE_64BIT: TimeTable::TYPE_32BIT;
-	TimeTable::TableType type = TimeTable::TYPE_64BIT;
+	TimeTable::TableType type = TimeTable::TableType::TYPE_64BIT;
 
 
 	Addr tAddr = (Addr)((uint64_t)addr & ~(uint64_t)0x7);
@@ -253,7 +253,7 @@ ShadowMemory::ShadowMemory(unsigned gc_period, bool enable_compress)
 	else
 		cache = std::unique_ptr<CacheInterface>(new NullCache(cacheSizeMB, kremlin_config.compressShadowMem(), this));
 
-	unsigned size = TimeTable::GetNumEntries(TimeTable::TYPE_64BIT);
+	unsigned size = TimeTable::GetNumEntries(TimeTable::TableType::TYPE_64BIT);
 	MemPoolInit(1024, size * sizeof(Time));
 }
 

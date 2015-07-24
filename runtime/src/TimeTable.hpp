@@ -9,7 +9,7 @@
  */ 
 class TimeTable {
 public:
-	enum TableType { TYPE_64BIT, TYPE_32BIT };
+	enum class TableType { TYPE_64BIT, TYPE_32BIT };
 
 	static const unsigned TIMETABLE_MASK = 0x3ff;
 	static const unsigned TIMETABLE_SIZE = TIMETABLE_MASK+1;
@@ -77,7 +77,7 @@ public:
 	 */
 	static unsigned GetNumEntries(TableType type) {
 		unsigned size = TimeTable::TIMETABLE_SIZE;
-		if (type == TYPE_64BIT) size >>= 1;
+		if (type == TableType::TYPE_64BIT) size >>= 1;
 		return size;
 	}
 

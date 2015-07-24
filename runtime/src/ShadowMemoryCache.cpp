@@ -78,12 +78,12 @@ void ShadowMemoryCache::evict(int index, Version* vArray) {
 	Time* tArray0 = tag_vector_cache->getData(index, 0);
 	mem_shadow->evict(tArray0, line->tag, evictSize, vArray, line->type);
 
-	if (line->type == TimeTable::TYPE_32BIT) {
+	if (line->type == TimeTable::TableType::TYPE_32BIT) {
 		lastSize = line->lastSize[1];
 		lastVer = line->version[1];
 		evictSize = getStartInvalidLevel(lastVer, vArray, lastSize);
 		Time* tArray1 = tag_vector_cache->getData(index, 1);
-		mem_shadow->evict(tArray1, (char*)line->tag+4, evictSize, vArray, TimeTable::TYPE_32BIT);
+		mem_shadow->evict(tArray1, (char*)line->tag+4, evictSize, vArray, TimeTable::TableType::TYPE_32BIT);
 	}
 }
 
@@ -210,7 +210,7 @@ void ShadowMemoryCache::set(Addr addr, Index size, Version* vArray, Time* tArray
 
 	// copy Timestamps
 	memcpy(destAddr, tArray, sizeof(Time) * size);
-	if (entry->type == TimeTable::TYPE_32BIT && type == TimeTable::TYPE_64BIT) {
+	if (entry->type == TimeTable::TableType::TYPE_32BIT && type == TimeTable::TableType::TYPE_64BIT) {
 		// corner case: duplicate the timestamp
 		// not yet implemented
 		Time* duplicated = tag_vector_cache->getData(index, offset);
