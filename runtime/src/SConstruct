@@ -1,10 +1,6 @@
 env = Environment(CCFLAGS = '-O3 -std=c++11 -Wno-deprecated')
 env.Append(CPPDEFINES = ['NDEBUG'])
 
-# default c++ library (libc++) doesn't work on Mac (bug?)
-if env['PLATFORM'] == 'darwin':
-    env.Append(CCFLAGS = ' -stdlib=libc++')
-
 files = ['debug.cpp', 'kremlin.cpp', 'MemMapAllocator.cpp',
     'ProfileNode.cpp', 'RegionContexts.cpp', 'ProfileNodeStats.cpp', 
 	'ShadowMemory.cpp', 'compression.cpp', 'KremlinConfig.cpp', 'minilzo.cpp', 
