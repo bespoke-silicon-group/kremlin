@@ -1,5 +1,5 @@
-#ifndef _INTERFACE_H
-#define _INTERFACE_H
+#ifndef __KREMLIN_API_HPP__
+#define __KREMLIN_API_HPP__
 
 #include <limits.h>
 #include <stdarg.h> /* for variable length args */
