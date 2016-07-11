@@ -3,7 +3,8 @@
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
-#include <string.h>
+#include <functional>
+#include <cstring>
 
 // following two includes are needed for GNU GetOpt arg parsing
 #include <getopt.h>
@@ -34,6 +35,19 @@ static void getCustomOutputFilename(KremlinConfig &config, std::string& filename
 	filename += ".bin";
 }
 #endif
+
+static void setNonNegativeOption(std::function<void(uint32_t)> setter, 
+									std::string name) {
+	try {
+		int val = std::stoi(optarg);
+		if (val < 0) throw std::domain_error("must be postive");
+		setter(val);
+	}
+	catch (std::exception& e) {
+		std::cerr << "kremlin: WARNING: invalid " << name << ". "
+			<< "(Reason: " << e.what() << "). Using default value.\n";
+	}
+}
 
 void parseKremlinOptions(KremlinConfig &config, 
 							int argc, char* argv[], 
@@ -90,66 +104,34 @@ void parseKremlinOptions(KremlinConfig &config,
 				config.setDebugOutputFilename(optarg);
 				break;
 
-			// TODO: The following cases are all very similar... factor these
-			// into a higher-order function
 			case 'd':
-				try {
-					int cache_size = std::stoi(optarg);
-					if (cache_size < 0) throw std::domain_error("must be postive");
-					config.setShadowMemCacheSizeInMB(cache_size);
-				}
-				catch (std::exception& e) {
-					std::cerr << "kremlin: WARNING: invalid shadow memory cache size. "
-						<< "(Reason: " << e.what() << "). Using default value.\n";
-				}
+				setNonNegativeOption(std::bind(&KremlinConfig::setShadowMemCacheSizeInMB,
+												&config, std::placeholders::_1), 
+										"shadow memory cache size");
 				break;
 
 			case 'e':
-				try {
-					int gc_period = std::stoi(optarg);
-					if (gc_period < 0) throw std::domain_error("must be postive");
-					config.setShadowMemGarbageCollectionPeriod(gc_period);
-				}
-				catch (std::exception& e) {
-					std::cerr << "kremlin: WARNING: invalid garbage collection period. "
-						<< "(Reason: " << e.what() << "). Using default value.\n";
-				}
+				setNonNegativeOption(std::bind(&KremlinConfig::setShadowMemGarbageCollectionPeriod, 
+												&config, std::placeholders::_1),
+										"garbage collection period");
 				break;
 
 			case 'f':
-				try {
-					int cb_entries = std::stoi(optarg);
-					if (cb_entries < 0) throw std::domain_error("must be postive");
-					config.setNumCompressionBufferEntries(cb_entries);
-				}
-				catch (std::exception& e) {
-					std::cerr << "kremlin: WARNING: invalid number of compression buffer entries. "
-						<< "(Reason: " << e.what() << "). Using default value.\n";
-				}
+				setNonNegativeOption(std::bind(&KremlinConfig::setNumCompressionBufferEntries, 
+												&config, std::placeholders::_1),
+										"number of compression buffer entries");
 				break;
 
 			case 'g':
-				try {
-					int min_lev = std::stoi(optarg);
-					if (min_lev < 0) throw std::domain_error("must be postive");
-					config.setMinProfiledLevel(min_lev);
-				}
-				catch (std::exception& e) {
-					std::cerr << "kremlin: WARNING: invalid MIN profile level. " 
-						<< "(Reason: " << e.what() << "). Using default value.\n";
-				}
+				setNonNegativeOption(std::bind(&KremlinConfig::setMinProfiledLevel, 
+												&config, std::placeholders::_1),
+										"MIN profile level");
 				break;
 
 			case 'h':
-				try {
-					int max_lev = std::stoi(optarg);
-					if (max_lev < 0) throw std::domain_error("must be postive");
-					config.setMaxProfiledLevel(max_lev);
-				}
-				catch (std::exception& e) {
-					std::cerr << "kremlin: WARNING: invalid MAX profile level. "
-						<< "(Reason: " << e.what() << "). Using default value.\n";
-				}
+				setNonNegativeOption(std::bind(&KremlinConfig::setMaxProfiledLevel, 
+												&config, std::placeholders::_1),
+										"MAX profile level");
 				break;
 
 			case '?':
