@@ -6,6 +6,7 @@
 #include "MemMapAllocator.hpp"
 
 #include <cstdlib> // for calloc
+#include <string.h>
 
 class Table {
 private:

@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
+#include <string.h>
 
 // following two includes are needed for GNU GetOpt arg parsing
 #include <getopt.h>
