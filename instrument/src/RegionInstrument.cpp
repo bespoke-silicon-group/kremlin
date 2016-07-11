@@ -1132,7 +1132,7 @@ namespace {
 			} // end for loop
             foreach(Region& r, regions) {
                 std::string encoded_region_str;
-                new GlobalVariable(m, types.i8(), false, GlobalValue::ExternalLinkage, ConstantInt::get(types.i8(), 0), Twine(r.formatToString(encoded_region_str)));
+                new GlobalVariable(m, types.i8(), false, GlobalValue::CommonLinkage, ConstantInt::get(types.i8(), 0), Twine(r.formatToString(encoded_region_str)));
             }
 		} // end instrumentModule(...)
 
