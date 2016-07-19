@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <llvm/IR/IntrinsicInst.h>
 #include "llvm/IR/DebugInfo.h"
 #include <llvm/IR/Metadata.h>
 #include <llvm/IR/Module.h>
@@ -87,8 +88,16 @@ LoopBodyRegion::LoopBodyRegion(RegionId id, llvm::Loop* loop) :
 	foreach(BasicBlock* bb, loop->getBlocks())
 		foreach(Instruction& inst, *bb)
 		{
-			if (MDNode *N = inst.getMetadata("dbg")) {  // grab debug metadata from inst
-				DILocation loc(N);                      // get location info from metadata
+			// We'll grab line number for any instruction we find that has
+			// debug info attached to it.
+			// The exception is for @llvm.dbg.value instructions, which are
+			// used to indicate when some source code variable has been
+			// updated.
+			// If we don't exclude these, we end up with line numbers from
+			// variables way before the start of the region.
+            if (isa<DbgValueInst>(inst)) continue;
+			else if (MDNode *N = inst.getMetadata("dbg")) {
+				DILocation loc(N);
 				unsigned line_no = loc.getLineNumber();
 
                 // Only update if within bounds of our function
