@@ -36,19 +36,6 @@ static void getCustomOutputFilename(KremlinConfig &config, std::string& filename
 }
 #endif
 
-static void setNonNegativeOption(std::function<void(uint32_t)> setter, 
-									std::string name) {
-	try {
-		int val = std::stoi(optarg);
-		if (val < 0) throw std::domain_error("must be postive");
-		setter(val);
-	}
-	catch (std::exception& e) {
-		std::cerr << "kremlin: WARNING: invalid " << name << ". "
-			<< "(Reason: " << e.what() << "). Using default value.\n";
-	}
-}
-
 void parseKremlinOptions(KremlinConfig &config, 
 							int argc, char* argv[], 
 							std::vector<char*>& native_args) {
@@ -61,6 +48,25 @@ void parseKremlinOptions(KremlinConfig &config,
 #ifdef KREMLIN_DEBUG
 	int enable_idbg;
 #endif
+
+	/**
+	 * Function to set an option to a non-negative value using a given setter.
+	 *
+	 * @param setter KremlinConfig setter method for the option
+	 * @param name Text description of option
+	 */
+	auto setNonNegOptL = [&config](std::function<void(KremlinConfig&, uint32_t)> setter, 
+										std::string name) {
+		try {
+			int val = std::stoi(optarg);
+			if (val < 0) throw std::domain_error("must be postive");
+			setter(config, val);
+		}
+		catch (std::exception& e) {
+			std::cerr << "kremlin: WARNING: invalid " << name << ". "
+				<< "(Reason: " << e.what() << "). Using default value.\n";
+		}
+	};
 
 	while (true)
 	{
@@ -105,33 +111,28 @@ void parseKremlinOptions(KremlinConfig &config,
 				break;
 
 			case 'd':
-				setNonNegativeOption(std::bind(&KremlinConfig::setShadowMemCacheSizeInMB,
-												&config, std::placeholders::_1), 
-										"shadow memory cache size");
+				setNonNegOptL(&KremlinConfig::setShadowMemCacheSizeInMB,
+								"shadow memory cache size");
 				break;
 
 			case 'e':
-				setNonNegativeOption(std::bind(&KremlinConfig::setShadowMemGarbageCollectionPeriod, 
-												&config, std::placeholders::_1),
-										"garbage collection period");
+				setNonNegOptL(&KremlinConfig::setShadowMemGarbageCollectionPeriod, 
+								"garbage collection period");
 				break;
 
 			case 'f':
-				setNonNegativeOption(std::bind(&KremlinConfig::setNumCompressionBufferEntries, 
-												&config, std::placeholders::_1),
-										"number of compression buffer entries");
+				setNonNegOptL(&KremlinConfig::setNumCompressionBufferEntries, 
+								"number of compression buffer entries");
 				break;
 
 			case 'g':
-				setNonNegativeOption(std::bind(&KremlinConfig::setMinProfiledLevel, 
-												&config, std::placeholders::_1),
-										"MIN profile level");
+				setNonNegOptL(&KremlinConfig::setMinProfiledLevel, 
+								"MIN profile level");
 				break;
 
 			case 'h':
-				setNonNegativeOption(std::bind(&KremlinConfig::setMaxProfiledLevel, 
-												&config, std::placeholders::_1),
-										"MAX profile level");
+				setNonNegOptL(&KremlinConfig::setMaxProfiledLevel, 
+								"MAX profile level");
 				break;
 
 			case '?':
