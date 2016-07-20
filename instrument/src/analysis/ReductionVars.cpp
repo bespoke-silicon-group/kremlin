@@ -70,66 +70,66 @@ bool ReductionVars::isReductionOpType(Instruction* inst)
  */
 std::vector<Instruction*> ReductionVars::getNonPhiUsesInLoop(LoopInfo& li, Loop* loop, Value* val)
 {
-    std::vector<Instruction*> uses;
+	std::vector<Instruction*> uses;
 
-    for(Value::use_iterator ui = val->use_begin(), ue = val->use_end(); ui != ue; ++ui) {
-        if(isa<Instruction>(*ui)) {
-            Instruction* inst = cast<Instruction>(*ui);
+	for(Value::use_iterator ui = val->use_begin(), ue = val->use_end(); ui != ue; ++ui) {
+		Use &U = *ui;
 
-            if(!isa<PHINode>(inst) && loop == li.getLoopFor(inst->getParent())) {
-                uses.push_back(inst);
-            }
-        }
-    }
-    return uses;
+		Instruction *inst = dyn_cast<Instruction>(U.getUser());
+		if(inst && !isa<PHINode>(inst) && loop == li.getLoopFor(inst->getParent())) {
+			uses.push_back(inst);
+		}
+	}
+	return uses;
 }
 
 /**
  * @param li The loop info.
  * @param loop The loop associated with li.
  * @param val The value to check for reduction.
- * @return The instruction that does the reduction operation or NULL if val
+ * @return The instruction that does the reduction operation or null if val
  * is not a reduction variable.
  */
 Instruction* ReductionVars::getReductionVarOp(LoopInfo& li, Loop* loop, Value *val)
 {
-    std::vector<Instruction*> uses_in_loop = getNonPhiUsesInLoop(li,loop,val);
+	std::vector<Instruction*> uses_in_loop = getNonPhiUsesInLoop(li,loop,val);
 
-    bool has_reduction_var_use_pattern =  uses_in_loop.size() == 2
-     && isa<LoadInst>(uses_in_loop[1])
-     && isa<StoreInst>(uses_in_loop[0])
-     && uses_in_loop[1]->hasOneUse();
+	bool has_reduction_var_use_pattern = uses_in_loop.size() == 2
+		&& isa<LoadInst>(uses_in_loop[1])
+		&& isa<StoreInst>(uses_in_loop[0])
+		&& uses_in_loop[1]->hasOneUse();
 
 	if (has_reduction_var_use_pattern) {
-        Instruction* load_user = cast<Instruction>(*uses_in_loop[1]->use_begin());
-        //LOG_DEBUG() << "\tuser of load: " << PRINT_VALUE(*load_user);
+		Use &load_use = *uses_in_loop[1]->use_begin();
 
-        if( load_user->hasOneUse()
-          && uses_in_loop[0] == *load_user->use_begin()
-          && isReductionOpType(load_user)
-          ) {
-            //LOG_DEBUG() << "\t\thot diggity dawg, that is it!\n";
-            return load_user;
-        }
-    }
+		Instruction* load_user = cast<Instruction>(load_use.getUser());
+
+		if( load_user->hasOneUse()
+				&& uses_in_loop[0] == (*load_user->use_begin()).getUser()
+				&& isReductionOpType(load_user)
+		  ) {
+			//LOG_DEBUG() << "\t\thot diggity dawg, that is it!\n";
+			return load_user;
+		}
+	}
 
 
-    return NULL;
+	return nullptr;
 }
 
 /**
  * @param li The loop info.
  * @param loop The loop associated with li.
  * @param val The value to check for reduction.
- * @return The instruction that does the reduction operation or NULL if val
- * is not a reduction variable.
+ * @return The instruction that does the reduction operation or null if val
+ *   is not a reduction variable.
  */
 Instruction* ReductionVars::getArrayReductionVarOp(LoopInfo& li, Loop* loop, Value *val)
 {
     std::vector<Instruction*> uses_in_loop = getNonPhiUsesInLoop(li,loop,val);
 
     // should have two uses: load then store
-    if(uses_in_loop.size() != 2) return NULL;
+    if(uses_in_loop.size() != 2) return nullptr;
 
 	// By construction, we know that the two users are GEP insts Note: order
 	// is reversed when doing getNonPhiUsesInLoop, so user0 is actually entry
@@ -137,23 +137,22 @@ Instruction* ReductionVars::getArrayReductionVarOp(LoopInfo& li, Loop* loop, Val
     GetElementPtrInst* user0_gep = dyn_cast<GetElementPtrInst>(uses_in_loop[1]);
     GetElementPtrInst* user1_gep = dyn_cast<GetElementPtrInst>(uses_in_loop[0]);
 
-    if(!user0_gep->hasOneUse() || !user1_gep->hasOneUse()) return NULL;
+    if(!user0_gep->hasOneUse() || !user1_gep->hasOneUse()) return nullptr;
 
     Instruction* should_be_load = cast<Instruction>(*user0_gep->use_begin());
 
-    if(!isa<LoadInst>(should_be_load)) { return NULL; }
-    else if(!isa<StoreInst>(*user1_gep->use_begin())) { return NULL; }
+    if(!isa<LoadInst>(should_be_load)) { return nullptr; }
+    else if(!isa<StoreInst>(*user1_gep->use_begin())) { return nullptr; }
 
     Instruction* load_user = cast<Instruction>(*should_be_load->use_begin());
 
-    if( load_user->hasOneUse()
-      // TODO: make sure load_user is stored?
-      && isReductionOpType(load_user)
-      ) {
+	if( load_user->hasOneUse()
+			// TODO: make sure load_user is stored?
+			&& isReductionOpType(load_user)) {
         return load_user;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 /**
@@ -182,7 +181,7 @@ void ReductionVars::getArrayReductionVars(LoopInfo& li, Loop* loop, std::set<Ins
         }
 
         for(std::map<Value*,std::vector<GetElementPtrInst*> >::iterator gp_it = ptr_val_to_geps.begin(), gp_end = ptr_val_to_geps.end(); gp_it != gp_end; ++gp_it) {
-            Instruction* red_var_op = NULL;
+            Instruction* red_var_op = nullptr;
 
 			std::vector<GetElementPtrInst*> gep_vector = (*gp_it).second;
 
