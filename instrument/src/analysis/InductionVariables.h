@@ -17,17 +17,17 @@ class InductionVariables
 
     private:
     typedef std::set<llvm::PHINode*> Variables;
-    typedef std::set<llvm::Instruction*> Increments;
+    typedef std::set<llvm::Instruction*> Updates;
 
-    // Gets the induction var increment.
-    llvm::Instruction* getCanonicalInductionVariableIncrement(llvm::PHINode* ind_var, llvm::Loop* loop) const;
+    // Gets the induction var update (should be either add or sub instruction)
+    llvm::Instruction* getInductionVariableUpdate(llvm::PHINode* ind_var, llvm::Loop* loop) const;
 
-    // adds all the canon ind. var increments for a loop (including its
-	// subloops) to ind_var_increment_ops set
-    void gatherInductionVarIncrements(llvm::Loop* loop, Variables& ind_vars, Increments& ind_var_increment_ops);
+	// Adds all the ind. var updates for a loop (including its subloops) to
+	// ind_var_update_ops set
+    void gatherInductionVarUpdates(llvm::Loop* loop, Variables& ind_vars, Updates& ind_var_increment_ops);
 
-    Variables _inductionVars;
-    Increments _inductionVarIncrementOps;
+    Variables induction_vars;
+    Updates ind_var_update_ops;
 
 	PassLog& log;
 };
