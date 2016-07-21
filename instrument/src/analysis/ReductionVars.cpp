@@ -260,7 +260,14 @@ void ReductionVars::getReductionVars(LoopInfo& li, Loop* loop)
 	// induction variables) to see if they are PHIs for reduction vars.
 	// We consider it to be a reduction var if it has a single use inside this
 	// loop and that use is a op that is commutative
-    for(BasicBlock::iterator phi_it = header->begin(), phi_end = header->getFirstNonPHI(); phi_it != phi_end; ++phi_it) {
+    for(BasicBlock::iterator phi_it = header->begin(), 
+			phi_end = header->getFirstNonPHI(); 
+			phi_it != phi_end; ++phi_it) {
+
+		// FIXME: Search for all induction vars, not just canonical ones.
+		// 	TODO: make static function in InductionVars.cpp a static member
+		// 	function, since it does what we want here.
+
         // ignore induction variables
         if(cast<Instruction>(phi_it) == civ) { continue; }
 
@@ -268,16 +275,26 @@ void ReductionVars::getReductionVars(LoopInfo& li, Loop* loop)
         std::vector<Instruction*> uses_in_loop = getNonPhiUsesInLoop(li,loop,phi_it);
 
 		// check for the correct "reduction var signature"
-        if(uses_in_loop.size() == 1) {
-            Instruction* user = uses_in_loop[0];
+        if(uses_in_loop.size() > 0) {
+			bool is_red_var = true;
+			for (unsigned i = 0, prev_op = uses_in_loop[0]->getOpcode();
+				   	i < uses_in_loop.size() && is_red_var;
+				   	++i) {
+				unsigned curr_op = uses_in_loop[i]->getOpcode();
+				if (!isReductionOpType(uses_in_loop[i])
+						|| curr_op != prev_op) {
+					is_red_var = false;
+				} 
+				prev_op = curr_op;
+			}
 
-			if(isReductionOpType(user)) {
-                LOG_INFO() << "identified reduction variable operator (phi, function: "
-				 << user->getParent()->getParent()->getName()
-				 << "): " << *user << "\n"
-                 << "\treduction var: " << *phi_it << "\n";
-                red_var_ops.insert(user);
-            }
+			if (is_red_var) {
+                LOG_INFO() << "identified reduction var:" << *phi_it << "\n";
+				for (unsigned i = 0; i < uses_in_loop.size(); ++i) {
+					LOG_INFO() << "\tred. var user: " << *uses_in_loop[i] << "\n";
+                	red_var_ops.insert(uses_in_loop[i]);
+				}
+			}
         }
     }
 }
