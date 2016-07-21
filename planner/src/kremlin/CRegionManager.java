@@ -259,6 +259,8 @@ public class CRegionManager {
 	}
 	
 	public double getTimeReduction(CRegion region) {
-		return getCoverage(region) * (1.0 - 1.0 / region.getSelfP());
+		double tr = getCoverage(region) * (1.0 - 1.0 / region.getSelfP());
+		if (Double.isNaN(tr)) return 0.0;
+		else return tr;
 	}
 }

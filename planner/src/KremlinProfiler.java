@@ -40,7 +40,7 @@ public class KremlinProfiler {
 				double diff = (manager.getTimeReduction(c1) - manager.getTimeReduction(c2));
 				if (diff == 0.0)
 					return 0;
-				return (diff > 0) ? -1 : 1;
+				return (diff > 0.0) ? -1 : 1;
 			}
 			
 		}

@@ -32,7 +32,10 @@ public class CRegionStat {
 	public long getTotalWork() { return this.work; }
 	public long getCriticalPathLength() { return this.tpWork; }
 	public long getAvgWork() { return getTotalWork() / this.nInstance; }
-	public double getSelfP() { return this.work / (double)this.spWork; }
+	public double getSelfP() { 
+		if (this.work == 0 && this.spWork == 0) return 0.0;
+		else return this.work / (double)this.spWork;
+	}
 	public double getMinSelfP() { return this.minSP;		}
 	public double getMaxSelfP() { return this.maxSP;		}
 	public long getMinIter() { return minIter; }
