@@ -13,15 +13,15 @@ public:
 	~ShadowMemoryCache();
 
 	void  set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type);
-	Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type);
+	Time* get(Addr addr, Index size, const Version * const vArray, TimeTable::TableType type);
 
 private:
 	TagVectorCache *tag_vector_cache;
 
-	void evict(int index, Version* vArray);
-	void flush(Version* vArray);
-	void resize(int newSize, Version* vArray);
-	void checkResize(int size, Version* vArray);
+	void evict(int index, const Version * const vArray);
+	void flush(const Version * const vArray);
+	void resize(int newSize, const Version * const vArray);
+	void checkResize(int size, const Version * const vArray);
 };
 
 #endif

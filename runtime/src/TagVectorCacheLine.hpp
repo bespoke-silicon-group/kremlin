@@ -29,7 +29,7 @@ public:
 	}
 
 	bool isHit(Addr addr);
-	void validateTag(Time* destAddr, Version* vArray, Index size);
+	void validateTag(Time* destAddr, const Version * const vArray, Index size);
 };
 
 #endif

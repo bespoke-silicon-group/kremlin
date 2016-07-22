@@ -20,7 +20,7 @@ public:
 	}
 
 	void  set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type);
-	Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type);
+	Time* get(Addr addr, Index size, const Version * const vArray, TimeTable::TableType type);
 };
 
 #endif

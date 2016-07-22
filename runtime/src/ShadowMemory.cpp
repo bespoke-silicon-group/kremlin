@@ -77,7 +77,7 @@ public:
 	
 };
 
-void ShadowMemory::runGarbageCollector(Version* curr_versions, int size) {
+void ShadowMemory::runGarbageCollector(const Version * const curr_versions, int size) {
 	eventGC();
 	for (unsigned i = 0; i < SparseTable::NUM_ENTRIES; ++i) {
 		MemorySegment* table = sparse_table->entry[i].segTable;	
@@ -93,7 +93,7 @@ void ShadowMemory::runGarbageCollector(Version* curr_versions, int size) {
 	}
 }
 
-LevelTable* ShadowMemory::getLevelTable(Addr addr, Version *curr_versions) {
+LevelTable* ShadowMemory::getLevelTable(Addr addr, const Version * const curr_versions) {
 	assert(curr_versions != nullptr);
 
 	SparseTableElement* sEntry = sparse_table->getElement(addr);
@@ -158,7 +158,9 @@ MemorySegment::~MemorySegment() {
 	}
 }
 
-void ShadowMemory::evict(Time *new_timestamps, Addr addr, Index size, Version *curr_versions, TimeTable::TableType type) {
+void ShadowMemory::evict(Time *new_timestamps, Addr addr, Index size, 
+							const Version * const curr_versions, 
+							TimeTable::TableType type) {
 	assert(new_timestamps != nullptr);
 	assert(curr_versions != nullptr);
 
@@ -181,7 +183,7 @@ void ShadowMemory::evict(Time *new_timestamps, Addr addr, Index size, Version *c
 	check(addr, new_timestamps, size, 3);
 }
 
-void ShadowMemory::fetch(Addr addr, Index size, Version *curr_versions, 
+void ShadowMemory::fetch(Addr addr, Index size, const Version * const curr_versions, 
 							Time *timestamps, TimeTable::TableType type) {
 	assert(curr_versions != nullptr);
 	assert(timestamps != nullptr);
@@ -198,7 +200,7 @@ void ShadowMemory::fetch(Addr addr, Index size, Version *curr_versions,
 		compression_buffer->touch(lTable);
 }
 
-Time* ShadowMemory::get(Addr addr, Index size, Version *curr_versions, 
+Time* ShadowMemory::get(Addr addr, Index size, const Version * const curr_versions, 
 						uint32_t width) {
 	assert(curr_versions != nullptr);
 
@@ -258,7 +260,5 @@ ShadowMemory::ShadowMemory(unsigned gc_period, bool enable_compress)
 }
 
 ShadowMemory::~ShadowMemory() {
-	delete compression_buffer;
-	compression_buffer = nullptr;
 	MShadowStatPrint();
 }

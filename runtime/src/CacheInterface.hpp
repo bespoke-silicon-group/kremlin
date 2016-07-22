@@ -14,7 +14,7 @@ public:
 	virtual ~CacheInterface() {}
 
 	virtual void set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) = 0;
-	virtual Time* get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) = 0;
+	virtual Time* get(Addr addr, Index size, const Version * const vArray, TimeTable::TableType type) = 0;
 };
 
 #endif // _CACHEINTERFACE_HPP_

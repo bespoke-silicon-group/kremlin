@@ -88,7 +88,7 @@ void LevelTable::setTimeForAddrAtLevel(Index level, Addr addr,
 }
 
 
-unsigned LevelTable::findLowestInvalidIndex(Version *curr_versions) {
+unsigned LevelTable::findLowestInvalidIndex(const Version * const curr_versions) {
 	assert(curr_versions != nullptr);
 
 	unsigned lowest_valid = 0;
@@ -113,7 +113,7 @@ void LevelTable::cleanTimeTablesFromLevel(Index start_level) {
 	}
 }
 
-void LevelTable::collectGarbageWithinBounds(Version *curr_versions, 
+void LevelTable::collectGarbageWithinBounds(const Version * const curr_versions, 
 											unsigned end_index) {
 	assert(curr_versions != nullptr);
 	assert(end_index < LevelTable::MAX_LEVEL);
@@ -135,7 +135,7 @@ void LevelTable::collectGarbageWithinBounds(Version *curr_versions,
 	this->cleanTimeTablesFromLevel(end_index);
 }
 
-void LevelTable::collectGarbageUnbounded(Version *curr_versions) {
+void LevelTable::collectGarbageUnbounded(const Version * const curr_versions) {
 	assert(curr_versions != nullptr);
 
 	int lii = this->findLowestInvalidIndex(curr_versions);

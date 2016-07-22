@@ -5,7 +5,7 @@
 
 static Time tempArray[1000];
 
-Time* NullCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
+Time* NullCache::get(Addr addr, Index size, const Version * const vArray, TimeTable::TableType type) {
 	LevelTable* lTable = mem_shadow->getLevelTable(addr, vArray);	
 	Index i;
 	for (i=0; i<size; i++) {

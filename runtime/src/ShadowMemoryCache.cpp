@@ -40,7 +40,7 @@ ShadowMemoryCache::~ShadowMemoryCache() {
 }
 
 // XXX: not sure this should be a global function
-int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
+int getStartInvalidLevel(Version lastVer, const Version * const vArray, Index size) {
 	int firstInvalid = 0;
 	if (size == 0)
 		return 0;
@@ -66,7 +66,7 @@ int getStartInvalidLevel(Version lastVer, Version* vArray, Index size) {
  * TagVectorCache Evict / Flush / Resize 
  */
 
-void ShadowMemoryCache::evict(int index, Version* vArray) {
+void ShadowMemoryCache::evict(int index, const Version * const vArray) {
 	TagVectorCacheLine* line = tag_vector_cache->getTag(index);
 	Addr addr = line->tag;
 	if (addr == 0x0)
@@ -87,7 +87,7 @@ void ShadowMemoryCache::evict(int index, Version* vArray) {
 	}
 }
 
-void ShadowMemoryCache::flush(Version* vArray) {
+void ShadowMemoryCache::flush(const Version * const vArray) {
 	int i;
 	int size = tag_vector_cache->getLineCount();
 	for (i=0; i<size; i++) {
@@ -96,7 +96,7 @@ void ShadowMemoryCache::flush(Version* vArray) {
 		
 }
 
-void ShadowMemoryCache::resize(int newSize, Version* vArray) {
+void ShadowMemoryCache::resize(int newSize, const Version * const vArray) {
 	flush(vArray);
 	int size = tag_vector_cache->getSize();
 	int oldDepth = tag_vector_cache->getDepth();
@@ -107,7 +107,7 @@ void ShadowMemoryCache::resize(int newSize, Version* vArray) {
 	tag_vector_cache->configure(size, newDepth);
 }
 
-void ShadowMemoryCache::checkResize(int size, Version* vArray) {
+void ShadowMemoryCache::checkResize(int size, const Version * const vArray) {
 	int oldDepth = tag_vector_cache->getDepth();
 	if (oldDepth < size) {
 		resize(oldDepth + 10, vArray);
@@ -127,7 +127,7 @@ static void check(Addr addr, Time* src, int size, int site) {
 #endif
 }
 
-Time* ShadowMemoryCache::get(Addr addr, Index size, Version* vArray, TimeTable::TableType type) {
+Time* ShadowMemoryCache::get(Addr addr, Index size, const Version * const vArray, TimeTable::TableType type) {
 	checkResize(size, vArray);
 	TagVectorCacheLine* entry = nullptr;
 	Time* destAddr = nullptr;

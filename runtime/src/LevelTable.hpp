@@ -117,7 +117,7 @@ public:
 	 * @param curr_versions Array of versions with which to compare.
 	 * @pre curr_versions is non-nullptr.
 	 */
-	unsigned findLowestInvalidIndex(Version *curr_versions);
+	unsigned findLowestInvalidIndex(const Version * const curr_versions);
 
 	/*!
 	 * @brief Removed all TimeTables from the given depth down to MAX_LEVEL.
@@ -140,7 +140,8 @@ public:
 	 * @pre curr_versions is non-nullptr.
 	 * @pre end_index < MAX_LEVEL
 	 */
-	void collectGarbageWithinBounds(Version *curr_versions, unsigned end_index);
+	void collectGarbageWithinBounds(const Version * const curr_versions, 
+									unsigned end_index);
 
 	/*!
 	 * @brief Removes all "garbage" TimeTables in this LevelTable.
@@ -152,7 +153,7 @@ public:
 	 * @param curr_versions The array of current version numbers.
 	 * @pre curr_versions is non-nullptr.
 	 */
-	void collectGarbageUnbounded(Version *curr_versions);
+	void collectGarbageUnbounded(const Version * const curr_versions);
 
 	/*! @brief Compress the level table.
 	 *
