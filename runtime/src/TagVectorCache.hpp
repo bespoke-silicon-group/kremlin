@@ -30,8 +30,12 @@ public:
 	int getLineIndex(Addr addr);
 
 	void configure(int size_in_mb, int depth);
-	void lookupRead(Addr addr, TimeTable::TableType type, int* pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray);
-	void lookupWrite(Addr addr, TimeTable::TableType type, int *pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray);
+	void lookupRead(Addr addr, TimeTable::TableType type, 
+					int& pIndex, TagVectorCacheLine** pLine, 
+					int& pOffset, Time** pTArray);
+	void lookupWrite(Addr addr, TimeTable::TableType type, 
+					int& pIndex, TagVectorCacheLine** pLine, 
+					int& pOffset, Time** pTArray);
 };
 
 #endif

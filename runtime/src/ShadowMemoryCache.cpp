@@ -133,7 +133,7 @@ Time* ShadowMemoryCache::get(Addr addr, Index size, const Version * const vArray
 	Time* destAddr = nullptr;
 	int offset = 0;
 	int index = 0;
-	tag_vector_cache->lookupRead(addr, type, &index, &entry, &offset, &destAddr);
+	tag_vector_cache->lookupRead(addr, type, index, &entry, offset, &destAddr);
 	check(addr, destAddr, entry->lastSize[offset], 0);
 
 	if (entry->isHit(addr)) {
@@ -178,7 +178,7 @@ void ShadowMemoryCache::set(Addr addr, Index size, Version* vArray, Time* tArray
 	int index = 0;
 	int offset = 0;
 
-	tag_vector_cache->lookupWrite(addr, type, &index, &entry, &offset, &destAddr);
+	tag_vector_cache->lookupWrite(addr, type, index, &entry, offset, &destAddr);
 #if 0
 #ifndef NDEBUG
 	if (hasVersionError(vArray, size)) {

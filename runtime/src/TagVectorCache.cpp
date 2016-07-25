@@ -61,7 +61,9 @@ int TagVectorCache::getLineIndex(Addr addr) {
 
 
 
-void TagVectorCache::lookupRead(Addr addr, TimeTable::TableType type, int* pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray) {
+void TagVectorCache::lookupRead(Addr addr, TimeTable::TableType type, 
+								int& pIndex, TagVectorCacheLine** pLine, 
+								int& pOffset, Time** pTArray) {
 	int index = this->getLineIndex(addr);
 	int offset = 0; 
 	TagVectorCacheLine* line = this->getTag(index);
@@ -78,13 +80,15 @@ void TagVectorCache::lookupRead(Addr addr, TimeTable::TableType type, int* pInde
 
 	assert(index < this->getLineCount());
 
-	*pIndex = index;
+	pIndex = index;
 	*pTArray = this->getData(index, offset);
-	*pOffset = offset;
+	pOffset = offset;
 	*pLine = line;
 }
 
-void TagVectorCache::lookupWrite(Addr addr, TimeTable::TableType type, int *pIndex, TagVectorCacheLine** pLine, int* pOffset, Time** pTArray) {
+void TagVectorCache::lookupWrite(Addr addr, TimeTable::TableType type, 
+									int& pIndex, TagVectorCacheLine** pLine, 
+									int& pOffset, Time** pTArray) {
 	int index = this->getLineIndex(addr);
 	int offset = ((uint64_t)addr >> 2) & 0x1;
 	assert(index < this->getLineCount());
@@ -103,10 +107,10 @@ void TagVectorCache::lookupWrite(Addr addr, TimeTable::TableType type, int *pInd
 
 
 	//fprintf(stderr, "index = %d, tableSize = %d\n", tTableIndex, this->valueTable->getRow());
-	*pIndex = index;
+	pIndex = index;
 	*pTArray = this->getData(index, offset);
 	*pLine = line;
-	*pOffset = offset;
+	pOffset = offset;
 	return;
 }
 
