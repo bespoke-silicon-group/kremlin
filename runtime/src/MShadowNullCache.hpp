@@ -11,10 +11,8 @@
 class NullCache : public CacheInterface {
 public:
 	NullCache() = delete;
-	NullCache(int size, bool compress, ShadowMemory *mshadow) {
-		this->use_compression = compress; 
-		this->mem_shadow = mshadow;
-	}
+	NullCache(int size, bool compress, ShadowMemory *mshadow) 
+		: CacheInterface(compress, mshadow) {}
 	~NullCache() {
 		this->mem_shadow = nullptr;
 	}

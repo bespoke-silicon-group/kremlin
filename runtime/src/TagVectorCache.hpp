@@ -1,6 +1,8 @@
 #ifndef TAG_VECTOR_CACHE_H
 #define TAG_VECTOR_CACHE_H
 
+#include <memory>
+#include <functional>
 #include "ktypes.h"
 #include "TimeTable.hpp" // for TimeTable::TableType... (TODO: avoid this include)
 
@@ -14,10 +16,12 @@ private:
 	int  line_count;
 	int  line_shift;
 	int  depth;
+	std::unique_ptr<TagVectorCacheLine[], 
+		std::function<void(TagVectorCacheLine*)>> tag_table;
+	std::unique_ptr<Table> value_table;
 
 public:
-	TagVectorCacheLine* tagTable;
-	Table* valueTable;
+	TagVectorCache(int size, int dep);
 
 	int getSize() { return size_in_mb; }
 	int getLineCount() { return line_count; }
@@ -29,7 +33,6 @@ public:
 	Time* getData(int index, int offset);
 	int getLineIndex(Addr addr);
 
-	void configure(int size_in_mb, int depth);
 	void lookupRead(Addr addr, TimeTable::TableType type, 
 					int& pIndex, TagVectorCacheLine** pLine, 
 					int& pOffset, Time** pTArray);

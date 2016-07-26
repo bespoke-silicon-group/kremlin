@@ -246,6 +246,9 @@ ShadowMemory::ShadowMemory(unsigned gc_period, bool enable_compress)
 	, compression_enabled(enable_compress)
 	, compression_buffer(new CBuffer(kremlin_config.getNumCompressionBufferEntries())) {
 
+	unsigned size = TimeTable::GetNumEntries(TimeTable::TableType::TYPE_64BIT);
+	MemPoolInit(1024, size * sizeof(Time));
+
 	int cacheSizeMB = kremlin_config.getShadowMemCacheSizeInMB();
 	MSG(1,"MShadow Init with cache %d MB, TimeTableSize = %ld\n",
 		cacheSizeMB, sizeof(TimeTable));
@@ -254,9 +257,6 @@ ShadowMemory::ShadowMemory(unsigned gc_period, bool enable_compress)
 		cache = std::unique_ptr<CacheInterface>(new ShadowMemoryCache(cacheSizeMB, kremlin_config.compressShadowMem(), this));
 	else
 		cache = std::unique_ptr<CacheInterface>(new NullCache(cacheSizeMB, kremlin_config.compressShadowMem(), this));
-
-	unsigned size = TimeTable::GetNumEntries(TimeTable::TableType::TYPE_64BIT);
-	MemPoolInit(1024, size * sizeof(Time));
 }
 
 ShadowMemory::~ShadowMemory() {

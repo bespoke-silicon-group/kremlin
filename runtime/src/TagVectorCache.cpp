@@ -1,3 +1,4 @@
+#include <iostream>
 #include <cassert>
 #include "KremlinConfig.hpp"
 #include "Table.hpp"
@@ -17,33 +18,41 @@ static inline int getFirstOnePosition(int input) {
 	return 0;
 }
 
+TagVectorCache::TagVectorCache(int size, int dep) : size_in_mb(size), depth(dep)
+{
+	const int line_size = 8; // why 8? (-sat)
+	int lc = size * 1024 * 1024 / line_size;
+	this->line_count = lc;
+	this->line_shift = getFirstOnePosition(lc);
+
+	MSG(0, "TagVectorCache: size: %d MB, lineNum %d, lineShift %d, depth %d\n", 
+		new_size_in_mb, lc, this->line_shift, this->depth);
+
+	auto tt_del = [this](TagVectorCacheLine *p) {
+		MemPoolFreeSmall(p, sizeof(TagVectorCacheLine) * this->getLineCount());
+	};
+
+	// 64-bit granularity
+	tag_table = std::unique_ptr<TagVectorCacheLine[], std::function<void(TagVectorCacheLine*)>>
+		((TagVectorCacheLine*)MemPoolCallocSmall(lc, sizeof(TagVectorCacheLine)), tt_del);
+
+	value_table = std::unique_ptr<Table>(new Table(lc * 2, this->depth)); // 32bit granularity
+
+	size_t lcs = sizeof(TagVectorCacheLine)*lc;
+
+	MSG(TV_CACHE_DEBUG_LVL, "MShadowCacheInit: value Table created row %d col %d\n", 
+		lc, kremlin_config.getNumProfiledLevels());
+}
+
 TagVectorCacheLine* TagVectorCache::getTag(int index) {
 	assert(index < getLineCount());
-	return &tagTable[index];
+	return &tag_table[index];
 }
 
 Time* TagVectorCache::getData(int index, int offset) {
-	return valueTable->getElementAddr(index*2 + offset, 0);
+	return value_table->getElementAddr(index*2 + offset, 0);
 }
 
-void TagVectorCache::configure(int new_size_in_mb, int new_depth) {
-	// TODO: make sure we haven't configured before
-	const int new_line_size = 8;
-	int new_line_count = new_size_in_mb * 1024 * 1024 / new_line_size;
-	this->size_in_mb = new_size_in_mb;
-	this->line_count = new_line_count;
-	this->line_shift = getFirstOnePosition(new_line_count);
-	this->depth = new_depth;
-
-	MSG(0, "TagVectorCache: size: %d MB, lineNum %d, lineShift %d, depth %d\n", 
-		new_size_in_mb, new_line_count, this->line_shift, this->depth);
-
-	tagTable = (TagVectorCacheLine*)MemPoolCallocSmall(new_line_count, sizeof(TagVectorCacheLine)); // 64bit granularity
-	valueTable = new Table(new_line_count * 2, this->depth);  // 32bit granularity
-
-	MSG(TV_CACHE_DEBUG_LVL, "MShadowCacheInit: value Table created row %d col %d\n", 
-		new_line_count, kremlin_config.getNumProfiledLevels());
-}
 
 int TagVectorCache::getLineIndex(Addr addr) {
 #if 0
@@ -106,7 +115,7 @@ void TagVectorCache::lookupWrite(Addr addr, TimeTable::TableType type,
 	}
 
 
-	//fprintf(stderr, "index = %d, tableSize = %d\n", tTableIndex, this->valueTable->getRow());
+	//fprintf(stderr, "index = %d, tableSize = %d\n", tTableIndex, this->value_table->getRow());
 	pIndex = index;
 	*pTArray = this->getData(index, offset);
 	*pLine = line;

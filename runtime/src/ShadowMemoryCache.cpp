@@ -17,26 +17,16 @@
 //#define TVCacheDebug	0
 static const int SKADU_CACHE_DEBUG_LVL = 0;
 
-ShadowMemoryCache::ShadowMemoryCache(int size_in_mb, bool compress, ShadowMemory *mshadow) {
-	this->use_compression = compress; 
-	this->mem_shadow = mshadow;
-
-	this->tag_vector_cache = new TagVectorCache();
+ShadowMemoryCache::ShadowMemoryCache(int size_in_mb, bool compress, ShadowMemory *mshadow) :
+	CacheInterface(compress, mshadow)
+{
 	if (size_in_mb == 0) {
 		MSG(0, "MShadowCache: Bypassing Cache\n"); 
+		tag_vector_cache = nullptr;
 	} else {
-		this->tag_vector_cache->configure(size_in_mb, kremlin_config.getNumProfiledLevels());
+		tag_vector_cache = std::unique_ptr<TagVectorCache>
+			(new TagVectorCache(size_in_mb, kremlin_config.getNumProfiledLevels()));
 	}
-}
-
-ShadowMemoryCache::~ShadowMemoryCache() {
-	if (kremlin_config.getShadowMemCacheSizeInMB() > 0) {
-		// XXX: not sure of logic behind the next two lines (-sat)
-		MemPoolFreeSmall(tag_vector_cache->tagTable, sizeof(TagVectorCacheLine) * tag_vector_cache->getLineCount());
-		delete tag_vector_cache->valueTable;
-	}
-	delete tag_vector_cache;
-	tag_vector_cache = nullptr;
 }
 
 // XXX: not sure this should be a global function
@@ -104,10 +94,10 @@ void ShadowMemoryCache::resize(int newSize, const Version * const vArray) {
 
 	MSG(SKADU_CACHE_DEBUG_LVL, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
 	MSG(SKADU_CACHE_DEBUG_LVL, "TVCacheResize from %d to %d\n", oldDepth, newDepth);
-	tag_vector_cache->configure(size, newDepth);
+	tag_vector_cache.reset(new TagVectorCache(size, newDepth));
 }
 
-void ShadowMemoryCache::checkResize(int size, const Version * const vArray) {
+void ShadowMemoryCache::verifyVersionCapacity(int size, const Version * const vArray) {
 	int oldDepth = tag_vector_cache->getDepth();
 	if (oldDepth < size) {
 		resize(oldDepth + 10, vArray);
@@ -128,7 +118,7 @@ static void check(Addr addr, Time* src, int size, int site) {
 }
 
 Time* ShadowMemoryCache::get(Addr addr, Index size, const Version * const vArray, TimeTable::TableType type) {
-	checkResize(size, vArray);
+	verifyVersionCapacity(size, vArray);
 	TagVectorCacheLine* entry = nullptr;
 	Time* destAddr = nullptr;
 	int offset = 0;
@@ -172,7 +162,7 @@ Time* ShadowMemoryCache::get(Addr addr, Index size, const Version * const vArray
 }
 
 void ShadowMemoryCache::set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) {
-	checkResize(size, vArray);
+	verifyVersionCapacity(size, vArray);
 	TagVectorCacheLine* entry = nullptr;
 	Time* destAddr = nullptr;
 	int index = 0;

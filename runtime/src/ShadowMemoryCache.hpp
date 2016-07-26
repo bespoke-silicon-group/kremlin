@@ -10,18 +10,17 @@ class ShadowMemoryCache : public CacheInterface {
 public:
 	ShadowMemoryCache() = delete;
 	ShadowMemoryCache(int size_in_mb, bool compress, ShadowMemory *mshadow);
-	~ShadowMemoryCache();
 
 	void  set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type);
 	Time* get(Addr addr, Index size, const Version * const vArray, TimeTable::TableType type);
 
 private:
-	TagVectorCache *tag_vector_cache;
+	std::unique_ptr<TagVectorCache> tag_vector_cache;
 
 	void evict(int index, const Version * const vArray);
 	void flush(const Version * const vArray);
 	void resize(int newSize, const Version * const vArray);
-	void checkResize(int size, const Version * const vArray);
+	void verifyVersionCapacity(int size, const Version * const vArray);
 };
 
 #endif

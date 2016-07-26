@@ -11,6 +11,8 @@ protected:
 	ShadowMemory *mem_shadow;
 
 public:
+	CacheInterface(bool compress, ShadowMemory *shadow) : 
+		use_compression(compress), mem_shadow(shadow) {}
 	virtual ~CacheInterface() {}
 
 	virtual void set(Addr addr, Index size, Version* vArray, Time* tArray, TimeTable::TableType type) = 0;
