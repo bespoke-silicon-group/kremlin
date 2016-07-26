@@ -25,7 +25,8 @@ int main() {
 
 	int blah = 0; // NOT a reduction variable
 
-	// Both loops should be DOALL
+	// Both loops should be DOACROSS because blah is a cross-iteration
+	// dependency.
 	for (i = 0; i < 10; i++) {
 		for (j = 0; j < 10; j++) {
 			if (i > j)
