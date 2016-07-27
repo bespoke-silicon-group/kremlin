@@ -1,6 +1,7 @@
 #ifndef FUNCTION_REGION_HPP
 #define FUNCTION_REGION_HPP
 
+#include <memory>
 #include "MemMapAllocator.hpp"
 #include "Table.hpp" // for delete of table in destructor
 
@@ -11,17 +12,16 @@ private:
 	Reg return_register;
 	CID call_site_id;
 	uint32_t error_checking_code;
+	std::unique_ptr<Table> table;
 
 public:
-	Table* table; // TODO: make this private
 
 	void setReturnRegister(Reg r) { 
 		// TODO: error checking?
 		this->return_register = r; 
 	}
 
-	FunctionRegion(CID callsite_id) { 
-		this->table = nullptr;
+	FunctionRegion(CID callsite_id) : table(nullptr) { 
 		this->return_register = FunctionRegion::DUMMY_RETURN_REG;
 		this->error_checking_code = FunctionRegion::ERROR_CHECK_CODE;
 		this->call_site_id = callsite_id;
@@ -29,13 +29,13 @@ public:
 
 	~FunctionRegion() {
 		assert(this->table != nullptr);
-		delete this->table;
-		this->table = nullptr;
 	}
 
 	CID getCallSiteID() { return this->call_site_id; }
 	Reg getReturnRegister() { return this->return_register; }
-	Table* getTable() { return this->table; }
+	Table* getTable() { return this->table.get(); }
+
+	void setTable(std::unique_ptr<Table> t) { this->table = std::move(t); }
 
 	void sanityCheck() {
 		assert(error_checking_code == FunctionRegion::ERROR_CHECK_CODE);

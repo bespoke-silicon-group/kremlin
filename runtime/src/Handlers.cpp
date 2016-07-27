@@ -481,7 +481,7 @@ void KremlinProfiler::handleFunctionExit() {
 
 	FunctionRegion* funcHead = getCurrentFunction();
 	assert(funcHead != nullptr);
-	setRegisterFileTable(funcHead->table); 
+	setRegisterFileTable(funcHead->getTable()); 
 }
 
 void KremlinProfiler::handleRegionExit(SID regionId, RegionType regionType) {
@@ -1104,12 +1104,12 @@ void KremlinProfiler::handlePrepRTable(uint32_t num_virt_regs, uint32_t nested_d
     if (!enabled) return; 
 
     assert(waitingForRegisterTableSetup());
-    Table* table = new Table(tableHeight, tableWidth);
+	std::unique_ptr<Table> table = std::unique_ptr<Table>(new Table(tableHeight, tableWidth));
     FunctionRegion* funcHead = getCurrentFunction();
 	assert(funcHead != nullptr);
-    funcHead->table = table;
+    funcHead->setTable(std::move(table));
 
-    setRegisterFileTable(funcHead->table);
+    setRegisterFileTable(funcHead->getTable());
     finishRegisterTableSetup();
 }
 
@@ -1149,7 +1149,7 @@ void KremlinProfiler::handleReturn(Reg src) {
 	// current level time does not need to be copied
 	int indexSize = getCurrNumInstrumentedLevels() - 1;
 	if (indexSize > 0)
-		callee->table->copyToDest(caller->table, ret, src, 0, indexSize);
+		callee->getTable()->copyToDest(caller->getTable(), ret, src, 0, indexSize);
 	
     MSG(1, "end write return value 0x%x\n", getCurrentFunction());
 }
@@ -1168,9 +1168,9 @@ void KremlinProfiler::handleReturnConst() {
 		return;
 
 	Index index;
-    for (index = 0; index < caller->table->getCol(); index++) {
+    for (index = 0; index < caller->getTable()->getCol(); index++) {
 		Time cdt = getControlDependenceAtIndex(index);
-		caller->table->setValue(cdt, caller->getReturnRegister(), index);
+		caller->getTable()->setValue(cdt, caller->getReturnRegister(), index);
     }
 }
 
