@@ -11,6 +11,27 @@
 
 Table *KremlinProfiler::shadow_reg_file = nullptr;
 
+KremlinProfiler::KremlinProfiler(Level min, Level max) :
+	enabled(false),
+	initialized(false),
+	curr_time(0),
+	curr_level(-1),
+	min_level(min),
+	max_level(max),
+	max_active_level(0),
+	curr_num_instrumented_levels(0),
+	instrument_curr_level(false),
+	level_versions(arraySize, 0),
+	level_times(arraySize, 0),
+	waiting_for_register_table_init(false),
+	num_function_regions_entered(0),
+	num_register_tables_setup(0),
+	control_dependence_table(new Table(CDEP_ROW, CDEP_COL)),
+	cdt_read_ptr(0),
+	cdt_current_base(nullptr),
+	doall_threshold(5),
+	shadow_mem(nullptr) {}
+
 void KremlinProfiler::addFunctionToStack(CID callsite_id) {
 	FunctionRegion* func = new FunctionRegion(callsite_id);
 	callstack.push_back(func);
@@ -34,18 +55,14 @@ void KremlinProfiler::callstackPop() {
  * Control Dependence Management
  *****************************************************************/
 
+// XXX: do not sure this needs to be a separate function
 void KremlinProfiler::initControlDependences() {
 	assert(control_dependence_table == nullptr);
 	cdt_read_ptr = 0;
-	control_dependence_table = new Table(KremlinProfiler::CDEP_ROW, 
-											KremlinProfiler::CDEP_COL);
+	control_dependence_table->clear();
+	//control_dependence_table.reset(new Table(KremlinProfiler::CDEP_ROW,
+	//										 KremlinProfiler::CDEP_COL));
 	assert(control_dependence_table != nullptr);
-}
-
-void KremlinProfiler::deinitControlDependences() {
-	assert(control_dependence_table != nullptr);
-	delete control_dependence_table;
-	control_dependence_table = nullptr;
 }
 
 Time KremlinProfiler::getControlDependenceAtIndex(Index index) {
@@ -1013,7 +1030,7 @@ void KremlinProfiler::handlePushCDep(Reg cond) {
 	//assert(lTable->getCol() >= indexSize);
 	//assert(control_dependence_table->getCol() >= indexSize);
 
-	lTable->copyToDest(control_dependence_table, cdt_read_ptr, cond, 0, indexSize);
+	lTable->copyToDest(control_dependence_table.get(), cdt_read_ptr, cond, 0, indexSize);
 	cdt_current_base = control_dependence_table->getElementAddr(cdt_read_ptr, 0);
 	assert(cdt_read_ptr < control_dependence_table->getRow());
 	checkRegion();
@@ -1189,8 +1206,8 @@ void KremlinProfiler::init() {
 	initControlDependences();
 	initRegionTree();
 
-	shadow_mem = new ShadowMemory(kremlin_config.getShadowMemGarbageCollectionPeriod(),
-									kremlin_config.compressShadowMem());
+	shadow_mem.reset(new ShadowMemory(kremlin_config.getShadowMemGarbageCollectionPeriod(),
+									  kremlin_config.compressShadowMem()));
 	initProgramRegions(INIT_NUM_REGIONS);
 }
 
@@ -1221,10 +1238,7 @@ void KremlinProfiler::deinit() {
 	disable();
 	printProfiledData(kremlin_config.getProfileOutputFilename());
 	deinitRegionTree();
-	delete shadow_mem;
-	shadow_mem = nullptr;
 	deinitFunctionArgQueue();
-	deinitControlDependences();
 	deinitProgramRegions();
 	
 	DebugDeinit();

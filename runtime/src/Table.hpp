@@ -29,12 +29,18 @@ public:
 		free(this->array);
 	}
 
+
 	inline int	getRow() { return this->row; }
 	inline int	getCol() { return this->col; }
 
 	inline Time* getElementAddr(int row, int col);
 	inline Time getValue(int row, int col);
 	inline void setValue(Time time, int row, int col);
+
+	/*!
+	 * Clears contents of table by setting all values to 0.
+	 */
+	inline void clear();
 
 	/*!
 	 * Copy values of a register to another table
@@ -107,4 +113,8 @@ void Table::copyToDest(Table* dest_table, Reg dest_reg, Reg src_reg,
 	memcpy(destAddr, srcAddr, size * sizeof(Time));
 }
 
+void Table::clear() {
+	for (unsigned i = 0; i < row * col; ++i) 
+		array[i] = 0;
+}
 #endif

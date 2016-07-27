@@ -1,6 +1,7 @@
 #ifndef KREMLIN_PROFILER_HPP
 #define KREMLIN_PROFILER_HPP
 
+#include <memory>
 #include <vector>
 #include <cstdarg> /* for variable length args */
 #include <cassert>
@@ -34,10 +35,11 @@ private:
 	bool instrument_curr_level; // whether we should instrument the current level
 
 	// program region management
-	std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > program_regions;
-	Version* level_versions;
-	Time* level_times;
 	static const unsigned int arraySize = 512;
+
+	std::vector<ProgramRegion*, MPoolLib::PoolAllocator<ProgramRegion*> > program_regions;
+	std::vector<Version> level_versions;
+	std::vector<Version> level_times;
 	Version nextVersion;
 
 	// A vector used to represent the call stack.
@@ -54,7 +56,7 @@ private:
 	uint64_t num_function_regions_entered;
 	uint64_t num_register_tables_setup;;
 
-	Table* control_dependence_table;
+	std::unique_ptr<Table> control_dependence_table;
 	int cdt_read_ptr;
 	Time* cdt_current_base;
 
@@ -76,24 +78,11 @@ private:
 	void initProgramRegions(unsigned num_regions) {
 		assert(program_regions.empty());
 		increaseNumRegions(num_regions);
-
-		initVersionArray();
-		initTimeArray();
 	}
 
 	void deinitProgramRegions();
 
-	void initVersionArray() {
-		level_versions = new Version[arraySize];
-		for (unsigned i = 0; i < arraySize; ++i) level_versions[i] = 0;
-	}
-
-	void initTimeArray() {
-		level_times = new Time[arraySize];
-		for (unsigned i = 0; i < arraySize; ++i) level_times[i] = 0;
-	}
-
-	Time* getLevelTimes() { return level_times; }
+	Time* getLevelTimes() { return level_times.data(); }
 	Version* getVersionAtLevel(Level level) { return &level_versions[level]; }
 
 	void issueVersionToLevel(Level level) {
@@ -114,7 +103,7 @@ private:
 	 * it was initialized.
 	 * @post control_dependence_table is nullptr
 	 */
-	void deinitControlDependences();
+	//void deinitControlDependences();
 
 	/*!
 	 * Clears current control dependence at specified depth (index). Also updates
@@ -129,7 +118,7 @@ private:
 	void initRegionControlDependences(Index index);
 
 	static Table *shadow_reg_file;
-	ShadowMemory *shadow_mem;
+	std::unique_ptr<ShadowMemory> shadow_mem;
 
 	/*!
 	 * @brief Returns number of shadow registers in the current function.
@@ -313,26 +302,7 @@ private:
 
 
 public:
-	KremlinProfiler(Level min, Level max) :
-		enabled(false),
-		initialized(false),
-		curr_time(0),
-		curr_level(-1),
-		min_level(min),
-		max_level(max),
-		max_active_level(0),
-		curr_num_instrumented_levels(0),
-		instrument_curr_level(false),
-		waiting_for_register_table_init(false),
-		num_function_regions_entered(0),
-		num_register_tables_setup(0),
-		control_dependence_table(nullptr),
-		cdt_read_ptr(0),
-		cdt_current_base(nullptr),
-		doall_threshold(5),
-		shadow_mem(nullptr) {}
-
-	~KremlinProfiler() {}
+	KremlinProfiler(Level min, Level max);
 
 	void init();
 	void deinit();
@@ -380,7 +350,7 @@ public:
 	int getMaxLevel() { return this->max_level; }
 	int getMaxActiveLevel() { return this->max_active_level; }
 	CID getLastCallsiteID() { return this->last_callsite_id; }
-	ShadowMemory* getShadowMemory() { return this->shadow_mem; }
+	ShadowMemory* getShadowMemory() { return this->shadow_mem.get(); }
 	bool shouldInstrumentCurrLevel() { return instrument_curr_level; }
 
 	int getArraySize() { return max_level - min_level + 1; }
