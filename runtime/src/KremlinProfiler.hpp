@@ -470,9 +470,15 @@ public:
 	void handleTimestamp(uint32_t dest_reg, uint32_t num_srcs, va_list args);
 	void handleTimestamp0(uint32_t dest_reg);
 	void handleTimestamp1(uint32_t dest_reg, uint32_t src_reg, uint32_t src_offset);
-	void handleTimestamp2(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset);
-	void handleTimestamp3(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset);
-	void handleTimestamp4(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t src4_reg, uint32_t src4_offset);
+	void handleTimestamp2(uint32_t dest_reg, uint32_t src1_reg, 
+			uint32_t src1_offset, uint32_t src2_reg, uint32_t src2_offset);
+	void handleTimestamp3(uint32_t dest_reg, uint32_t src1_reg, uint32_t
+			src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t
+			src3_reg, uint32_t src3_offset);
+	void handleTimestamp4(uint32_t dest_reg, uint32_t src1_reg, uint32_t
+			src1_offset, uint32_t src2_reg, uint32_t src2_offset, uint32_t
+			src3_reg, uint32_t src3_offset, uint32_t src4_reg, uint32_t
+			src4_offset);
 	void handleTimestamp5(uint32_t dest_reg, uint32_t src1_reg, uint32_t src1_offset, uint32_t
 				src2_reg, uint32_t src2_offset, uint32_t src3_reg, uint32_t src3_offset, uint32_t
 				src4_reg, uint32_t src4_offset, uint32_t src5_reg, uint32_t src5_offset);

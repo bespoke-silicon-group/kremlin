@@ -43,7 +43,7 @@ int getStartInvalidLevel(Version lastVer, const Version * const vArray, Index si
 		return size;
 
 	int i;
-	for (i=size-1; i>=0; i--) {
+	for (int i = size-1; i >= 0; --i) {
 		if (lastVer >= vArray[i]) {
 			firstInvalid = i+1;
 			break;
