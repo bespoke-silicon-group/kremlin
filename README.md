@@ -1,7 +1,8 @@
 # kremlin: like gprof but for parallelization
 
 Kremlin is a tool that, given a serial program, tells you which regions to
-parallelize.
+parallelize. It was developed by researchers at the University of San Diego and
+the University of California, San Diego.
 
 To create Kremlin we developed a novel dynamic analysis, _hierarchical critical
 path analysis_, to detect parallelism across nested regions of the program,
